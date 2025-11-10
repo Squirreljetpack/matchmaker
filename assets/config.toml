@@ -1,0 +1,107 @@
+
+# picker configuration file
+
+[tui]
+percentage = 60
+min = 10
+max = 120
+
+[ui]
+border_fg = "Blue"
+# background = "#282828"
+tick_rate = 30
+
+[input]
+input_fg = "White"
+cursor = "default"
+prompt = ">"
+
+[results]
+scroll_padding = 2
+multi_prefix = "▌"
+
+border = { type = "Rounded", sides = "none" }
+result_fg = "White"
+current_bg = "Black"
+current_modifier = "bold"
+match_fg = "Green"
+count_fg = "Green"
+count_modifier = "italic"
+# reverse = auto
+
+scroll_wrap = true
+
+[previewer]
+try_lossy = false
+
+[preview]
+border = { type = "Rounded", color = "Blue" }
+scroll_wrap = true
+show = true
+wrap = true
+
+[[preview.layout]]
+command = "bat --color=always {} || eza --color=always --color=always -T -L 2 {}"
+side = "Right"
+percentage = 40
+min = 30
+max = 120
+
+[[preview.layout]]
+side = "Top"
+percentage = 40
+min = 30
+max = 120
+
+[binds]
+# UI
+"ctrl-c" = "Quit"
+"esc" = "Quit"
+"enter" = "Accept"
+"ctrl-a" = "CycleAll"
+"tab" = ["Select", "Down"]
+"shift-backtab" = ["Toggle", "Up"]
+
+# Edit
+"right" = "ForwardChar"
+"left" = "BackwardChar"
+"ctrl-right" = "ForwardWord"
+"ctrl-left" = "BackwardWord"
+"backspace" = "DeleteChar"
+"ctrl-h" = "DeleteWord"
+"ctrl-u" = "Cancel"
+
+# Navigation
+"up" = "Up"
+"down" = "Down"
+"pageup" = "Up(10)"
+"pagedown" = "Down(10)"
+"shift-up" = "PreviewUp"
+"shift-down" = "PreviewDown"
+"ctrl-shift-up" = "PreviewHalfPageUp"
+"ctrl-shift-down" = "PreviewHalfPageDown"
+
+"scrollup" = "Up"
+"scrolldown" = "Down"
+"shift+scrollup" = "PreviewUp"
+"shift+scrolldown" = "PreviewDown"
+"alt-h" = ["Preview(bat --color=always {})"]
+"?" = "SwitchPreview(0)"
+"shift-?" = "SwitchPreview(0)"
+
+"alt-1" = "Column(0)"
+
+"ctrl-t" = "Execute(echo ----; read v; echo $v; echo ----)"
+"ctrl-l" = "Execute(eval $FZF_PREVIEW_COMMAND)"
+"ctrl-o" = "Execute(micro {})"
+"alt-o" = "Become(micro {})"
+"ctrl-r" = "Reload(fd -u)"
+"alt-enter" = "Print({1})"
+
+[matcher]
+trim = true
+columns.split = '\s+'
+columns.max_columns = 30
+select_1 = false
+format = "{}"
+# sync = false

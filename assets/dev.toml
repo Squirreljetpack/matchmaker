@@ -1,9 +1,14 @@
+
+# picker configuration file
+
 [tui]
 percentage = 60
 min = 10
 max = 120
 
 [ui]
+border_fg = "Blue"
+# background = "#282828"
 tick_rate = 30
 
 [input]
@@ -15,6 +20,7 @@ prompt = ">"
 scroll_padding = 2
 multi_prefix = "▌"
 
+border = { type = "Rounded", sides = "none", padding = 0 }
 result_fg = "White"
 current_bg = "Black"
 current_modifier = "bold"
@@ -22,6 +28,7 @@ match_fg = "Green"
 count_fg = "Green"
 count_modifier = "italic"
 # reverse = auto
+wrap = true
 
 scroll_wrap = true
 
@@ -43,9 +50,9 @@ max = 120
 
 [[preview.layout]]
 side = "top"
-percentage = 50
-min = 5
-max = 50
+percentage = 40
+min = 30
+max = 120
 
 [binds]
 # UI
@@ -83,13 +90,20 @@ max = 50
 "?" = "SwitchPreview(0)"
 "shift-?" = "SwitchPreview(0)"
 
-# Programmable
+"alt-1" = "Column(0)"
+
+"ctrl-t" = "Execute(echo ----; read v; echo $v; echo ----)"
 "ctrl-l" = "Execute(eval $FZF_PREVIEW_COMMAND)"
 "ctrl-o" = "Execute(micro {})"
 "alt-o" = "Become(micro {})"
-"ctrl-r" = "Reload(find . -type f)"
+"ctrl-r" = "Reload(fd -u)"
+"alt-enter" = "Print({1})"
 
 [matcher]
 trim = true
+columns.split = '\s+'
+columns.max_columns = 30
 select_1 = false
+format = "{}"
 default_command = "find . -type f"
+# sync = false

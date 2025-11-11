@@ -10,7 +10,7 @@ pub mod text;
 //                 }
 //             }
 //         }
-        
+
 //         paste::paste! {
 //             fn [<deserialize_ $dst:lower>]< 'de, D>(deserializer: D ) -> Result<$dst, D::Error>
 //             where

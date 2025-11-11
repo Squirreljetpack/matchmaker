@@ -1,10 +1,22 @@
 ## TODO
+- sane defaults for ui
+- color theme, match_fg configuration
 - Examples:
     - query change
     - frecency
     - api
 - header/footer/bg
-- Should i rename types/traits named Picker* to MM* or Match* for consistency with crate name?
+- active columnn format: {!}
+- multi format: {+}
+- column change propogates to pickerquery
+- dynamically adjusting column hide/filtering
+    - column: column hide should be external, not on the column object
+    - {_} to join together all visible column outputs
+    - {+}
+    - {!} current column
+- configurable active and passive column colors
+- ensure uniform fg/bg config on widgets
+
 
 ### Low priority
 - a scroll action could dispatch between preview and results
@@ -14,3 +26,5 @@
 - refactor to better fit components into specific ratatui roles
 - sometimes preview leaks, better autorefresh?
 - (automatic) horizontal scrolling of results
+- Should payloads be wrapped by formatstring
+- interrupts may want the payload seperate from the enum

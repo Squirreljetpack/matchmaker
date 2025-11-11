@@ -1,8 +1,15 @@
-pub mod preview;
+mod preview;
+pub mod previewer;
 pub mod utils;
+pub mod io;
+
+pub use preview::Preview;
+pub use io::*;
 
 use std::{
-    env, io::Write, process::{Child, Command, Stdio}, sync::LazyLock
+    env,
+    process::{Child, Command, Stdio},
+    sync::LazyLock,
 };
 
 use log::error;
@@ -16,17 +23,17 @@ pub fn spawn(
     stderr: Stdio,
 ) -> Option<Child> {
     let (shell, arg) = &*SHELL;
-    
+
     Command::new(shell)
-    .arg(arg)
-    .arg(cmd)
-    .envs(vars)
-    .stdin(stdin)
-    .stdout(stdout)
-    .stderr(stderr)
-    .spawn()
-    .map_err(|e| error!("Failed to spawn command {cmd}: {e}"))
-    .ok()
+        .arg(arg)
+        .arg(cmd)
+        .envs(vars)
+        .stdin(stdin)
+        .stdout(stdout)
+        .stderr(stderr)
+        .spawn()
+        .map_err(|e| error!("Failed to spawn command {cmd}: {e}"))
+        .ok()
 }
 
 pub fn exec(cmd: &str, vars: impl IntoIterator<Item = (String, String)>) -> ! {
@@ -40,40 +47,28 @@ pub fn exec(cmd: &str, vars: impl IntoIterator<Item = (String, String)>) -> ! {
         // replace current process
 
         use std::os::unix::process::CommandExt;
-        #[allow(irrefutable_let_patterns)]
-        if let err = command.exec() {
-            use std::process::exit;
+        let err = command.exec();
+        use std::process::exit;
 
-            eprintln!("Could not exec {cmd:?}: {err}");
-            exit(1);
-        }
+        eprintln!("Could not exec {cmd:?}: {err}");
+        exit(1);
     }
 
     #[cfg(windows)]
     {
         match command.status() {
             Ok(status) => {
-                exit(status.code().unwrap_or(if status.success() { 0 } else { 1 }));
+                exit(
+                    status
+                        .code()
+                        .unwrap_or(if status.success() { 0 } else { 1 }),
+                );
             }
             Err(err) => {
                 eprintln!("Could not spawn {cmd:?}: {err}");
                 exit(1);
             }
         }
-    }
-
-    unreachable!(); // process should have exited
-}
-
-
-
-pub fn tty_or_null() -> Stdio {
-    if let Ok(mut tty) = std::fs::File::open("/dev/tty") {
-        let _ = tty.flush(); // does nothing but seems logical
-        Stdio::from(tty)
-    } else {
-        error!("Failed to open /dev/tty");
-        Stdio::inherit()
     }
 }
 
@@ -91,15 +86,13 @@ static SHELL: LazyLock<(String, String)> = LazyLock::new(|| {
     #[cfg(unix)]
     {
         use log::debug;
-        
+
         let path = env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
         let flag = "-c".to_string();
         debug!("SHELL: {}, {}", path, flag);
         (path, flag)
     }
 });
-
-
 
 pub type EnvVars = Vec<(String, String)>;
 
@@ -120,16 +113,22 @@ use std::sync::{Arc, RwLock};
 #[derive(Debug, Clone)]
 pub struct AppendOnly<T>(Arc<RwLock<boxcar::Vec<T>>>);
 
+impl<T> Default for AppendOnly<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T> AppendOnly<T> {
     pub fn new() -> Self {
         Self(Arc::new(RwLock::new(boxcar::Vec::new())))
     }
-    
+
     pub fn clear(&self) {
         let mut guard = self.0.write().unwrap(); // acquire write lock
         guard.clear();
     }
-    
+
     pub fn push(&self, val: T) {
         let guard = self.0.read().unwrap();
         guard.push(val);
@@ -146,7 +145,7 @@ impl<T> AppendOnly<T> {
 
 impl<T> Deref for AppendOnly<T> {
     type Target = RwLock<boxcar::Vec<T>>;
-    
+
     fn deref(&self) -> &Self::Target {
         &self.0
     }

@@ -1,62 +1,62 @@
 
-use std::{fmt::{self, Debug, Formatter}, process::Stdio, sync::Arc};
+use std::{fmt::{self, Debug, Formatter}, sync::Arc};
 
-use anyhow::bail;
-use log::{debug, error, info, warn};
-use tokio::sync::{watch::Sender};
+use tokio::sync::{mpsc::UnboundedSender};
 
 use crate::{
-    PickerItem, Result, Selection, SelectionSet, binds::BindMap, config::{
-        self,
-        ExitConfig,
-        PreviewerConfig,
-        RenderConfig,
-        Split,
-        TerminalConfig,
-    }, env_vars, event::{self}, message::{Interrupt, Event}, nucleo::{
-        injector::{
-            Indexed, IndexedInjector, Injector, Segmented, SegmentedInjector, WorkerInjector
-        },
-        worker::Worker,
+    MMItem, MatchError, RenderFn, Result, Selection, SelectionSet, SplitterFn, binds::BindMap, proc::
+    Preview, config::{
+        self, ExitConfig, MMConfig, RenderConfig, Split, TerminalConfig
+    }, event::EventLoop, message::{Event, Interrupt}, nucleo::{
+        Indexed, Segmented, Worker, injector::{
+            IndexedInjector, Injector, SegmentedInjector, WorkerInjector
+        }
     }, render::{
         self,
         DynamicMethod,
         EphemeralState,
         EventHandlers,
         InterruptHandlers,
-    }, spawn::{
-        exec, preview::{PreviewMessage, Previewer}, spawn, tty_or_null
-    }, tui::{self, map_chunks, map_reader_lines, read_to_chunks}, ui::UI
+    }, tui::{self}, ui::UI
 };
 
-pub struct Matchmaker<T: PickerItem, S: Selection=T, C=()> {
-    pub matcher: Option<nucleo::Matcher>,
+/// The main entrypoint of the library. To use:
+/// 1. create your worker (T -> Columns)
+/// 2. Determine your identifier
+/// 3. Instantiate this with Matchmaker::new_from_raw(..)
+/// 4. Register your handlers
+///    4.5 Start and connect your previewer
+/// 5. Call mm.pick() or mm.pick_with_matcher(&mut matcher)
+pub struct Matchmaker<T: MMItem, S: Selection=T, C=()> {
     pub worker: Worker<T, C>,
     render_config: RenderConfig,
     bind_config: BindMap,
-    #[allow(dead_code)]
     tui_config: TerminalConfig,
     exit_config: ExitConfig,
     selection_set: SelectionSet<T, S>,
+    event_loop: EventLoop,
     context: Arc<C>,
     event_handlers: EventHandlers<T, S, C>,
     interrupt_handlers: InterruptHandlers<T, S, C>,
-    previewer: Option<Previewer>
+    previewer: Option<Preview>
 }
 
 
 // ----------- MAIN -----------------------
 
-// todo: a stopgap until i find some better way to expose these fns, i.e. to allow clients to request new injectors in case of worker restart
-pub struct MiscData {
-    pub formatter: Arc<Box<dyn Fn(&Indexed<Segmented<String>>, &str) -> String + Send + Sync>>,
-    pub splitter: Arc<dyn Fn(&String) -> Vec<(usize, usize)> + Send + Sync>
+// defined for lack of a better way to expose these fns, i.e. to allow clients to request new injectors in case of worker restart
+pub struct OddEnds {
+    pub formatter: Arc<RenderFn<Indexed<Segmented<String>>>>,
+    pub splitter: SplitterFn<String>
 }
 
-impl Matchmaker<Indexed<Segmented<String>>, Segmented<String>> {
-    pub fn new_from_config(config: config::Config) -> (Self, SegmentedInjector<String, IndexedInjector<Segmented<String>, WorkerInjector<Indexed<Segmented<String>>>>>, MiscData) {
-        let cc = config.matcher.columns;
-        
+pub type ConfigInjector = SegmentedInjector<String, IndexedInjector<Segmented<String>, WorkerInjector<Indexed<Segmented<String>>>>>;
+pub type ConfigMatchmaker = Matchmaker<Indexed<Segmented<String>>, Segmented<String>>;
+impl ConfigMatchmaker {
+    /// Creates a new Matchmaker from a config::Config.
+    pub fn new_from_config(config: config::Config, matcher_config: MMConfig) -> (Self, ConfigInjector, OddEnds) {
+        let cc = matcher_config.columns;
+
         let worker: Worker<Indexed<Segmented<String>>> = match cc.split {
             Split::Delimiter(_) | Split::Regexes(_) => {
                 let names: Vec<Arc<str>> = if cc.names.is_empty() {
@@ -72,15 +72,15 @@ impl Matchmaker<Indexed<Segmented<String>>, Segmented<String>> {
                 Worker::new_indexable([""])
             }
         };
-        
+
         let injector = worker.injector();
-        
+
         let col_count = worker.columns.len();
-        
+
         // Arc over box due to capturing
-        let splitter: Arc<dyn Fn(&String) -> Vec<(usize, usize)> + Send + Sync> = match cc.split {
+        let splitter: SplitterFn<String> = match cc.split {
             Split::Delimiter(ref rg) => {
-                let rg = rg.clone(); 
+                let rg = rg.clone();
                 Arc::new(move |s| {
                     let mut ranges = Vec::new();
                     let mut last_end = 0;
@@ -111,160 +111,39 @@ impl Matchmaker<Indexed<Segmented<String>>, Segmented<String>> {
         };
         let injector= IndexedInjector::new(injector, ());
         let injector= SegmentedInjector::new(injector, splitter.clone());
-        
+
         let selection_set = SelectionSet::new(Indexed::identifier);
-        
+
         let event_handlers = EventHandlers::new();
         let interrupt_handlers = InterruptHandlers::new();
         let formatter = Arc::new(worker.make_format_fn::<true>(|item| &item.inner.inner));
-        
-        let (previewer, tx) = Previewer::new(config.previewer);
-        
-        let mut new: Matchmaker<Indexed<Segmented<String>>, Segmented<String>> = Matchmaker {
-            matcher: Some(nucleo::Matcher::new(config.matcher.matcher.0)),
+
+        let new: Matchmaker<Indexed<Segmented<String>>, Segmented<String>> = Matchmaker {
             worker,
             bind_config: config.binds,
             render_config: config.render,
             tui_config: config.tui,
-            exit_config: config.matcher.exit,
+            exit_config: matcher_config.exit,
             selection_set,
             context: Arc::new(()),
+            event_loop: EventLoop::new(),
             event_handlers,
             interrupt_handlers,
-            previewer: Some(previewer)
+            previewer: None
         };
-        
-        // handlers
-        let preview_formatter = formatter.clone();
-        let execute_formatter = preview_formatter.clone();
-        let execute_preview_formatter = preview_formatter.clone();
-        let become_formatter = preview_formatter.clone();
-        let become_preview_formatter = preview_formatter.clone();
-        let reload_formatter = preview_formatter.clone();
-        
-        new.register_event_handler([Event::CursorChange, Event::PreviewChange], move |state, event| {
-            match event {
-                Event::CursorChange | Event::PreviewChange => {
-                    if state.preview_show &&
-                    let Some(t) = state.current_raw() &&
-                    !state.preview_payload().is_empty()
-                    {
-                        let cmd = preview_formatter.clone()(t, &state.preview_payload());
-                        let mut envs = state.make_env_vars();
-                        let extra = env_vars!(
-                            "COLUMNS" => state.previewer_area.map_or("0".to_string(), |r| r.width.to_string()),
-                            "LINES" => state.previewer_area.map_or("0".to_string(), |r| r.height.to_string()),
-                        );
-                        envs.extend(extra);
-                        
-                        let msg = PreviewMessage::Run(cmd.clone(), vec![]);
-                        if tx.send(msg.clone()).is_err() {
-                            warn!("Failed to send: {}", msg)
-                        }
-                    }
-                },
-                _ => {}
-            }
-        });
-        
-        new.register_interrupt_handler(Interrupt::Execute("".into()), move |state, interrupt| {
-            match interrupt {
-                Interrupt::Execute(template) => {
-                    if let Some(t) = state.current_raw() {
-                        let cmd = execute_formatter(t, template);
-                        let mut vars = state.make_env_vars();
-                        let preview_cmd = execute_preview_formatter(t, &state.preview_payload());
-                        let extra = env_vars!(
-                            "FZF_PREVIEW_COMMAND" => preview_cmd,
-                        );
-                        vars.extend(extra);
-                        let tty = tty_or_null();
-                        if let Some(mut child) = spawn(&cmd, vars, tty, Stdio::inherit(), Stdio::inherit()) {
-                            match child.wait() {
-                                Ok(i) => {
-                                    info!("Command [{cmd}] exited with {i}")
-                                },
-                                Err(e) => {
-                                    info!("Failed to wait on command [{cmd}]: {e}")
-                                }
-                            }
-                        }
-                    }
-                },
-                _ => {}
-            }
-        });
-        
-        new.register_interrupt_handler(Interrupt::Become("".into()), move |state, interrupt| {
-            match interrupt {
-                Interrupt::Become(template) => {
-                    if let Some(t) = state.current_raw() {
-                        let cmd = become_formatter(t, template);
-                        let mut vars = state.make_env_vars();
-                        let preview_cmd = become_preview_formatter(t, &state.preview_payload());
-                        let extra = env_vars!(
-                            "FZF_PREVIEW_COMMAND" => preview_cmd,
-                        );
-                        vars.extend(extra);
-                        debug!("Becoming: {cmd}");
-                        exec(&cmd, vars);
-                    }
-                },
-                _ => {}
-            }
-        });
-        
-        
-        let reload_splitter = splitter.clone();
-        new.register_interrupt_handler(Interrupt::Reload("".into()), move |state, interrupt| {
-            let injector = state.injector();
-            let injector= IndexedInjector::new(injector, ());
-            let injector= SegmentedInjector::new(injector, reload_splitter.clone());
-            
-            match interrupt {
-                Interrupt::Reload(template) => {
-                    if let Some(t) = state.current_raw() {
-                        let cmd = reload_formatter(t, template);
-                        let vars = state.make_env_vars();
-                        // let extra = env_vars!(
-                        //     "FZF_PREVIEW_COMMAND" => preview_cmd,
-                        // );
-                        // vars.extend(extra);
-                        debug!("Reloading: {cmd}");
-                        if let Some(mut child) = spawn(&cmd, vars, Stdio::null(), Stdio::piped(), Stdio::null()) {
-                            if let Some(stdout) = child.stdout.take() {
-                                let _handle = if let Some(delim) = config.matcher.delimiter {
-                                    tokio::spawn(async move {
-                                        map_chunks::<true>(read_to_chunks(stdout, delim), |line| injector.push(line).map_err(|e| e.into()))
-                                    })
-                                } else {
-                                    tokio::spawn(async move {
-                                        map_reader_lines::<true>(stdout, |line| injector.push(line).map_err(|e| e.into()))
-                                    })
-                                };
-                            } else {
-                                error!("Failed to capture stdout");
-                            }
-                        }
-                    }
-                },
-                _ => {}
-            }
-        });
-        
-        let misc = MiscData {
+
+        let misc = OddEnds {
             formatter,
             splitter
         };
-        
+
         (new, injector, misc)
     }
 }
 
-impl<T: PickerItem, S: Selection> Matchmaker<T, S> {
+impl<T: MMItem, S: Selection> Matchmaker<T, S> {
     pub fn new(worker: Worker<T>, identifier: fn(&T) -> (u32, S)) -> Self {
-        let new = Matchmaker {
-            matcher: Some(nucleo::Matcher::new(nucleo::Config::DEFAULT)),
+        Matchmaker {
             worker,
             bind_config: BindMap::new(),
             render_config: RenderConfig::default(),
@@ -272,25 +151,18 @@ impl<T: PickerItem, S: Selection> Matchmaker<T, S> {
             exit_config: ExitConfig::default(),
             selection_set: SelectionSet::new(identifier),
             context: Arc::new(()),
+            event_loop: EventLoop::new(),
             event_handlers: EventHandlers::new(),
             interrupt_handlers: InterruptHandlers::new(),
             previewer: None
-        };
-        
-        new
+        }
     }
 }
 
-impl<T: PickerItem, S: Selection, C> Matchmaker<T, S, C>
+impl<T: MMItem, S: Selection, C> Matchmaker<T, S, C>
 {
-    /// For library use:
-    /// 1. create your worker (T -> Columns)
-    /// 2. instantiate a matcher (i.e. globally with lazylock)
-    /// 3. Determine your identifier
-    /// 4. Call mm.pick_with_matcher(&mut matcher)
     pub fn new_raw(worker: Worker<T, C>, identifier: fn(&T) -> (u32, S), context: Arc<C>) -> Self {
-        let new = Matchmaker {
-            matcher: None,
+        Matchmaker {
             worker,
             bind_config: BindMap::new(),
             render_config: RenderConfig::default(),
@@ -299,36 +171,44 @@ impl<T: PickerItem, S: Selection, C> Matchmaker<T, S, C>
             selection_set: SelectionSet::new(identifier),
             context,
             event_handlers: EventHandlers::new(),
+            event_loop: EventLoop::new(),
             interrupt_handlers: InterruptHandlers::new(),
             previewer: None
-        };
-        
-        new
+        }
     }
-    
-    // todo: accept static matcher
+
+    /// The controller can be used to influence the event loop and by proxy the render loop.
+    /// However, it's role is not yet solidified.
+    pub fn get_controller(&self) -> UnboundedSender<Event> {
+        self.event_loop.get_controller()
+    }
+    /// The contents of the preview are displayed in a pane when picking.
+    pub fn connect_preview(&mut self, preview: Preview) {
+        self.previewer = Some(preview);
+    }
+
+    /// Configure keybinds
     pub fn config_binds(&mut self, bind_config: BindMap) -> &mut Self {
         self.bind_config = bind_config;
         self
     }
+    /// Configure the UI
     pub fn config_render(&mut self, render_config: RenderConfig) -> &mut Self {
         self.render_config = render_config;
         self
     }
-    pub fn config_preview(&mut self, preview_config: PreviewerConfig) -> Sender<PreviewMessage> {
-        let (previewer, tx) = Previewer::new(preview_config);
-        self.previewer = Some(previewer);
-        tx
-    }
+    /// Configure the TUI
     pub fn config_tui(&mut self, tui_config: TerminalConfig) -> &mut Self {
         self.tui_config = tui_config;
         self
     }
+    /// Configure exit conditions
     pub fn config_exit(&mut self, exit_config: ExitConfig) -> &mut Self {
         self.exit_config = exit_config;
         self
     }
-    
+
+    /// Register a handler to listen on [`Event`]s
     pub fn register_event_handler<F, I>(&mut self, events: I, handler: F)
     where
     F: Fn(EphemeralState<'_, T, S, C>, &Event) + Send + Sync + 'static,
@@ -337,7 +217,7 @@ impl<T: PickerItem, S: Selection, C> Matchmaker<T, S, C>
         let boxed = Box::new(handler);
         self.register_boxed_event_handler(events, boxed);
     }
-    
+    /// Register a boxed handler to listen on [`Event`]s
     pub fn register_boxed_event_handler<I>(
         &mut self,
         events: I,
@@ -349,7 +229,7 @@ impl<T: PickerItem, S: Selection, C> Matchmaker<T, S, C>
         let events_vec: Vec<_> = events.into_iter().collect();
         self.event_handlers.set(events_vec, handler);
     }
-    
+    /// Register a handler to listen on [`Interrupt`]s
     pub fn register_interrupt_handler<F>(
         &mut self,
         interrupt: Interrupt,
@@ -361,7 +241,7 @@ impl<T: PickerItem, S: Selection, C> Matchmaker<T, S, C>
         let boxed = Box::new(handler);
         self.register_boxed_interrupt_handler(interrupt, boxed);
     }
-    
+    /// Register a boxed handler to listen on [`Interrupt`]s
     pub fn register_boxed_interrupt_handler(
         &mut self,
         variant: Interrupt,
@@ -369,88 +249,42 @@ impl<T: PickerItem, S: Selection, C> Matchmaker<T, S, C>
     ) {
         self.interrupt_handlers.set(variant, handler);
     }
-    
-    
-    // Some repetition until i figure out if its possible to somehow be generic over owned or static mut references (i.e. to LazyLock Matcher)
-    pub async fn pick(mut self) -> Result<impl IntoIterator<Item = S>> {
-        if let Some(matcher) = self.matcher.as_mut() {
-            if self.exit_config.select_1 && self.worker.counts().0 == 1 {
-                return Ok(self.selection_set.map_to_vec([self.worker.get_nth(0).unwrap()]));
-            }
-            
-            let (render_tx, render_rx) = tokio::sync::mpsc::unbounded_channel();
-            let (mut event_loop, controller_tx) = event::EventLoop::new(vec![render_tx.clone()], self.render_config.tick_rate());
-            event_loop.binds(self.bind_config);
-            
-            let mut tui = tui::Tui::new(self.tui_config).expect("Failed to create TUI instance");
-            tui.enter()?;
-            
-            tokio::spawn(async move {
-                let _ = event_loop.run().await;
-            });
-            
-            let view = if let Some(mut previewer) = self.previewer {
-                previewer.connect_controller(controller_tx.clone());
-                let view = previewer.view();
-                tokio::spawn(async move {
-                    let _ = previewer.run().await;
-                });
-                
-                Some(view)
-            } else {
-                None
-            };
-            
-            let (ui, picker, preview) = UI::new(self.render_config, matcher, self.worker, self.selection_set, view, &mut tui);
-            
-            render::render_loop(ui, picker, preview, tui, render_rx, controller_tx, self.context, (self.event_handlers, self.interrupt_handlers), self.exit_config).await
-        } else {
-            bail!("No matcher")
-        }
-    }
-    
-    pub async fn pick_with_matcher(self, matcher: &mut nucleo::Matcher) -> Result<impl IntoIterator<Item = S>> {
+
+    /// The main method of the Matchmaker. It starts listening for events and renders the TUI with ratatui. It successfully returns with all the selected items selected when the Accept action is received.
+    pub async fn pick_with_matcher(mut self, matcher: &mut nucleo::Matcher) -> Result<Vec<S>, MatchError> {
         if self.exit_config.select_1 && self.worker.counts().0 == 1 {
             return Ok(self.selection_set.map_to_vec([self.worker.get_nth(0).unwrap()]));
         }
-        
+
         let (render_tx, render_rx) = tokio::sync::mpsc::unbounded_channel();
-        let (mut event_loop, controller_tx) = event::EventLoop::new(vec![render_tx.clone()], self.render_config.tick_rate());
-        event_loop.binds(self.bind_config);
-        
-        let mut tui = tui::Tui::new(self.tui_config).expect("Failed to create TUI instance");
-        tui.enter()?;
-        
+        self.event_loop.add_tx(render_tx.clone()).set_tick_rate(self.render_config.tick_rate());
+
+        let event_controller = self.event_loop.get_controller();
+        self.event_loop.binds(self.bind_config);
+
+        let mut tui = tui::Tui::new(self.tui_config).map_err(|e| MatchError::TUIError(e.to_string()))?;
+        tui.enter().map_err(|e| MatchError::TUIError(e.to_string()))?;
+
         tokio::spawn(async move {
-            let _ = event_loop.run().await;
+            let _ = self.event_loop.run().await;
         });
-        
-        let view = if let Some(mut previewer) = self.previewer {
-            previewer.connect_controller(controller_tx.clone());
-            let view = previewer.view();
-            tokio::spawn(async move {
-                let _ = previewer.run().await;
-            });
-            
-            Some(view)
-        } else {
-            None
-        };
-        
-        let (ui, picker, preview) = UI::new(self.render_config, matcher, self.worker, self.selection_set, view, &mut tui);
-        
-        render::render_loop(ui, picker, preview, tui, render_rx, controller_tx, self.context, (self.event_handlers, self.interrupt_handlers), self.exit_config).await
+
+        let (ui, picker, preview) = UI::new(self.render_config, matcher, self.worker, self.selection_set, self.previewer, &mut tui);
+
+        render::render_loop(ui, picker, preview, tui, render_rx, event_controller, self.context, (self.event_handlers, self.interrupt_handlers), self.exit_config).await
+    }
+
+    pub async fn pick(self) -> Result<Vec<S>, MatchError> {
+        let mut matcher=  nucleo::Matcher::new(nucleo::Config::DEFAULT);
+        self.pick_with_matcher(&mut matcher).await
     }
 }
+// ------------ BOILERPLATE ---------------
 
-
-// --------------------------------- BOILERPLATE -----------------------------------------------------------
-
-impl<T: PickerItem + Debug, S: Selection + Debug, C: Debug> Debug for Matchmaker<T, S, C> {
+impl<T: MMItem + Debug, S: Selection + Debug, C: Debug> Debug for Matchmaker<T, S, C> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Matchmaker")
         // omit `worker`
-        .field("matcher", &self.matcher)
         .field("render_config", &self.render_config)
         .field("bind_config", &self.bind_config)
         .field("tui_config", &self.tui_config)

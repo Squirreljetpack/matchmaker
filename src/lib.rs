@@ -5,12 +5,11 @@ pub mod action;
 pub mod event;
 
 pub mod message;
-#[allow(unused)]
 pub mod render;
 pub mod ui;
 // picker
 pub mod nucleo;
-pub mod spawn;
+pub mod proc;
 mod selection;
 pub use selection::SelectionSet;
 mod matchmaker;
@@ -27,27 +26,41 @@ pub use errors::*;
 #[macro_export]
 macro_rules! impl_int_wrapper {
     ($name:ident, $inner:ty, $default:expr) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+        #[derive(Debug, Clone, Copy, Eq, serde::Deserialize, serde::Serialize)]
+        #[serde(transparent)]
         pub struct $name(pub $inner);
-        
+
         impl Default for $name {
             fn default() -> Self {
                 $name($default)
             }
         }
-        
+
         impl std::str::FromStr for $name {
             type Err = std::num::ParseIntError;
-            
+
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 Ok($name(s.parse()?))
             }
         }
-        
+
         impl From<&$name> for $inner {
             fn from(c: &$name) -> Self {
                 c.0
             }
         }
+
+        impl std::fmt::Display for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+
+        impl PartialEq for $name {
+            fn eq(&self, other: &Self) -> bool {
+                self.0 == other.0
+            }
+        }
     };
 }
+

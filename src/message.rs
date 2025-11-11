@@ -18,7 +18,6 @@ pub enum Event {
     Resume,
 }
 
-// Like payload, but doesn't persist ig
 #[derive(Default, Debug, Clone)]
 #[non_exhaustive]
 pub enum Interrupt {

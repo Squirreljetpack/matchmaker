@@ -2,7 +2,6 @@
 // Modified by Squirreljetpack, 2025
 
 use std::{
-    fmt::{self, Display, Formatter},
     marker::PhantomData,
     sync::{
         Arc,
@@ -11,7 +10,8 @@ use std::{
 };
 
 use super::worker::{Column, Worker, WorkerError};
-use crate::{PickerItem, SegmentableItem, nucleo::variants::ColumnIndexable};
+use super::{Indexed, Segmented};
+use crate::{MMItem, SegmentableItem, SplitterFn};
 
 pub trait Injector: Clone {
     type InputItem;
@@ -60,7 +60,7 @@ pub struct WorkerInjector<T, C = ()> {
 
 
 
-impl<T: PickerItem, C> Injector for WorkerInjector<T, C> {
+impl<T: MMItem, C> Injector for WorkerInjector<T, C> {
     type InputItem = T;
     type Inner = ();
     type Context = Worker<T, C>;
@@ -97,53 +97,6 @@ pub(super) fn push_impl<T, C>(injector: &nucleo::Injector<T>, columns: &[Column<
     });
 }
 
-// ------------- Wrapper structs
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
-pub struct Segmented<T: SegmentableItem> {
-    pub inner: T,
-    ranges: Arc<[(usize, usize)]>,
-}
-
-impl<T: SegmentableItem> ColumnIndexable for Segmented<T> {
-    fn index(&self, index: usize) -> &str {
-        if let Some((start, end)) = self.ranges.get(index) {
-            &self.inner[*start..*end]
-        } else {
-            ""
-        }
-    }
-}
-
-impl<T: Display + SegmentableItem> Display for Segmented<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.inner)
-    }
-}
-
-impl<T: Display> Display for Indexed<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.inner)
-    }
-}
-
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
-pub struct Indexed<T> {
-    pub index: u32,
-    pub inner: T,
-}
-
-impl<T: Clone> Indexed<T> {
-    pub fn identifier(&self) -> (u32, T) {
-        (self.index, self.inner.clone())
-    }
-}
-
-impl<T: ColumnIndexable> ColumnIndexable for Indexed<T> {
-    fn index(&self, index: usize) -> &str {
-        self.inner.index(index)
-    }
-}
-
 // ----- Injectors
 
 pub struct IndexedInjector<T, I: Injector<InputItem = Indexed<T>>> {
@@ -178,9 +131,10 @@ impl<T, I: Injector<InputItem = Indexed<T>>> Injector for IndexedInjector<T, I> 
     }
 }
 
+
 pub struct SegmentedInjector<T: SegmentableItem, I: Injector<InputItem = Segmented<T>>> {
     injector: I,
-    splitter: Arc<dyn Fn(&T) -> Vec<(usize, usize)> + Send + Sync + 'static>,
+    splitter: SplitterFn<T>,
     input_type: PhantomData<T>,
 }
 
@@ -189,7 +143,7 @@ impl<T: SegmentableItem, I: Injector<InputItem = Segmented<T>>> Injector
 {
     type InputItem = T;
     type Inner = I;
-    type Context = Arc<dyn Fn(&T) -> Vec<(usize, usize)> + Send + Sync + 'static>;
+    type Context = SplitterFn<T>;
 
     fn new(injector: Self::Inner, data: Self::Context) -> Self {
         Self {
@@ -212,6 +166,11 @@ impl<T: SegmentableItem, I: Injector<InputItem = Segmented<T>>> Injector
 
     fn inner(&self) -> &Self::Inner {
         &self.injector
+    }
+
+    fn push(&self, item: Self::InputItem) -> Result<(), WorkerError> {
+        let item = self.wrap(item)?;
+        self.inner().push(item)
     }
 }
 

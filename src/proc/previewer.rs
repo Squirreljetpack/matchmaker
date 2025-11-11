@@ -1,19 +1,20 @@
 use ansi_to_tui::IntoText;
 use futures::FutureExt;
 use log::{debug, error, warn};
-use ratatui::text::{Line, Text};
-use tokio::sync::mpsc::UnboundedSender;
-use std::io::{BufReader};
+use ratatui::text::Line;
+use std::io::BufReader;
 use std::process::{Child, Stdio};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 use strum_macros::Display;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::watch::{Receiver, Sender, channel};
 use tokio::task::JoinHandle;
 
 use super::{AppendOnly, EnvVars, spawn};
+use crate::proc::Preview;
 use crate::config::PreviewerConfig;
 use crate::message::Event;
 
@@ -31,39 +32,15 @@ pub struct Previewer {
     current: Option<(Child, JoinHandle<bool>)>,
     changed: Arc<AtomicBool>,
     pub config: PreviewerConfig,
-    controller_tx: Option<UnboundedSender<Event>>
-    
-}
-
-#[derive(Debug)]
-pub struct PreviewerView {
-    lines: AppendOnly<Line<'static>>,
-    changed: Arc<AtomicBool>,
-}
-
-impl PreviewerView {
-    pub fn results(&self) -> Text<'_> {
-        let output = self.lines.read().unwrap(); // acquire read lock
-        Text::from_iter(output.iter().map(|(_, line)| line.clone()))
-    }
-    
-    pub fn len(&self) -> usize {
-        let output = self.lines.read().unwrap();
-        output.count()
-        // todo: handle overflow possibility
-    }
-    
-    pub fn changed(&self) -> bool {
-        self.changed.swap(false, Ordering::Relaxed)
-    }
+    controller_tx: Option<UnboundedSender<Event>>,
 }
 
 impl Previewer {
     pub fn new(config: PreviewerConfig) -> (Self, Sender<PreviewMessage>) {
         let (tx, rx) = channel(PreviewMessage::Stop);
-        
+
         let lines = AppendOnly::new();
-        
+
         let new = Self {
             rx,
             lines: lines.clone(),
@@ -71,32 +48,29 @@ impl Previewer {
             current: None,
             changed: Default::default(),
             config,
-            controller_tx: None
+            controller_tx: None,
         };
-        
+
         (new, tx)
     }
-    
-    pub fn view(&self) -> PreviewerView {
-        PreviewerView {
-            lines: self.lines.clone(),
-            changed: self.changed.clone(),
-        }
+
+    pub fn view(&self) -> Preview {
+        Preview::new(self.lines.clone(), self.changed.clone())
     }
-    
+
     pub async fn run(mut self) -> Result<(), Vec<Child>> {
         while self.rx.changed().await.is_ok() {
             if !self.procs.is_empty() {
                 debug!("procs: {:?}", self.procs);
             }
-            
+
             self.dispatch_kill();
-            
+
             match &*self.rx.borrow() {
                 PreviewMessage::Run(cmd, variables) => {
                     self.lines.clear();
                     if let Some(mut child) = spawn(
-                        &cmd,
+                        cmd,
                         variables.iter().cloned(),
                         Stdio::null(),
                         Stdio::piped(),
@@ -106,31 +80,32 @@ impl Previewer {
                             self.changed.store(true, Ordering::Relaxed);
                             let lines = self.lines.clone();
                             let cmd = cmd.clone();
-                            let handle = tokio::spawn(async move {                                
+                            let handle = tokio::spawn(async move {
                                 let mut reader = BufReader::new(stdout);
                                 let mut leftover = Vec::new();
                                 let mut buf = [0u8; 8192];
-                                
+
                                 // TODO: want to use buffer over lines (for efficiency?), but partial lines are not handled, and damaged utf-8 still leaks thu somehow
-                                loop {
-                                    let n = if let Ok(x) = std::io::Read::read(&mut reader, &mut buf) {x } else { break };
-                                    if n == 0 { break; }
-                                    
+                                while let Ok(n) = std::io::Read::read(&mut reader, &mut buf) {
+                                    if n == 0 {
+                                        break;
+                                    }
+
                                     leftover.extend_from_slice(&buf[..n]);
-                                    
+
                                     let valid_up_to = match std::str::from_utf8(&leftover) {
                                         Ok(_) => leftover.len(),
                                         Err(e) => e.valid_up_to(),
                                     };
-                                    
+
                                     let split_at = leftover[..valid_up_to]
-                                    .iter()
-                                    .rposition(|&b| b == b'\n' || b == b'\r')
-                                    .map(|pos| pos + 1)
-                                    .unwrap_or(valid_up_to); // todo: problem if line exceeds
+                                        .iter()
+                                        .rposition(|&b| b == b'\n' || b == b'\r')
+                                        .map(|pos| pos + 1)
+                                        .unwrap_or(valid_up_to); // todo: problem if line exceeds
 
                                     let (valid_bytes, rest) = leftover.split_at(split_at);
-                                    
+
                                     match valid_bytes.into_text() {
                                         Ok(text) => {
                                             for line in text {
@@ -141,19 +116,19 @@ impl Previewer {
                                             if self.config.try_lossy {
                                                 for bytes in valid_bytes.split(|b| *b == b'\n') {
                                                     let line =
-                                                    String::from_utf8_lossy(&bytes).into_owned();
+                                                        String::from_utf8_lossy(bytes).into_owned();
                                                     lines.push(Line::from(line));
                                                 }
                                             } else {
                                                 error!("Error displaying {cmd}: {:?}", e);
-                                                return false
+                                                return false;
                                             }
                                         }
                                     }
-                                    
+
                                     leftover = rest.to_vec();
                                 }
-                                
+
                                 // handle any remaining bytes
                                 if !leftover.is_empty() {
                                     match leftover.into_text() {
@@ -166,12 +141,12 @@ impl Previewer {
                                             if self.config.try_lossy {
                                                 for bytes in leftover.split(|b| *b == b'\n') {
                                                     let line =
-                                                    String::from_utf8_lossy(&bytes).into_owned();
+                                                        String::from_utf8_lossy(bytes).into_owned();
                                                     lines.push(Line::from(line));
                                                 }
                                             } else {
                                                 error!("Error displaying {cmd}: {:?}", e);
-                                                return false
+                                                return false;
                                             }
                                         }
                                     }
@@ -184,29 +159,27 @@ impl Previewer {
                         }
                     }
                 }
-                
+
                 PreviewMessage::Stop => {}
             }
-            
+
             self.prune_procs();
         }
-        
+
         let ret = self.cleanup_procs();
         if ret.is_empty() { Ok(()) } else { Err(ret) }
     }
-    
+
     fn dispatch_kill(&mut self) {
         if let Some((mut child, old)) = self.current.take() {
             let _ = child.kill();
             self.procs.push(child);
             let mut old = Box::pin(old); // pin it to heap
-            
+
             match old.as_mut().now_or_never() {
                 Some(Ok(result)) => {
-                    if !result {
-                        if let Some(ref tx) = self.controller_tx {
-                            let _ = tx.send(Event::Refresh);
-                        }
+                    if !result && let Some(ref tx) = self.controller_tx {
+                        let _ = tx.send(Event::Refresh);
                     }
                 }
                 None => {
@@ -214,20 +187,18 @@ impl Previewer {
                 }
                 _ => {}
             }
-            
         }
     }
-    
+
     pub fn connect_controller(&mut self, controller_tx: UnboundedSender<Event>) {
         self.controller_tx = Some(controller_tx)
-        
     }
-    
+
     // todo: This would be cleaner with tokio::Child, but does that merit a conversion? I'm not sure if its worth it for the previewer to yield control while waiting for output cuz we are multithreaded anyways
     fn cleanup_procs(mut self) -> Vec<Child> {
         let total_timeout = Duration::from_secs(1);
         let start = Instant::now();
-        
+
         self.procs.retain_mut(|child| {
             loop {
                 match child.try_wait() {
@@ -247,10 +218,10 @@ impl Previewer {
                 }
             }
         });
-        
+
         self.procs
     }
-    
+
     fn prune_procs(&mut self) {
         self.procs.retain_mut(|child| match child.try_wait() {
             Ok(None) => true,
@@ -262,7 +233,6 @@ impl Previewer {
         });
     }
 }
-
 
 // ---------- NON ANSI VARIANT
 // let reader = BufReader::new(stdout);

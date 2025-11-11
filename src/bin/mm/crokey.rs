@@ -1,4 +1,4 @@
-/// Include the crokey demo to help users test keys
+// Include the crokey demo to help users test keys
 // MIT License
 
 // Copyright (c) 2022 Canop

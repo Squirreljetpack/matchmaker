@@ -1,14 +1,15 @@
+use log::debug;
 use ratatui::{
     layout::Rect,
-    style::Stylize,
+    style::{Style, Stylize},
     widgets::{Paragraph, Row, Table},
 };
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
-    PickerItem, Selection, SelectionSet,
+    MMItem, Selection, SelectionSet,
     config::ResultsConfig,
-    nucleo::worker::{Status, Worker},
+    nucleo::{Status, Worker},
     utils::text::{clip_text_lines, fit_width, prefix_text, substitute_escaped},
 };
 
@@ -18,6 +19,7 @@ pub struct ResultsUI {
     cursor: u16,
     bottom: u16,
     height: u16,      // actual height
+    width: u16,
     widths: Vec<u16>, // not sure how to support it yet
     col: Option<usize>,
     pub status: Status,
@@ -33,21 +35,26 @@ impl ResultsUI {
             widths: Vec::new(),
             status: Default::default(),
             height: 0, // uninitialized, so be sure to call update_dimensions
+            width: 0,
             config,
         }
     }
 
     pub fn col(&self) -> Option<usize> {
-        self.col.clone()
+        self.col
     }
 
     pub fn widths(&self) -> &Vec<u16> {
         &self.widths
     }
 
+    pub fn width(&self) -> u16 {
+        self.width.saturating_sub(self.config.multi_prefix.width() as u16)
+    }
+
     // todo: support cooler things like only showing/outputting a specific column/cycling columns
     pub fn toggle_col(&mut self, col_idx: usize) -> bool {
-        if self.col.map_or(false, |x| x == col_idx) {
+        if self.col == Some(col_idx) {
             self.col = None
         } else {
             self.col = Some(col_idx);
@@ -60,6 +67,34 @@ impl ResultsUI {
         self.col.is_some()
     }
 
+    pub fn highlight_style(&self) -> Style {
+        Style::new().green() //todo
+    }
+
+    pub fn wrap(&mut self, wrap: bool) {
+        self.config.wrap = wrap;
+    }
+
+    pub fn is_wrap(&self) -> bool {
+        self.config.wrap
+    }
+
+    pub fn cycle_col(&mut self) {
+        self.col = match self.col {
+            None => {
+                if !self.widths.is_empty() { Some(0) } else { None }
+            }
+            Some(c) => {
+                let next = c + 1;
+                if next < self.widths.len() {
+                    Some(next)
+                } else {
+                    None
+                }
+            }
+        };
+    }
+
     pub fn reverse(&self) -> bool {
         self.config.reverse.unwrap()
     }
@@ -70,9 +105,9 @@ impl ResultsUI {
 
     // as given by ratatui area
     pub fn update_dimensions(&mut self, area: &Rect) {
-        let mut height = area.height;
-        height -= self.config.border.height();
-        self.height = height;
+        let border = self.config.border.height();
+        self.width = area.width.saturating_sub(border);
+        self.height = area.height.saturating_sub(border);
     }
 
     pub fn cursor_prev(&mut self) -> bool {
@@ -88,7 +123,7 @@ impl ResultsUI {
     }
     pub fn cursor_next(&mut self) -> bool {
         if self.cursor + 1 + self.scroll_padding() >= self.height
-            && self.bottom + self.height < self.status.matched_count as u16
+        && self.bottom + self.height < self.status.matched_count as u16
         {
             self.bottom += 1;
         } else if self.index() < self.end() {
@@ -112,17 +147,57 @@ impl ResultsUI {
             self.cursor = index - self.bottom;
         }
     }
-
     pub fn end(&self) -> u32 {
         self.status.matched_count.saturating_sub(1)
     }
-
     pub fn index(&self) -> u32 {
         (self.cursor + self.bottom) as u32
     }
 
+    pub fn max_widths(&self) -> Vec<u16> {
+        if ! self.config.wrap {
+            return vec![];
+        }
+
+        let mut widths = vec![u16::MAX; self.widths.len()];
+
+        let total: u16 = self.widths.iter().sum();
+        if total <= self.width() {
+            return vec![];
+        }
+
+        let mut available = self.width();
+        let mut scale_total = 0;
+        let mut scalable_indices = Vec::new();
+
+        for (i, &w) in self.widths.iter().enumerate() {
+            if w <= 5 {
+                available = available.saturating_sub(w);
+            } else {
+                scale_total += w;
+                scalable_indices.push(i);
+            }
+        }
+
+        for &i in &scalable_indices {
+            let old = self.widths[i];
+            let new_w = old * available / scale_total;
+            widths[i] = new_w.max(5);
+        }
+
+        // give remainder to the last scalable column
+        if let Some(&last_idx) = scalable_indices.last() {
+            let used_total: u16 = widths.iter().sum();
+            if used_total < self.width() {
+                widths[last_idx] += self.width() - used_total;
+            }
+        }
+
+        widths
+    }
+
     // this updates the internal status, so be sure to call make_status afterward
-    pub fn make_table<'a, T: PickerItem, C: 'a>(
+    pub fn make_table<'a, T: MMItem, C: 'a>(
         &'a mut self,
         worker: &'a mut Worker<T, C>,
         selections: &mut SelectionSet<T, impl Selection>,
@@ -131,7 +206,7 @@ impl ResultsUI {
         let offset = self.bottom as u32;
         let end = (self.bottom + self.height) as u32;
 
-        let (results, mut widths, status) = worker.results(offset, end, matcher);
+        let (results, mut widths, status) = worker.results(offset, end, &self.max_widths(), self.highlight_style(), matcher);
 
         if status.matched_count < (self.bottom + self.cursor) as u32 {
             self.cursor_jump(status.matched_count);
@@ -147,9 +222,11 @@ impl ResultsUI {
         for (i, (mut row, item, height)) in results.into_iter().enumerate() {
             total_height += height;
             if total_height > self.height {
-                clip_text_lines(&mut row[0], self.height - total_height, self.reverse());
+                // todo: extend to all cols
+                clip_text_lines(&mut row[0], total_height - self.height, self.reverse());
                 total_height = self.height;
             }
+            debug!("{row:?}");
 
             let prefix = if selections.contains(item) {
                 self.config.multi_prefix.clone()
@@ -167,23 +244,24 @@ impl ResultsUI {
 
             if i as u16 == self.cursor {
                 row = row
-                    .into_iter()
-                    .enumerate()
-                    .map(|(i, t)| {
-                        if self.col.map_or(true, |a| i == a) {
-                            t.style(self.config.current_fg)
-                                .bg(self.config.current_bg)
-                                .add_modifier(self.config.current_modifier)
-                        } else {
-                            t
-                        }
-                    })
-                    .collect();
+                .into_iter()
+                .enumerate()
+                .map(|(i, t)| {
+                    if self.col.is_none_or(|a| i == a) {
+                        t.style(self.config.current_fg)
+                        .bg(self.config.current_bg)
+                        .add_modifier(self.config.current_modifier)
+                    } else {
+                        t
+                    }
+                })
+                .collect();
             }
 
-            let row = Row::new(row);
+            let row = Row::new(row).height(height);
             rows.push(row);
         }
+
 
         if self.reverse() {
             rows.reverse();
@@ -198,6 +276,7 @@ impl ResultsUI {
             widths[..pos].to_vec()
         };
 
+
         let mut table = Table::new(rows, self.widths.clone()).column_spacing(self.config.column_spacing.0);
 
         table = table.block(self.config.border.as_block());
@@ -205,13 +284,12 @@ impl ResultsUI {
     }
 
     pub fn make_status(&self) -> Paragraph<'_> {
-        let input = Paragraph::new(format!(
+        Paragraph::new(format!(
             "  {}/{}",
             &self.status.matched_count, &self.status.item_count
         ))
         .style(self.config.count_fg)
-        .add_modifier(self.config.count_modifier);
-
-        input
+        .add_modifier(self.config.count_modifier)
     }
 }
+

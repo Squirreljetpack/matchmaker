@@ -1,29 +1,28 @@
-use matchmaker::nucleo::worker::Worker;
-use matchmaker::{Matchmaker, MatchmakerError, Result};
+use matchmaker::nucleo::{Worker, Indexed};
+use matchmaker::{Matchmaker, MatchError, Result};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let items = vec!["item1", "item2", "item3"];
 
-    let worker = Worker::new_single();
+    let worker = Worker::new_single_column();
     worker.append(items);
-    let identifier = Worker::clone_identifier;
+    let identifier = Indexed::identifier;
 
     let mm = Matchmaker::new(worker, identifier);
 
     match mm.pick().await {
-        Ok(iter) => {
-            for s in iter {
-                println!("{s}");
-            }
+        Ok(v) => {
+            println!("{}", v[0]);
         }
         Err(err) => {
-            if let Some(e) = err.downcast_ref::<MatchmakerError>()
-                && matches!(e, MatchmakerError::Abort(1))
-            {
-                eprintln!("cancelled");
-            } else {
-                eprintln!("Error: {err}");
+            match err {
+                MatchError::Abort(1) => {
+                    eprintln!("cancelled");
+                }
+                _ => {
+                    eprintln!("Error: {err}");
+                }
             }
         }
     }

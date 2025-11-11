@@ -6,12 +6,12 @@ use ratatui::{
 
 use crate::{
     config::{PreviewConfig, PreviewLayoutSetting},
-    spawn::preview::PreviewerView,
+    proc::Preview,
 };
 
 #[derive(Debug)]
 pub struct PreviewUI {
-    pub view: PreviewerView,
+    pub view: Preview,
     config: PreviewConfig,
     pub layout_idx: usize,
     pub area: Rect,
@@ -19,7 +19,7 @@ pub struct PreviewUI {
 }
 
 impl PreviewUI {
-    pub fn new(view: PreviewerView, config: PreviewConfig) -> Self {
+    pub fn new(view: Preview, config: PreviewConfig) -> Self {
         Self {
             view,
             config,
@@ -47,6 +47,14 @@ impl PreviewUI {
     }
     pub fn command(&self) -> &String {
         &self.config.layout[self.layout_idx].command
+    }
+    
+    pub fn wrap(&mut self, wrap: bool) {
+        self.config.wrap = wrap;
+    }
+    
+    pub fn is_wrap(&self) -> bool {
+        self.config.wrap
     }
     
     // pub fn up(&mut self, n: u16) {

@@ -4,7 +4,7 @@ use std::{
 };
 
 use clap::Parser;
-use matchmaker::config::Config;
+use matchmaker::config::MainConfig;
 
 #[derive(Debug, Parser, Default, Clone)]
 pub struct Cli {
@@ -20,20 +20,23 @@ pub struct Cli {
 
 // ---------- DEFAULTS ----------
 
+pub static BINARY_FULL: &str = "matchmaker";
+pub static BINARY_SHORT: &str = "mm";
+
 fn config_dir_impl() -> Option<PathBuf> {
     if let Some(home) = dirs::home_dir() {
-        let config = home.join(".config").join(env!("CARGO_PKG_NAME"));
+        let config = home.join(".config").join(BINARY_FULL);
         if config.exists() {
             return Some(config);
         }
     };
 
-    dirs::config_dir().map(|x| x.join(env!("CARGO_PKG_NAME")))
+    dirs::config_dir().map(|x| x.join(BINARY_FULL))
 }
 
 pub fn config_dir() -> &'static Path {
     static DEFAULT_PATH: LazyLock<PathBuf> =
-        LazyLock::new(|| config_dir_impl().unwrap_or_default());
+    LazyLock::new(|| config_dir_impl().unwrap_or_default());
     &DEFAULT_PATH
 }
 
@@ -43,8 +46,8 @@ pub fn state_dir() -> Option<PathBuf> {
     } else {
         dirs::home_dir().map(|home| {
             home.join(".local")
-                .join("state")
-                .join(env!("CARGO_PKG_NAME"))
+            .join("state")
+            .join(BINARY_FULL)
         })
     }
 }
@@ -57,9 +60,9 @@ pub fn logs_dir() -> &'static Path {
 
 // ----------------------- CONFIG
 impl Cli {
-    pub fn merge_config(&self, config: &mut Config) {
+    pub fn merge_config(&self, config: &mut MainConfig) {
         if self.fullscreen {
-            config.tui.layout = None;
+            config.config.tui.layout = None;
         }
     }
 }

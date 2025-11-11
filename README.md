@@ -7,7 +7,7 @@ Matchmaker is a fuzzy searcher, powered by nucleo and written in rust.
 ## Features
 
 - Matching with [nucleo](https://github.com/helix-editor/nucleo).
-- A hierarchical configuration deserialized from a [toml file](./assets/config.toml). (Cli parsing not yet implemented.)
+- Declarative configuration sourced from a [toml file](./assets/config.toml). (Cli parsing not yet implemented.)
 - Interactive preview supports color, scrolling, wrapping, multiple layouts, and even entering into an interactive view.
 - [FZF](https://github.com/junegunn/fzf)-derived actions.
 - Column support: Split input lines into multiple columns, that you can dynamically search, filter, highlight, return etc.
@@ -39,7 +39,7 @@ The default locations are in order:
 
 
 ### Keybindings
-All actions must be defined in in your `config.toml`.
+All actions must be defined in your `config.toml`.
 
 The list of currently supported actions can be found [here](./src/action.rs).
 
@@ -60,32 +60,31 @@ cargo add matchmaker
 Here is how to use `Matchmaker` to select from a list of strings.
 
 ```rust
-use matchmaker::nucleo::worker::Worker;
-use matchmaker::{Matchmaker, PickerError, Result};
+use matchmaker::nucleo::{Worker, Indexed};
+use matchmaker::{Matchmaker, MatchError, Result};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let items = vec!["item1", "item2", "item3"];
 
-    let worker = Worker::new_single();
+    let worker = Worker::new_single_column();
     worker.append(items);
-    let identifier = Worker::clone_identifier;
+    let identifier = Indexed::identifier;
 
-    let mm = matchmaker::new(worker, identifier);
+    let mm = Matchmaker::new(worker, identifier);
 
     match mm.pick().await {
-        Ok(iter) => {
-            for s in iter {
-                println!("{s}");
-            }
+        Ok(v) => {
+            println!("{}", v[0]);
         }
         Err(err) => {
-            if let Some(e) = err.downcast_ref::<PickerError>()
-                && matches!(e, PickerError::Abort(1))
-            {
-                eprintln!("cancelled");
-            } else {
-                eprintln!("Error: {err}");
+            match err {
+                MatchError::Abort(1) => {
+                    eprintln!("cancelled");
+                }
+                _ => {
+                    eprintln!("Error: {err}");
+                }
             }
         }
     }
@@ -106,11 +105,11 @@ For example, the `Preview(bat {})` command generates a `PreviewChanged` event, a
 
 As you can see, this paradigm fixes very little of the Preview action's behavior. The `Execute` action is another example: it simply leaves the tui before invoking the execute handler, then re-enters before the next render.
 
-Consequently, there exist severable actions whose behaviors are actually open to modification to your own purposes if you so choose.
+Consequently, there exist severable actions whose behaviors are open to modification to your own purposes if you so choose.
 
 On the flip side however, the set of actions is an Enum and thus not generic and not customizable. (For full customizability, matchmaker will probably support in the future sending and receiving custom events).
 
-For more information, check out the [examples](./examples/) and [Arcitecture.md](./ARCHITECTURE.md)
+For more information, check out the [examples](./examples/) and [Architecture.md](./ARCHITECTURE.md)
 
 
 # See also

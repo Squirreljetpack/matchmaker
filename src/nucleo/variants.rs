@@ -1,33 +1,33 @@
 use std::{borrow::Cow, sync::Arc};
 
 use crate::{
-    PickerItem,
+    MMItem, RenderFn, nucleo::Indexed,
 };
 
-use super::{injector::{self, Indexed}, Text, worker::{Column, Worker}};
+use super::{injector::{self}, Text, worker::{Column, Worker}};
 
 // C is not generic because not sure about how C should be used/passed
-impl<T: PickerItem> Worker<T> {
+impl<T: MMItem> Worker<T> {
     /// Returns a function which templates a string given an item using the column functions
     pub fn make_format_fn<const QUOTE: bool>(
         &self,
         blank_format: impl Fn(&T) -> &str + Send + Sync + 'static,
-    ) -> Box<dyn Fn(&T, &str) -> String + Send + Sync> {
+    ) -> RenderFn<T> {
         let columns = self.columns.clone();
-        
+
         Box::new(move |item: &T, template: &str| {
             let mut result = String::with_capacity(template.len());
-            let mut chars = template.chars().peekable();
+            let chars = template.chars().peekable();
             let mut state = State::Normal;
             let mut key = String::new();
-            
+
             enum State {
                 Normal,
                 InKey,
                 Escape,
             }
-            
-            while let Some(c) = chars.next() {
+
+            for c in chars {
                 match state {
                     State::Normal => match c {
                         '\\' => state = State::Escape,
@@ -48,7 +48,7 @@ impl<T: PickerItem> Worker<T> {
                                 .map(|col| col.format_text(item, &()))
                                 .unwrap_or_else(|| Cow::Borrowed("")),
                             };
-                            
+
                             if QUOTE {
                                 result.push('\'');
                                 result.push_str(&replacement);
@@ -63,12 +63,12 @@ impl<T: PickerItem> Worker<T> {
                     },
                 }
             }
-            
+
             if !key.is_empty() {
                 result.push('{');
                 result.push_str(&key);
             }
-            
+
             result
         })
     }
@@ -83,8 +83,9 @@ impl<T: AsRef<str>> Render for T {
     }
 }
 
-impl<T: Render + PickerItem> Worker<Indexed<T>> {
-    pub fn new_single() -> Self {
+impl<T: Render + MMItem> Worker<Indexed<T>> {
+    /// Create a new worker over items which are displayed in the picker as exactly their as_str representation.
+    pub fn new_single_column() -> Self {
         Self::new(
             vec![Column::new("_", |item: &Indexed<T>, _context: &()| {
                 Text::from(item.inner.as_str())
@@ -93,7 +94,7 @@ impl<T: Render + PickerItem> Worker<Indexed<T>> {
             (),
         )
     }
-    
+
     /// A convenience method to initialize data. Note that it is clearly unsound to use this concurrently with other workers, or to subsequently push with an IndexedInjector.
     pub fn append(&self, items: impl IntoIterator<Item = T>) -> u32 {
         let mut index = self.nucleo.snapshot().item_count();
@@ -108,11 +109,6 @@ impl<T: Render + PickerItem> Worker<Indexed<T>> {
         }
         index
     }
-
-    pub fn clone_identifier(item: &Indexed<T>) -> (u32, T) 
-    where T: Clone {
-        (item.index, item.inner.clone())
-    }
 }
 
 pub trait ColumnIndexable {
@@ -121,8 +117,9 @@ pub trait ColumnIndexable {
 
 impl<T> Worker<T>
 where
-T: ColumnIndexable + PickerItem,
+T: ColumnIndexable + MMItem,
 {
+    /// Create a new worker over indexable items, whose columns as displayed in the picker correspond to indices according to the relative order of the column names given to this function.
     pub fn new_indexable<I, S>(column_names: I) -> Self
     where
     I: IntoIterator<Item = S>,
@@ -130,13 +127,13 @@ T: ColumnIndexable + PickerItem,
     {
         let columns = column_names.into_iter().enumerate().map(|(i, name)| {
             let name = name.into();
-            
+
             Column::new(name, move |item: &T, _| {
                 let text = item.index(i);
                 Text::from(text)
             })
         });
-        
+
         Self::new(columns, 0, ())
     }
 }

@@ -2,7 +2,7 @@ use std::fmt;
 
 use super::EphemeralState;
 use crate::{
-    PickerItem, Selection,
+    MMItem, Selection,
     message::{Interrupt, Event},
 };
 
@@ -10,15 +10,25 @@ use crate::{
 // We choose not to return a Option<Result<S, E>> to simplify defining handlers, but will rather expose some mechanisms on state later on if a use case arises
 pub type DynamicMethod<T, S, C, E> = Box<dyn Fn(EphemeralState<'_, T, S, C>, &E) + Send + Sync>;
 pub type DynamicHandlers<T, S, C> = (EventHandlers<T, S, C>, InterruptHandlers<T, S, C>);
-pub struct EventHandlers<T: PickerItem, S: Selection, C> {
+
+
+#[allow(clippy::type_complexity)]
+pub struct EventHandlers<T: MMItem, S: Selection, C> {
     handlers: Vec<(Vec<Event>, DynamicMethod<T, S, C, Event>)>,
 }
 
-pub struct InterruptHandlers<T: PickerItem, S: Selection, C> {
+#[allow(clippy::type_complexity)]
+pub struct InterruptHandlers<T: MMItem, S: Selection, C> {
     handlers: Vec<(Interrupt, Vec<DynamicMethod<T, S, C, Interrupt>>)>,
 }
 
-impl<T: PickerItem, S: Selection, C> EventHandlers<T, S, C> {
+impl<T: MMItem, S: Selection, C> Default for EventHandlers<T, S, C> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T: MMItem, S: Selection, C> EventHandlers<T, S, C> {
     pub fn new() -> Self {
         Self { handlers: vec![] }
     }
@@ -38,7 +48,13 @@ impl<T: PickerItem, S: Selection, C> EventHandlers<T, S, C> {
     }
 }
 
-impl<T: PickerItem, S: Selection, C> InterruptHandlers<T, S, C> {
+impl<T: MMItem, S: Selection, C> Default for InterruptHandlers<T, S, C> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T: MMItem, S: Selection, C> InterruptHandlers<T, S, C> {
     pub fn new() -> Self {
         Self { handlers: vec![] }
     }
@@ -59,9 +75,9 @@ impl<T: PickerItem, S: Selection, C> InterruptHandlers<T, S, C> {
     }
 }
 
-// ----------------------------------------------------------------------------------------
+// -------------------------------BOILERPLATE----------------------------------
 
-impl<T: PickerItem, S: Selection, C> fmt::Debug for EventHandlers<T, S, C> {
+impl<T: MMItem, S: Selection, C> fmt::Debug for EventHandlers<T, S, C> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("EventHandlers")
             .field("handler_count", &self.handlers.len())
@@ -69,7 +85,7 @@ impl<T: PickerItem, S: Selection, C> fmt::Debug for EventHandlers<T, S, C> {
     }
 }
 
-impl<T: PickerItem, S: Selection, C> fmt::Debug for InterruptHandlers<T, S, C> {
+impl<T: MMItem, S: Selection, C> fmt::Debug for InterruptHandlers<T, S, C> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("InterruptHandlers")
             .field("variant_count", &self.handlers.len())

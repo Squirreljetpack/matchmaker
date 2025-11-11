@@ -1,9 +1,8 @@
 use crate::Selection;
+use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use std::sync::Mutex;
-use std::{borrow::Borrow, collections::HashMap, hash::Hash, sync::Arc};
-
-// Trait on the output type to avoid orphan rule limitations
+use std::{borrow::Borrow, hash::Hash, sync::Arc};
 
 #[derive(Debug)]
 pub struct SelectionSet<T, S> {
@@ -18,22 +17,22 @@ impl<T, S: Selection> SelectionSet<T, S> {
             identifier,
         }
     }
-    
+
     pub fn sel(&mut self, item: &T) -> bool {
         let (k, v) = (self.identifier)(item);
         self.selections.insert(k, v)
     }
-    
+
     pub fn desel(&mut self, item: &T) -> bool {
         let (k, _v) = (self.identifier)(item);
         self.selections.remove(&k)
     }
-    
+
     pub fn contains(&self, item: &T) -> bool {
         let (k, _v) = (self.identifier)(item);
         self.selections.contains(&k)
     }
-    
+
     pub fn toggle(&mut self, item: &T) {
         let (k, v) = (self.identifier)(item);
         if self.selections.contains(&k) {
@@ -42,45 +41,39 @@ impl<T, S: Selection> SelectionSet<T, S> {
             self.selections.insert(k, v);
         }
     }
-    
+
     pub fn clear(&mut self) {
         self.selections.clear();
     }
-    
+
     pub fn len(&self) -> usize {
         self.selections.len()
     }
-    
+
     pub fn is_empty(&self) -> bool {
         self.selections.is_empty()
     }
-    
-    // ------
-    
+
     pub fn output(&mut self) -> impl Iterator<Item = S> {
         let mut set = self.selections.set.lock().unwrap();
-        
-        let mut pairs: Vec<_> = set.drain().map(|(k, v)| (k.clone(), v)).collect();
-        pairs.sort_by_key(|(k, _)| k.clone());
-        pairs.into_iter().map(|(_k, v)| v)
-        
-        // std::mem::take(&mut *set).into_iter().map(|(_k,| x.1)
+
+        std::mem::take(&mut *set).into_values()
     }
-    
+
     pub fn map_to_vec<I>(&self, items: I) -> Vec<S>
     where
     I: IntoIterator,
     I::Item: std::borrow::Borrow<T> + Send,
     {
         // let items_vec: Vec<I::Item> = items.into_iter().collect();
-        
+
         items
         .into_iter()
         // .into_par_iter()
         .map(|item| (self.identifier)(item.borrow()).1)
         .collect()
     }
-    
+
     pub fn cycle_all_bg<I>(&self, items: I)
     where
     I: IntoIterator,
@@ -88,16 +81,15 @@ impl<T, S: Selection> SelectionSet<T, S> {
     {
         let results: Vec<_> = items
         .into_iter()
-        // .into_par_iter()
         .map(|item| (self.identifier)(item.borrow()))
         .collect();
-        
+
         let selections = self.selections.clone();
-        
+
         tokio::task::spawn_blocking(move || {
             let mut all = true;
             let mut set_guard = selections.set.lock().unwrap();
-            
+
             let mut seen = 0;
             for (i, (k, _v)) in results.iter().enumerate() {
                 if !set_guard.contains_key(k) {
@@ -106,10 +98,10 @@ impl<T, S: Selection> SelectionSet<T, S> {
                     break;
                 }
             }
-            
+
             if all {
                 for (k, _v) in results {
-                    set_guard.remove(&k); // swap instead of shift for speed
+                    set_guard.swap_remove(&k); // swap instead of shift for speed
                 }
             } else {
                 for (k, v) in results.into_iter().skip(seen) {
@@ -123,7 +115,7 @@ impl<T, S: Selection> SelectionSet<T, S> {
 // ---------- Selection Set ---------------
 #[derive(Debug, Clone)]
 struct SelectionSetImpl<K: Eq + Hash, S> {
-    pub set: Arc<Mutex<HashMap<K, S, FxBuildHasher>>>,
+    pub set: Arc<Mutex<IndexMap<K, S, FxBuildHasher>>>,
 }
 
 impl<K: Eq + Hash, S> SelectionSetImpl<K, S>
@@ -132,41 +124,41 @@ S: Selection,
 {
     pub fn new() -> Self {
         Self {
-            set: Arc::new(Mutex::new(HashMap::with_hasher(FxBuildHasher::default()))),
+            set: Arc::new(Mutex::new(IndexMap::with_hasher(FxBuildHasher))),
         }
     }
-    
+
     pub fn insert(&self, key: K, value: S) -> bool {
         let mut set = self.set.lock().unwrap();
         set.insert(key, value).is_none()
     }
-    
+
     pub fn remove(&self, key: &K) -> bool {
         let mut set = self.set.lock().unwrap();
-        set.remove(key).is_some()
+        set.shift_remove(key).is_some()
     }
-    
+
     pub fn contains(&self, key: &K) -> bool {
         let set = self.set.lock().unwrap();
         set.contains_key(key)
     }
-    
+
     pub fn clear(&self) {
         let mut set = self.set.lock().unwrap();
         set.clear();
     }
-    
+
     pub fn clone(&self) -> Self {
         Self {
             set: Arc::clone(&self.set),
         }
     }
-    
+
     pub fn len(&self) -> usize {
         let set = self.set.lock().unwrap();
         set.len()
     }
-    
+
     pub fn is_empty(&self) -> bool {
         let set = self.set.lock().unwrap();
         set.is_empty()

@@ -11,7 +11,7 @@
 
 ##### pick
 ```
-Event(Bind, Crossterm, Picker) -> Event handler -> Action(Context) -> Action -> Computation
-    -> Raise Event/Interrupt -> Event/Interrupt Handlers 
+Event(Bind, Crossterm, Event) -> Event handler -> Action(Context) -> Action -> Computation
+    -> Raise Event/Interrupt -> Event/Interrupt Handlers
     -> Render
 ```

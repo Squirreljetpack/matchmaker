@@ -8,9 +8,8 @@ use crate::{
 
 // note: beware that same handler could be called multiple times for the same event in one iteration
 // We choose not to return a Option<Result<S, E>> to simplify defining handlers, but will rather expose some mechanisms on state later on if a use case arises
-pub type DynamicMethod<T, S, C, E> = Box<dyn Fn(EphemeralState<'_, T, S, C>, &E) + Send + Sync>;
+pub type DynamicMethod<T, S, C, E> = Box<dyn Fn(&mut EphemeralState<'_, T, S, C>, &E) + Send + Sync>;
 pub type DynamicHandlers<T, S, C> = (EventHandlers<T, S, C>, InterruptHandlers<T, S, C>);
-
 
 #[allow(clippy::type_complexity)]
 pub struct EventHandlers<T: MMItem, S: Selection, C> {

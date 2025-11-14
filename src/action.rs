@@ -11,22 +11,23 @@ pub enum Action {
     CycleAll,
     Accept,
     Quit(Exit),
-    
+
     // UI
     CyclePreview,
     Preview(String), // if match: hide, else match
+    Help(String), // content is shown in preview, empty for default help display
     SwitchPreview(Option<u8>), // n => ^ but with layout + layout_cmd, 0 => just toggle visibility
     SetPreview(Option<u8>), // n => set layout, 0 => set current layout cmd
-    
+
     ToggleWrap,
     ToggleWrapPreview,
-    
+
     // Programmable
     Execute(String),
     Become(String),
     Reload(String),
     Print(String),
-    
+
     SetInput(String),
     SetHeader(Option<String>),
     SetFooter(Option<String>),
@@ -38,7 +39,7 @@ pub enum Action {
     HistoryDown,
     ChangePrompt,
     ChangeQuery,
-    
+
     // Edit
     ForwardChar,
     BackwardChar,
@@ -49,7 +50,7 @@ pub enum Action {
     DeleteLineStart,
     DeleteLineEnd,
     Cancel,
-    
+
     // Navigation
     Up(Count),
     Down(Count),
@@ -58,7 +59,7 @@ pub enum Action {
     PreviewHalfPageUp,
     PreviewHalfPageDown,
     Pos(i32),
-    
+
     // Experimental/Debugging
     Redraw,
 }
@@ -109,19 +110,19 @@ impl<'de> Deserialize<'de> for Actions {
             Single(String),
             Multiple(Vec<String>),
         }
-        
+
         let helper = Helper::deserialize(deserializer)?;
         let strings = match helper {
             Helper::Single(s) => vec![s],
             Helper::Multiple(v) => v,
         };
-        
+
         let mut actions = Vec::with_capacity(strings.len());
         for s in strings {
             let action = Action::from_str(&s).map_err(serde::de::Error::custom)?;
             actions.push(action);
         }
-        
+
         Ok(Actions(actions))
     }
 }
@@ -147,7 +148,7 @@ macro_rules! impl_display_and_from_str_enum {
         $($tuple:ident),*;
         $($tuple_default:ident),*;
         $($tuple_option:ident),*;
-        // $($tuple_string_default:ident),*
+        $($tuple_string_default:ident),*
     ) => {
         impl std::fmt::Display for $enum {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -176,13 +177,13 @@ macro_rules! impl_display_and_from_str_enum {
                         }
                     }, )*
 
-                    // $( Self::$tuple_string_default(inner) => {
-                    //     if inner.is_empty() {
-                    //         write!(f, stringify!($tuple_string_default))
-                    //     } else {
-                    //         write!(f, concat!(stringify!($tuple_string_default), "({})"), inner)
-                    //     }
-                    // }, )*
+                    $( Self::$tuple_string_default(inner) => {
+                        if inner.is_empty() {
+                            write!(f, stringify!($tuple_string_default))
+                        } else {
+                            write!(f, concat!(stringify!($tuple_string_default), "({})"), inner)
+                        }
+                    }, )*
                 }
             }
         }
@@ -231,13 +232,13 @@ macro_rules! impl_display_and_from_str_enum {
                         Ok(Self::$tuple_option(d))
                     }, )*
 
-                    // $( stringify!($tuple_string_default) => {
-                    //     let d = match data {
-                    //         Some(val) if !val.is_empty() => val.to_string(),
-                    //         _ => String::new(),
-                    //     };
-                    //     Ok(Self::$tuple_string_default(d))
-                    // }, )*
+                    $( stringify!($tuple_string_default) => {
+                        let d = match data {
+                            Some(val) if !val.is_empty() => val.to_string(),
+                            _ => String::new(),
+                        };
+                        Ok(Self::$tuple_string_default(d))
+                    }, )*
 
                     _ => Err(format!("Unknown variant {}", name)),
                 }
@@ -260,8 +261,11 @@ impl_display_and_from_str_enum!(
     Up, Down, PreviewUp, PreviewDown, Quit;
     // tuple with option
     SwitchPreview, SetPreview, SetPrompt, SetHeader, SetFooter;
+    //
+    Help
 );
 
 use crate::{impl_int_wrapper};
 impl_int_wrapper!(Exit, i32, 1);
 impl_int_wrapper!(Count, u16, 1);
+

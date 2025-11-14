@@ -1,4 +1,4 @@
-use std::{process::{Stdio, exit}};
+use std::{io, process::{Stdio, exit}};
 
 
 mod crokey;
@@ -11,7 +11,7 @@ use log::debug;
 use matchmaker::{
     MatchError, Result, config::{StartConfig}, nucleo::injector::
     Injector, proc::
-    {spawn, map_chunks, map_reader_lines, read_to_chunks, stdin_reader}
+    {spawn, map_chunks, map_reader_lines, read_to_chunks}
 };
 use std::io::{stdout, Write};
 use types::*;
@@ -21,18 +21,19 @@ use setup::*;
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
     init_logger(&logs_dir().join(format!("{BINARY_SHORT}.log")));
-    
+
     // get config
     let config = enter()?;
-    
+
     let StartConfig { input_separator, default_command, sync, output_separator } = config.matcher.run.clone();
-    
+
     // make matcher and matchmaker with matchmaker and matcher maker
     let (mm, injector, mut matcher, previewer, print) = make_mm(config);
     debug!("{mm:?}");
-    
+
     // read stdin
-    if let Some(stdin) = stdin_reader() {
+    if !atty::is(atty::Stream::Stdin) {
+        let stdin = io::stdin();
         let read_handle = if let Some(c) = input_separator {
             tokio::spawn(async move {
                 map_chunks::<true>(read_to_chunks(stdin, c), |line| {
@@ -44,7 +45,7 @@ async fn main() -> Result<()> {
                 map_reader_lines::<true>(stdin, |line| injector.push(line).map_err(|e| e.into()))
             })
         };
-        
+
         if sync {
             let _ = read_handle.await;
         }
@@ -67,12 +68,12 @@ async fn main() -> Result<()> {
     } else {
         eprintln!("error: no input detected.");
     }
-    
+
     // spawn previewer
     tokio::spawn(async move {
         let _ = previewer.run().await;
     });
-    
+
     // begin
     match mm.pick_with_matcher(&mut matcher).await {
         Ok(iter) => {
@@ -100,6 +101,6 @@ async fn main() -> Result<()> {
             }
         }
     }
-    
+
     Ok(())
 }

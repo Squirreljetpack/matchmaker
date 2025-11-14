@@ -10,10 +10,9 @@ use std::io::Write;
 use std::sync::Arc;
 
 use anyhow::Result;
-use log::{debug, info, warn};
+use log::{info, warn};
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::widgets::Clear;
 use tokio::sync::mpsc;
 
 use crate::action::Action;
@@ -42,14 +41,14 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
     {
         state.update_preview(preview_ui.command());
     }
-    
+
     while render_rx.recv_many(&mut buffer, 256).await > 0 {
         let mut did_pause = false;
         let mut did_exit = false;
-        
+
         for event in &buffer {
             let mut interrupt = Interrupt::None;
-            
+
             let PickerUI {
                 input,
                 results,
@@ -59,11 +58,11 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
                 footer,
                 ..
             } = &mut picker_ui;
-            
+
             if !matches!(event, RenderCommand::Tick) {
                 info!("Recieved {event:?}");
             }
-            
+
             match event {
                 RenderCommand::Input(c) => {
                     input.input.insert(input.cursor as usize, *c);
@@ -110,7 +109,7 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
                         Action::Quit(code) => {
                             return Err(MatchError::Abort(code.into()));
                         }
-                        
+
                         // UI
                         Action::SetHeader(context) => {
                             if let Some(s) = context {
@@ -126,7 +125,7 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
                                 todo!()
                             }
                         }
-                        
+
                         Action::CyclePreview => {
                             if let Some(p) = preview_ui.as_mut() {
                                 p.cycle_layout();
@@ -144,6 +143,17 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
                                 }
                             };
                         }
+                        Action::Help(context) => {
+                            if let Some(p) = preview_ui.as_mut() {
+                                // empty payload signifies help
+                                if !state.update_preview_set(context) {
+                                    state.update_preview_unset()
+                                } else {
+                                    p.show::<true>();
+                                }
+                            };
+                        }
+
                         Action::SwitchPreview(idx) => {
                             if let Some(p) = preview_ui.as_mut() {
                                 if let Some(idx) = idx {
@@ -172,7 +182,7 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
                                 p.wrap(!p.is_wrap());
                             }
                         }
-                        
+
                         // Programmable
                         Action::Execute(context) => {
                             interrupt = Interrupt::Execute(context.into());
@@ -186,7 +196,7 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
                         Action::Print(context) => {
                             interrupt = Interrupt::Print(context.into());
                         }
-                        
+
                         Action::SetInput(context) => {
                             input.set_input(context.into(), u16::MAX);
                         }
@@ -206,7 +216,7 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
                         Action::DeleteLineStart => input.delete_line_start(),
                         Action::DeleteLineEnd => input.delete_line_end(),
                         Action::Cancel => input.cancel(),
-                        
+
                         // Navigation
                         Action::Up(x) | Action::Down(x) => {
                             let next = matches!(action, Action::Down(_)) ^ results.reverse();
@@ -238,7 +248,7 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
                             };
                             results.cursor_jump(pos);
                         }
-                        
+
                         // Experimental/Debugging
                         Action::Redraw => {
                             tui.redraw();
@@ -248,7 +258,7 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
                 }
                 _ => {}
             }
-            
+
             if !matches!(interrupt, Interrupt::None) {
                 match interrupt {
                     Interrupt::Execute(_) => {
@@ -272,36 +282,35 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
                     }
                     _ => {}
                 }
-                
+
                 state.update(&picker_ui);
-                let dispatcher = state.dispatcher(&ui, &picker_ui, preview_ui.as_ref());
-                
+                let (dispatcher, mut effects) = state.dispatcher(&ui, &picker_ui, preview_ui.as_ref());
+
                 for h in dynamic_handlers.1.get(&interrupt) {
-                    (h)(dispatcher.clone(), &interrupt);
+                    dispatcher.dispatch(h, &interrupt, &mut effects);
                 }
-                
+
                 if let Interrupt::Become(context) = interrupt {
                     return Err(MatchError::Become(context));
                 }
+                state.process_effects(effects);
             };
         }
-        
+
         // debug!("{state:?}");
-        // debug!("{:?}", picker_ui.results.widths());
-        debug!("{:?}", picker_ui.results.widths());
-        
+
         // ------------- update state + render ------------------------
         picker_ui.update();
-        
+
         if did_exit {
             tui.return_execute().map_err(|e| MatchError::TUIError(e.to_string()))?
         }
-        
+
         let mut resized = false;
         tui.terminal
         .draw(|frame| {
             let area = frame.area();
-            
+
             let [preview, picker_area] = if let Some(preview_ui) = preview_ui.as_mut()
             && preview_ui.is_show()
             {
@@ -316,23 +325,23 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
             } else {
                 [Rect::default(), area]
             };
-            
-            
-            
+
+
+
             let [input, status, results] = picker_ui.layout(picker_area);
-            
+
             resized = state.update_layout([preview, input, status, results]);
-            
+
             // might be more efficient to always update, but logically this feels better
             if resized {
                 picker_ui.results.update_dimensions(&results);
                 ui.update_dimensions(area);
             };
-            
+
             render_input(frame, input, &picker_ui.input);
             render_status(frame, status, &picker_ui.results);
             render_results(frame, results, &mut picker_ui);
-            
+
             if let Some(preview_ui) = preview_ui.as_mut() {
                 state.update_preview_ui(preview_ui);
                 if resized {
@@ -342,35 +351,41 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
             }
         })
         .map_err(|e| MatchError::TUIError(e.to_string()))?;
+        // usefult o clear artifacts
         if resized {
             tui.redraw();
         }
-        
+
+        // update state
         if state.iterations == 0 {
             state.insert(Event::Start);
         }
         state.update(&picker_ui);
         let events = state.events();
-        let dispatcher = state.dispatcher(&ui, &picker_ui, preview_ui.as_ref());
-        
+        let (dispatcher, mut effects) = state.dispatcher(&ui, &picker_ui, preview_ui.as_ref());
+
+        // process exit conditions
         if exit_config.select_1 && dispatcher.status().matched_count == 1 {
             return Ok(vec![state.take_current().unwrap()]);
         }
-        // todo: sync, and whatever else may be needed
-        
+
+        // ping handlers with events
         for e in events.iter() {
             for h in dynamic_handlers.0.get(e) {
-                (h)(dispatcher.clone(), e)
+                dispatcher.dispatch(h, e, &mut effects);
             }
         }
+        // send events to controller
         for e in events {
             controller_tx
             .send(e)
             .unwrap_or_else(|err| eprintln!("send failed: {:?}", err));
         }
-        
+        // process effects
+        state.process_effects(effects);
+
         buffer.clear();
-        
+
         if did_pause {
             if controller_tx.send(Event::Resume).is_err() {
                 break
@@ -383,19 +398,21 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
             }
         }
     }
-    
+
     Err(MatchError::EventLoopClosed)
 }
 
 // ------------------------- HELPERS ----------------------------
 fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {
-    // note: this fixes previewer garbage at the cost of some delay but what is the actual cause?
-    if ui.view.changed() {
-        frame.render_widget(Clear, area);
-    } else {
-        let widget = ui.make_preview();
-        frame.render_widget(widget, area);
-    }
+    // if ui.view.changed() {
+    // doesn't work, use resize
+    //     frame.render_widget(Clear, area);
+    // } else {
+    //     let widget = ui.make_preview();
+    //     frame.render_widget(widget, area);
+    // }
+    let widget = ui.make_preview();
+    frame.render_widget(widget, area);
 }
 
 fn render_results<T: MMItem, S: Selection, C>(
@@ -404,7 +421,7 @@ fn render_results<T: MMItem, S: Selection, C>(
     ui: &mut PickerUI<T, S, C>,
 ) {
     let widget = ui.make_table();
-    
+
     frame.render_widget(widget, area);
 }
 
@@ -413,13 +430,13 @@ fn render_input(frame: &mut Frame, area: Rect, ui: &InputUI) {
     if let CursorSetting::Default = ui.config.cursor {
         frame.set_cursor_position(ui.cursor_offset(&area))
     };
-    
+
     frame.render_widget(widget, area);
 }
 
 fn render_status(frame: &mut Frame, area: Rect, ui: &ResultsUI) {
     let widget = ui.make_status();
-    
+
     frame.render_widget(widget, area);
 }
 

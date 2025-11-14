@@ -2,16 +2,13 @@ use std::{env, process::{Stdio, exit}};
 
 use log::{debug, error, info, warn};
 use matchmaker::{
-    ConfigInjector, ConfigMatchmaker, Matchmaker, OddEnds,
-    config::{MainConfig, MatcherConfig, StartConfig, utils::{get_config, write_config}},
-    env_vars,
-    message::{Event, Interrupt},
-    nucleo::injector::{IndexedInjector, Injector, SegmentedInjector},
-    proc::{AppendOnly, exec, previewer::{PreviewMessage, Previewer}, spawn, tty_or_null, map_chunks, map_reader_lines, read_to_chunks},
+    ConfigInjector, ConfigMatchmaker, Matchmaker, OddEnds, binds::display_binds, config::{MainConfig, MatcherConfig, StartConfig, utils::{get_config, write_config}}, env_vars, message::{Event, Interrupt}, nucleo::injector::{IndexedInjector, Injector, SegmentedInjector}, proc::{AppendOnly, exec, map_chunks, map_reader_lines, previewer::{PreviewMessage, Previewer}, read_to_chunks, spawn, tty_or_null}, render::Effects
 };
+use ratatui::text::Text;
 use crate::Result;
 
 use crate::parse::parse;
+
 
 pub fn enter() -> Result<MainConfig> {
     let args = env::args();
@@ -56,14 +53,18 @@ pub fn make_mm(config: MainConfig) -> (ConfigMatchmaker, ConfigInjector, nucleo:
         matcher: MatcherConfig {
             matcher,
             mm,
+            help_colors,
             run: StartConfig { input_separator: delimiter, .. }
         }
     } = config;
+
 
     let matcher = nucleo::Matcher::new(matcher.0);
 
     let (mut previewer, tx) = Previewer::new(previewer);
     let preview = previewer.view();
+    let help_str = display_binds(&config.binds, Some(&help_colors));
+    debug!("{help_str:?}");
 
     let (mut mm, injector, OddEnds { formatter, splitter }) = Matchmaker::new_from_config(config, mm);
 
@@ -74,6 +75,7 @@ pub fn make_mm(config: MainConfig) -> (ConfigMatchmaker, ConfigInjector, nucleo:
     let become_formatter = formatter.clone();
     let become_preview_formatter = formatter.clone();
     let reload_formatter = formatter.clone();
+    let preview_tx = tx.clone();
 
     // connect previewer
     previewer.connect_controller(mm.get_controller());
@@ -84,11 +86,14 @@ pub fn make_mm(config: MainConfig) -> (ConfigMatchmaker, ConfigInjector, nucleo:
     mm.register_event_handler([Event::CursorChange, Event::PreviewChange], move |state, event| {
         match event {
             Event::CursorChange | Event::PreviewChange => {
+                state.effects |= Effects::CLEAR_PREVIEW_SET;
+
                 if state.preview_show &&
                 let Some(t) = state.current_raw() &&
-                !state.preview_payload().is_empty()
+                let m = state.preview_payload() &&
+                !m.is_empty()
                 {
-                    let cmd = preview_formatter(t, state.preview_payload());
+                    let cmd = preview_formatter(t, m);
                     let mut envs = state.make_env_vars();
                     let extra = env_vars!(
                         "COLUMNS" => state.previewer_area.map_or("0".to_string(), |r| r.width.to_string()),
@@ -96,13 +101,38 @@ pub fn make_mm(config: MainConfig) -> (ConfigMatchmaker, ConfigInjector, nucleo:
                     );
                     envs.extend(extra);
 
-                    let msg = PreviewMessage::Run(cmd.clone(), vec![]);
-                    if tx.send(msg.clone()).is_err() {
+                    let msg = PreviewMessage::Run(cmd.clone(), envs);
+                    if preview_tx.send(msg.clone()).is_err() {
                         warn!("Failed to send: {}", msg)
                     }
+                    return;
+                }
+
+                if preview_tx.send(PreviewMessage::Stop).is_err() {
+                    warn!("Failed to send to preview: stop")
                 }
             },
             _ => {}
+        }
+    });
+
+    mm.register_event_handler([Event::PreviewSet], move |state, event| {
+        if matches!(event, Event::PreviewSet)
+        && state.preview_show {
+            let msg = if let Some(m) = state.preview_set_payload() {
+                let m = if m.is_empty() {
+                    help_str.clone()
+                } else {
+                    Text::from(m.clone())
+                };
+                PreviewMessage::Set(m.clone())
+            } else {
+                PreviewMessage::Unset
+            };
+
+            if tx.send(msg.clone()).is_err() {
+                warn!("Failed to send: {}", msg)
+            }
         }
     });
 
@@ -151,6 +181,7 @@ pub fn make_mm(config: MainConfig) -> (ConfigMatchmaker, ConfigInjector, nucleo:
         let Some(t) = state.current_raw() {
             let cmd = become_formatter(t, template);
             let mut vars = state.make_env_vars();
+
             let preview_cmd = become_preview_formatter(t, state.preview_payload());
             let extra = env_vars!(
                 "FZF_PREVIEW_COMMAND" => preview_cmd,

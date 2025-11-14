@@ -77,6 +77,8 @@ max = 120
 "down" = "Down"
 "pageup" = "Up(10)"
 "pagedown" = "Down(10)"
+"ctrl-p" = "Up(10)"
+"ctrl-n" = "Down(10)"
 "shift-up" = "PreviewUp"
 "shift-down" = "PreviewDown"
 "ctrl-shift-up" = "PreviewHalfPageUp"
@@ -86,7 +88,7 @@ max = 120
 "scrolldown" = "Down"
 "shift+scrollup" = "PreviewUp"
 "shift+scrolldown" = "PreviewDown"
-"alt-h" = ["Preview(bat --color=always {})"]
+"alt-h" = ["Help"]
 "?" = "SwitchPreview(0)"
 "shift-?" = "SwitchPreview(0)"
 

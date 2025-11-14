@@ -211,7 +211,7 @@ impl<T: MMItem, S: Selection, C> Matchmaker<T, S, C>
     /// Register a handler to listen on [`Event`]s
     pub fn register_event_handler<F, I>(&mut self, events: I, handler: F)
     where
-    F: Fn(EphemeralState<'_, T, S, C>, &Event) + Send + Sync + 'static,
+    F: Fn(&mut EphemeralState<'_, T, S, C>, &Event) + Send + Sync + 'static,
     I: IntoIterator<Item = Event>,
     {
         let boxed = Box::new(handler);
@@ -236,7 +236,7 @@ impl<T: MMItem, S: Selection, C> Matchmaker<T, S, C>
         handler: F,
     )
     where
-    F: Fn(EphemeralState<'_, T, S, C>, &Interrupt) + Send + Sync + 'static,
+    F: Fn(&mut EphemeralState<'_, T, S, C>, &Interrupt) + Send + Sync + 'static,
     {
         let boxed = Box::new(handler);
         self.register_boxed_interrupt_handler(interrupt, boxed);

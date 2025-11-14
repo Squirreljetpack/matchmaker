@@ -1,6 +1,6 @@
 use bitflags::bitflags;
 use ratatui::
-    layout::Rect
+layout::Rect
 ;
 use std::{
     collections::HashSet,
@@ -9,12 +9,7 @@ use std::{
 };
 
 use crate::{
-    MMItem, Selection, SelectionSet,
-    env_vars,
-    message::Event,
-    nucleo::{injector::WorkerInjector, Status},
-    proc::EnvVars,
-    ui::{PickerUI, PreviewUI, UI},
+    MMItem, Selection, SelectionSet, env_vars, message::Event, nucleo::{Status, injector::WorkerInjector}, proc::EnvVars, render::DynamicMethod, ui::{PickerUI, PreviewUI, UI}
 };
 
 // --------------------------------------------------------------------
@@ -25,7 +20,8 @@ pub struct State<S: Selection, C> {
     pub input: String,
     pub col: Option<usize>,
 
-    preview_payload: String,
+    preview_run: String,
+    preview_set: Option<String>,
     // pub execute_payload: Option<String>,
     // pub become_payload: Option<String>,
     pub context: Arc<C>,
@@ -91,6 +87,12 @@ impl<'a, T: MMItem, S: Selection, C> EphemeralState<'a, T, S, C> {
             "FZF_QUERY" => self.input.clone(),
         }
     }
+
+    pub fn dispatch<E>(&self, handler: &DynamicMethod<T, S, C, E>, event: &E, effects: &mut Effects) {
+        let mut d = self.clone();
+        (handler)(&mut d, event);
+        *effects |= d.effects;
+    }
 }
 
 impl<S: Selection, C> State<S, C> {
@@ -98,7 +100,8 @@ impl<S: Selection, C> State<S, C> {
         Self {
             current: None,
 
-            preview_payload: String::new(),
+            preview_run: String::new(),
+            preview_set: None,
             preview_show: false,
             layout: [Rect::default(); 4],
             col: None,
@@ -116,7 +119,7 @@ impl<S: Selection, C> State<S, C> {
     }
 
     pub fn preview_payload(&self) -> &String {
-        &self.preview_payload
+        &self.preview_run
     }
 
     pub fn contains(&self, event: &Event) -> bool {
@@ -127,9 +130,11 @@ impl<S: Selection, C> State<S, C> {
         self.events.insert(event)
     }
 
-    fn reset(&mut self) {
-        self.iterations += 1;
+    pub fn preview_set_payload(&self) -> &Option<String> {
+        &self.preview_set
     }
+
+
 
     pub fn update_current(&mut self, new_current: Option<(u32, S)>) -> bool {
         let changed = self.current != new_current;
@@ -150,13 +155,27 @@ impl<S: Selection, C> State<S, C> {
     }
 
     pub fn update_preview(&mut self, context: &str) -> bool {
-        let next = context;
-        let changed = self.preview_payload != next;
+        let changed = self.preview_run != context;
         if changed {
-            self.preview_payload = next.into();
+            self.preview_run = context.into();
             self.insert(Event::PreviewChange);
         }
         changed
+    }
+
+    pub fn update_preview_set(&mut self, context: &str) -> bool {
+        let next = Some(context.into());
+        let changed = self.preview_set != next;
+        if changed {
+            self.preview_set = next;
+            self.insert(Event::PreviewSet);
+        }
+        changed
+    }
+
+    pub fn update_preview_unset(&mut self) {
+        self.preview_set = None;
+        self.insert(Event::PreviewSet);
     }
 
     pub fn update_layout(&mut self, context: [Rect; 4]) -> bool {
@@ -179,7 +198,9 @@ impl<S: Selection, C> State<S, C> {
         changed
     }
 
-
+    fn reset(&mut self) {
+        self.iterations += 1;
+    }
 
     pub fn update<'a, T: MMItem>(&'a mut self, picker_ui: &'a PickerUI<T, S, C>){
         self.update_input(&picker_ui.input.input);
@@ -189,27 +210,37 @@ impl<S: Selection, C> State<S, C> {
         self.update_current(current_raw.map(picker_ui.selections.identifier));
     }
 
-    pub fn dispatcher<'a, T: MMItem>(&'a self, ui: &'a UI, picker_ui: &'a PickerUI<T, S, C>, preview_ui: Option<&PreviewUI>) -> EphemeralState<'a, T, S, C> {
-        EphemeralState::new(self,
-            picker_ui,
-            &ui.area,
-            preview_ui.map(|p| p.area),
+    pub fn dispatcher<'a, T: MMItem>(&'a self, ui: &'a UI, picker_ui: &'a PickerUI<T, S, C>, preview_ui: Option<&PreviewUI>) -> (EphemeralState<'a, T, S, C>, Effects) {
+        (
+            EphemeralState::new(self,
+                picker_ui,
+                &ui.area,
+                preview_ui.map(|p| p.area),
+            ),
+            Effects::empty()
         )
+    }
+
+    pub fn process_effects(&mut self, effects: Effects) {
+        if effects.contains(Effects::CLEAR_PREVIEW_SET) {
+            self.preview_set = None
+        }
     }
 
     pub fn events(
         &mut self,
     ) -> HashSet<Event> {
-        let ret = std::mem::take(&mut self.events);
         self.reset();
-        ret
+        // this rules out persistent preview_set, todo: impl effects to trigger this instead
+        std::mem::take(&mut self.events) // maybe copy is faster dunno
     }
 }
 
 bitflags! {
     #[derive(Clone, Copy)]
     pub struct Effects: u32 {
-        // const CREATE_WIDGET ?
+        // const CREATE_WIDGET = 0b0001;
+        const CLEAR_PREVIEW_SET = 0b0010;
     }
 }
 
@@ -220,7 +251,7 @@ impl<S: Selection, C> std::fmt::Debug for State<S, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("State")
         .field("input", &self.input)
-        .field("preview_payload", &self.preview_payload)
+        .field("preview_payload", &self.preview_run)
         .field("iterations", &self.iterations)
         .field("preview_show", &self.preview_show)
         .field("layout", &self.layout)

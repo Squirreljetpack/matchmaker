@@ -12,6 +12,7 @@ pub enum Event {
     QueryChange,
     CursorChange,
     PreviewChange,
+    PreviewSet,
     Resize,
     Refresh,
     Pause,

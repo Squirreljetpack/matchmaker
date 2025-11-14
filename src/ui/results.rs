@@ -1,4 +1,3 @@
-use log::debug;
 use ratatui::{
     layout::Rect,
     style::{Style, Stylize},
@@ -58,11 +57,6 @@ impl ResultsUI {
             self.col = None
         } else {
             self.col = Some(col_idx);
-            // if col_idx < self.widths.len() {
-            //     self.col = Some(col_idx)
-            // } else {
-            //     warn!("Tried to set col = {col_idx} but widths = {}, ignoring", self.widths.len())
-            // }
         }
         self.col.is_some()
     }
@@ -197,6 +191,7 @@ impl ResultsUI {
     }
 
     // this updates the internal status, so be sure to call make_status afterward
+    // some janky wrapping is implemented, dunno whats causing flickering, padding is fixed going down only
     pub fn make_table<'a, T: MMItem, C: 'a>(
         &'a mut self,
         worker: &'a mut Worker<T, C>,
@@ -206,27 +201,97 @@ impl ResultsUI {
         let offset = self.bottom as u32;
         let end = (self.bottom + self.height) as u32;
 
-        let (results, mut widths, status) = worker.results(offset, end, &self.max_widths(), self.highlight_style(), matcher);
+        let (mut results, mut widths, status) = worker.results(offset, end, &self.max_widths(), self.highlight_style(), matcher);
 
         if status.matched_count < (self.bottom + self.cursor) as u32 {
             self.cursor_jump(status.matched_count);
         }
 
-        self.status = status;
-
         widths[0] += self.config.multi_prefix.width() as u16;
+
+        self.status = status;
 
         let mut rows = vec![];
         let mut total_height = 0;
 
-        for (i, (mut row, item, height)) in results.into_iter().enumerate() {
-            total_height += height;
-            if total_height > self.height {
-                // todo: extend to all cols
-                clip_text_lines(&mut row[0], total_height - self.height, self.reverse());
-                total_height = self.height;
+        if results.is_empty() {
+            return Table::new(rows, widths)
+        }
+
+        // debug!("sb: {}, {}, {}, {}", self.bottom, self.cursor, total_height, self.height);
+
+
+        let cursor_result_h = results[self.cursor as usize].2;
+        let mut start_index = 0;
+
+        let cursor_should_above = self.height - self.scroll_padding();
+
+        if cursor_result_h >= cursor_should_above {
+            start_index = self.cursor;
+            self.bottom += self.cursor;
+            self.cursor = 0;
+        } else if let cursor_cum_h = results[0..=self.cursor as usize].iter().map(|(_, _, height)| height).sum::<u16>() && cursor_cum_h > cursor_should_above && self.bottom + self.height < self.status.matched_count as u16 {
+            start_index = 1;
+            let mut height = cursor_cum_h - cursor_should_above;
+            for (row, item, h) in results[..self.cursor as usize].iter_mut() {
+                let h = *h;
+
+                if height < h {
+                    for (_, t) in row.iter_mut().enumerate().filter(|(i, _) | widths[*i] != 0 ) {
+                        clip_text_lines(t, height, !self.reverse());
+                    }
+                    total_height += height;
+
+                    let prefix = if selections.contains(item) {
+                        self.config.multi_prefix.clone()
+                    } else {
+                        fit_width(
+                            &substitute_escaped(
+                                &self.config.default_prefix,
+                                &[('d', &(start_index - 1).to_string()), ('r', &self.index().to_string())],
+                            ),
+                            self.config.multi_prefix.width(),
+                        )
+                    };
+
+                    prefix_text(&mut row[0], prefix);
+
+                    let row = Row::from_iter(row.clone().into_iter().enumerate().filter_map(|(i, v) | (widths[i] != 0).then_some(v) )).height(height);
+                    // debug!("1: {} {:?} {}", start_index, row, h_exceedance);
+
+                    rows.push(row);
+
+                    self.bottom += start_index - 1;
+                    self.cursor -= start_index - 1;
+                    break
+                } else if height == h {
+                    self.bottom += start_index;
+                    self.cursor -= start_index;
+                    // debug!("2: {} {}", start_index, h);
+                    break
+                }
+
+                start_index += 1;
+                height -= h;
             }
-            debug!("{row:?}");
+
+        }
+
+        // debug!("si: {start_index}, {}, {}, {}", self.bottom, self.cursor, total_height);
+
+        for (i, (mut row, item, mut height)) in (start_index..).zip(results.drain(start_index as usize..)) {
+            if self.height - total_height == 0 {
+                break
+            } else if self.height - total_height < height {
+                height = self.height - total_height;
+
+                for (_, t) in row.iter_mut().enumerate().filter(|(i, _) | widths[*i] != 0 ) {
+                    clip_text_lines(t, height, self.reverse());
+                }
+                total_height = self.height;
+            } else {
+                total_height += height;
+            }
 
             let prefix = if selections.contains(item) {
                 self.config.multi_prefix.clone()
@@ -242,7 +307,7 @@ impl ResultsUI {
 
             prefix_text(&mut row[0], prefix);
 
-            if i as u16 == self.cursor {
+            if i == self.cursor {
                 row = row
                 .into_iter()
                 .enumerate()
@@ -258,7 +323,8 @@ impl ResultsUI {
                 .collect();
             }
 
-            let row = Row::new(row).height(height);
+            let row = Row::from_iter(row.into_iter().enumerate().filter_map(|(i, v) | (widths[i] != 0).then_some(v) )).height(height);
+
             rows.push(row);
         }
 

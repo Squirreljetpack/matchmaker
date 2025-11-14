@@ -2,15 +2,6 @@ use crate::Result;
 use log::{debug, error, warn};
 use std::{io::{self, BufRead, Read, Write}, process::Stdio};
 
-pub fn stdin_reader() -> Option<io::Stdin> {
-    if atty::is(atty::Stream::Stdin) {
-        error!("stdin is a TTY: picker requires piped input.");
-        return None
-    }
-
-    Some(io::stdin())
-}
-
 pub fn read_to_chunks<R: Read>(reader: R, delim: char) -> std::io::Split<std::io::BufReader<R>> {
     io::BufReader::new(reader).split(delim as u8)
 }

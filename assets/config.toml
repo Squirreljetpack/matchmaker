@@ -22,7 +22,7 @@ match_fg = "Green"
 count_fg = "Green"
 count_modifier = "italic"
 # reverse = auto
-
+wrap = true
 scroll_wrap = true
 
 [previewer]

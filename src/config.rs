@@ -48,6 +48,30 @@ pub struct MatcherConfig {
     // only nit is that we would really prefer run config sit at top level since its irrelevant to MM::new_from_config
     #[serde(flatten)]
     pub run: StartConfig,
+
+    #[serde(default)]
+    pub help_colors: TomlColorConfig
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TomlColorConfig {
+    pub section: Color,
+    pub key: Color,
+    pub string: Color,
+    pub number: Color,
+    pub section_bold: bool,
+}
+
+impl Default for TomlColorConfig {
+    fn default() -> Self {
+        Self {
+            section: Color::Blue,
+            key: Color::Yellow,
+            string: Color::Green,
+            number: Color::Cyan,
+            section_bold: true,
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -186,7 +210,9 @@ pub struct PreviewerConfig {
 
     // TODO
     pub wrap: bool,
-    pub cache: bool,
+    pub cache: u8,
+
+    pub help: String,
 
 }
 
@@ -401,8 +427,6 @@ pub mod serde_from_str {
 }
 
 pub mod utils {
-    use log::debug;
-
     use crate::Result;
     use crate::config::{MainConfig};
     use std::borrow::Cow;
@@ -416,8 +440,6 @@ pub mod utils {
         } else {
             Cow::Owned(std::fs::read_to_string(config_path)?)
         };
-
-        debug!("{config_content}");
 
         let config: MainConfig = toml::from_str(&config_content)?;
 
@@ -1014,18 +1036,11 @@ mod tests {
 
     #[test]
     fn config_round_trip() {
-        // Load the default config from a file
         let default_toml = include_str!("../assets/dev.toml");
-
-        // Deserialize to your config type
         let config: MainConfig = toml::from_str(default_toml)
             .expect("failed to parse default TOML");
-
-        // Serialize it back to TOML
         let serialized = toml::to_string_pretty(&config)
             .expect("failed to serialize to TOML");
-
-        // Deserialize again
         let deserialized: MainConfig = toml::from_str(&serialized)
             .expect("failed to parse serialized TOML");
 

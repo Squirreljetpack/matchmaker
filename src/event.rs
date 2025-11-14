@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::Result;
 use crate::action::{Action, Actions, Count};
 use crate::binds::{BindMap};
@@ -46,7 +44,7 @@ impl EventLoop {
             txs: vec![],
             tick_interval: time::Duration::from_secs(1),
 
-            binds: HashMap::new(),
+            binds: BindMap::new(),
             combiner,
             fmt,
             event_stream,

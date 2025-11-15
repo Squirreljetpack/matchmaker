@@ -22,8 +22,11 @@ cargo install matchmaker
 Pass it some items:
 
 ```sh
-fd -u | mm
+find . | mm
 ```
+
+>[!NOTE]
+> Additionally, the default input and preview commands rely on fd, bat and eza. Install them or update your configuration for an optimal experience.
 
 ## Configuration
 

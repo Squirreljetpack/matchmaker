@@ -4,7 +4,7 @@ min = 10
 max = 120
 
 [ui]
-tick_rate = 30
+tick_rate = 60
 
 [input]
 input_fg = "White"
@@ -35,7 +35,7 @@ show = true
 wrap = true
 
 [[preview.layout]]
-command = "bat --color=always {} || eza --color=always --color=always -T -L 2 {}"
+command = "bat --binary no-printing --color=always {} || eza --color=always --color=always -T -L 2 {}"
 side = "right"
 percentage = 40
 min = 30
@@ -64,6 +64,7 @@ max = 50
 "backspace" = "DeleteChar"
 "ctrl-h" = "DeleteWord"
 "ctrl-u" = "Cancel"
+"alt-a" = "InputPos(0)"
 
 # Navigation
 "up" = "Up"
@@ -75,21 +76,23 @@ max = 50
 "ctrl-shift-up" = "PreviewHalfPageUp"
 "ctrl-shift-down" = "PreviewHalfPageDown"
 
+# Preview
 "scrollup" = "Up"
 "scrolldown" = "Down"
 "shift+scrollup" = "PreviewUp"
 "shift+scrolldown" = "PreviewDown"
-"alt-h" = ["Preview(bat --color=always {})"]
-"?" = "SwitchPreview(0)"
-"shift-?" = "SwitchPreview(0)"
+"?" = "SwitchPreview"
+"shift-?" = "SwitchPreview"
+"alt-h" = "Help"
+"alt-1" = "Pos(0)"
 
 # Programmable
-"ctrl-l" = "Execute(eval $FZF_PREVIEW_COMMAND)"
-"ctrl-o" = "Execute(micro {})"
-"alt-o" = "Become(micro {})"
+"ctrl-l" = "Execute(eval $FZF_PREVIEW_COMMAND | $PAGER)"
+"ctrl-o" = "Execute($EDITOR {})"
+"alt-o" = "Become($EDITOR {})"
 "ctrl-r" = "Reload(find . -type f)"
 
 [matcher]
 trim = true
 select_1 = false
-default_command = "find . -type f"
+default_command = "fd --strip-cwd-prefix"

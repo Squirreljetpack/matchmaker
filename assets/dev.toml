@@ -88,14 +88,14 @@ max = 120
 "scrolldown" = "Down"
 "shift+scrollup" = "PreviewUp"
 "shift+scrolldown" = "PreviewDown"
-"alt-h" = ["Help"]
+"alt-h" = "Help"
 "?" = "SwitchPreview(0)"
 "shift-?" = "SwitchPreview(0)"
 
 "alt-1" = "Column(0)"
 
 "ctrl-t" = "Execute(echo ----; read v; echo $v; echo ----)"
-"ctrl-l" = "Execute(eval $FZF_PREVIEW_COMMAND)"
+"ctrl-l" = "Execute(eval $FZF_PREVIEW_COMMAND | $PAGER)"
 "ctrl-o" = "Execute(micro {})"
 "alt-o" = "Become(micro {})"
 "ctrl-r" = "Reload(fd -u)"
@@ -107,5 +107,5 @@ columns.split = '\s+'
 columns.max_columns = 30
 select_1 = false
 format = "{}"
-default_command = "find . -type f"
+default_command = "fd"
 # sync = false

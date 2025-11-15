@@ -4,7 +4,7 @@ use crate::binds::{BindMap};
 use crate::message::{Event, RenderCommand};
 use anyhow::bail;
 use crokey::{Combiner, KeyCombination, KeyCombinationFormat, key};
-use crossterm::event::{Event as CrosstermEvent, EventStream};
+use crossterm::event::{Event as CrosstermEvent, EventStream, KeyModifiers};
 use futures::stream::StreamExt;
 use log::{debug, error, info, warn};
 use ratatui::layout::Rect;
@@ -169,7 +169,7 @@ impl EventLoop {
                                         let key = KeyCombination::normalized(key);
                                         if let Some(actions) = self.binds.get(&key.into()) {
                                             self.send_actions(actions);
-                                        } else if let Some(c) = key.as_letter() {
+                                        } else if let Some(c) = key_code_as_letter(key) {
                                             self.send(RenderCommand::Input(c));
                                         } else {
                                             // a basic set of keys to prevent confusion
@@ -189,7 +189,7 @@ impl EventLoop {
                                                 key!(backspace) => self.send_action(Action::DeleteChar),
                                                 key!(ctrl-h) => self.send_action(Action::DeleteWord),
                                                 key!(ctrl-u) => self.send_action(Action::Cancel),
-                                                // todo: help action?
+                                                key!(alt-h) => self.send_action(Action::Help("".to_string())),
                                                 _ => {}
                                             }
                                         }
@@ -243,5 +243,19 @@ impl EventLoop {
 
     fn send_action(&self, action: Action) {
         self.send(RenderCommand::Action(action));
+    }
+}
+
+fn key_code_as_letter(key: KeyCombination) -> Option<char> {
+    match key {
+        KeyCombination {
+            codes: crokey::OneToThree::One(crossterm::event::KeyCode::Char(l)),
+            modifiers: KeyModifiers::NONE,
+        } => Some(l),
+        KeyCombination {
+            codes: crokey::OneToThree::One(crossterm::event::KeyCode::Char(l)),
+            modifiers: KeyModifiers::SHIFT,
+        } => Some(l.to_ascii_uppercase()),
+        _ => None,
     }
 }

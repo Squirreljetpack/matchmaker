@@ -248,6 +248,14 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
                             };
                             results.cursor_jump(pos);
                         }
+                        Action::InputPos(pos) => {
+                            let pos = if *pos >= 0 {
+                                *pos as u16
+                            } else {
+                                (input.len() as u16).saturating_sub((-*pos) as u16)
+                            };
+                            input.cursor = pos;
+                        }
 
                         // Experimental/Debugging
                         Action::Redraw => {

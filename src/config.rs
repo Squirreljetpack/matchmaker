@@ -211,9 +211,6 @@ pub struct PreviewerConfig {
     // TODO
     pub wrap: bool,
     pub cache: u8,
-
-    pub help: String,
-
 }
 
 // ----------- SETTING TYPES -------------------------

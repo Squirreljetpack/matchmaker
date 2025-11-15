@@ -153,6 +153,10 @@ impl InputUI {
         self.input.truncate(byte_index);
     }
 
+    pub fn len(&self) -> usize {
+        self.input.len()
+    }
+
     pub fn cancel(&mut self) {
         self.input.clear();
         self.cursor = 0;

@@ -16,8 +16,8 @@ pub enum Action {
     CyclePreview,
     Preview(String), // if match: hide, else match
     Help(String), // content is shown in preview, empty for default help display
-    SwitchPreview(Option<u8>), // n => ^ but with layout + layout_cmd, 0 => just toggle visibility
-    SetPreview(Option<u8>), // n => set layout, 0 => set current layout cmd
+    SwitchPreview(Option<u8>), // n => ^ but with layout + layout_cmd, None => just toggle visibility
+    SetPreview(Option<u8>), // n => set layout, None => set current layout cmd
 
     ToggleWrap,
     ToggleWrapPreview,
@@ -50,6 +50,7 @@ pub enum Action {
     DeleteLineStart,
     DeleteLineEnd,
     Cancel,
+    InputPos(i32),
 
     // Navigation
     Up(Count),
@@ -256,7 +257,7 @@ impl_display_and_from_str_enum!(
     BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord,
     DeleteLineStart, DeleteLineEnd, Cancel, Redraw;
     // tuple variants
-    Execute, Become, Reload, Print, Preview, SetInput, Column, Pos;
+    Execute, Become, Reload, Print, Preview, SetInput, Column, Pos, InputPos;
     // tuple with default
     Up, Down, PreviewUp, PreviewDown, Quit;
     // tuple with option

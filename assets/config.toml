@@ -1,36 +1,16 @@
 [tui]
-percentage = 60
-min = 10
-max = 120
 
 [ui]
-tick_rate = 60
 
 [input]
-input_fg = "White"
-cursor = "default"
-prompt = ">"
 
 [results]
-scroll_padding = 2
-multi_prefix = "▌"
-
-result_fg = "White"
-current_bg = "Black"
-current_modifier = "bold"
-match_fg = "Green"
-count_fg = "Green"
-count_modifier = "italic"
-# reverse = auto
 wrap = true
-scroll_wrap = true
 
 [previewer]
 try_lossy = false
 
 [preview]
-border = { type = "Rounded", color = "Blue" }
-scroll_wrap = true
 show = true
 wrap = true
 
@@ -53,7 +33,7 @@ max = 50
 "esc" = "Quit"
 "enter" = "Accept"
 "ctrl-a" = "CycleAll"
-"tab" = ["Select", "Down"]
+"tab" = ["Toggle", "Down"]
 "shift-backtab" = ["Toggle", "Up"]
 
 # Edit
@@ -93,6 +73,5 @@ max = 50
 "ctrl-r" = "Reload(find . -type f)"
 
 [matcher]
-trim = true
 select_1 = false
 default_command = "fd --strip-cwd-prefix"

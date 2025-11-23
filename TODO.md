@@ -1,12 +1,16 @@
 ## TODO
 - sane defaults for ui
-- color theme, match_fg configuration
+    - it would be nice to have presets like full, simple, and minimal presets like fzf
+    - it would be nice to have color presets too maybe
+    - probably get rid of wrapper types for defaults?
 - Examples:
     - query change
     - frecency
     - api
-- header/footer/bg
 - active columnn format: {!}
+- header
+    -  from input (match results table widths?)
+    -  multiline
 - multi format: {+}
 - column change propogates to pickerquery
 - dynamically adjusting column hide/filtering
@@ -28,3 +32,4 @@
 - (automatic) horizontal scrolling of results
 - Should payloads be wrapped by formatstring
 - interrupts may want the payload seperate from the enum
+- Nonasync so that MMItem doesn't need static

@@ -7,21 +7,23 @@ min = 10
 max = 120
 
 [ui]
-border_fg = "Blue"
+border = { color = "Blue" }
 # background = "#282828"
 tick_rate = 30
 
 [input]
-input_fg = "White"
+fg = "White"
 cursor = "default"
 prompt = ">"
 
+[header]
+content = "test"
+
 [results]
 scroll_padding = 2
-multi_prefix = "▌"
 
 border = { type = "Rounded", sides = "none", padding = 0 }
-result_fg = "White"
+fg = "White"
 current_bg = "Black"
 current_modifier = "bold"
 match_fg = "Green"

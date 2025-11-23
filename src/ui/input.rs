@@ -1,6 +1,5 @@
 use ratatui::{
-    layout::{Position, Rect},
-    widgets::Paragraph,
+    layout::{Position, Rect}, style::Stylize, widgets::Paragraph
 };
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
@@ -25,7 +24,8 @@ impl InputUI {
 
     pub fn make_input(&self) -> Paragraph<'_> {
         let mut input = Paragraph::new(format!("{}{}", &self.config.prompt, self.input.as_str()))
-            .style(self.config.input_fg);
+            .style(self.config.fg)
+            .add_modifier(self.config.modifier);
 
         input = input.block(self.config.border.as_block());
 
@@ -33,19 +33,14 @@ impl InputUI {
     }
 
     pub fn cursor_offset(&self, rect: &Rect) -> Position {
-        let border = self.config.border.sides;
+        let left = self.config.border.left();
+        let top = self.config.border.top();
         Position::new(
-            rect.x + self.cursor + self.config.prompt.width() as u16 + !border.is_empty() as u16,
-            rect.y + !border.is_empty() as u16,
+            rect.x + self.cursor + self.config.prompt.width() as u16 + left,
+            rect.y + top,
         )
     }
 
-    pub fn height(&self) -> u16 {
-        let mut height = 1;
-        height += 2 * !self.config.border.sides.is_empty() as u16;
-
-        height
-    }
     pub fn forward_char(&mut self) {
         // Check against the total number of graphemes
         if self.cursor < self.input.graphemes(true).count() as u16 {

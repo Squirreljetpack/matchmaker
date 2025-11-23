@@ -108,6 +108,15 @@ pub fn fit_width(input: &str, width: usize) -> String {
     s
 }
 
+pub fn left_pad(text: &str, pad: usize) -> String {
+    let padding = " ".repeat(pad);
+    text.lines()
+        .map(|line| format!("{}{}", padding, line))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+
 pub fn parse_escapes(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut chars = s.chars().peekable();

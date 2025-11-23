@@ -60,7 +60,7 @@ impl ConfigMatchmaker {
         let worker: Worker<Indexed<Segmented<String>>> = match cc.split {
             Split::Delimiter(_) | Split::Regexes(_) => {
                 let names: Vec<Arc<str>> = if cc.names.is_empty() {
-                    (0..cc.max_columns.0)
+                    (0..cc.max_columns)
                     .map(|n| Arc::from(n.to_string()))
                     .collect()
                 } else {

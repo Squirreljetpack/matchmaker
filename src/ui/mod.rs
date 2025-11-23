@@ -4,15 +4,16 @@ use ratatui::{
 };
 
 use crate::{
-    MMItem, Selection, SelectionSet, proc::Preview, config::{
-        DisplayConfig, InputConfig, PreviewLayoutSetting, RenderConfig, ResultsConfig, TerminalLayoutSettings
-    }, nucleo::Worker, tui::Tui, ui::ancillary::DisplayUI
+    MMItem, Selection, SelectionSet, config::{
+        DisplayConfig, InputConfig, PreviewLayoutSetting, RenderConfig, ResultsConfig, TerminalLayoutSettings, UiConfig
+    }, nucleo::Worker, proc::Preview, tui::Tui
 };
 
 mod input;
 mod preview;
 mod results;
-mod ancillary;
+mod display;
+pub use display::DisplayUI;
 pub use input::InputUI;
 pub use preview::PreviewUI;
 pub use results::ResultsUI;
@@ -21,7 +22,8 @@ pub use results::ResultsUI;
 
 pub struct UI {
     pub layout: Option<TerminalLayoutSettings>,
-    pub area: Rect,
+    pub area: Rect, // unused
+    pub config: UiConfig
 }
 
 impl UI {
@@ -42,9 +44,10 @@ impl UI {
         let ui = Self {
             layout: tui.layout().clone(),
             area: tui.area,
+            config: config.ui
         };
 
-        let picker = PickerUI::new(config.results, config.input, matcher, worker, selection_set);
+        let picker = PickerUI::new(config.results, config.input, config.header, config.footer, matcher, worker, selection_set);
 
         let preview = if let Some(view) = view {
             Some(PreviewUI::new(view, config.preview))
@@ -57,6 +60,19 @@ impl UI {
 
     pub fn update_dimensions(&mut self, area: Rect) {
         self.area = area;
+    }
+
+    pub fn make_ui(&self) -> ratatui::widgets::Block<'_> {
+        self.config.border.as_block()
+    }
+
+    pub fn inner_area(&self, area: &Rect) -> Rect {
+        Rect {
+            x: area.x + self.config.border.left(),
+            y: area.y + self.config.border.top(),
+            width: area.width.saturating_sub(self.config.border.width()),
+            height: area.height.saturating_sub(self.config.border.height()),
+        }
     }
 }
 
@@ -74,6 +90,8 @@ impl<'a, T: MMItem, S: Selection, C> PickerUI<'a, T, S, C> {
     pub fn new(
         results_config: ResultsConfig,
         input_config: InputConfig,
+        header_config: DisplayConfig,
+        footer_config: DisplayConfig,
         matcher: &'a mut nucleo::Matcher,
         worker: Worker<T, C>,
         selections: SelectionSet<T, S>,
@@ -81,21 +99,23 @@ impl<'a, T: MMItem, S: Selection, C> PickerUI<'a, T, S, C> {
         Self {
             results: ResultsUI::new(results_config),
             input: InputUI::new(input_config),
-            header: DisplayUI::new(DisplayConfig::default()),
-            footer: DisplayUI::new(DisplayConfig::default()),
+            header: DisplayUI::new(header_config),
+            footer: DisplayUI::new(footer_config),
             matcher,
             selections,
             worker,
         }
     }
 
-    pub fn layout(&self, area: Rect) -> [Rect; 3] {
-        let PickerUI { input, .. } = self;
+    pub fn layout(&self, area: Rect) -> [Rect; 5] {
+        let PickerUI { input, header, footer, .. } = self;
 
         let mut constraints = [
-        Constraint::Length(input.height()),
-        Constraint::Length(1),
-        Constraint::Fill(1),
+        Constraint::Length(1 + input.config.border.height()), // input
+        Constraint::Length(1), // status
+        Constraint::Length(header.height()),
+        Constraint::Fill(1), // results
+        Constraint::Length(footer.height()),
         ];
 
         if self.reverse() {
@@ -108,9 +128,9 @@ impl<'a, T: MMItem, S: Selection, C> PickerUI<'a, T, S, C> {
         .split(area);
 
         if self.reverse() {
-            [chunks[2], chunks[1], chunks[0]]
+            [chunks[4], chunks[3], chunks[2], chunks[1], chunks[0]]
         } else {
-            [chunks[0], chunks[1], chunks[2]]
+            [chunks[0], chunks[1], chunks[2], chunks[3], chunks[4]]
         }
     }
 }

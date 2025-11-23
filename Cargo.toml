@@ -1,6 +1,6 @@
 [package]
 name = "match-maker"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2024"
 description = "A fuzzy finder for the terminal, powered by nucleo"
 repository = "https://github.com/Squirreljetpack/matchmaker"

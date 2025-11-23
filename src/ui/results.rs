@@ -39,6 +39,10 @@ impl ResultsUI {
         }
     }
 
+    pub fn indentation(&self) -> usize {
+        self.config.multi_prefix.width()
+    }
+
     pub fn col(&self) -> Option<usize> {
         self.col
     }
@@ -48,7 +52,7 @@ impl ResultsUI {
     }
 
     pub fn width(&self) -> u16 {
-        self.width.saturating_sub(self.config.multi_prefix.width() as u16)
+        self.width.saturating_sub(self.indentation() as u16)
     }
 
     // todo: support cooler things like only showing/outputting a specific column/cycling columns
@@ -61,8 +65,10 @@ impl ResultsUI {
         self.col.is_some()
     }
 
-    pub fn highlight_style(&self) -> Style {
-        Style::new().green() //todo
+    pub fn match_style(&self) -> Style {
+        Style::default()
+        .fg(self.config.match_fg)
+        .add_modifier(self.config.match_modifier)
     }
 
     pub fn wrap(&mut self, wrap: bool) {
@@ -201,13 +207,13 @@ impl ResultsUI {
         let offset = self.bottom as u32;
         let end = (self.bottom + self.height) as u32;
 
-        let (mut results, mut widths, status) = worker.results(offset, end, &self.max_widths(), self.highlight_style(), matcher);
+        let (mut results, mut widths, status) = worker.results(offset, end, &self.max_widths(), self.match_style(), matcher);
 
         if status.matched_count < (self.bottom + self.cursor) as u32 {
             self.cursor_jump(status.matched_count);
         }
 
-        widths[0] += self.config.multi_prefix.width() as u16;
+        widths[0] += self.indentation() as u16;
 
         self.status = status;
 
@@ -243,14 +249,14 @@ impl ResultsUI {
                     total_height += height;
 
                     let prefix = if selections.contains(item) {
-                        self.config.multi_prefix.clone()
+                        self.config.multi_prefix.clone().to_string()
                     } else {
                         fit_width(
                             &substitute_escaped(
                                 &self.config.default_prefix,
                                 &[('d', &(start_index - 1).to_string()), ('r', &self.index().to_string())],
                             ),
-                            self.config.multi_prefix.width(),
+                            self.indentation(),
                         )
                     };
 
@@ -294,14 +300,14 @@ impl ResultsUI {
             }
 
             let prefix = if selections.contains(item) {
-                self.config.multi_prefix.clone()
+                self.config.multi_prefix.clone().to_string()
             } else {
                 fit_width(
                     &substitute_escaped(
                         &self.config.default_prefix,
                         &[('d', &i.to_string()), ('r', &self.index().to_string())],
                     ),
-                    self.config.multi_prefix.width(),
+                    self.indentation(),
                 )
             };
 
@@ -345,7 +351,7 @@ impl ResultsUI {
 
         let mut table = Table::new(rows, self.widths.clone()).column_spacing(self.config.column_spacing.0);
 
-        table = table.block(self.config.border.as_block());
+        table = table.block(self.config.border.as_block()).style(self.config.fg).add_modifier(self.config.modifier);
         table
     }
 

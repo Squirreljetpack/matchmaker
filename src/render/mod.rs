@@ -19,7 +19,7 @@ use crate::action::Action;
 use crate::config::{CursorSetting, ExitConfig};
 use crate::message::{Event, Interrupt, RenderCommand};
 use crate::tui::Tui;
-use crate::ui::{InputUI, PickerUI, PreviewUI, ResultsUI, UI};
+use crate::ui::{DisplayUI, InputUI, PickerUI, PreviewUI, ResultsUI, UI};
 use crate::{MatchError, MMItem, Selection};
 
 #[allow(clippy::too_many_arguments)]
@@ -317,7 +317,9 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
         let mut resized = false;
         tui.terminal
         .draw(|frame| {
-            let area = frame.area();
+            let mut area = frame.area();
+
+            render_ui(frame, &mut area, &ui);
 
             let [preview, picker_area] = if let Some(preview_ui) = preview_ui.as_mut()
             && preview_ui.is_show()
@@ -336,7 +338,7 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
 
 
 
-            let [input, status, results] = picker_ui.layout(picker_area);
+            let [input, status, header, results, footer] = picker_ui.layout(picker_area);
 
             resized = state.update_layout([preview, input, status, results]);
 
@@ -349,6 +351,8 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
             render_input(frame, input, &picker_ui.input);
             render_status(frame, status, &picker_ui.results);
             render_results(frame, results, &mut picker_ui);
+            render_display(frame, header, &picker_ui.header, picker_ui.results.indentation());
+            render_display(frame, footer, &picker_ui.footer, picker_ui.results.indentation());
 
             if let Some(preview_ui) = preview_ui.as_mut() {
                 state.update_preview_ui(preview_ui);
@@ -446,6 +450,18 @@ fn render_status(frame: &mut Frame, area: Rect, ui: &ResultsUI) {
     let widget = ui.make_status();
 
     frame.render_widget(widget, area);
+}
+
+fn render_display(frame: &mut Frame, area: Rect, ui: &DisplayUI, result_indentation: usize) {
+    let widget = ui.make_display(result_indentation);
+
+    frame.render_widget(widget, area);
+}
+
+fn render_ui(frame: &mut Frame, area: &mut Rect, ui: &UI) {
+    let widget = ui.make_ui();
+    frame.render_widget(widget, *area);
+    *area = ui.inner_area(area);
 }
 
 // -----------------------------------------------------------------------------------

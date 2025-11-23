@@ -61,6 +61,14 @@ macro_rules! impl_int_wrapper {
                 self.0 == other.0
             }
         }
+
+        impl std::ops::Deref for $name {
+            type Target = $inner;
+            fn deref(&self) -> &Self::Target { &self.0 }
+        }
+
+        impl std::ops::DerefMut for $name {
+            fn deref_mut(&mut self) -> &mut Self::Target { &mut self.0 }
+        }
     };
 }
-

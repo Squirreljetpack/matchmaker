@@ -106,7 +106,7 @@ Some actions can generate these triggers, as well usually performing a minimal a
 
 For example, the `Preview(bat {})` command generates a `PreviewChanged` event, and leaves the string contents as a payload in the render state. This render state is exposed to the handler, and is used to spawn the command which is then displayed to preview.
 
-As you can see, this paradigm fixes very little of the Preview action's behavior. The `Execute` action is another example: it simply leaves the tui before invoking the execute handler, then re-enters before the next render.
+As you can see, this paradigm fixes very little of the Preview action's behavior. The `Execute` action is another example: it simply leaves the tui before raising the execute interrupt, then re-enters before the next render -- the handler associated to the interrupt is what spawns the process in the main app.
 
 Consequently, there exist severable actions whose behaviors are open to modification to your own purposes if you so choose.
 

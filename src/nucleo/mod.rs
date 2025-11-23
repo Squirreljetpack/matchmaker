@@ -3,7 +3,7 @@ mod worker;
 pub mod query;
 pub mod variants;
 
-use std::{fmt::{self, Display, Formatter}, sync::Arc};
+use std::{fmt::{self, Display, Formatter}, sync::Arc, hash::{Hash, Hasher}};
 
 pub use variants::*;
 pub use worker::*;
@@ -16,7 +16,6 @@ pub use ratatui::{
 use crate::SegmentableItem;
 
 // ------------- Wrapper structs
-
 
 /// This struct implements ColumnIndexable, and can instantiate a worker with columns.
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
@@ -35,10 +34,24 @@ impl<T: SegmentableItem> ColumnIndexable for Segmented<T> {
     }
 }
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Indexed<T> {
     pub index: u32,
     pub inner: T,
+}
+
+impl<T> PartialEq for Indexed<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.index == other.index
+    }
+}
+
+impl<T> Eq for Indexed<T> {}
+
+impl<T> Hash for Indexed<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.index.hash(state)
+    }
 }
 
 impl<T: Clone> Indexed<T> {

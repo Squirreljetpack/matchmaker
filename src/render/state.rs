@@ -134,10 +134,8 @@ impl<S: Selection, C> State<S, C> {
         &self.preview_set
     }
 
-
-
     pub fn update_current(&mut self, new_current: Option<(u32, S)>) -> bool {
-        let changed = self.current != new_current;
+        let changed = self.current.as_ref().map(|x| x.0) != new_current.as_ref().map(|x| x.0);
         if changed {
             self.current = new_current;
             self.insert(Event::CursorChange);

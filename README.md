@@ -9,7 +9,7 @@ Matchmaker is a fuzzy searcher, powered by nucleo and written in rust.
 - Matching with [nucleo](https://github.com/helix-editor/nucleo).
 - Declarative configuration sourced from a [toml file](./assets/config.toml). (Cli parsing not yet implemented.)
 - Interactive preview supports color, scrolling, wrapping, multiple layouts, and even entering into an interactive view.
-- [FZF](https://github.com/junegunn/fzf)-derived actions.
+- [FZF](https://github.com/junegunn/fzf)-inspired actions.
 - Column support: Split input lines into multiple columns, that you can dynamically search, filter, highlight, return etc.
 - Available as a rust library to use in your own code.
 
@@ -26,7 +26,7 @@ find . | mm
 ```
 
 >[!NOTE]
-> Additionally, the default input and preview commands rely on fd, bat and eza. Install them or update your configuration for an optimal experience.
+> The default input and preview commands rely on fd, bat and eza. For an optimal experience, install them or update your configuration.
 
 ## Configuration
 
@@ -110,7 +110,7 @@ As you can see, this paradigm fixes very little of the Preview action's behavior
 
 Consequently, there exist severable actions whose behaviors are open to modification to your own purposes if you so choose.
 
-On the flip side however, the set of actions is an Enum and thus not generic and not customizable. (For full customizability, matchmaker will probably support in the future sending and receiving custom events).
+On the flip side however, the set of actions is not fixed. (For full customizability, matchmaker will probably support in the future sending and receiving custom events).
 
 For more information, check out the [examples](./examples/) and [Architecture.md](./ARCHITECTURE.md)
 

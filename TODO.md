@@ -2,15 +2,14 @@
 - sane defaults for ui
     - it would be nice to have presets like full, simple, and minimal presets like fzf
     - it would be nice to have color presets too maybe
-    - probably get rid of wrapper types for defaults?
 - Examples:
     - query change
     - frecency
     - api
 - active columnn format: {!}
 - header
-    -  from input (match results table widths?)
-    -  multiline
+    -  from input (match results table widths)
+    -  Change StringorVec to StringAndVec
 - multi format: {+}
 - column change propogates to pickerquery
 - dynamically adjusting column hide/filtering

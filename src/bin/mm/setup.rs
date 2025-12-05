@@ -32,7 +32,7 @@ pub fn enter() -> Result<MainConfig> {
     }
 
     let mut config = get_config(&cli.config)?;
-    cli.merge_config(&mut config);
+    cli.merge_config(&mut config)?;
 
     if cli.dump_config && ! atty::is(atty::Stream::Stdout) {
         let toml_str = toml::to_string_pretty(&config)

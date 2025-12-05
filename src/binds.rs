@@ -16,7 +16,7 @@ pub type BindMap = BTreeMap<Trigger, Actions>;
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum Trigger {
     Key(KeyCombination),
-    Mouse(MouseEvent),
+    Mouse(SimpleMouseEvent),
     Event(Event),
 }
 
@@ -44,8 +44,9 @@ impl PartialOrd for Trigger {
     }
 }
 
+/// Crossterm mouse event without location
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
-pub struct MouseEvent {
+pub struct SimpleMouseEvent {
     pub kind: MouseEventKind,
     pub modifiers: KeyModifiers,
 }
@@ -53,7 +54,7 @@ pub struct MouseEvent {
 // ---------- BOILERPLATE
 impl From<crossterm::event::MouseEvent> for Trigger {
     fn from(e: crossterm::event::MouseEvent) -> Self {
-        Trigger::Mouse(MouseEvent {
+        Trigger::Mouse(SimpleMouseEvent {
             kind: e.kind,
             modifiers: e.modifiers,
         })
@@ -175,7 +176,7 @@ impl<'de> serde::Deserialize<'de> for Trigger {
                             }
                         }
                     }
-                    return Ok(Trigger::Mouse(MouseEvent { kind, modifiers }));
+                    return Ok(Trigger::Mouse(SimpleMouseEvent { kind, modifiers }));
                 }
 
                 // 3. Try Event

@@ -5,11 +5,14 @@ use std::{
 
 use clap::Parser;
 use matchmaker::config::MainConfig;
+use anyhow::Result;
 
 #[derive(Debug, Parser, Default, Clone)]
 pub struct Cli {
     #[arg(long, value_name = "DIR", default_value_os = config_dir().as_os_str() )]
     pub config: PathBuf,
+    #[arg(long, value_name = "CONFIG_STR")]
+    pub config_string: Option<String>,
     #[arg(long)]
     pub dump_config: bool,
     #[arg(short = 'F')]
@@ -54,15 +57,18 @@ pub fn state_dir() -> Option<PathBuf> {
 
 pub fn logs_dir() -> &'static Path {
     static LOGS_DIR: LazyLock<PathBuf> = LazyLock::new(|| state_dir().unwrap_or_default());
-
     &LOGS_DIR
 }
 
 // ----------------------- CONFIG
 impl Cli {
-    pub fn merge_config(&self, config: &mut MainConfig) {
+    pub fn merge_config(&self, config: &mut MainConfig) -> Result<()> {
+        if let Some(s) = &self.config_string {
+            *config = toml::from_str(s)?;
+        };
         if self.fullscreen {
             config.config.tui.layout = None;
         }
+        Ok(())
     }
 }

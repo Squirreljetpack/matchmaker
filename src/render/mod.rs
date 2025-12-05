@@ -46,6 +46,7 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
         let mut did_pause = false;
         let mut did_exit = false;
 
+        // todo: benchmark vs drain
         for event in &buffer {
             let mut interrupt = Interrupt::None;
 
@@ -153,7 +154,6 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
                                 }
                             };
                         }
-
                         Action::SwitchPreview(idx) => {
                             if let Some(p) = preview_ui.as_mut() {
                                 if let Some(idx) = idx {
@@ -260,6 +260,12 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
                         // Experimental/Debugging
                         Action::Redraw => {
                             tui.redraw();
+                        }
+                        Action::Event(context) => {
+                            state.insert(Event::Custom(context.into()));
+                        }
+                        Action::Custom(context) => {
+                            interrupt = Interrupt::Custom(context.into());
                         }
                         _ => {}
                     }

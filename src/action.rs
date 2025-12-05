@@ -34,6 +34,7 @@ pub enum Action {
     SetPrompt(Option<String>),
     Column(usize),
     CycleColumn,
+
     // Unimplemented
     HistoryUp,
     HistoryDown,
@@ -61,8 +62,11 @@ pub enum Action {
     PreviewHalfPageDown,
     Pos(i32),
 
-    // Experimental/Debugging
+    // Other/Experimental/Debugging
     Redraw,
+    Event(String), // For aesthetics, this is de/serialized as :x:
+    Custom(String), // delimited as ::x::
+
 }
 
 impl serde::Serialize for Action {
@@ -105,17 +109,10 @@ impl<'de> Deserialize<'de> for Actions {
     where
     D: serde::Deserializer<'de>,
     {
-        #[derive(Debug, Deserialize)]
-        #[serde(untagged)]
-        enum Helper {
-            Single(String),
-            Multiple(Vec<String>),
-        }
-
-        let helper = Helper::deserialize(deserializer)?;
+        let helper = StringOrVec::deserialize(deserializer)?;
         let strings = match helper {
-            Helper::Single(s) => vec![s],
-            Helper::Multiple(v) => v,
+            StringOrVec::String(s) => vec![s],
+            StringOrVec::Vec(v) => v,
         };
 
         let mut actions = Vec::with_capacity(strings.len());
@@ -131,7 +128,7 @@ impl<'de> Deserialize<'de> for Actions {
 impl Serialize for Actions {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: Serializer,
+    S: Serializer,
     {
         match self.0.len() {
             1 => serializer.serialize_str(&self.0[0].to_string()),
@@ -185,6 +182,13 @@ macro_rules! impl_display_and_from_str_enum {
                             write!(f, concat!(stringify!($tuple_string_default), "({})"), inner)
                         }
                     }, )*
+
+                    Self::Event(inner) => {
+                        write!(f, "::{}::", inner)
+                    },
+                    Self::Custom(inner) => {
+                        write!(f, ":{}:", inner)
+                    }
                 }
             }
         }
@@ -204,20 +208,27 @@ macro_rules! impl_display_and_from_str_enum {
                 };
 
                 match name {
-                    $( stringify!($unit) => Ok(Self::$unit), )*
+                    $( stringify!($unit) => {
+                        if data.is_some() {
+                            Err(format!("Unexpected data for unit variant {}", name))
+                        } else
+                        {
+                            Ok(Self::$unit)
+                        }
+                    }, )*
 
                     $( stringify!($tuple) => {
                         let d = data
-                            .ok_or_else(|| format!("Missing data for {}", stringify!($tuple)))?
-                            .parse()
-                            .map_err(|_| format!("Invalid data for {}", stringify!($tuple)))?;
+                        .ok_or_else(|| format!("Missing data for {}", stringify!($tuple)))?
+                        .parse()
+                        .map_err(|_| format!("Invalid data for {}", stringify!($tuple)))?;
                         Ok(Self::$tuple(d))
                     }, )*
 
                     $( stringify!($tuple_default) => {
                         let d = match data {
                             Some(val) => val.parse()
-                                .map_err(|_| format!("Invalid data for {}", stringify!($tuple_default)))?,
+                            .map_err(|_| format!("Invalid data for {}", stringify!($tuple_default)))?,
                             None => Default::default(),
                         };
                         Ok(Self::$tuple_default(d))
@@ -241,7 +252,17 @@ macro_rules! impl_display_and_from_str_enum {
                         Ok(Self::$tuple_string_default(d))
                     }, )*
 
-                    _ => Err(format!("Unknown variant {}", name)),
+                    s => {
+                        if let Some(inner) = s.strip_prefix("::")
+                        .and_then(|s| s.strip_suffix("::")) {
+                            Ok(Self::Event(inner.to_string()))
+                        } else if let Some(inner) = s.strip_prefix(":")
+                        .and_then(|s| s.strip_suffix(":")) {
+                            Ok(Self::Custom(inner.to_string()))
+                        } else {
+                            Err(format!("Unknown variant {}", name))
+                        }
+                    }
                 }
             }
         }
@@ -250,8 +271,7 @@ macro_rules! impl_display_and_from_str_enum {
 
 // call it like:
 impl_display_and_from_str_enum!(
-    Action,
-    Select, Deselect, Toggle, CycleAll, Accept, CyclePreview, CycleColumn,
+    Action, Select, Deselect, Toggle, CycleAll, Accept, CyclePreview, CycleColumn,
     PreviewHalfPageUp, PreviewHalfPageDown, HistoryUp, HistoryDown,
     ChangePrompt, ChangeQuery, ToggleWrap, ToggleWrapPreview, ForwardChar,
     BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord,
@@ -266,7 +286,7 @@ impl_display_and_from_str_enum!(
     Help
 );
 
-use crate::{impl_int_wrapper};
+use crate::{config::StringOrVec, impl_int_wrapper};
 impl_int_wrapper!(Exit, i32, 1);
 impl_int_wrapper!(Count, u16, 1);
 

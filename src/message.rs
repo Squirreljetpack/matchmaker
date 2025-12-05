@@ -1,7 +1,8 @@
+use crossterm::event::MouseEvent;
 use ratatui::layout::Rect;
 use strum_macros::{Display, EnumString};
 
-use crate::action::{Action, Exit};
+use crate::{action::{Action, Exit}};
 
 #[derive(Debug, Hash, PartialEq, Eq, EnumString, Clone, Display)]
 #[strum(serialize_all = "lowercase")]
@@ -17,6 +18,7 @@ pub enum Event {
     Refresh,
     Pause,
     Resume,
+    Custom(String)
 }
 
 #[derive(Default, Debug, Clone)]
@@ -28,6 +30,7 @@ pub enum Interrupt {
     Execute(String),
     Print(String),
     Reload(String),
+    Custom(String)
 }
 
 impl PartialEq for Interrupt {
@@ -44,6 +47,7 @@ pub enum RenderCommand {
     Bind,
     Action(Action),
     Input(char),
+    Mouse(MouseEvent),
     Resize(Rect),
     Ack,
     Tick,

@@ -12,8 +12,6 @@ use std::{
     sync::LazyLock,
 };
 
-use log::error;
-
 // todo: support -i
 pub fn spawn(
     cmd: &str,
@@ -32,7 +30,7 @@ pub fn spawn(
         .stdout(stdout)
         .stderr(stderr)
         .spawn()
-        .map_err(|e| error!("Failed to spawn command {cmd}: {e}"))
+        .map_err(|e| log::error!("Failed to spawn command {cmd}: {e}"))
         .ok()
 }
 
@@ -85,11 +83,9 @@ static SHELL: LazyLock<(String, String)> = LazyLock::new(|| {
     }
     #[cfg(unix)]
     {
-        use log::debug;
-
         let path = env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
         let flag = "-c".to_string();
-        debug!("SHELL: {}, {}", path, flag);
+        log::debug!("SHELL: {}, {}", path, flag);
         (path, flag)
     }
 });

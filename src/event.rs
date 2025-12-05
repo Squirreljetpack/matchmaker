@@ -119,10 +119,10 @@ impl EventLoop {
                 }
             }
 
-            // prioritize pause. Any event that is still processing or already in render queue
+            // flush controller events
             while let Ok(event) = self.controller_rx.try_recv() {
-                if self.handle_event(event) {
-                }
+                // todo: note that our dynamic event handlers don't detect events originating outside of render currently, tho maybe we could reseed here
+                self.handle_event(event);
             };
 
             self.txs.retain(|tx| !tx.is_closed());
@@ -154,7 +154,6 @@ impl EventLoop {
 
                 Some(event) = self.controller_rx.recv() => {
                     self.handle_event(event);
-                    // todo: note that our dynamic event handlers don't detect events originating outside of render currently, maybe we could reseed through render somehow
                 }
 
                 // Input ready
@@ -165,7 +164,8 @@ impl EventLoop {
                             match event {
                                 CrosstermEvent::Key(k) => {
                                     info!("{k:?}");
-                                    if let Some(key) = self.combiner.transform(k) {
+                                    if let Some(key) = self.combiner.transform(k) { // unwrap here?
+                                        info!("{key:?}");
                                         let key = KeyCombination::normalized(key);
                                         if let Some(actions) = self.binds.get(&key.into()) {
                                             self.send_actions(actions);
@@ -193,7 +193,6 @@ impl EventLoop {
                                                 _ => {}
                                             }
                                         }
-                                        info!("You typed {}", self.print_key(key));
                                     }
                                 }
                                 CrosstermEvent::Mouse(mouse) => {
@@ -237,7 +236,7 @@ impl EventLoop {
         }
     }
 
-    fn print_key(&self, key_combination: KeyCombination) -> String {
+    pub fn print_key(&self, key_combination: KeyCombination) -> String {
         self.fmt.to_string(key_combination)
     }
 

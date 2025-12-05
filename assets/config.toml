@@ -27,6 +27,12 @@ percentage = 50
 min = 5
 max = 50
 
+[[preview.layout]]
+side = "right"
+percentage = 75
+min = 5
+max = 240
+
 [binds]
 # UI
 "ctrl-c" = "Quit"
@@ -63,8 +69,10 @@ max = 50
 "shift+scrolldown" = "PreviewDown"
 "?" = "SwitchPreview"
 "shift-?" = "SwitchPreview"
+"ctrl-7" = "CyclePreview" # ctrl-shift-/
 "alt-h" = "Help"
 "alt-1" = "Pos(0)"
+# todo: changing between preview presets, widths
 
 # Programmable
 "ctrl-l" = "Execute(eval $FZF_PREVIEW_COMMAND | $PAGER)"

@@ -16,7 +16,7 @@ Matchmaker is a fuzzy searcher, powered by nucleo and written in rust.
 ## Installation
 
 ```sh
-cargo install matchmaker
+cargo install match-maker # note the hyphen!
 ```
 
 Pass it some items:

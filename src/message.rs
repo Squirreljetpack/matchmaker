@@ -17,6 +17,7 @@ pub enum Event {
     Refresh,
     Pause,
     Resume,
+    Custom(String)
 }
 
 #[derive(Default, Debug, Clone)]
@@ -28,6 +29,7 @@ pub enum Interrupt {
     Execute(String),
     Print(String),
     Reload(String),
+    Custom(String)
 }
 
 impl PartialEq for Interrupt {

@@ -6,7 +6,6 @@ use crate::{
 
 use super::{injector::{self}, Text, worker::{Column, Worker}};
 
-// C is not generic because not sure about how C should be used/passed
 impl<T: MMItem> Worker<T> {
     /// Returns a function which templates a string given an item using the column functions
     pub fn make_format_fn<const QUOTE: bool>(
@@ -45,7 +44,7 @@ impl<T: MMItem> Worker<T> {
                                 _ => columns
                                 .iter()
                                 .find(|col| &*col.name == key.as_str())
-                                .map(|col| col.format_text(item, &()))
+                                .map(|col| col.format_text(item))
                                 .unwrap_or_else(|| Cow::Borrowed("")),
                             };
 
@@ -74,12 +73,13 @@ impl<T: MMItem> Worker<T> {
     }
 }
 
+// For simplicity, we don't support context
 pub trait Render {
-    fn as_str(&self) -> &str;
+    fn as_str(&self) -> std::borrow::Cow<'_, str>;
 }
 impl<T: AsRef<str>> Render for T {
-    fn as_str(&self) -> &str {
-        self.as_ref()
+    fn as_str(&self) -> std::borrow::Cow<'_, str> {
+        self.as_ref().into()
     }
 }
 
@@ -87,11 +87,10 @@ impl<T: Render + MMItem> Worker<Indexed<T>> {
     /// Create a new worker over items which are displayed in the picker as exactly their as_str representation.
     pub fn new_single_column() -> Self {
         Self::new(
-            vec![Column::new("_", |item: &Indexed<T>, _context: &()| {
+            vec![Column::new("_", |item: &Indexed<T>| {
                 Text::from(item.inner.as_str())
             })],
             0,
-            (),
         )
     }
 
@@ -103,7 +102,6 @@ impl<T: Render + MMItem> Worker<Indexed<T>> {
                 &self.nucleo.injector(),
                 &self.columns,
                 Indexed { index, inner },
-                &(),
             );
             index += 1;
         }
@@ -128,12 +126,12 @@ T: ColumnIndexable + MMItem,
         let columns = column_names.into_iter().enumerate().map(|(i, name)| {
             let name = name.into();
 
-            Column::new(name, move |item: &T, _| {
+            Column::new(name, move |item: &T| {
                 let text = item.index(i);
                 Text::from(text)
             })
         });
 
-        Self::new(columns, 0, ())
+        Self::new(columns, 0)
     }
 }

@@ -22,16 +22,16 @@ use crate::{MMItem, utils::text::{plain_text, wrap_text}};
 
 use super::{injector::WorkerInjector, query::PickerQuery};
 
-type ColumnFormatFn<T, C> = Box<dyn for<'a> Fn(&'a T, &'a C) -> Text<'a> + Send + Sync>;
-pub struct Column<T, D = ()> {
+type ColumnFormatFn<T> = Box<dyn for<'a> Fn(&'a T) -> Text<'a> + Send + Sync>;
+pub struct Column<T> {
     pub name: Arc<str>,
-    pub(super) format: ColumnFormatFn<T, D>,
+    pub(super) format: ColumnFormatFn<T>,
     /// Whether the column should be passed to nucleo for matching and filtering.
     pub(super) filter: bool,
 }
 
-impl<T, D> Column<T, D> {
-    pub fn new_boxed(name: impl Into<Arc<str>>, format: ColumnFormatFn<T, D>) -> Self {
+impl<T> Column<T> {
+    pub fn new_boxed(name: impl Into<Arc<str>>, format: ColumnFormatFn<T>) -> Self {
         Self {
             name: name.into(),
             format,
@@ -41,7 +41,7 @@ impl<T, D> Column<T, D> {
 
     pub fn new<F>(name: impl Into<Arc<str>>, f: F) -> Self
     where
-    F: for<'a> Fn(&'a T, &'a D) -> Text<'a> + Send + Sync + 'static,
+    F: for<'a> Fn(&'a T) -> Text<'a> + Send + Sync + 'static,
     {
         Self {
             name: name.into(),
@@ -55,17 +55,17 @@ impl<T, D> Column<T, D> {
         self
     }
 
-    pub(super) fn format<'a>(&self, item: &'a T, context: &'a D) -> Text<'a> {
-        (self.format)(item, context)
+    pub(super) fn format<'a>(&self, item: &'a T) -> Text<'a> {
+        (self.format)(item)
     }
 
-    pub(super) fn format_text<'a>(&self, item: &'a T, context: &'a D) -> Cow<'a, str> {
-        Cow::Owned(plain_text(&(self.format)(item, context)))
+    pub(super) fn format_text<'a>(&self, item: &'a T) -> Cow<'a, str> {
+        Cow::Owned(plain_text(&(self.format)(item)))
     }
 }
 
 /// Worker: can instantiate, can push, can get lines and get nth, a view into computation
-pub struct Worker<T, C = ()>
+pub struct Worker<T>
 where
 T: MMItem,
 {
@@ -76,21 +76,19 @@ T: MMItem,
     /// A pre-allocated buffer used to collect match indices when fetching the results
     /// from the matcher. This avoids having to re-allocate on each pass.
     pub(super) col_indices_buffer: Vec<u32>,
-    pub(crate) columns: Arc<[Column<T, C>]>,
-    pub(super) context: Arc<C>,
+    pub(crate) columns: Arc<[Column<T>]>,
 
     // Background tasks which push to the injector check their version matches this or exit
     pub(super) version: Arc<AtomicU32>,
 }
 
-impl<T, C> Worker<T, C>
+impl<T> Worker<T>
 where
 T: MMItem,
 {
     pub fn new(
-        columns: impl IntoIterator<Item = Column<T, C>>,
+        columns: impl IntoIterator<Item = Column<T>>,
         default_column: usize,
-        context: C,
     ) -> Self {
         let columns: Arc<[_]> = columns.into_iter().collect();
         let matcher_columns = columns.iter().filter(|col| col.filter).count() as u32;
@@ -107,16 +105,14 @@ T: MMItem,
             col_indices_buffer: Vec::with_capacity(128),
             query: PickerQuery::new(columns.iter().map(|col| &col.name).cloned(), default_column),
             columns,
-            context: Arc::new(context),
             version: Arc::new(AtomicU32::new(0)),
         }
     }
 
-    pub fn injector(&self) -> WorkerInjector<T, C> {
+    pub fn injector(&self) -> WorkerInjector<T> {
         WorkerInjector {
             inner: self.nucleo.injector(),
             columns: self.columns.clone(),
-            context: self.context.clone(),
             version: self.version.load(atomic::Ordering::Relaxed),
             picker_version: self.version.clone(),
         }
@@ -216,7 +212,7 @@ pub enum WorkerError {
     InjectorShutdown,
 }
 
-impl<T: MMItem, C> Worker<T, C> {
+impl<T: MMItem> Worker<T> {
     pub fn results(
         &mut self,
         start: u32,
@@ -246,7 +242,7 @@ impl<T: MMItem, C> Worker<T, C> {
             .map(|(column, &width_limit)| {
 
                 let max_width = widths.next().unwrap();
-                let cell = column.format(item.data, &self.context);
+                let cell = column.format(item.data);
 
                 // 0 represents hide
                 if width_limit == 0 {

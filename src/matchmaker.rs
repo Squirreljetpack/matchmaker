@@ -27,17 +27,16 @@ use crate::{
 /// 4. Register your handlers
 ///    4.5 Start and connect your previewer
 /// 5. Call mm.pick() or mm.pick_with_matcher(&mut matcher)
-pub struct Matchmaker<T: MMItem, S: Selection=T, C=()> {
-    pub worker: Worker<T, C>,
+pub struct Matchmaker<T: MMItem, S: Selection=T> {
+    pub worker: Worker<T>,
     render_config: RenderConfig,
     bind_config: BindMap,
     tui_config: TerminalConfig,
     exit_config: ExitConfig,
     selection_set: SelectionSet<T, S>,
     event_loop: EventLoop,
-    context: Arc<C>,
-    event_handlers: EventHandlers<T, S, C>,
-    interrupt_handlers: InterruptHandlers<T, S, C>,
+    event_handlers: EventHandlers<T, S>,
+    interrupt_handlers: InterruptHandlers<T, S>,
     previewer: Option<Preview>
 }
 
@@ -125,7 +124,6 @@ impl ConfigMatchmaker {
             tui_config: config.tui,
             exit_config: matcher_config.exit,
             selection_set,
-            context: Arc::new(()),
             event_loop: EventLoop::new(),
             event_handlers,
             interrupt_handlers,
@@ -150,7 +148,6 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S> {
             tui_config: TerminalConfig::default(),
             exit_config: ExitConfig::default(),
             selection_set: SelectionSet::new(identifier),
-            context: Arc::new(()),
             event_loop: EventLoop::new(),
             event_handlers: EventHandlers::new(),
             interrupt_handlers: InterruptHandlers::new(),
@@ -159,9 +156,9 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S> {
     }
 }
 
-impl<T: MMItem, S: Selection, C> Matchmaker<T, S, C>
+impl<T: MMItem, S: Selection> Matchmaker<T, S>
 {
-    pub fn new_raw(worker: Worker<T, C>, identifier: fn(&T) -> (u32, S), context: Arc<C>) -> Self {
+    pub fn new_raw(worker: Worker<T>, identifier: fn(&T) -> (u32, S)) -> Self {
         Matchmaker {
             worker,
             bind_config: BindMap::new(),
@@ -169,7 +166,6 @@ impl<T: MMItem, S: Selection, C> Matchmaker<T, S, C>
             tui_config: TerminalConfig::default(),
             exit_config: ExitConfig::default(),
             selection_set: SelectionSet::new(identifier),
-            context,
             event_handlers: EventHandlers::new(),
             event_loop: EventLoop::new(),
             interrupt_handlers: InterruptHandlers::new(),
@@ -211,7 +207,7 @@ impl<T: MMItem, S: Selection, C> Matchmaker<T, S, C>
     /// Register a handler to listen on [`Event`]s
     pub fn register_event_handler<F, I>(&mut self, events: I, handler: F)
     where
-    F: Fn(&mut EphemeralState<'_, T, S, C>, &Event) + Send + Sync + 'static,
+    F: Fn(&mut EphemeralState<'_, T, S>, &Event) + Send + Sync + 'static,
     I: IntoIterator<Item = Event>,
     {
         let boxed = Box::new(handler);
@@ -221,7 +217,7 @@ impl<T: MMItem, S: Selection, C> Matchmaker<T, S, C>
     pub fn register_boxed_event_handler<I>(
         &mut self,
         events: I,
-        handler: DynamicMethod<T, S, C, Event>,
+        handler: DynamicMethod<T, S, Event>,
     )
     where
     I: IntoIterator<Item = Event>,
@@ -236,7 +232,7 @@ impl<T: MMItem, S: Selection, C> Matchmaker<T, S, C>
         handler: F,
     )
     where
-    F: Fn(&mut EphemeralState<'_, T, S, C>, &Interrupt) + Send + Sync + 'static,
+    F: Fn(&mut EphemeralState<'_, T, S>, &Interrupt) + Send + Sync + 'static,
     {
         let boxed = Box::new(handler);
         self.register_boxed_interrupt_handler(interrupt, boxed);
@@ -245,7 +241,7 @@ impl<T: MMItem, S: Selection, C> Matchmaker<T, S, C>
     pub fn register_boxed_interrupt_handler(
         &mut self,
         variant: Interrupt,
-        handler: DynamicMethod<T, S, C, Interrupt>,
+        handler: DynamicMethod<T, S, Interrupt>,
     ) {
         self.interrupt_handlers.set(variant, handler);
     }
@@ -271,7 +267,7 @@ impl<T: MMItem, S: Selection, C> Matchmaker<T, S, C>
 
         let (ui, picker, preview) = UI::new(self.render_config, matcher, self.worker, self.selection_set, self.previewer, &mut tui);
 
-        render::render_loop(ui, picker, preview, tui, render_rx, event_controller, self.context, (self.event_handlers, self.interrupt_handlers), self.exit_config).await
+        render::render_loop(ui, picker, preview, tui, render_rx, event_controller,(self.event_handlers, self.interrupt_handlers), self.exit_config).await
     }
 
     pub async fn pick(self) -> Result<Vec<S>, MatchError> {
@@ -281,7 +277,7 @@ impl<T: MMItem, S: Selection, C> Matchmaker<T, S, C>
 }
 // ------------ BOILERPLATE ---------------
 
-impl<T: MMItem + Debug, S: Selection + Debug, C: Debug> Debug for Matchmaker<T, S, C> {
+impl<T: MMItem + Debug, S: Selection + Debug> Debug for Matchmaker<T, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Matchmaker")
         // omit `worker`
@@ -289,7 +285,6 @@ impl<T: MMItem + Debug, S: Selection + Debug, C: Debug> Debug for Matchmaker<T, 
         .field("bind_config", &self.bind_config)
         .field("tui_config", &self.tui_config)
         .field("selection_set", &self.selection_set)
-        .field("context", &self.context)
         .field("event_handlers", &self.event_handlers)
         .field("interrupt_handlers", &self.interrupt_handlers)
         .field("previewer", &self.previewer)

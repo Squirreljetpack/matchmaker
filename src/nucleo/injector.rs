@@ -50,20 +50,19 @@ impl Injector for () {
     type InputItem = ();
 }
 
-pub struct WorkerInjector<T, C = ()> {
+pub struct WorkerInjector<T> {
     pub(super) inner: nucleo::Injector<T>,
-    pub(super) columns: Arc<[Column<T, C>]>,
-    pub(super) context: Arc<C>,
+    pub(super) columns: Arc<[Column<T>]>,
     pub(super) version: u32,
     pub(super) picker_version: Arc<AtomicU32>,
 }
 
 
 
-impl<T: MMItem, C> Injector for WorkerInjector<T, C> {
+impl<T: MMItem> Injector for WorkerInjector<T> {
     type InputItem = T;
     type Inner = ();
-    type Context = Worker<T, C>;
+    type Context = Worker<T>;
 
     fn new(_: Self::Inner, data: Self::Context) -> Self {
         data.injector()
@@ -84,15 +83,15 @@ impl<T: MMItem, C> Injector for WorkerInjector<T, C> {
         if self.version != self.picker_version.load(Ordering::Relaxed) {
             return Err(WorkerError::InjectorShutdown);
         }
-        push_impl(&self.inner, &self.columns, item, &self.context);
+        push_impl(&self.inner, &self.columns, item);
         Ok(())
     }
 }
 
-pub(super) fn push_impl<T, C>(injector: &nucleo::Injector<T>, columns: &[Column<T, C>], item: T, context: &C) {
+pub(super) fn push_impl<T>(injector: &nucleo::Injector<T>, columns: &[Column<T>], item: T) {
     injector.push(item, |item, dst| {
         for (column, text) in columns.iter().filter(|column| column.filter).zip(dst) {
-            *text = column.format_text(item, context).into()
+            *text = column.format_text(item).into()
         }
     });
 }
@@ -176,12 +175,11 @@ impl<T: SegmentableItem, I: Injector<InputItem = Segmented<T>>> Injector
 
 
 // ----------- CLONE ----------------------------
-impl<T, C> Clone for WorkerInjector<T, C> {
+impl<T> Clone for WorkerInjector<T> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
             columns: Arc::clone(&self.columns),
-            context: Arc::clone(&self.context),
             version: self.version,
             picker_version: Arc::clone(&self.picker_version),
         }

@@ -27,14 +27,14 @@ pub struct UI {
 }
 
 impl UI {
-    pub fn new<'a, T: MMItem, S: Selection, C, W: std::io::Write>(
+    pub fn new<'a, T: MMItem, S: Selection, W: std::io::Write>(
         mut config: RenderConfig,
         matcher: &'a mut nucleo::Matcher,
-        worker: Worker<T, C>,
+        worker: Worker<T>,
         selection_set: SelectionSet<T, S>,
         view: Option<Preview>,
         tui: &mut Tui<W>,
-    ) -> (Self, PickerUI<'a, T, S, C>, Option<PreviewUI>) {
+    ) -> (Self, PickerUI<'a, T, S>, Option<PreviewUI>) {
         if config.results.reverse.is_none() {
             config.results.reverse = Some(
                 tui.is_fullscreen() && tui.area.y < tui.area.height / 2
@@ -76,24 +76,24 @@ impl UI {
     }
 }
 
-pub struct PickerUI<'a, T: MMItem, S: Selection, C> {
+pub struct PickerUI<'a, T: MMItem, S: Selection> {
     pub results: ResultsUI,
     pub input: InputUI,
     pub header: DisplayUI,
     pub footer: DisplayUI,
     pub matcher: &'a mut nucleo::Matcher,
     pub selections: SelectionSet<T, S>,
-    pub worker: Worker<T, C>,
+    pub worker: Worker<T>,
 }
 
-impl<'a, T: MMItem, S: Selection, C> PickerUI<'a, T, S, C> {
+impl<'a, T: MMItem, S: Selection> PickerUI<'a, T, S> {
     pub fn new(
         results_config: ResultsConfig,
         input_config: InputConfig,
         header_config: DisplayConfig,
         footer_config: DisplayConfig,
         matcher: &'a mut nucleo::Matcher,
-        worker: Worker<T, C>,
+        worker: Worker<T>,
         selections: SelectionSet<T, S>,
     ) -> Self {
         Self {
@@ -135,7 +135,7 @@ impl<'a, T: MMItem, S: Selection, C> PickerUI<'a, T, S, C> {
     }
 }
 
-impl<'a, T: MMItem, O: Selection, C> PickerUI<'a, T, O, C> {
+impl<'a, T: MMItem, O: Selection> PickerUI<'a, T, O> {
     pub fn make_table(&mut self) -> Table<'_> {
         self.results
         .make_table(&mut self.worker, &mut self.selections, self.matcher)

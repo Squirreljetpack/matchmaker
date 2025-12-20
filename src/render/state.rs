@@ -5,7 +5,6 @@ layout::Rect
 use std::{
     collections::HashSet,
     ops::Deref,
-    sync::Arc,
 };
 
 use crate::{
@@ -15,7 +14,7 @@ use crate::{
 // --------------------------------------------------------------------
 // todo: use bitflag for more efficient hashmap
 
-pub struct State<S: Selection, C> {
+pub struct State<S: Selection> {
     pub current: Option<(u32, S)>,
     pub input: String,
     pub col: Option<usize>,
@@ -24,7 +23,6 @@ pub struct State<S: Selection, C> {
     preview_set: Option<String>,
     // pub execute_payload: Option<String>,
     // pub become_payload: Option<String>,
-    pub context: Arc<C>,
     pub iterations: u32,
     pub preview_show: bool,
     pub layout: [Rect; 4],
@@ -32,19 +30,19 @@ pub struct State<S: Selection, C> {
     events: HashSet<Event>,
 }
 
-pub struct EphemeralState<'a, T: MMItem, S: Selection, C> {
-    state: &'a State<S, C>,
+pub struct EphemeralState<'a, T: MMItem, S: Selection> {
+    state: &'a State<S>,
 
-    picker_ui: &'a PickerUI<'a, T, S, C>,
+    picker_ui: &'a PickerUI<'a, T, S>,
     pub area: &'a Rect,
     pub previewer_area: Option<Rect>,
     pub effects: Effects,
 }
 
-impl<'a, T: MMItem, S: Selection, C> EphemeralState<'a, T, S, C> {
+impl<'a, T: MMItem, S: Selection> EphemeralState<'a, T, S> {
     pub fn new(
-        state: &'a State<S, C>,
-        picker_ui: &'a PickerUI<T, S, C>,
+        state: &'a State<S>,
+        picker_ui: &'a PickerUI<T, S>,
         area: &'a Rect,
         previewer_area: Option<Rect>,
     ) -> Self {
@@ -61,7 +59,7 @@ impl<'a, T: MMItem, S: Selection, C> EphemeralState<'a, T, S, C> {
         self.picker_ui.worker.get_nth(self.picker_ui.results.index())
     }
 
-    pub fn injector(&self) -> WorkerInjector<T, C> {
+    pub fn injector(&self) -> WorkerInjector<T> {
         self.picker_ui.worker.injector()
     }
 
@@ -88,15 +86,15 @@ impl<'a, T: MMItem, S: Selection, C> EphemeralState<'a, T, S, C> {
         }
     }
 
-    pub fn dispatch<E>(&self, handler: &DynamicMethod<T, S, C, E>, event: &E, effects: &mut Effects) {
+    pub fn dispatch<E>(&self, handler: &DynamicMethod<T, S, E>, event: &E, effects: &mut Effects) {
         let mut d = self.clone();
         (handler)(&mut d, event);
         *effects |= d.effects;
     }
 }
 
-impl<S: Selection, C> State<S, C> {
-    pub fn new(context: Arc<C>) -> Self {
+impl<S: Selection> State<S> {
+    pub fn new() -> Self {
         Self {
             current: None,
 
@@ -106,7 +104,6 @@ impl<S: Selection, C> State<S, C> {
             layout: [Rect::default(); 4],
             col: None,
 
-            context,
             input: String::new(),
             iterations: 0,
 
@@ -200,7 +197,7 @@ impl<S: Selection, C> State<S, C> {
         self.iterations += 1;
     }
 
-    pub fn update<'a, T: MMItem>(&'a mut self, picker_ui: &'a PickerUI<T, S, C>){
+    pub fn update<'a, T: MMItem>(&'a mut self, picker_ui: &'a PickerUI<T, S>){
         self.update_input(&picker_ui.input.input);
         self.col = picker_ui.results.col();
 
@@ -208,7 +205,7 @@ impl<S: Selection, C> State<S, C> {
         self.update_current(current_raw.map(picker_ui.selections.identifier));
     }
 
-    pub fn dispatcher<'a, T: MMItem>(&'a self, ui: &'a UI, picker_ui: &'a PickerUI<T, S, C>, preview_ui: Option<&PreviewUI>) -> (EphemeralState<'a, T, S, C>, Effects) {
+    pub fn dispatcher<'a, T: MMItem>(&'a self, ui: &'a UI, picker_ui: &'a PickerUI<T, S>, preview_ui: Option<&PreviewUI>) -> (EphemeralState<'a, T, S>, Effects) {
         (
             EphemeralState::new(self,
                 picker_ui,
@@ -245,7 +242,7 @@ bitflags! {
 
 
 // ----- BOILERPLATE -----------
-impl<S: Selection, C> std::fmt::Debug for State<S, C> {
+impl<S: Selection> std::fmt::Debug for State<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("State")
         .field("input", &self.input)
@@ -258,15 +255,15 @@ impl<S: Selection, C> std::fmt::Debug for State<S, C> {
     }
 }
 
-impl<'a, T: MMItem, S: Selection, C> Deref for EphemeralState<'a, T, S, C> {
-    type Target = State<S, C>;
+impl<'a, T: MMItem, S: Selection> Deref for EphemeralState<'a, T, S> {
+    type Target = State<S>;
 
     fn deref(&self) -> &Self::Target {
         self.state
     }
 }
 
-impl<'a, T: MMItem, S: Selection, L> Clone for EphemeralState<'a, T, S, L> {
+impl<'a, T: MMItem, S: Selection> Clone for EphemeralState<'a, T, S> {
     fn clone(&self) -> Self {
         Self {
             state: self.state,

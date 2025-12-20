@@ -7,7 +7,6 @@ pub use state::*;
 // ------------------------------
 
 use std::io::Write;
-use std::sync::Arc;
 
 use anyhow::Result;
 use log::{info, warn};
@@ -23,19 +22,18 @@ use crate::ui::{DisplayUI, InputUI, PickerUI, PreviewUI, ResultsUI, UI};
 use crate::{MatchError, MMItem, Selection};
 
 #[allow(clippy::too_many_arguments)]
-pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, C>(
+pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection>(
     mut ui: UI,
-    mut picker_ui: PickerUI<'a, T, S, C>,
+    mut picker_ui: PickerUI<'a, T, S>,
     mut preview_ui: Option<PreviewUI>,
     mut tui: Tui<W>,
     mut render_rx: mpsc::UnboundedReceiver<RenderCommand>,
     controller_tx: mpsc::UnboundedSender<Event>,
-    context: Arc<C>,
-    dynamic_handlers: DynamicHandlers<T, S, C>,
+    dynamic_handlers: DynamicHandlers<T, S>,
     exit_config: ExitConfig,
 ) -> Result<Vec<S>, MatchError> {
     let mut buffer = Vec::with_capacity(256);
-    let mut state: State<S, C> = State::new(context);
+    let mut state: State<S> = State::new();
     if let Some(ref preview_ui) = preview_ui
     && !preview_ui.command().is_empty()
     {
@@ -433,10 +431,10 @@ fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {
     frame.render_widget(widget, area);
 }
 
-fn render_results<T: MMItem, S: Selection, C>(
+fn render_results<T: MMItem, S: Selection>(
     frame: &mut Frame,
     area: Rect,
-    ui: &mut PickerUI<T, S, C>,
+    ui: &mut PickerUI<T, S>,
 ) {
     let widget = ui.make_table();
 

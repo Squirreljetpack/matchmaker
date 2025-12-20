@@ -198,9 +198,9 @@ impl ResultsUI {
 
     // this updates the internal status, so be sure to call make_status afterward
     // some janky wrapping is implemented, dunno whats causing flickering, padding is fixed going down only
-    pub fn make_table<'a, T: MMItem, C: 'a>(
+    pub fn make_table<'a, T: MMItem>(
         &'a mut self,
-        worker: &'a mut Worker<T, C>,
+        worker: &'a mut Worker<T>,
         selections: &mut SelectionSet<T, impl Selection>,
         matcher: &mut nucleo::Matcher,
     ) -> Table<'a> {

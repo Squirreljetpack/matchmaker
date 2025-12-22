@@ -6,11 +6,7 @@ use serde::{Deserialize, Serialize, Serializer};
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct NullActionExt {}
 
-impl ActionExt for NullActionExt {
-    fn handle(&self) {
-        unreachable!()
-    }
-}
+impl ActionExt for NullActionExt {}
 
 impl fmt::Display for NullActionExt {
     fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -28,10 +24,9 @@ impl std::str::FromStr for NullActionExt {
 
 pub trait ActionExt: Debug + Clone + FromStr + Display + PartialEq + MMItem
 + Default // required for serde(default) bound
-{
-    fn handle(&self);
-}
+{}
 
+pub type ActionExtHandler<T, S, A> = fn(&A, &mut EphemeralState<'_, T, S>);
 
 
 #[derive(Debug, Clone, Default)]
@@ -309,7 +304,7 @@ impl_display_and_from_str_enum!(
     Help
 );
 
-use crate::{MMItem, config::StringOrVec, impl_int_wrapper};
+use crate::{MMItem, config::StringOrVec, impl_int_wrapper, render::EphemeralState};
 impl_int_wrapper!(Exit, i32, 1);
 impl_int_wrapper!(Count, u16, 1);
 

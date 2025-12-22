@@ -5,7 +5,7 @@ use log::{debug, info, warn};
 use ratatui::text::Text;
 
 use crate::{
-    MMItem, MatchError, RenderFn, Result, Selection, SelectionSet, SplitterFn, action::{ActionExt, NullActionExt}, binds::{BindMap, display_binds}, config::{
+    MMItem, MatchError, RenderFn, Result, Selection, SelectionSet, SplitterFn, action::{ActionExt, ActionExtHandler, NullActionExt}, binds::BindMap, config::{
         ExitConfig, PreviewerConfig, RenderConfig, Split, TerminalConfig, WorkerConfig
     }, env_vars, event::EventLoop, message::{Event, Interrupt}, nucleo::{
         Indexed,
@@ -44,7 +44,7 @@ pub struct Matchmaker<T: MMItem, S: Selection=T> {
     selection_set: SelectionSet<T, S>,
     event_handlers: EventHandlers<T, S>,
     interrupt_handlers: InterruptHandlers<T, S>,
-    previewer: Option<Preview>
+    previewer: Option<Preview>,
 }
 
 
@@ -58,6 +58,7 @@ pub struct OddEnds {
 
 pub type ConfigInjector = SegmentedInjector<String, IndexedInjector<Segmented<String>, WorkerInjector<Indexed<Segmented<String>>>>>;
 pub type ConfigMatchmaker = Matchmaker<Indexed<Segmented<String>>, Segmented<String>>;
+
 impl ConfigMatchmaker {
     /// Creates a new Matchmaker from a config::BaseConfig.
     pub fn new_from_config(render_config: RenderConfig, tui_config: TerminalConfig, worker_config: WorkerConfig) -> (Self, ConfigInjector, OddEnds) {
@@ -237,7 +238,24 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
     }
 
     /// The main method of the Matchmaker. It starts listening for events and renders the TUI with ratatui. It successfully returns with all the selected items selected when the Accept action is received.
-    pub async fn pick_with<A: ActionExt>(self, matcher: &mut nucleo::Matcher, mut event_loop: EventLoop<A>) -> Result<Vec<S>, MatchError> {
+    pub async fn pick_with<A: ActionExt>(self, builder: PickBuilder<'_, T, S, A>) -> Result<Vec<S>, MatchError> {
+        let PickBuilder { previewer, ext_handler, .. } = builder;
+
+        let mut event_loop = if let Some(e) = builder.event_loop {
+            e
+        } else if let Some(binds) = builder.binds {
+            EventLoop::with_binds(binds).with_tick_rate(self.render_config.tick_rate())
+        } else {
+            EventLoop::new()
+        };
+
+        if let Some(mut previewer) = previewer {
+            previewer.connect_controller(event_loop.get_controller());
+            tokio::spawn(async move {
+                let _ = previewer.run().await;
+            });
+        }
+
         log::debug!("pick start");
 
         if self.exit_config.select_1 && self.worker.counts().0 == 1 {
@@ -253,9 +271,6 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
         let mut tui = tui::Tui::new(self.tui_config).map_err(|e| MatchError::TUIError(e.to_string()))?;
         tui.enter().map_err(|e| MatchError::TUIError(e.to_string()))?;
 
-
-        let (ui, picker, preview) = UI::new(self.render_config, matcher, self.worker, self.selection_set, self.previewer, &mut tui);
-
         // important to start after tui
         let event_controller = event_loop.get_controller();
         tokio::spawn(async move {
@@ -263,20 +278,91 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
         });
         log::debug!("event start");
 
-        render::render_loop(ui, picker, preview, tui, render_rx, event_controller,(self.event_handlers, self.interrupt_handlers), self.exit_config).await
+        if let Some(matcher) = builder.matcher {
+            let (ui, picker, preview) = UI::new(self.render_config, matcher, self.worker, self.selection_set, self.previewer, &mut tui);
+            render::render_loop(ui, picker, preview, tui, render_rx, event_controller,(self.event_handlers, self.interrupt_handlers), ext_handler, self.exit_config).await
+        } else {
+            let mut matcher=  nucleo::Matcher::new(nucleo::Config::DEFAULT);
+            let (ui, picker, preview) = UI::new(self.render_config, &mut matcher, self.worker, self.selection_set, self.previewer, &mut tui);
+            render::render_loop(ui, picker, preview, tui, render_rx, event_controller,(self.event_handlers, self.interrupt_handlers), ext_handler, self.exit_config).await
+        }
     }
 
     pub async fn pick(self) -> Result<Vec<S>, MatchError> {
-        self.pick_with_binds::<NullActionExt>(BindMap::default()).await
-    }
-
-    pub async fn pick_with_binds<A: ActionExt>(self, binds: BindMap<A>) -> Result<Vec<S>, MatchError> {
-        let mut matcher=  nucleo::Matcher::new(nucleo::Config::DEFAULT);
-        let event_loop = EventLoop::with_binds(binds).with_tick_rate(self.render_config.tick_rate());
-
-        self.pick_with(&mut matcher, event_loop).await
+        self.pick_with::<NullActionExt>(PickBuilder::new()).await
     }
 }
+
+// --------- BUILDER -------------
+
+pub struct PickBuilder<'a, T: MMItem, S: Selection, A: ActionExt> {
+    pub matcher: Option<&'a mut nucleo::Matcher>,
+    pub event_loop: Option<EventLoop<A>>,
+    pub previewer: Option<Previewer>,
+    pub ext_handler: Option<ActionExtHandler<T, S, A>>,
+    pub binds: Option<BindMap<A>>,
+    pub matcher_config: nucleo::Config
+}
+
+impl<'a, T: MMItem, S: Selection, A: ActionExt> PickBuilder<'a, T, S, A> {
+    pub fn new() -> Self {
+        Self {
+            matcher: None,
+            event_loop: None,
+            previewer: None,
+            ext_handler: None,
+            binds: None,
+            matcher_config: nucleo::Config::DEFAULT,
+        }
+    }
+
+    pub fn with_binds(binds: BindMap<A>) -> Self {
+        let mut ret = Self::new();
+        ret.binds = Some(binds);
+        ret
+    }
+
+    pub fn with_matcher(matcher: &'a mut nucleo::Matcher) -> Self {
+        let mut ret = Self::new();
+        ret.matcher = Some(matcher);
+        ret
+    }
+
+    pub fn binds(mut self, binds: BindMap<A>) -> Self {
+        self.binds = Some(binds);
+        self
+    }
+
+    pub fn event_loop(mut self, event_loop: EventLoop<A>) -> Self {
+        self.event_loop = Some(event_loop);
+        self
+    }
+
+    pub fn previewer(mut self, previewer: Previewer) -> Self {
+        self.previewer = Some(previewer);
+        self
+    }
+
+    pub fn matcher(mut self, matcher_config: nucleo::Config) -> Self {
+        self.matcher_config = matcher_config;
+        self
+    }
+
+    pub fn ext_handler(
+        mut self,
+        handler: ActionExtHandler<T, S, A>,
+    ) -> Self {
+        self.ext_handler = Some(handler);
+        self
+    }
+}
+
+impl<'a, T: MMItem, S: Selection, A: ActionExt> Default for PickBuilder<'a, T, S, A> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 
 // ----------- ATTACHMENTS ------------------
 
@@ -331,10 +417,9 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
     }
 }
 
-pub fn make_previewer<T: MMItem, S: Selection, A: ActionExt>(previewer_config: PreviewerConfig, mm: &mut Matchmaker<T, S>, formatter: Arc<RenderFn<T>>, event_loop: &EventLoop<A>) -> Previewer {
-    let help_str = display_binds(&event_loop.binds, Some(&previewer_config.help_colors));
+pub fn make_previewer<T: MMItem, S: Selection>(previewer_config: PreviewerConfig, mm: &mut Matchmaker<T, S>, formatter: Arc<RenderFn<T>>, help_str: Text<'static>) -> Previewer {
     // initialize previewer
-    let (mut previewer, tx) = Previewer::new(previewer_config);
+    let (previewer, tx) = Previewer::new(previewer_config);
     let preview = previewer.view();
     debug!("{help_str:?}");
     let preview_tx = tx.clone();
@@ -394,7 +479,7 @@ pub fn make_previewer<T: MMItem, S: Selection, A: ActionExt>(previewer_config: P
         }
     });
 
-    previewer.connect_controller(event_loop.get_controller());
+    // previewer.connect_controller(event_loop.get_controller());
 
     previewer
 }

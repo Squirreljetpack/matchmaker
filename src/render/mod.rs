@@ -14,7 +14,7 @@ use ratatui::Frame;
 use ratatui::layout::Rect;
 use tokio::sync::mpsc;
 
-use crate::action::{Action, ActionExt};
+use crate::action::{Action, ActionExt, ActionExtHandler};
 use crate::config::{CursorSetting, ExitConfig};
 use crate::message::{Event, Interrupt, RenderCommand};
 use crate::tui::Tui;
@@ -30,6 +30,7 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, A: ActionExt>(
     mut render_rx: mpsc::UnboundedReceiver<RenderCommand<A>>,
     controller_tx: mpsc::UnboundedSender<Event>,
     dynamic_handlers: DynamicHandlers<T, S>,
+    ext_handler: Option<ActionExtHandler<T, S, A>>,
     exit_config: ExitConfig,
 ) -> Result<Vec<S>, MatchError> {
     let mut buffer = Vec::with_capacity(256);
@@ -131,6 +132,7 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, A: ActionExt>(
                                 todo!()
                             }
                         }
+                        // this sometimes aborts the viewer on some files, why?
                         Action::CyclePreview => {
                             if let Some(p) = preview_ui.as_mut() {
                                 p.cycle_layout();
@@ -266,7 +268,11 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, A: ActionExt>(
                             tui.redraw();
                         }
                         Action::Custom(e) => {
-                            e.handle();
+                            if let Some(handler) = ext_handler {
+                                let mut dispatcher = state.dispatcher(&ui, &picker_ui, preview_ui.as_ref());
+                                handler(e, &mut dispatcher);
+                                state.apply(dispatcher.effects, &mut ui, &mut picker_ui, preview_ui.as_mut(), &mut overlay_ui);
+                            }
                         }
                         _ => {}
                     }

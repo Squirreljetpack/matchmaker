@@ -2,7 +2,7 @@ use std::{env, process::{Stdio, exit}};
 
 use log::{debug, error};
 use matchmaker::{
-    ConfigInjector, ConfigMatchmaker, Matchmaker, OddEnds, action::ActionExt, config::{Config, MatcherConfig, StartConfig, utils::{get_config, write_config}}, event::EventLoop, make_previewer, message::Interrupt, nucleo::injector::{IndexedInjector, Injector, SegmentedInjector}, proc::{AppendOnly, map_chunks, map_reader_lines, previewer::Previewer, read_to_chunks, spawn}
+    MatchError, Matchmaker, OddEnds, PickBuilder, binds::display_binds, config::{Config, MatcherConfig, StartConfig, utils::{get_config, write_config}}, event::EventLoop, make_previewer, message::Interrupt, nucleo::{Segmented, injector::{IndexedInjector, Injector, SegmentedInjector}}, proc::{AppendOnly, map_chunks, map_reader, map_reader_lines, read_to_chunks, spawn}
 };
 use crate::Result;
 
@@ -41,7 +41,7 @@ pub fn enter() -> Result<Config> {
     Ok(config)
 }
 
-pub fn make_mm<A: ActionExt>(config: Config<A>, event_loop: &EventLoop<A>) -> (ConfigMatchmaker, ConfigInjector, nucleo::Matcher, Previewer, AppendOnly<String>) {
+pub async fn pick(config: Config, print_handle: AppendOnly<String>) -> Result<Vec<Segmented<String>>, MatchError> {
     let Config {
         render,
         tui,
@@ -49,23 +49,20 @@ pub fn make_mm<A: ActionExt>(config: Config<A>, event_loop: &EventLoop<A>) -> (C
         matcher: MatcherConfig {
             matcher,
             worker,
-            start: StartConfig { input_separator: delimiter, .. }
+            start: StartConfig { input_separator: delimiter, default_command, sync, .. }
         },
-        ..
+        binds,
     } = config;
 
-
-    // make nucleo matcher
-    let matcher = nucleo::Matcher::new(matcher.0);
-    // make matchmaker
+    let event_loop = EventLoop::with_binds(binds).with_tick_rate(render.tick_rate());
+    // make matcher and matchmaker with matchmaker-and-matcher-maker
     let (mut mm, injector, OddEnds { formatter, splitter }) = Matchmaker::new_from_config(render, tui, worker);
     // make previewer
-    let previewer = make_previewer(previewer, &mut mm, formatter.clone(), event_loop);
+    let help_str = display_binds(&event_loop.binds, Some(&previewer.help_colors));
+    let previewer = make_previewer(previewer, &mut mm, formatter.clone(), help_str);
 
     // ---------------------- register handlers ---------------------------
     // print handler
-    let print = AppendOnly::new();
-    let _print = print.clone();
     let print_formatter = mm.worker.make_format_fn::<false>(|item| std::borrow::Cow::Borrowed(&item.inner.inner));
     mm.register_interrupt_handler(
         matchmaker::message::Interrupt::Print("".into()),
@@ -73,7 +70,7 @@ pub fn make_mm<A: ActionExt>(config: Config<A>, event_loop: &EventLoop<A>) -> (C
             if let Interrupt::Print(template) = i
             && let Some(t) = state.current_raw() {
                 let s = print_formatter(t, template);
-                _print.push(s);
+                print_handle.push(s);
             }
         },
     );
@@ -116,5 +113,40 @@ pub fn make_mm<A: ActionExt>(config: Config<A>, event_loop: &EventLoop<A>) -> (C
         }
     });
 
-    (mm, injector, matcher, previewer, print)
+    debug!("{mm:?}");
+
+    // read stdin
+    let handle = if !atty::is(atty::Stream::Stdin) {
+        let stdin = std::io::stdin();
+        map_reader(
+            stdin,
+            move |line| {
+                injector.push(line).map_err(|e| e.into())
+            },
+            delimiter
+        )
+    } else if !default_command.is_empty() {
+        if let Some(mut child) = spawn(&default_command, vec![], Stdio::null(), Stdio::piped(), Stdio::null())
+        && let Some(stdout) = child.stdout.take() {
+            map_reader(
+                stdout,
+                move |line| {
+                    injector.push(line).map_err(|e| e.into())
+                },
+                delimiter
+            )
+        } else {
+            eprintln!("error: no stdout from default command.");
+            exit(99)
+        }
+    } else {
+        eprintln!("error: no input detected.");
+        exit(99)
+    };
+
+    if sync {
+        let _ = handle.await;
+    }
+
+    mm.pick_with(PickBuilder::new().event_loop(event_loop).matcher(matcher.0).previewer(previewer)).await
 }

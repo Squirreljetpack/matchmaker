@@ -33,7 +33,7 @@ use ratatui::{
 
         picker_ui: &'a PickerUI<'a, T, S>,
         ui: &'a UI,
-        previewer_ui: Option<&'a PreviewUI>,
+        preview_ui: Option<&'a PreviewUI>,
 
         /// Exposes flags which affect the render loop
         pub effects: Effects,
@@ -52,20 +52,20 @@ use ratatui::{
             state: &'a State<S>,
             picker_ui: &'a PickerUI<T, S>,
             ui: &'a UI,
-            previewer_ui: Option<&'a PreviewUI>,
+            preview_ui: Option<&'a PreviewUI>,
         ) -> Self {
             Self {
                 state,
                 picker_ui,
                 ui,
-                previewer_ui,
+                preview_ui,
                 effects: Effects::default(),
             }
         }
 
         // ------- Getters --------
         pub fn previewer_area(&self) -> Option<&Rect> {
-            self.previewer_ui.map(|ui| &ui.area)
+            self.preview_ui.map(|ui| &ui.area)
         }
 
         pub fn ui_area(&self) -> &Rect {

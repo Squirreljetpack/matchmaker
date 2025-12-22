@@ -1,8 +1,7 @@
 #![allow(unused)]
 use log::debug;
 use ratatui::{
-    style::{Style, Stylize},
-    widgets::Paragraph,
+    style::{Style, Stylize}, text::Text, widgets::Paragraph
 };
 
 use crate::{config::{DisplayConfig, StringOrVec}, utils::text::left_pad};
@@ -10,7 +9,7 @@ use crate::{config::{DisplayConfig, StringOrVec}, utils::text::left_pad};
 #[derive(Debug, Clone)]
 pub struct DisplayUI {
     height: u16,
-    pub text: String,
+    pub text: Text<'static>,
     pub show: bool,
     pub config: DisplayConfig,
 }
@@ -18,13 +17,14 @@ pub struct DisplayUI {
 impl DisplayUI {
     pub fn new(config: DisplayConfig) -> Self {
         let text = match &config.content {
-            Some(StringOrVec::String(s)) => s.clone(),
+            Some(StringOrVec::String(s)) => Text::from(s.clone()),
             // todo
-            _ => String::new(),
+            _ => Text::from(String::new()),
         };
+        let height = text.lines.len() as u16;
 
         Self {
-            height: text.lines().count() as u16,
+            height,
             show: config.content.is_some(),
             text,
             config,
@@ -43,24 +43,29 @@ impl DisplayUI {
 
     pub fn set(&mut self, text: String) {
         self.height = text.lines().count() as u16;
-        self.text = text;
+        self.text = text.into();
     }
 
     pub fn make_display(&self, result_indentation: usize) -> Paragraph<'_> {
-        let text = if self.config.match_indent {
-            left_pad(&self.text, result_indentation)
-        } else {
-            self.text.clone()
-        };
-        debug!("{result_indentation}, {}, {text}", self.config.match_indent);
+        // debug!("{result_indentation}, {}, {text}", self.config.match_indent);
 
-        let mut ret = Paragraph::new(text)
+        let mut ret = Paragraph::new(self.text.clone())
         .style(Style::default().fg(self.config.fg))
         .add_modifier(self.config.modifier);
 
+        let block = {
+            let ret = self.config.border.as_block();
+            if self.config.match_indent {
+                let mut padding = self.config.border.padding;
+                padding.left += result_indentation as u16;
+                ret.padding(padding)
+            } else {
+                ret
+            }
+        };
 
 
-        ret = ret.block(self.config.border.as_block());
+        ret = ret.block(block);
 
         ret
     }

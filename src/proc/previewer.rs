@@ -36,7 +36,7 @@ pub struct Previewer {
     procs: Vec<Child>,
     current: Option<(Child, JoinHandle<bool>)>,
     pub config: PreviewerConfig,
-    controller_tx: Option<UnboundedSender<Event>>,
+    event_controller_tx: Option<UnboundedSender<Event>>,
 }
 
 impl Previewer {
@@ -52,7 +52,7 @@ impl Previewer {
             procs: Vec::new(),
             current: None,
             config,
-            controller_tx: None,
+            event_controller_tx: None,
         };
 
         (new, tx)
@@ -213,7 +213,7 @@ impl Previewer {
 
             match old.as_mut().now_or_never() {
                 Some(Ok(result)) => {
-                    if !result && let Some(ref tx) = self.controller_tx {
+                    if !result && let Some(ref tx) = self.event_controller_tx {
                         let _ = tx.send(Event::Refresh);
                     }
                 }
@@ -225,8 +225,8 @@ impl Previewer {
         }
     }
 
-    pub fn connect_controller(&mut self, controller_tx: UnboundedSender<Event>) {
-        self.controller_tx = Some(controller_tx)
+    pub fn connect_controller(&mut self, event_controller_tx: UnboundedSender<Event>) {
+        self.event_controller_tx = Some(event_controller_tx)
     }
 
     // todo: This would be cleaner with tokio::Child, but does that merit a conversion? I'm not sure if its worth it for the previewer to yield control while waiting for output cuz we are multithreaded anyways

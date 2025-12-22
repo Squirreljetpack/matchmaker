@@ -35,6 +35,7 @@ W: Write,
                 warn!("Failed to read cursor: {e}");
                 height // overestimate
             });
+
             let initial_height = height
             .saturating_sub(cursor_y);
 
@@ -201,6 +202,7 @@ W: Write,
     }
 
     // wrappers to hide impl
+    // note: do not start before event stream
     pub fn get_cursor_y() -> io::Result<u16> {
         crossterm::cursor::position().map(|x| x.1)
     }

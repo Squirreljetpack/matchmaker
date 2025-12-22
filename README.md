@@ -110,8 +110,6 @@ As you can see, this paradigm fixes very little of the Preview action's behavior
 
 Consequently, there exist severable actions whose behaviors are open to modification to your own purposes if you so choose.
 
-On the flip side however, the set of actions is not fixed. (For full customizability, matchmaker will probably support in the future sending and receiving custom events).
-
 For more information, check out the [examples](./examples/) and [Architecture.md](./ARCHITECTURE.md)
 
 

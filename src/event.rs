@@ -1,5 +1,5 @@
 use crate::Result;
-use crate::action::{Action, Actions, Count};
+use crate::action::{Action, ActionExt, Actions, Count};
 use crate::binds::{BindMap};
 use crate::message::{Event, RenderCommand};
 use anyhow::bail;
@@ -12,11 +12,11 @@ use tokio::sync::mpsc;
 use tokio::time::{self};
 
 #[derive(Debug)]
-pub struct EventLoop {
-    txs: Vec<mpsc::UnboundedSender<RenderCommand>>,
+pub struct EventLoop<A: ActionExt> {
+    txs: Vec<mpsc::UnboundedSender<RenderCommand<A>>>,
     tick_interval: time::Duration,
 
-    binds: BindMap,
+    pub binds: BindMap<A>,
     combiner: Combiner,
     fmt: KeyCombinationFormat,
 
@@ -26,17 +26,16 @@ pub struct EventLoop {
     controller_tx: mpsc::UnboundedSender<Event>,
 }
 
-impl Default for EventLoop {
+impl<A: ActionExt> Default for EventLoop<A> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl EventLoop {
+impl<A: ActionExt> EventLoop<A> {
     pub fn new() -> Self {
         let combiner = Combiner::default();
         let fmt = KeyCombinationFormat::default();
-        let event_stream = Some(EventStream::new());
         let (controller_tx, controller_rx) = tokio::sync::mpsc::unbounded_channel();
 
 
@@ -47,7 +46,7 @@ impl EventLoop {
             binds: BindMap::new(),
             combiner,
             fmt,
-            event_stream,
+            event_stream: None, // important not to initialize it too early?
             controller_rx,
             controller_tx,
 
@@ -55,19 +54,25 @@ impl EventLoop {
         }
     }
 
+    pub fn with_binds(binds: BindMap<A>) -> Self {
+        let mut ret = Self::new();
+        ret.binds = binds;
+        ret
+    }
 
-    pub fn add_tx(&mut self, handler: mpsc::UnboundedSender<RenderCommand>) -> &mut Self {
+    pub fn with_tick_rate(mut self, tick_rate: u8) -> Self {
+        self.tick_interval = time::Duration::from_secs_f64(1.0 / tick_rate as f64);
+        self
+    }
+
+
+    pub fn add_tx(&mut self, handler: mpsc::UnboundedSender<RenderCommand<A>>) -> &mut Self {
         self.txs.push(handler);
         self
     }
 
     pub fn clear_txs(&mut self) {
         self.txs.clear();
-    }
-
-    pub fn set_tick_rate(&mut self, tick_rate: u8) -> &mut Self {
-        self.tick_interval = time::Duration::from_secs_f64(1.0 / tick_rate as f64);
-        self
     }
 
     pub fn get_controller(&self) -> mpsc::UnboundedSender<Event> {
@@ -95,13 +100,14 @@ impl EventLoop {
         self.paused
     }
 
-    pub fn binds(&mut self, binds: BindMap) -> &mut Self {
+    pub fn binds(&mut self, binds: BindMap<A>) -> &mut Self {
         self.binds = binds;
         self
     }
 
     // todo: should its return type carry info
     pub async fn run(&mut self) -> Result<()> {
+        self.event_stream = Some(EventStream::new());
         let mut interval = time::interval(self.tick_interval);
 
         loop {
@@ -223,14 +229,14 @@ impl EventLoop {
         Ok(())
     }
 
-    fn send(&self, action: RenderCommand) {
+    fn send(&self, action: RenderCommand<A>) {
         for tx in &self.txs {
             tx.send(action.clone())
             .unwrap_or_else(|_| debug!("Failed to send {action}"));
         }
     }
 
-    fn send_actions(&self, actions: &Actions) {
+    fn send_actions(&self, actions: &Actions<A>) {
         for action in actions.0.iter() {
             self.send(action.into());
         }
@@ -240,7 +246,7 @@ impl EventLoop {
         self.fmt.to_string(key_combination)
     }
 
-    fn send_action(&self, action: Action) {
+    fn send_action(&self, action: Action<A>) {
         self.send(RenderCommand::Action(action));
     }
 }

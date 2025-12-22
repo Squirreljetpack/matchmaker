@@ -13,11 +13,12 @@ mod input;
 mod preview;
 mod results;
 mod display;
+mod overlay;
 pub use display::DisplayUI;
 pub use input::InputUI;
 pub use preview::PreviewUI;
 pub use results::ResultsUI;
-
+pub use overlay::*;
 // UI
 
 pub struct UI {

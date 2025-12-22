@@ -8,10 +8,12 @@ use std::{fmt, str::FromStr};
 use crossterm::event::MouseButton;
 use serde::de::{self, Visitor};
 
+use crate::action::ActionExt;
 use crate::config::TomlColorConfig;
 use crate::{action::Actions, message::Event};
 
-pub type BindMap = BTreeMap<Trigger, Actions>;
+#[allow(type_alias_bounds)]
+pub type BindMap<A: ActionExt> = BTreeMap<Trigger, Actions<A>>;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum Trigger {
@@ -196,8 +198,13 @@ impl<'de> serde::Deserialize<'de> for Trigger {
 }
 
 #[derive(Serialize)]
-struct BindFmtWrapper<'a> {
-    binds: &'a BindMap
+#[serde(
+    bound(
+        serialize = "",
+    )
+)]
+struct BindFmtWrapper<'a, A: ActionExt> {
+    binds: &'a BindMap<A>
 }
 use ratatui::style::{Style};
 use ratatui::text::{Line, Span, Text};
@@ -206,7 +213,7 @@ use regex::Regex;
 
 
 // random ai toml coloring cuz i dont wanna use bat just for this
-pub fn display_binds(binds: &BindMap, cfg: Option<&TomlColorConfig>) -> Text<'static> {
+pub fn display_binds<A: ActionExt>(binds: &BindMap<A>, cfg: Option<&TomlColorConfig>) -> Text<'static> {
     let toml_string = toml::to_string(&BindFmtWrapper { binds }).unwrap();
 
     let Some(cfg) = cfg else {

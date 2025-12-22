@@ -9,7 +9,7 @@ pub use variants::*;
 pub use worker::*;
 
 pub use ratatui::{
-    style::{Style, Stylize},
+    style::{Style, Stylize, Color, Modifier},
     text::{Line, Span, Text},
 };
 
@@ -56,7 +56,7 @@ impl<T> Hash for Indexed<T> {
 
 impl<T: Clone> Indexed<T> {
 
-    /// Matchmaker requires a way to store and identify selected items from their references in the nucleo matcher. This method simply stores the clones of the items.
+    /// Matchmaker requires a way to identify and store selected items from their references in the nucleo matcher. This method simply identifies them by their insertion index and stores the clones of the items.
     pub fn identifier(&self) -> (u32, T) {
         (self.index, self.inner.clone())
     }

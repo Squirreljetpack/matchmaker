@@ -19,7 +19,7 @@
     - {!} current column
 - configurable active and passive column colors
 - ensure uniform fg/bg config on widgets
-
+- benchmarks (what kinds of speed matter?)
 
 ### Low priority
 - a scroll action could dispatch between preview and results

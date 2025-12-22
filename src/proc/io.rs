@@ -1,4 +1,4 @@
-use crate::Result;
+use crate::{MMItem, Result};
 use log::{debug, error, warn};
 use std::{io::{self, BufRead, Read, Write}, process::Stdio};
 
@@ -44,6 +44,7 @@ pub fn map_chunks<const INVALID_FAIL: bool>(iter: impl Iterator<Item = std::io::
     }
 }
 
+// note: a stream means wrapping with closure passed stream::unfold and returning f() inside
 pub fn map_reader_lines<const INVALID_FAIL: bool>(reader: impl Read, mut f: impl FnMut(String) -> Result<()>) {
     let buf_reader = io::BufReader::new(reader);
 
@@ -69,6 +70,22 @@ pub fn map_reader_lines<const INVALID_FAIL: bool>(reader: impl Read, mut f: impl
         }
     }
 }
+
+/// Spawns a tokio task mapping f to reader segments
+pub fn map_reader(reader: impl Read + MMItem, f: impl FnMut(String) -> Result<()> + MMItem, input_separator: Option<char>) -> tokio::task::JoinHandle<()> {
+    if let Some(delim) = input_separator {
+        tokio::spawn(async move {
+            map_chunks::<true>(read_to_chunks(reader, delim), f)
+        })
+    } else {
+        tokio::spawn(async move {
+            map_reader_lines::<true>(reader, f)
+        })
+    }
+}
+
+
+// ---------------------------------------------------------------------
 
 pub fn tty_or_null() -> Stdio {
     if let Ok(mut tty) = std::fs::File::open("/dev/tty") {

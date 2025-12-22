@@ -1,7 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use crate::{
-    MMItem, RenderFn, nucleo::Indexed,
+    MMItem, RenderFn, nucleo::Indexed, utils::text::plain_text,
 };
 
 use super::{injector::{self}, Text, worker::{Column, Worker}};
@@ -10,7 +10,7 @@ impl<T: MMItem> Worker<T> {
     /// Returns a function which templates a string given an item using the column functions
     pub fn make_format_fn<const QUOTE: bool>(
         &self,
-        blank_format: impl Fn(&T) -> &str + Send + Sync + 'static,
+        blank_format: impl Fn(&T) -> Cow<'_, str> + MMItem,
     ) -> RenderFn<T> {
         let columns = self.columns.clone();
 
@@ -40,7 +40,7 @@ impl<T: MMItem> Worker<T> {
                     State::InKey => match c {
                         '}' => {
                             let replacement = match key.as_str() {
-                                "" => Cow::Borrowed(blank_format(item)),
+                                "" => blank_format(item),
                                 _ => columns
                                 .iter()
                                 .find(|col| &*col.name == key.as_str())
@@ -73,12 +73,18 @@ impl<T: MMItem> Worker<T> {
     }
 }
 
-// For simplicity, we don't support context
+/// Returns &str, not Cow because it must be cheap
+/// Either impl as_str or as_text
 pub trait Render {
-    fn as_str(&self) -> std::borrow::Cow<'_, str>;
+    fn as_str(&self) -> Cow<'_, str> {
+        plain_text(&self.as_text()).into()
+    }
+    fn as_text(&self) -> Text<'_> {
+        Text::from(self.as_str())
+    }
 }
 impl<T: AsRef<str>> Render for T {
-    fn as_str(&self) -> std::borrow::Cow<'_, str> {
+    fn as_str(&self) -> Cow<'_, str> {
         self.as_ref().into()
     }
 }
@@ -88,7 +94,7 @@ impl<T: Render + MMItem> Worker<Indexed<T>> {
     pub fn new_single_column() -> Self {
         Self::new(
             vec![Column::new("_", |item: &Indexed<T>| {
-                Text::from(item.inner.as_str())
+                item.inner.as_text()
             })],
             0,
         )

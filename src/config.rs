@@ -1,5 +1,6 @@
 use std::{fmt, ops::Deref};
 
+use crate::action::{ActionExt, NullActionExt};
 use crate::utils::text::parse_escapes;
 
 use crate::{Result, action::{Count}, binds::BindMap, tui::IoStream};
@@ -14,26 +15,25 @@ use serde::de::IntoDeserializer;
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, de::{self, Visitor}};
 
-// Note that serde deny is not supported with flatten
-
+/// Full config.
+/// Clients probably want to make their own type with RenderConfig + custom settings to instantiate their matchmaker.
+/// Used by the instantiation method [`crate::Matchmaker::new_from_config`]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct Config {
+#[serde(default, deny_unknown_fields,
+    bound(
+        serialize = "",
+        deserialize = "",
+    )
+)]
+pub struct Config<A: ActionExt = NullActionExt> {
     // configure the ui
     #[serde(flatten)]
     pub render: RenderConfig,
 
     // binds
-    pub binds: BindMap,
+    pub binds: BindMap<A>,
 
     pub tui: TerminalConfig,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct MainConfig {
-    #[serde(flatten)]
-    pub config: Config,
 
     pub previewer: PreviewerConfig,
 
@@ -41,45 +41,26 @@ pub struct MainConfig {
     pub matcher: MatcherConfig,
 }
 
-// note that deny_unknown_fields is not set here
+/// Settings unrelated to event loop/picker_ui.
+///
+/// Does not deny unknown fields.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MatcherConfig {
     #[serde(flatten)]
     pub matcher: NucleoMatcherConfig,
     #[serde(flatten)]
-    pub mm: MMConfig,
-    // only nit is that we would really prefer run config sit at top level since its irrelevant to MM::new_from_config
+    pub worker: WorkerConfig,
+    // only nit is that we would really prefer this config sit at top level since its irrelevant to [`crate::Matchmaker::new_from_config`] but it makes more sense under matcher in the config file
     #[serde(flatten)]
-    pub run: StartConfig,
-
-    #[serde(default)]
-    pub help_colors: TomlColorConfig
+    pub start: StartConfig,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TomlColorConfig {
-    pub section: Color,
-    pub key: Color,
-    pub string: Color,
-    pub number: Color,
-    pub section_bold: bool,
-}
-
-impl Default for TomlColorConfig {
-    fn default() -> Self {
-        Self {
-            section: Color::Blue,
-            key: Color::Yellow,
-            string: Color::Green,
-            number: Color::Cyan,
-            section_bold: true,
-        }
-    }
-}
-
+/// "Input/output specific". Configures the matchmaker worker.
+///
+/// Does not deny unknown fields.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
-pub struct MMConfig {
+pub struct WorkerConfig {
     pub columns: ColumnsConfig,
     #[serde(flatten)]
     pub exit: ExitConfig,
@@ -87,6 +68,9 @@ pub struct MMConfig {
     pub format: FormatString, // todo: implement
 }
 
+/// Configures how input is fed to to the worker(s).
+///
+/// Does not deny unknown fields.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct StartConfig {
@@ -99,7 +83,9 @@ pub struct StartConfig {
 }
 
 
-// stores all misc options for render_loop
+/// Exit conditions of the render loop.
+///
+/// Does not deny unknown fields.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ExitConfig {
@@ -107,6 +93,7 @@ pub struct ExitConfig {
     pub allow_empty: bool,
 }
 
+/// The ui config.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RenderConfig {
@@ -124,6 +111,19 @@ impl RenderConfig {
     }
 }
 
+/// Terminal settings.
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct TerminalConfig {
+    pub stream: IoStream,
+    pub sleep: u16, // necessary to give ratatui a small delay before resizing after entering and exiting
+    // todo: lowpri: will need a value which can deserialize to none when implementing cli parsing
+    #[serde(flatten)]
+    pub layout: Option<TerminalLayoutSettings> // None for fullscreen
+}
+
+
+/// The container ui.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct UiConfig {
@@ -139,16 +139,8 @@ impl Default for UiConfig {
         }
     }
 }
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct TerminalConfig {
-    pub stream: IoStream,
-    pub sleep: u16, // necessary to give ratatui a small delay before resizing after entering and exiting
-    // todo: lowpri: will need a value which can deserialize to none when implementing cli parsing
-    #[serde(flatten)]
-    pub layout: Option<TerminalLayoutSettings> // None for fullscreen
-}
 
+/// The input bar ui.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct InputConfig {
@@ -178,6 +170,37 @@ impl Default for InputConfig {
         }
     }
 }
+
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct OverlayConfig {
+    pub border: BorderSetting,
+    pub outer_alpha: Percentage,
+    pub layout: OverlayLayoutSettings,
+}
+
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OverlayLayoutSettings {
+    /// w, h
+    pub percentage: [Percentage; 2],
+    /// w, h
+    pub min: [u16; 2],
+    /// w, h
+    pub max: [u16; 2],
+}
+
+impl Default for OverlayLayoutSettings {
+    fn default() -> Self {
+        Self {
+            percentage: [Percentage(60), Percentage(30)],
+            min: [10, 5],
+            max: [50, 30]
+        }
+    }
+}
+
+// pub struct OverlaySize
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -326,6 +349,31 @@ pub struct PreviewerConfig {
 
     // todo
     pub cache: u8,
+
+    #[serde(default)]
+    pub help_colors: TomlColorConfig
+}
+
+/// Help coloring
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TomlColorConfig {
+    pub section: Color,
+    pub key: Color,
+    pub string: Color,
+    pub number: Color,
+    pub section_bold: bool,
+}
+
+impl Default for TomlColorConfig {
+    fn default() -> Self {
+        Self {
+            section: Color::Blue,
+            key: Color::Yellow,
+            string: Color::Green,
+            number: Color::Cyan,
+            section_bold: true,
+        }
+    }
 }
 
 // ----------- SETTING TYPES -------------------------
@@ -574,11 +622,11 @@ pub mod serde_from_str {
 
 pub mod utils {
     use crate::Result;
-    use crate::config::{MainConfig};
+    use crate::config::{Config};
     use std::borrow::Cow;
     use std::path::{Path};
 
-    pub fn get_config(dir: &Path) -> Result<MainConfig> {
+    pub fn get_config(dir: &Path) -> Result<Config> {
         let config_path = dir.join("config.toml");
 
         let config_content: Cow<'static, str> = if !config_path.exists() {
@@ -587,7 +635,7 @@ pub mod utils {
             Cow::Owned(std::fs::read_to_string(config_path)?)
         };
 
-        let config: MainConfig = toml::from_str(&config_content)?;
+        let config: Config = toml::from_str(&config_content)?;
 
         Ok(config)
     }
@@ -783,7 +831,7 @@ D: Deserializer<'de>,
 
 pub fn serialize_modifier<S>(modifier: &Modifier, serializer: S) -> Result<S::Ok, S::Error>
 where
-    S: Serializer,
+S: Serializer,
 {
     let mut mods = Vec::new();
 
@@ -1024,6 +1072,12 @@ impl<'de> Deserialize<'de> for ColumnSetting {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(transparent)]
 pub struct Percentage(u8);
+
+impl Default for Percentage {
+    fn default() -> Self {
+        Self(100)
+    }
+}
 
 impl Percentage {
     pub fn new(value: u8) -> Option<Self> {
@@ -1319,11 +1373,11 @@ mod tests {
     #[test]
     fn config_round_trip() {
         let default_toml = include_str!("../assets/dev.toml");
-        let config: MainConfig = toml::from_str(default_toml)
+        let config: Config = toml::from_str(default_toml)
         .expect("failed to parse default TOML");
         let serialized = toml::to_string_pretty(&config)
         .expect("failed to serialize to TOML");
-        let deserialized: MainConfig = toml::from_str(&serialized)
+        let deserialized: Config = toml::from_str(&serialized)
         .unwrap_or_else(|e| panic!("failed to parse serialized TOML:\n{}\n{e}", serialized));
 
         // Assert the round-trip produces the same data

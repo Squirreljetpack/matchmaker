@@ -1,9 +1,41 @@
-use std::{mem::discriminant, str::FromStr};
+use std::{fmt::{self, Debug, Display}, mem::discriminant, str::FromStr};
 
 use serde::{Deserialize, Serialize, Serializer};
 
-#[derive(Debug, Clone, Deserialize, Default)]
-pub enum Action {
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct NullActionExt {}
+
+impl ActionExt for NullActionExt {
+    fn handle(&self) {
+        unreachable!()
+    }
+}
+
+impl fmt::Display for NullActionExt {
+    fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Ok(())
+    }
+}
+
+impl std::str::FromStr for NullActionExt {
+    type Err = ();
+
+    fn from_str(_: &str) -> Result<Self, Self::Err> {
+        Err(())
+    }
+}
+
+pub trait ActionExt: Debug + Clone + FromStr + Display + PartialEq + MMItem
++ Default // required for serde(default) bound
+{
+    fn handle(&self);
+}
+
+
+
+#[derive(Debug, Clone, Default)]
+pub enum Action<A: ActionExt> {
     #[default] // used to satisfy enumstring
     Select,
     Deselect,
@@ -64,12 +96,10 @@ pub enum Action {
 
     // Other/Experimental/Debugging
     Redraw,
-    Event(String), // For aesthetics, this is de/serialized as :x:
-    Custom(String), // delimited as ::x::
-
+    Custom(A),
 }
 
-impl serde::Serialize for Action {
+impl<A: ActionExt> serde::Serialize for Action<A> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
     S: serde::Serializer,
@@ -81,30 +111,30 @@ impl serde::Serialize for Action {
 // -----------------------------------------------------------------------------------------------------------------------
 
 
-impl PartialEq for Action {
+impl<A: ActionExt> PartialEq for Action<A> {
     fn eq(&self, other: &Self) -> bool {
         discriminant(self) == discriminant(other)
     }
 }
 
-impl Eq for Action {}
+impl<A: ActionExt> Eq for Action<A> {}
 
-impl std::hash::Hash for Action {
+impl<A: ActionExt> std::hash::Hash for Action<A> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         discriminant(self).hash(state);
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Actions(pub Vec<Action>);
+pub struct Actions<A: ActionExt>(pub Vec<Action<A>>);
 
-impl<const N: usize> From<[Action; N]> for Actions {
-    fn from(arr: [Action; N]) -> Self {
+impl<const N: usize, A: ActionExt> From<[Action<A>; N]> for Actions<A> {
+    fn from(arr: [Action<A>; N]) -> Self {
         Actions(arr.into())
     }
 }
 
-impl<'de> Deserialize<'de> for Actions {
+impl<'de, A: ActionExt> Deserialize<'de> for Actions<A> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
     D: serde::Deserializer<'de>,
@@ -125,7 +155,7 @@ impl<'de> Deserialize<'de> for Actions {
     }
 }
 
-impl Serialize for Actions {
+impl<A: ActionExt> Serialize for Actions<A> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
     S: Serializer,
@@ -141,14 +171,14 @@ impl Serialize for Actions {
 }
 
 macro_rules! impl_display_and_from_str_enum {
-    ($enum:ident,
+    (
         $($unit:ident),*;
         $($tuple:ident),*;
         $($tuple_default:ident),*;
         $($tuple_option:ident),*;
         $($tuple_string_default:ident),*
     ) => {
-        impl std::fmt::Display for $enum {
+        impl<A: ActionExt> std::fmt::Display for Action<A> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 match self {
                     // Unit variants
@@ -183,17 +213,14 @@ macro_rules! impl_display_and_from_str_enum {
                         }
                     }, )*
 
-                    Self::Event(inner) => {
-                        write!(f, "::{}::", inner)
-                    },
                     Self::Custom(inner) => {
-                        write!(f, ":{}:", inner)
+                        write!(f, "{}", inner.to_string())
                     }
                 }
             }
         }
 
-        impl std::str::FromStr for $enum {
+        impl<A: ActionExt>  std::str::FromStr for Action<A> {
             type Err = String;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -253,14 +280,10 @@ macro_rules! impl_display_and_from_str_enum {
                     }, )*
 
                     s => {
-                        if let Some(inner) = s.strip_prefix("::")
-                        .and_then(|s| s.strip_suffix("::")) {
-                            Ok(Self::Event(inner.to_string()))
-                        } else if let Some(inner) = s.strip_prefix(":")
-                        .and_then(|s| s.strip_suffix(":")) {
-                            Ok(Self::Custom(inner.to_string()))
+                        if let Ok(x) = s.parse::<A>() {
+                            Ok(Self::Custom(x))
                         } else {
-                            Err(format!("Unknown variant {}", name))
+                            Err(format!("Unknown variant {}", s))
                         }
                     }
                 }
@@ -271,7 +294,7 @@ macro_rules! impl_display_and_from_str_enum {
 
 // call it like:
 impl_display_and_from_str_enum!(
-    Action, Select, Deselect, Toggle, CycleAll, Accept, CyclePreview, CycleColumn,
+    Select, Deselect, Toggle, CycleAll, Accept, CyclePreview, CycleColumn,
     PreviewHalfPageUp, PreviewHalfPageDown, HistoryUp, HistoryDown,
     ChangePrompt, ChangeQuery, ToggleWrap, ToggleWrapPreview, ForwardChar,
     BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord,
@@ -286,7 +309,7 @@ impl_display_and_from_str_enum!(
     Help
 );
 
-use crate::{config::StringOrVec, impl_int_wrapper};
+use crate::{MMItem, config::StringOrVec, impl_int_wrapper};
 impl_int_wrapper!(Exit, i32, 1);
 impl_int_wrapper!(Count, u16, 1);
 

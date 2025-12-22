@@ -2,7 +2,7 @@ use crossterm::event::MouseEvent;
 use ratatui::layout::Rect;
 use strum_macros::{Display, EnumString};
 
-use crate::{action::{Action, Exit}};
+use crate::action::{Action, ActionExt, Exit};
 
 #[derive(Debug, Hash, PartialEq, Eq, EnumString, Clone, Display)]
 #[strum(serialize_all = "lowercase")]
@@ -43,9 +43,9 @@ impl Eq for Interrupt {}
 
 #[non_exhaustive]
 #[derive(Debug, strum_macros::Display, Clone)]
-pub enum RenderCommand {
+pub enum RenderCommand<A: ActionExt> {
     Bind,
-    Action(Action),
+    Action(Action<A>),
     Input(char),
     Mouse(MouseEvent),
     Resize(Rect),
@@ -54,13 +54,13 @@ pub enum RenderCommand {
     Refresh
 }
 
-impl From<&Action> for RenderCommand {
-    fn from(action: &Action) -> Self {
+impl<A: ActionExt> From<&Action<A>> for RenderCommand<A> {
+    fn from(action: &Action<A>) -> Self {
         RenderCommand::Action(action.clone())
     }
 }
 
-impl RenderCommand {
+impl<A: ActionExt> RenderCommand<A> {
     pub fn quit() -> Self {
         RenderCommand::Action(Action::Quit(Exit::default()))
     }

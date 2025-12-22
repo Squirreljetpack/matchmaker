@@ -41,7 +41,7 @@ impl<T> Column<T> {
 
     pub fn new<F>(name: impl Into<Arc<str>>, f: F) -> Self
     where
-    F: for<'a> Fn(&'a T) -> Text<'a> + Send + Sync + 'static,
+    F: for<'a> Fn(&'a T) -> Text<'a> + MMItem,
     {
         Self {
             name: name.into(),

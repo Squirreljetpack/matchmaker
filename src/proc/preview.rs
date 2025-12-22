@@ -7,7 +7,7 @@ use super::AppendOnly;
 #[derive(Debug)]
 pub struct Preview {
     lines: AppendOnly<Line<'static>>,
-    string: Arc<Mutex<Option<Text<'static>>>>,
+    string: Arc<Mutex<Option<Text<'static>>>>, /// Overrides lines when present
     changed: Arc<AtomicBool>,
 }
 

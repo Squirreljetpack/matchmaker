@@ -4,7 +4,7 @@ use std::{
 };
 
 use clap::Parser;
-use matchmaker::config::MainConfig;
+use matchmaker::config::Config;
 use anyhow::Result;
 
 #[derive(Debug, Parser, Default, Clone)]
@@ -62,12 +62,12 @@ pub fn logs_dir() -> &'static Path {
 
 // ----------------------- CONFIG
 impl Cli {
-    pub fn merge_config(&self, config: &mut MainConfig) -> Result<()> {
+    pub fn merge_config(&self, config: &mut Config) -> Result<()> {
         if let Some(s) = &self.config_string {
             *config = toml::from_str(s)?;
         };
         if self.fullscreen {
-            config.config.tui.layout = None;
+            config.tui.layout = None;
         }
         Ok(())
     }

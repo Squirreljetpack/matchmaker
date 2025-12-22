@@ -1,4 +1,4 @@
-use std::{io, process::{Stdio, exit}};
+use std::{io::{self}, process::{Stdio, exit}};
 
 
 mod crokey;
@@ -9,11 +9,16 @@ mod setup;
 
 use log::debug;
 use matchmaker::{
-    MatchError, Result, config::{StartConfig}, nucleo::injector::
-    Injector, proc::
-    {spawn, map_chunks, map_reader_lines, read_to_chunks}
+    MatchError,
+    Result,
+    config::StartConfig,
+    event::EventLoop,
+    nucleo::injector::Injector,
+    proc::{
+        map_reader,
+        spawn,
+    },
 };
-use std::io::{stdout, Write};
 use types::*;
 use utils::*;
 use setup::*;
@@ -23,59 +28,53 @@ async fn main() -> Result<()> {
     init_logger(&logs_dir().join(format!("{BINARY_SHORT}.log")));
 
     // get config
-    let config = enter()?;
+    let mut config = enter()?;
 
-    let StartConfig { input_separator, default_command, sync, output_separator } = config.matcher.run.clone();
+    let StartConfig { input_separator, default_command, sync, output_separator } = config.matcher.start.clone();
 
-    // make matcher and matchmaker with matchmaker and matcher maker
-    let (mm, injector, mut matcher, previewer, print) = make_mm(config);
+    let event_loop = EventLoop::with_binds(std::mem::take(&mut config.binds)).with_tick_rate(config.render.tick_rate());
+
+    // make matcher and matchmaker with matchmaker-and-matcher-maker
+    let (mm, injector, mut matcher, previewer, print) = make_mm(config, &event_loop);
     debug!("{mm:?}");
 
     // read stdin
     if !atty::is(atty::Stream::Stdin) {
         let stdin = io::stdin();
-        let read_handle = if let Some(c) = input_separator {
-            tokio::spawn(async move {
-                map_chunks::<true>(read_to_chunks(stdin, c), |line| {
-                    injector.push(line).map_err(|e| e.into())
-                })
-            })
-        } else {
-            tokio::spawn(async move {
-                map_reader_lines::<true>(stdin, |line| injector.push(line).map_err(|e| e.into()))
-            })
-        };
+        let read_handle = map_reader(
+            stdin,
+            move |line| {
+                injector.push(line).map_err(|e| e.into())
+            },
+            input_separator
+        );
 
         if sync {
             let _ = read_handle.await;
         }
     } else if !default_command.is_empty() {
-        if let Some(mut child) = spawn(&default_command, vec![], Stdio::null(), Stdio::piped(), Stdio::null()) {
-            if let Some(stdout) = child.stdout.take() {
-                let _handle = if let Some(delim) = input_separator {
-                    tokio::spawn(async move {
-                        map_chunks::<true>(read_to_chunks(stdout, delim), |line| injector.push(line).map_err(|e| e.into()))
-                    })
-                } else {
-                    tokio::spawn(async move {
-                        map_reader_lines::<true>(stdout, |line| injector.push(line).map_err(|e| e.into()))
-                    })
-                };
-            } else {
-                eprintln!("error: no stdout detected from default command.");
-            }
+        if let Some(mut child) = spawn(&default_command, vec![], Stdio::null(), Stdio::piped(), Stdio::null())
+        && let Some(stdout) = child.stdout.take() {
+            let _handle = map_reader(
+                stdout,
+                move |line| {
+                    injector.push(line).map_err(|e| e.into())
+                },
+                input_separator
+            );
+        } else {
+            eprintln!("error: no stdout from default command.");
         }
     } else {
         eprintln!("error: no input detected.");
     }
 
-    // spawn previewer
+    // begin
     tokio::spawn(async move {
         let _ = previewer.run().await;
     });
 
-    // begin
-    match mm.pick_with_matcher(&mut matcher).await {
+    match mm.pick_with(&mut matcher, event_loop).await {
         Ok(iter) => {
             print.map_to_vec(|s| println!("{s}"));
 
@@ -85,7 +84,7 @@ async fn main() -> Result<()> {
             .map(|s| s.to_string())
             .collect::<Vec<_>>()
             .join(sep);
-            writeln!(stdout(), "{output}")?;
+            println!("{output}");
         }
         Err(err) => {
             match err {

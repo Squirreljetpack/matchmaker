@@ -16,3 +16,12 @@ pub enum MatchError {
     NoMatcher
 }
 
+
+#[derive(Debug, Error)]
+#[non_exhaustive]
+pub enum MapReaderError<E> {
+    #[error("Failed to read chunk: {0}")]
+    ChunkError(usize),
+    #[error("Aborted: {0}")]
+    Custom(E),
+}

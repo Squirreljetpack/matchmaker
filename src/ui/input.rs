@@ -66,10 +66,10 @@ impl InputUI {
         }
     }
 
-    pub fn set_input(&mut self, new_input: String, new_cursor: u16) {
-        let grapheme_count = new_input.graphemes(true).count() as u16;
-        self.input = new_input;
-        self.cursor = new_cursor.min(grapheme_count);
+    pub fn set(&mut self, input: String, cursor: u16) {
+        let grapheme_count = input.graphemes(true).count() as u16;
+        self.input = input;
+        self.cursor = cursor.min(grapheme_count);
     }
 
     pub fn forward_word(&mut self) {

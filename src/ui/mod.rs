@@ -38,7 +38,7 @@ impl UI {
     ) -> (Self, PickerUI<'a, T, S>, Option<PreviewUI>) {
         if config.results.reverse.is_none() {
             config.results.reverse = Some(
-                tui.is_fullscreen() && tui.area.y < tui.area.height / 2
+                tui.is_fullscreen() && tui.area.y < tui.area.height / 2 // reverse if fullscreen + cursor is in lower half of the screen
             );
         }
 

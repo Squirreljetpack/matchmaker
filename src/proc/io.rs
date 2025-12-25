@@ -1,5 +1,5 @@
-use crate::{MMItem, Result};
-use log::{debug, error, warn};
+use crate::{MMItem, MapReaderError, Result};
+use log::{error, warn};
 use std::{io::{self, BufRead, Read, Write}, process::Stdio};
 
 pub fn read_to_chunks<R: Read>(reader: R, delim: char) -> std::io::Split<std::io::BufReader<R>> {
@@ -8,78 +8,82 @@ pub fn read_to_chunks<R: Read>(reader: R, delim: char) -> std::io::Split<std::io
 
 // do not use for newlines as it doesn't handle \r!
 // todo: warn about this in config
-pub fn map_chunks<const INVALID_FAIL: bool>(iter: impl Iterator<Item = std::io::Result<Vec<u8>>>, mut f: impl FnMut(String) -> Result<()>)
+// note: stream means wrapping with closure passed stream::unfold and returning f() inside
+
+pub fn map_chunks<const INVALID_FAIL: bool, E>(iter: impl Iterator<Item = std::io::Result<Vec<u8>>>, mut f: impl FnMut(String) -> Result<(), E>) -> Result<(), MapReaderError<E>>
 {
     for (i, chunk_result) in iter.enumerate() {
         if i == u32::MAX as usize {
             warn!("Reached maximum segment limit, stopping input read");
-            break;
+            return Err(MapReaderError::ChunkError(i));
         }
 
         let chunk = match chunk_result {
             Ok(bytes) => bytes,
             Err(e) => {
-                error!("Error reading from stdin: {e}");
-                break;
+                error!("Error reading chunk: {e}");
+                return Err(MapReaderError::ChunkError(i));
             }
         };
 
         match String::from_utf8(chunk) {
             Ok(s) => {
-                debug!("Read: {s}");
-                if f(s).is_err() {
-                    break;
+                if let Err(e) = f(s) {
+                    return Err(MapReaderError::Custom(e));
                 }
             }
             Err(e) => {
                 error!("Invalid UTF-8 in stdin at byte {}: {}", e.utf8_error().valid_up_to(), e);
                 // Skip but continue reading
                 if INVALID_FAIL {
-                    break
+                    return Err(MapReaderError::ChunkError(i));
                 } else {
                     continue
                 }
             }
         }
     }
+    Ok(())
 }
 
-// note: a stream means wrapping with closure passed stream::unfold and returning f() inside
-pub fn map_reader_lines<const INVALID_FAIL: bool>(reader: impl Read, mut f: impl FnMut(String) -> Result<()>) {
+
+pub fn map_reader_lines<const INVALID_FAIL: bool, E>(reader: impl Read, mut f: impl FnMut(String) -> Result<(), E>) -> Result<(), MapReaderError<E>> {
     let buf_reader = io::BufReader::new(reader);
 
     for (i, line) in buf_reader.lines().enumerate() {
         if i == u32::MAX as usize {
             eprintln!("Reached maximum line limit, stopping input read");
-            break;
+            return Err(MapReaderError::ChunkError(i));
         }
         match line {
             Ok(l) => {
-                if f(l).is_err() {
-                    break;
+                if let Err(e) = f(l) {
+                    return Err(MapReaderError::Custom(e));
                 }
             }
             Err(e) => {
                 eprintln!("Error reading line: {}", e);
                 if INVALID_FAIL {
-                    break
+                    return Err(MapReaderError::ChunkError(i));
                 } else {
                     continue
                 }
             }
         }
     }
+    Ok(())
 }
 
-/// Spawns a tokio task mapping f to reader segments
-pub fn map_reader(reader: impl Read + MMItem, f: impl FnMut(String) -> Result<()> + MMItem, input_separator: Option<char>) -> tokio::task::JoinHandle<()> {
+/// Spawns a tokio task mapping f to reader segments.
+/// Read aborts on error. Read errors are logged.
+pub fn map_reader<E: MMItem>(reader: impl Read + MMItem, f: impl FnMut(String) -> Result<(), E> + MMItem, input_separator: Option<char>) -> tokio::task::JoinHandle<Result<(), MapReaderError<E>>> {
     if let Some(delim) = input_separator {
         tokio::spawn(async move {
-            map_chunks::<true>(read_to_chunks(reader, delim), f)
+            map_chunks::<true, E>(read_to_chunks(reader, delim), f)
         })
     } else {
         tokio::spawn(async move {
-            map_reader_lines::<true>(reader, f)
+            map_reader_lines::<true, E>(reader, f)
         })
     }
 }

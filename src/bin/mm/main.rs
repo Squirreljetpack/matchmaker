@@ -6,6 +6,7 @@ mod parse;
 mod types;
 mod utils;
 mod setup;
+mod config;
 
 use matchmaker::{
     MatchError, Result, proc::AppendOnly

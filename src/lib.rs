@@ -50,6 +50,18 @@ macro_rules! impl_int_wrapper {
             }
         }
 
+        impl From<$name> for $inner {
+            fn from(c: $name) -> Self {
+                c.0
+            }
+        }
+
+        impl From<$inner> for $name {
+            fn from(c: $inner) -> Self {
+                Self(c)
+            }
+        }
+
         impl std::fmt::Display for $name {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(f, "{}", self.0)

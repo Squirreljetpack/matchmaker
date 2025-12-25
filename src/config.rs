@@ -1,9 +1,11 @@
+//! Config Types.
+//! See `src/bin/mm/config.rs` for an example
+
 use std::{fmt, ops::Deref};
 
-use crate::action::{ActionExt, NullActionExt};
 use crate::utils::text::parse_escapes;
 
-use crate::{Result, action::{Count}, binds::BindMap, tui::IoStream};
+use crate::{Result, action::{Count}, tui::IoStream};
 use ratatui::style::Style;
 use ratatui::text::{Span};
 use ratatui::{
@@ -14,32 +16,6 @@ use serde::{Serialize, Serializer};
 use serde::de::IntoDeserializer;
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, de::{self, Visitor}};
-
-/// Full config.
-/// Clients probably want to make their own type with RenderConfig + custom settings to instantiate their matchmaker.
-/// Used by the instantiation method [`crate::Matchmaker::new_from_config`]
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields,
-    bound(
-        serialize = "",
-        deserialize = "",
-    )
-)]
-pub struct Config<A: ActionExt = NullActionExt> {
-    // configure the ui
-    #[serde(flatten)]
-    pub render: RenderConfig,
-
-    // binds
-    pub binds: BindMap<A>,
-
-    pub tui: TerminalConfig,
-
-    pub previewer: PreviewerConfig,
-
-    // this is in a bit of a awkward place because the matcher, worker, picker and reader all want pieces of it.
-    pub matcher: MatcherConfig,
-}
 
 /// Settings unrelated to event loop/picker_ui.
 ///
@@ -118,6 +94,7 @@ pub struct TerminalConfig {
     pub stream: IoStream,
     pub sleep: u16, // necessary to give ratatui a small delay before resizing after entering and exiting
     // todo: lowpri: will need a value which can deserialize to none when implementing cli parsing
+    pub restore_fullscreen: bool,
     #[serde(flatten)]
     pub layout: Option<TerminalLayoutSettings> // None for fullscreen
 }
@@ -300,7 +277,7 @@ pub struct DisplayConfig {
 
     #[serde(default = "default_true")]
     pub match_indent: bool,
-
+    pub wrap: bool,
     #[serde(deserialize_with = "deserialize_option_auto")]
     pub content: Option<StringOrVec>,
 }
@@ -311,6 +288,7 @@ impl Default for DisplayConfig {
             border: Default::default(),
             match_indent: true,
             fg: default_green(),
+            wrap: false,
             modifier: default_italic(), // whatever your `deserialize_modifier` default uses
             content: None,
         }
@@ -334,7 +312,12 @@ impl Default for PreviewConfig {
     fn default() -> Self {
         PreviewConfig {
             border: Default::default(),
-            layout: Default::default(),
+            layout: vec![
+                PreviewSetting {
+                    layout: PreviewLayoutSetting::default(),
+                    command: String::new()
+                }
+            ],
             scroll_wrap: default_true(),
             wrap: Default::default(),
             show: Default::default(),
@@ -619,52 +602,6 @@ pub mod serde_from_str {
         T::from_str(&s).map_err(de::Error::custom)
     }
 }
-
-pub mod utils {
-    use crate::Result;
-    use crate::config::{Config};
-    use std::borrow::Cow;
-    use std::path::{Path};
-
-    pub fn get_config(dir: &Path) -> Result<Config> {
-        let config_path = dir.join("config.toml");
-
-        let config_content: Cow<'static, str> = if !config_path.exists() {
-            Cow::Borrowed(include_str!("../assets/config.toml"))
-        } else {
-            Cow::Owned(std::fs::read_to_string(config_path)?)
-        };
-
-        let config: Config = toml::from_str(&config_content)?;
-
-        Ok(config)
-    }
-
-    pub fn write_config(dir: &Path) -> Result<()> {
-        let config_path = dir.join("config.toml");
-
-        let default_config_content = include_str!("../assets/config.toml");
-        let parent_dir = config_path.parent().unwrap();
-        std::fs::create_dir_all(parent_dir)?;
-        std::fs::write(&config_path, default_config_content)?;
-
-        println!("Config written to: {}", config_path.display());
-        Ok(())
-    }
-
-    #[cfg(debug_assertions)]
-    pub fn write_config_dev(dir: &Path) -> Result<()> {
-        let config_path = dir.join("config.toml");
-
-        let default_config_content = include_str!("../assets/dev.toml");
-        let parent_dir = config_path.parent().unwrap();
-        std::fs::create_dir_all(parent_dir)?;
-        std::fs::write(&config_path, default_config_content)?;
-
-        Ok(())
-    }
-}
-
 
 
 // --------- Deserialize Helpers ------------
@@ -1099,6 +1036,12 @@ impl Percentage {
     }
 }
 
+impl From<u8> for Percentage {
+    fn from(value: u8) -> Self {
+        Self(if value > 100 { 100 } else { value })
+    }
+}
+
 
 impl Deref for Percentage {
     type Target = u8;
@@ -1363,24 +1306,4 @@ fn default_bold() -> Modifier {
 
 fn default_italic() -> Modifier {
     Modifier::ITALIC
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use toml;
-
-    #[test]
-    fn config_round_trip() {
-        let default_toml = include_str!("../assets/dev.toml");
-        let config: Config = toml::from_str(default_toml)
-        .expect("failed to parse default TOML");
-        let serialized = toml::to_string_pretty(&config)
-        .expect("failed to serialize to TOML");
-        let deserialized: Config = toml::from_str(&serialized)
-        .unwrap_or_else(|e| panic!("failed to parse serialized TOML:\n{}\n{e}", serialized));
-
-        // Assert the round-trip produces the same data
-        assert_eq!(config, deserialized);
-    }
 }

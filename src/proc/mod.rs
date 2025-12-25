@@ -23,15 +23,15 @@ pub fn spawn(
     let (shell, arg) = &*SHELL;
 
     Command::new(shell)
-        .arg(arg)
-        .arg(cmd)
-        .envs(vars)
-        .stdin(stdin)
-        .stdout(stdout)
-        .stderr(stderr)
-        .spawn()
-        .map_err(|e| log::error!("Failed to spawn command {cmd}: {e}"))
-        .ok()
+    .arg(arg)
+    .arg(cmd)
+    .envs(vars)
+    .stdin(stdin)
+    .stdout(stdout)
+    .stderr(stderr)
+    .spawn()
+    .map_err(|e| log::error!("Failed to spawn command {cmd}: {e}"))
+    .ok()
 }
 
 pub fn exec(cmd: &str, vars: impl IntoIterator<Item = (String, String)>) -> ! {
@@ -58,8 +58,8 @@ pub fn exec(cmd: &str, vars: impl IntoIterator<Item = (String, String)>) -> ! {
             Ok(status) => {
                 exit(
                     status
-                        .code()
-                        .unwrap_or(if status.success() { 0 } else { 1 }),
+                    .code()
+                    .unwrap_or(if status.success() { 0 } else { 1 }),
                 );
             }
             Err(err) => {
@@ -120,6 +120,16 @@ impl<T> AppendOnly<T> {
         Self(Arc::new(RwLock::new(boxcar::Vec::new())))
     }
 
+    pub fn is_empty(&self) -> bool {
+        let guard = self.0.read().unwrap();
+        guard.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        let guard = self.0.read().unwrap();
+        guard.count()
+    }
+
     pub fn clear(&self) {
         let mut guard = self.0.write().unwrap(); // acquire write lock
         guard.clear();
@@ -132,7 +142,7 @@ impl<T> AppendOnly<T> {
 
     pub fn map_to_vec<U, F>(&self, mut f: F) -> Vec<U>
     where
-        F: FnMut(&T) -> U,
+    F: FnMut(&T) -> U,
     {
         let guard = self.0.read().unwrap();
         guard.iter().map(move |(_i, v)| f(v)).collect()

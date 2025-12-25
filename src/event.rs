@@ -4,7 +4,7 @@ use crate::binds::{BindMap};
 use crate::message::{Event, RenderCommand};
 use anyhow::bail;
 use crokey::{Combiner, KeyCombination, KeyCombinationFormat, key};
-use crossterm::event::{Event as CrosstermEvent, EventStream, KeyModifiers};
+use crossterm::event::{Event as CrosstermEvent, EventStream, KeyModifiers, MouseEvent};
 use futures::stream::StreamExt;
 use log::{debug, error, info, warn};
 use ratatui::layout::Rect;
@@ -20,6 +20,7 @@ pub struct EventLoop<A: ActionExt> {
     combiner: Combiner,
     fmt: KeyCombinationFormat,
 
+    mouse_events: bool,
     paused: bool,
     event_stream: Option<EventStream>,
     controller_rx: mpsc::UnboundedReceiver<Event>,
@@ -50,6 +51,7 @@ impl<A: ActionExt> EventLoop<A> {
             controller_rx,
             controller_tx,
 
+            mouse_events: false,
             paused: false
         }
     }
@@ -68,6 +70,11 @@ impl<A: ActionExt> EventLoop<A> {
 
     pub fn add_tx(&mut self, handler: mpsc::UnboundedSender<RenderCommand<A>>) -> &mut Self {
         self.txs.push(handler);
+        self
+    }
+
+    pub fn with_mouse_events(mut self) -> Self {
+        self.mouse_events = true;
         self
     }
 
@@ -166,11 +173,19 @@ impl<A: ActionExt> EventLoop<A> {
                 maybe_event = event => {
                     match maybe_event {
                         Some(Ok(event)) => {
-                            info!("Event {event:?}");
+                            if !matches!(
+                                event,
+                                CrosstermEvent::Mouse(MouseEvent {
+                                    kind: crossterm::event::MouseEventKind::Moved,
+                                    ..
+                                })
+                            ) {
+                                info!("Event {event:?}");
+                            }
                             match event {
                                 CrosstermEvent::Key(k) => {
                                     info!("{k:?}");
-                                    if let Some(key) = self.combiner.transform(k) { // unwrap here?
+                                    if let Some(key) = self.combiner.transform(k) {
                                         info!("{key:?}");
                                         let key = KeyCombination::normalized(key);
                                         if let Some(actions) = self.binds.get(&key.into()) {

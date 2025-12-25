@@ -1,6 +1,6 @@
 use crate::{Result, config::{TerminalConfig, TerminalLayoutSettings}};
 use crossterm::{
-    cursor, event::{DisableMouseCapture, EnableMouseCapture}, execute, terminal::{ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode}
+    event::{DisableMouseCapture, EnableMouseCapture}, execute, terminal::{ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode}
 };
 use log::{debug, error, warn};
 use ratatui::{Terminal, TerminalOptions, Viewport, layout::Rect, prelude::CrosstermBackend};
@@ -14,7 +14,8 @@ W: Write,
     pub terminal: ratatui::Terminal<CrosstermBackend<W>>,
     layout: Option<TerminalLayoutSettings>,
     pub area: Rect,
-    pub sleep : u64
+    pub sleep : u64,
+    restore_fullscreen: bool
 }
 
 impl<W> Tui<W>
@@ -82,6 +83,7 @@ W: Write,
         Ok(Self {
             terminal,
             layout: config.layout,
+            restore_fullscreen: config.restore_fullscreen,
             area,
             sleep: if config.sleep == 0 { 100 } else { config.sleep as u64 }
         })
@@ -122,20 +124,21 @@ W: Write,
     }
 
     pub fn resize(&mut self, area: Rect) {
-        if let Err(e) = self.terminal.resize(area) {
-            error!("Failed to resize TUI to {area}: {e}")
-        }
+        let _ = self
+        .terminal
+        .resize(area)
+        .map_err(|e| error!("{e}"));
         self.area = area
     }
 
     pub fn redraw(&mut self) {
-        if let Err(e) = self.terminal.resize(self.area) {
-            error!("Failed to resize TUI to {}: {e}", self.area)
-        }
+        let _ = self
+        .terminal
+        .resize(self.area)
+        .map_err(|e| error!("{e}"));
     }
 
-    pub fn return_execute(&mut self) -> Result<()>
-    {
+    pub fn return_execute(&mut self) -> Result<()> {
         self.enter()?;
         if !self.is_fullscreen() {
             // altho we cannot resize the viewport, this is the best we can do
@@ -144,18 +147,18 @@ W: Write,
 
         sleep(Duration::from_millis(self.sleep));
 
-        if let Err(e) = execute!(
+        let _ = execute!(
             self.terminal.backend_mut(),
             crossterm::terminal::Clear(ClearType::All)
-        ) {
-            warn!("Failed to leave alternate screen: {:?}", e);
-        }
+        )
+        .map_err(|e| warn!("{e}"));
 
-        if self.is_fullscreen() {
+        if self.is_fullscreen() || self.restore_fullscreen {
             if let Some((width, height)) = Self::full_size() {
                 self.resize(Rect::new(0, 0, width, height));
             } else {
-                error!("Failed to get terminal size")
+                error!("Failed to get terminal size");
+                self.resize(self.area);
             }
         } else {
             self.resize(self.area);
@@ -168,35 +171,28 @@ W: Write,
         let backend = self.terminal.backend_mut();
 
         // if !fullscreen {
-        if let Err(e) = execute!(backend, cursor::MoveTo(0, self.area.y)) {
-            warn!("Failed to move cursor: {:?}", e);
-        }
+        let _ = execute!(
+            backend,
+            crossterm::terminal::Clear(ClearType::FromCursorDown)
+        )
+        .map_err(|e| warn!("{e}"));
         // } else {
         //     if let Err(e) = execute!(backend, cursor::MoveTo(0, 0)) {
         //         warn!("Failed to move cursor: {:?}", e);
         //     }
         // }
 
+        let _ = execute!(backend, LeaveAlternateScreen, DisableMouseCapture)
+        .map_err(|e| warn!("{e}"));
 
+        let _ = self
+        .terminal
+        .show_cursor()
+        .map_err(|e| warn!("{e}"));
 
-        if let Err(e) = execute!(
-            backend,
-            crossterm::terminal::Clear(ClearType::FromCursorDown)
-        ) {
-            warn!("Failed to clear screen: {:?}", e);
-        }
+        let _ = disable_raw_mode()
+        .map_err(|e| warn!("{e}"));
 
-        if let Err(e) = execute!(backend, LeaveAlternateScreen, DisableMouseCapture) {
-            warn!("Failed to leave alternate screen: {:?}", e);
-        }
-
-        if let Err(e) = self.terminal.show_cursor() {
-            warn!("Failed to show cursor: {:?}", e);
-        }
-
-        if let Err(e) = disable_raw_mode() {
-            warn!("Failed to disable raw mode: {:?}", e);
-        }
 
         debug!("Terminal exited");
     }

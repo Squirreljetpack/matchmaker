@@ -1,19 +1,30 @@
+use std::{
+    cmp::Ordering,
+    collections::BTreeMap,
+    fmt,
+    str::FromStr,
+};
+
+use serde::{
+    de::{self, Visitor},
+    ser,
+    Deserializer,
+    Serialize,
+};
+
+use crate::{
+    action::{ActionExt, Actions, NullActionExt},
+    config::TomlColorConfig,
+    message::Event,
+};
+
+pub use crokey::key;
 use crokey::KeyCombination;
-use crossterm::event::{KeyModifiers, MouseEventKind};
-use serde::{Deserializer, Serialize, ser};
-use std::cmp::Ordering;
-use std::collections::BTreeMap;
-use std::{fmt, str::FromStr};
+pub use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
 
-use crossterm::event::MouseButton;
-use serde::de::{self, Visitor};
-
-use crate::action::ActionExt;
-use crate::config::TomlColorConfig;
-use crate::{action::Actions, message::Event};
 
 #[allow(type_alias_bounds)]
-pub type BindMap<A: ActionExt> = BTreeMap<Trigger, Actions<A>>;
+pub type BindMap<A: ActionExt = NullActionExt> = BTreeMap<Trigger, Actions<A>>;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum Trigger {

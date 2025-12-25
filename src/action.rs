@@ -2,33 +2,6 @@ use std::{fmt::{self, Debug, Display}, mem::discriminant, str::FromStr};
 
 use serde::{Deserialize, Serialize, Serializer};
 
-
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct NullActionExt {}
-
-impl ActionExt for NullActionExt {}
-
-impl fmt::Display for NullActionExt {
-    fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Ok(())
-    }
-}
-
-impl std::str::FromStr for NullActionExt {
-    type Err = ();
-
-    fn from_str(_: &str) -> Result<Self, Self::Err> {
-        Err(())
-    }
-}
-
-pub trait ActionExt: Debug + Clone + FromStr + Display + PartialEq + MMItem
-+ Default // required for serde(default) bound
-{}
-
-pub type ActionExtHandler<T, S, A> = fn(&A, &mut EphemeralState<'_, T, S>);
-
-
 #[derive(Debug, Clone, Default)]
 pub enum Action<A: ActionExt> {
     #[default] // used to satisfy enumstring
@@ -37,6 +10,7 @@ pub enum Action<A: ActionExt> {
     Toggle,
     CycleAll,
     Accept,
+    // Returns MatchError::Abort
     Quit(Exit),
 
     // UI
@@ -50,9 +24,16 @@ pub enum Action<A: ActionExt> {
     ToggleWrapPreview,
 
     // Programmable
+    /// Pauses the tui display and the event loop, and invokes the handler for [`crate::message::Interrupt::Execute`]
+    /// The remaining actions in the buffer are still processed
     Execute(String),
+    /// Exits the tui and invokes the handler for [`crate::message::Interrupt::Become`]
     Become(String),
+    /// Restarts the matcher-worker and invokes the handler for [`crate::message::Interrupt::Reload`]
     Reload(String),
+
+    /// Invokes the handler for [`crate::message::Interrupt::Print`]
+    /// See also: [`crate::Matchmaker::register_print_handler`]
     Print(String),
 
     SetInput(String),
@@ -103,22 +84,60 @@ impl<A: ActionExt> serde::Serialize for Action<A> {
     }
 }
 
-// -----------------------------------------------------------------------------------------------------------------------
-
-
 impl<A: ActionExt> PartialEq for Action<A> {
     fn eq(&self, other: &Self) -> bool {
         discriminant(self) == discriminant(other)
     }
 }
-
 impl<A: ActionExt> Eq for Action<A> {}
 
-impl<A: ActionExt> std::hash::Hash for Action<A> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        discriminant(self).hash(state);
+// --------- ACTION_EXT ------------------
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct NullActionExt {}
+
+impl ActionExt for NullActionExt {}
+
+impl fmt::Display for NullActionExt {
+    fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Ok(())
     }
 }
+
+impl std::str::FromStr for NullActionExt {
+    type Err = ();
+
+    fn from_str(_: &str) -> Result<Self, Self::Err> {
+        Err(())
+    }
+}
+
+pub trait ActionExt: Debug + Clone + FromStr + Display + PartialEq + MMItem
+{}
+
+pub type ActionExtHandler<T, S, A> = fn(A, &mut MMState<'_, T, S>);
+pub type ActionExtAliaser<T, S, A> = fn(&A, &MMState<'_, T, S>) -> Option<Vec<Action<A>>>;
+
+
+
+/// # Example
+/// ```rust
+///     use matchmaker::{bindmap, key, action::Action, binds::BindMap};
+///     let default_config: BindMap = bindmap!(
+///        key!(alt-enter) => Action::Print("".into())
+///        // custom actions can be specified directly: key!(ctrl-c) => FsAction::Enter
+///    );
+/// ```
+#[macro_export]
+macro_rules! bindmap {
+    ( $( $k:expr => $v1:expr ),* $(,)? ) => {{
+        let mut map = std::collections::BTreeMap::new();
+        $(
+            map.insert($k.into(), $crate::action::Actions::from($v1));
+        )*
+        map
+    }};
+}
+// ----------- ACTIONS ---------------
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Actions<A: ActionExt>(pub Vec<Action<A>>);
@@ -128,6 +147,29 @@ impl<const N: usize, A: ActionExt> From<[Action<A>; N]> for Actions<A> {
         Actions(arr.into())
     }
 }
+
+impl<A: ActionExt> From<Action<A>> for Actions<A> {
+    fn from(action: Action<A>) -> Self {
+        Actions(vec![action])
+    }
+}
+
+// no conflict because Action is local type
+impl<const N: usize, A: ActionExt> From<[A; N]> for Actions<A> {
+    fn from(arr: [A; N]) -> Self {
+        Actions(arr.into_iter().map(Action::Custom).collect())
+    }
+}
+
+impl<A: ActionExt> From<A> for Actions<A> {
+    fn from(action: A) -> Self {
+        Actions(vec![Action::Custom(action)])
+    }
+}
+
+
+
+// ---------- SERDE ----------------
 
 impl<'de, A: ActionExt> Deserialize<'de> for Actions<A> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -304,7 +346,7 @@ impl_display_and_from_str_enum!(
     Help
 );
 
-use crate::{MMItem, config::StringOrVec, impl_int_wrapper, render::EphemeralState};
+use crate::{MMItem, config::StringOrVec, impl_int_wrapper, render::MMState};
 impl_int_wrapper!(Exit, i32, 1);
 impl_int_wrapper!(Count, u16, 1);
 

@@ -1,11 +1,13 @@
-use std::{env, process::{Stdio, exit}};
+use std::{env, path::Path, process::{Stdio, exit}};
 
 use log::{debug, error};
 use matchmaker::{
-    MatchError, Matchmaker, OddEnds, PickBuilder, binds::display_binds, config::{Config, MatcherConfig, StartConfig, utils::{get_config, write_config}}, event::EventLoop, make_previewer, message::Interrupt, nucleo::{Segmented, injector::{IndexedInjector, Injector, SegmentedInjector}}, proc::{AppendOnly, map_chunks, map_reader, map_reader_lines, read_to_chunks, spawn}
+    MatchError, Matchmaker, OddEnds, PickBuilder, binds::display_binds, config::{MatcherConfig, StartConfig}, event::EventLoop, make_previewer, message::Interrupt, nucleo::{Segmented, injector::{IndexedInjector, Injector, SegmentedInjector}}, proc::{AppendOnly, map_reader, spawn}
 };
-use crate::Result;
+use crate::{Result, config::{Config, get_config, write_config}, types::config_file};
 
+#[cfg(debug_assertions)]
+use crate::config::write_config_dev;
 use crate::parse::parse;
 
 
@@ -14,11 +16,19 @@ pub fn enter() -> Result<Config> {
     let cli = parse(args.collect());
     log::debug!("{cli:?}");
 
+    let cfg_path = {
+        if let Some(cfg) = &cli.config && let p = Path::new(cfg) && p.is_file() {
+            p
+        } else {
+            config_file()
+        }
+    };
+
     #[cfg(debug_assertions)]
-    matchmaker::config::utils::write_config_dev(&cli.config)?;
+    write_config_dev(cfg_path)?;
 
     if cli.dump_config && atty::is(atty::Stream::Stdout) {
-        write_config(&cli.config)?;
+        write_config(cfg_path)?;
         exit(0);
     }
     if cli.test_keys {
@@ -26,7 +36,11 @@ pub fn enter() -> Result<Config> {
         exit(0);
     }
 
-    let mut config = get_config(&cli.config)?;
+    let mut config = if cli.config.as_ref().is_none_or(|x| x.to_str().is_none() || Path::new(x).is_file()) {
+        get_config(cfg_path)?
+    } else {
+        toml::from_str(cli.config.as_ref().unwrap().to_str().unwrap())?
+    };
     cli.merge_config(&mut config)?;
 
     if cli.dump_config && ! atty::is(atty::Stream::Stdout) {
@@ -59,21 +73,12 @@ pub async fn pick(config: Config, print_handle: AppendOnly<String>) -> Result<Ve
     let (mut mm, injector, OddEnds { formatter, splitter }) = Matchmaker::new_from_config(render, tui, worker);
     // make previewer
     let help_str = display_binds(&event_loop.binds, Some(&previewer.help_colors));
-    let previewer = make_previewer(previewer, &mut mm, formatter.clone(), help_str);
+    let previewer = make_previewer(&mut mm, previewer, formatter.clone(), help_str);
 
     // ---------------------- register handlers ---------------------------
     // print handler
-    let print_formatter = mm.worker.make_format_fn::<false>(|item| std::borrow::Cow::Borrowed(&item.inner.inner));
-    mm.register_interrupt_handler(
-        matchmaker::message::Interrupt::Print("".into()),
-        move |state, i| {
-            if let Interrupt::Print(template) = i
-            && let Some(t) = state.current_raw() {
-                let s = print_formatter(t, template);
-                print_handle.push(s);
-            }
-        },
-    );
+    let print_formatter = std::sync::Arc::new(mm.worker.make_format_fn::<false>(|item| std::borrow::Cow::Borrowed(&item.inner.inner)));
+    mm.register_print_handler(print_handle, print_formatter);
 
     // execute handlers
     mm.register_execute_handler(formatter.clone());
@@ -83,7 +88,7 @@ pub async fn pick(config: Config, print_handle: AppendOnly<String>) -> Result<Ve
     let reload_formatter = formatter.clone();
     mm.register_interrupt_handler(Interrupt::Reload("".into()), move |state, interrupt| {
         let injector = state.injector();
-        let injector= IndexedInjector::new(injector, ());
+        let injector= IndexedInjector::new(injector, 0);
         let injector= SegmentedInjector::new(injector, splitter.clone());
 
         if let Interrupt::Reload(template) = interrupt
@@ -97,15 +102,7 @@ pub async fn pick(config: Config, print_handle: AppendOnly<String>) -> Result<Ve
             debug!("Reloading: {cmd}");
             if let Some(mut child) = spawn(&cmd, vars, Stdio::null(), Stdio::piped(), Stdio::null()) {
                 if let Some(stdout) = child.stdout.take() {
-                    let _handle = if let Some(delim) = delimiter {
-                        tokio::spawn(async move {
-                            map_chunks::<true>(read_to_chunks(stdout, delim), |line| injector.push(line).map_err(|e| e.into()))
-                        })
-                    } else {
-                        tokio::spawn(async move {
-                            map_reader_lines::<true>(stdout, |line| injector.push(line).map_err(|e| e.into()))
-                        })
-                    };
+                    map_reader(stdout, move |line| injector.push(line), delimiter);
                 } else {
                     error!("Failed to capture stdout");
                 }
@@ -115,13 +112,13 @@ pub async fn pick(config: Config, print_handle: AppendOnly<String>) -> Result<Ve
 
     debug!("{mm:?}");
 
-    // read stdin
+    // ----------- read -----------------------
     let handle = if !atty::is(atty::Stream::Stdin) {
         let stdin = std::io::stdin();
         map_reader(
             stdin,
             move |line| {
-                injector.push(line).map_err(|e| e.into())
+                injector.push(line)
             },
             delimiter
         )
@@ -131,7 +128,7 @@ pub async fn pick(config: Config, print_handle: AppendOnly<String>) -> Result<Ve
             map_reader(
                 stdout,
                 move |line| {
-                    injector.push(line).map_err(|e| e.into())
+                    injector.push(line)
                 },
                 delimiter
             )
@@ -148,5 +145,5 @@ pub async fn pick(config: Config, print_handle: AppendOnly<String>) -> Result<Ve
         let _ = handle.await;
     }
 
-    mm.pick_with(PickBuilder::new().event_loop(event_loop).matcher(matcher.0).previewer(previewer)).await
+    mm.pick(PickBuilder::new().event_loop(event_loop).matcher(matcher.0).previewer(previewer)).await
 }

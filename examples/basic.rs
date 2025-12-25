@@ -11,7 +11,7 @@ async fn main() -> Result<()> {
 
     let mm = Matchmaker::new(worker, identifier);
 
-    match mm.pick().await {
+    match mm.pick_default().await {
         Ok(v) => {
             println!("{}", v[0]);
         }

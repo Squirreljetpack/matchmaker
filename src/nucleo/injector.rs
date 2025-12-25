@@ -107,12 +107,12 @@ pub struct IndexedInjector<T, I: Injector<InputItem = Indexed<T>>> {
 impl<T, I: Injector<InputItem = Indexed<T>>> Injector for IndexedInjector<T, I> {
     type InputItem = T;
     type Inner = I;
-    type Context = ();
+    type Context = u32;
 
-    fn new(injector: Self::Inner, _data: Self::Context) -> Self {
+    fn new(injector: Self::Inner, count: Self::Context) -> Self {
         Self {
             injector,
-            count: Arc::new(AtomicU32::new(0)),
+            count: Arc::new(AtomicU32::new(count)),
             input_type: PhantomData,
         }
     }

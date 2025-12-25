@@ -1,7 +1,7 @@
 #![allow(unused)]
 use log::debug;
 use ratatui::{
-    style::{Style, Stylize}, text::Text, widgets::Paragraph
+    style::{Style, Stylize}, text::Text, widgets::{Paragraph, Wrap}
 };
 
 use crate::{config::{DisplayConfig, StringOrVec}, utils::text::left_pad};
@@ -41,9 +41,10 @@ impl DisplayUI {
         height
     }
 
-    pub fn set(&mut self, text: String) {
-        self.height = text.lines().count() as u16;
-        self.text = text.into();
+    pub fn set(&mut self, text: impl Into<Text<'static>>) {
+        let text = text.into();
+        self.height = text.lines.len() as u16;
+        self.text = text;
     }
 
     pub fn make_display(&self, result_indentation: usize) -> Paragraph<'_> {
@@ -52,6 +53,10 @@ impl DisplayUI {
         let mut ret = Paragraph::new(self.text.clone())
         .style(Style::default().fg(self.config.fg))
         .add_modifier(self.config.modifier);
+
+        if self.config.wrap {
+            ret = ret.wrap(Wrap { trim: false });
+        }
 
         let block = {
             let ret = self.config.border.as_block();

@@ -14,12 +14,37 @@ use ratatui::Frame;
 use ratatui::layout::Rect;
 use tokio::sync::mpsc;
 
-use crate::action::{Action, ActionExt, ActionExtHandler};
+use crate::action::{Action, ActionExt, ActionExtAliaser, ActionExtHandler};
 use crate::config::{CursorSetting, ExitConfig};
 use crate::message::{Event, Interrupt, RenderCommand};
 use crate::tui::Tui;
 use crate::ui::{DisplayUI, InputUI, OverlayUI, PickerUI, PreviewUI, ResultsUI, UI};
 use crate::{MatchError, MMItem, Selection};
+
+fn apply_aliases<T: MMItem, S: Selection, A: ActionExt>(
+    buffer: &mut Vec<RenderCommand<A>>,
+    aliaser: ActionExtAliaser<T, S, A>,
+    state: &MMState<'_, T, S>
+) {
+    let mut out = Vec::new();
+
+    for cmd in buffer.drain(..) {
+        match cmd {
+            RenderCommand::Action(Action::Custom(ref a)) => {
+                if let Some(v) = aliaser(a, state) {
+                    for x in v {
+                        out.push(RenderCommand::Action(x));
+                    }
+                } else {
+                    out.push(cmd);
+                }
+            }
+            other => out.push(other),
+        }
+    }
+
+    *buffer = out;
+}
 
 #[allow(clippy::too_many_arguments)]
 pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, A: ActionExt>(
@@ -31,6 +56,7 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, A: ActionExt>(
     controller_tx: mpsc::UnboundedSender<Event>,
     dynamic_handlers: DynamicHandlers<T, S>,
     ext_handler: Option<ActionExtHandler<T, S, A>>,
+    ext_aliaser: Option<ActionExtAliaser<T, S, A>>,
     exit_config: ExitConfig,
 ) -> Result<Vec<S>, MatchError> {
     let mut buffer = Vec::with_capacity(256);
@@ -49,8 +75,13 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, A: ActionExt>(
         let mut did_exit = false;
         let mut did_resize = false;
 
+        if let Some(aliaser) = ext_aliaser {
+            let state = state.dispatcher(&ui, &picker_ui, preview_ui.as_ref());
+            apply_aliases(&mut buffer, aliaser, &state);
+        }
+
         // todo: benchmark vs drain
-        for event in &buffer {
+        for event in buffer.drain(..) {
             let mut interrupt = Interrupt::None;
 
             let PickerUI {
@@ -69,15 +100,15 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, A: ActionExt>(
 
             match event {
                 RenderCommand::Input(c) => {
-                    if overlay_ui.handle_input(*c) {
+                    if overlay_ui.handle_input(c) {
                         continue;
                     }
-                    input.input.insert(input.cursor as usize, *c);
+                    input.input.insert(input.cursor as usize, c);
                     input.cursor += 1;
                 }
                 RenderCommand::Resize(area) => {
-                    tui.resize(*area);
-                    ui.area = *area;
+                    tui.resize(area);
+                    ui.area = area;
                 }
                 RenderCommand::Refresh => {
                     tui.redraw();
@@ -114,20 +145,20 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, A: ActionExt>(
                             return Ok(selections.output().collect::<Vec<S>>());
                         }
                         Action::Quit(code) => {
-                            return Err(MatchError::Abort(code.into()));
+                            return Err(MatchError::Abort(code.0));
                         }
 
                         // UI
                         Action::SetHeader(context) => {
                             if let Some(s) = context {
-                                header.set(s.into());
+                                header.set(s);
                             } else {
                                 todo!()
                             }
                         }
                         Action::SetFooter(context) => {
                             if let Some(s) = context {
-                                footer.set(s.into());
+                                footer.set(s);
                             } else {
                                 todo!()
                             }
@@ -137,7 +168,7 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, A: ActionExt>(
                             if let Some(p) = preview_ui.as_mut() {
                                 p.cycle_layout();
                                 if !p.command().is_empty() {
-                                    state.update_preview(p.command().as_str());
+                                    state.update_preview(p.command());
                                 }
                             }
                         }
@@ -163,7 +194,7 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, A: ActionExt>(
                         Action::SwitchPreview(idx) => {
                             if let Some(p) = preview_ui.as_mut() {
                                 if let Some(idx) = idx {
-                                    if !p.set_idx(*idx) && !state.update_preview(p.command()) {
+                                    if !p.set_idx(idx) && !state.update_preview(p.command()) {
                                         p.toggle_show();
                                     }
                                 } else {
@@ -174,7 +205,7 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, A: ActionExt>(
                         Action::SetPreview(idx) => {
                             if let Some(p) = preview_ui.as_mut() {
                                 if let Some(idx) = idx {
-                                    p.set_idx(*idx);
+                                    p.set_idx(idx);
                                 } else {
                                     state.update_preview(p.command());
                                 }
@@ -191,23 +222,23 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, A: ActionExt>(
 
                         // Programmable
                         Action::Execute(context) => {
-                            interrupt = Interrupt::Execute(context.into());
+                            interrupt = Interrupt::Execute(context);
                         }
                         Action::Become(context) => {
-                            interrupt = Interrupt::Become(context.into());
+                            interrupt = Interrupt::Become(context);
                         }
                         Action::Reload(context) => {
-                            interrupt = Interrupt::Reload(context.into());
+                            interrupt = Interrupt::Reload(context);
                         }
                         Action::Print(context) => {
-                            interrupt = Interrupt::Print(context.into());
+                            interrupt = Interrupt::Print(context);
                         }
 
                         Action::SetInput(context) => {
-                            input.set_input(context.into(), u16::MAX);
+                            input.set(context, u16::MAX);
                         }
                         Action::Column(context) => {
-                            results.toggle_col(*context);
+                            results.toggle_col(context);
                         }
                         Action::CycleColumn => {
                             results.cycle_col();
@@ -247,18 +278,18 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, A: ActionExt>(
                         Action::PreviewHalfPageUp => todo!(),
                         Action::PreviewHalfPageDown => todo!(),
                         Action::Pos(pos) => {
-                            let pos = if *pos >= 0 {
-                                *pos as u32
+                            let pos = if pos >= 0 {
+                                pos as u32
                             } else {
-                                results.status.matched_count.saturating_sub((-*pos) as u32)
+                                results.status.matched_count.saturating_sub((-pos) as u32)
                             };
                             results.cursor_jump(pos);
                         }
                         Action::InputPos(pos) => {
-                            let pos = if *pos >= 0 {
-                                *pos as u16
+                            let pos = if pos >= 0 {
+                                pos as u16
                             } else {
-                                (input.len() as u16).saturating_sub((-*pos) as u16)
+                                (input.len() as u16).saturating_sub((-pos) as u16)
                             };
                             input.cursor = pos;
                         }
@@ -271,7 +302,7 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, A: ActionExt>(
                             if let Some(handler) = ext_handler {
                                 let mut dispatcher = state.dispatcher(&ui, &picker_ui, preview_ui.as_ref());
                                 handler(e, &mut dispatcher);
-                                state.apply(dispatcher.effects, &mut ui, &mut picker_ui, preview_ui.as_mut(), &mut overlay_ui);
+                                state.apply_effects(dispatcher.effects, &mut ui, &mut picker_ui, preview_ui.as_mut(), &mut overlay_ui);
                             }
                         }
                         _ => {}
@@ -309,7 +340,7 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, A: ActionExt>(
             if let Interrupt::Become(context) = interrupt {
                 return Err(MatchError::Become(context));
             }
-            state.apply(dispatcher.effects, &mut ui, &mut picker_ui, preview_ui.as_mut(), &mut overlay_ui);
+            state.apply_effects(dispatcher.effects, &mut ui, &mut picker_ui, preview_ui.as_mut(), &mut overlay_ui);
         }
 
         // debug!("{state:?}");
@@ -328,9 +359,9 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, A: ActionExt>(
             render_ui(frame, &mut area, &ui);
 
             let [preview, picker_area] = if let Some(preview_ui) = preview_ui.as_mut()
-            && preview_ui.is_show()
+            && let Some(layout) = preview_ui.layout()
             {
-                let ret = preview_ui.layout().split(area);
+                let ret = layout.split(area);
                 if state.iterations == 0 && ret[1].width <= 5 {
                     warn!("UI too narrow, hiding preview");
                     preview_ui.show::<false>();
@@ -401,7 +432,7 @@ pub async fn render_loop<'a, W: Write, T: MMItem, S: Selection, A: ActionExt>(
             .unwrap_or_else(|err| eprintln!("send failed: {:?}", err));
         }
         // apply effects
-        state.apply(dispatcher.effects, &mut ui, &mut picker_ui, preview_ui.as_mut(), &mut overlay_ui);
+        state.apply_effects(dispatcher.effects, &mut ui, &mut picker_ui, preview_ui.as_mut(), &mut overlay_ui);
 
         buffer.clear();
 

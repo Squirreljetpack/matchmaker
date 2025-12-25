@@ -5,7 +5,7 @@ use log::{debug, info, warn};
 use ratatui::text::Text;
 
 use crate::{
-    MMItem, MatchError, RenderFn, Result, Selection, SelectionSet, SplitterFn, action::{ActionExt, ActionExtHandler, NullActionExt}, binds::BindMap, config::{
+    MMItem, MatchError, RenderFn, Result, Selection, SelectionSet, SplitterFn, action::{ActionExt, ActionExtAliaser, ActionExtHandler, NullActionExt}, binds::BindMap, config::{
         ExitConfig, PreviewerConfig, RenderConfig, Split, TerminalConfig, WorkerConfig
     }, env_vars, event::EventLoop, message::{Event, Interrupt}, nucleo::{
         Indexed,
@@ -18,11 +18,11 @@ use crate::{
             WorkerInjector,
         },
     }, proc::{
-        Preview, exec, previewer::{PreviewMessage, Previewer}, spawn, tty_or_null
+        AppendOnly, Preview, exec, previewer::{PreviewMessage, Previewer}, spawn, tty_or_null
     }, render::{
         self,
         DynamicMethod,
-        EphemeralState,
+        MMState,
         EventHandlers,
         InterruptHandlers,
     }, tui, ui::UI
@@ -44,7 +44,7 @@ pub struct Matchmaker<T: MMItem, S: Selection=T> {
     selection_set: SelectionSet<T, S>,
     event_handlers: EventHandlers<T, S>,
     interrupt_handlers: InterruptHandlers<T, S>,
-    previewer: Option<Preview>,
+    preview: Option<Preview>,
 }
 
 
@@ -116,7 +116,7 @@ impl ConfigMatchmaker {
             }
             Split::None => Arc::new(|s| vec![(0, s.len())]),
         };
-        let injector= IndexedInjector::new(injector, ());
+        let injector= IndexedInjector::new(injector, 0);
         let injector= SegmentedInjector::new(injector, splitter.clone());
 
         let selection_set = SelectionSet::new(Indexed::identifier);
@@ -133,7 +133,7 @@ impl ConfigMatchmaker {
             selection_set,
             event_handlers,
             interrupt_handlers,
-            previewer: None
+            preview: None
         };
 
         let misc = OddEnds {
@@ -157,7 +157,7 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
             selection_set: SelectionSet::new(identifier),
             event_handlers: EventHandlers::new(),
             interrupt_handlers: InterruptHandlers::new(),
-            previewer: None
+            preview: None
         }
     }
 
@@ -170,13 +170,13 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
             selection_set: SelectionSet::new(identifier),
             event_handlers: EventHandlers::new(),
             interrupt_handlers: InterruptHandlers::new(),
-            previewer: None
+            preview: None
         }
     }
 
     /// The contents of the preview are displayed in a pane when picking.
     pub fn connect_preview(&mut self, preview: Preview) {
-        self.previewer = Some(preview);
+        self.preview = Some(preview);
     }
 
     /// Configure the UI
@@ -198,7 +198,7 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
     /// Register a handler to listen on [`Event`]s
     pub fn register_event_handler<F, I>(&mut self, events: I, handler: F)
     where
-    F: Fn(&mut EphemeralState<'_, T, S>, &Event) + MMItem,
+    F: Fn(&mut MMState<'_, T, S>, &Event) + MMItem,
     I: IntoIterator<Item = Event>,
     {
         let boxed = Box::new(handler);
@@ -223,7 +223,7 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
         handler: F,
     )
     where
-    F: Fn(&mut EphemeralState<'_, T, S>, &Interrupt) + MMItem,
+    F: Fn(&mut MMState<'_, T, S>, &Interrupt) + MMItem,
     {
         let boxed = Box::new(handler);
         self.register_boxed_interrupt_handler(interrupt, boxed);
@@ -238,8 +238,8 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
     }
 
     /// The main method of the Matchmaker. It starts listening for events and renders the TUI with ratatui. It successfully returns with all the selected items selected when the Accept action is received.
-    pub async fn pick_with<A: ActionExt>(self, builder: PickBuilder<'_, T, S, A>) -> Result<Vec<S>, MatchError> {
-        let PickBuilder { previewer, ext_handler, .. } = builder;
+    pub async fn pick<A: ActionExt>(mut self, builder: PickBuilder<'_, T, S, A>) -> Result<Vec<S>, MatchError> {
+        let PickBuilder { previewer, ext_handler, ext_aliaser, .. } = builder;
 
         let mut event_loop = if let Some(e) = builder.event_loop {
             e
@@ -250,6 +250,9 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
         };
 
         if let Some(mut previewer) = previewer {
+            if self.preview.is_none() {
+                self.preview = Some(previewer.view());
+            }
             previewer.connect_controller(event_loop.get_controller());
             tokio::spawn(async move {
                 let _ = previewer.run().await;
@@ -279,17 +282,17 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
         log::debug!("event start");
 
         if let Some(matcher) = builder.matcher {
-            let (ui, picker, preview) = UI::new(self.render_config, matcher, self.worker, self.selection_set, self.previewer, &mut tui);
-            render::render_loop(ui, picker, preview, tui, render_rx, event_controller,(self.event_handlers, self.interrupt_handlers), ext_handler, self.exit_config).await
+            let (ui, picker, preview) = UI::new(self.render_config, matcher, self.worker, self.selection_set, self.preview, &mut tui);
+            render::render_loop(ui, picker, preview, tui, render_rx, event_controller,(self.event_handlers, self.interrupt_handlers), ext_handler, ext_aliaser, self.exit_config).await
         } else {
             let mut matcher=  nucleo::Matcher::new(nucleo::Config::DEFAULT);
-            let (ui, picker, preview) = UI::new(self.render_config, &mut matcher, self.worker, self.selection_set, self.previewer, &mut tui);
-            render::render_loop(ui, picker, preview, tui, render_rx, event_controller,(self.event_handlers, self.interrupt_handlers), ext_handler, self.exit_config).await
+            let (ui, picker, preview) = UI::new(self.render_config, &mut matcher, self.worker, self.selection_set, self.preview, &mut tui);
+            render::render_loop(ui, picker, preview, tui, render_rx, event_controller,(self.event_handlers, self.interrupt_handlers), ext_handler, ext_aliaser, self.exit_config).await
         }
     }
 
-    pub async fn pick(self) -> Result<Vec<S>, MatchError> {
-        self.pick_with::<NullActionExt>(PickBuilder::new()).await
+    pub async fn pick_default(self) -> Result<Vec<S>, MatchError> {
+        self.pick::<NullActionExt>(PickBuilder::new()).await
     }
 }
 
@@ -299,9 +302,10 @@ pub struct PickBuilder<'a, T: MMItem, S: Selection, A: ActionExt> {
     pub matcher: Option<&'a mut nucleo::Matcher>,
     pub event_loop: Option<EventLoop<A>>,
     pub previewer: Option<Previewer>,
-    pub ext_handler: Option<ActionExtHandler<T, S, A>>,
     pub binds: Option<BindMap<A>>,
-    pub matcher_config: nucleo::Config
+    pub matcher_config: nucleo::Config,
+    pub ext_handler: Option<ActionExtHandler<T, S, A>>,
+    pub ext_aliaser: Option<ActionExtAliaser<T, S, A>>,
 }
 
 impl<'a, T: MMItem, S: Selection, A: ActionExt> PickBuilder<'a, T, S, A> {
@@ -310,9 +314,10 @@ impl<'a, T: MMItem, S: Selection, A: ActionExt> PickBuilder<'a, T, S, A> {
             matcher: None,
             event_loop: None,
             previewer: None,
-            ext_handler: None,
             binds: None,
             matcher_config: nucleo::Config::DEFAULT,
+            ext_handler: None,
+            ext_aliaser: None
         }
     }
 
@@ -355,6 +360,14 @@ impl<'a, T: MMItem, S: Selection, A: ActionExt> PickBuilder<'a, T, S, A> {
         self.ext_handler = Some(handler);
         self
     }
+
+    pub fn ext_aliaser(
+        mut self,
+        aliaser: ActionExtAliaser<T, S, A>,
+    ) -> Self {
+        self.ext_aliaser = Some(aliaser);
+        self
+    }
 }
 
 impl<'a, T: MMItem, S: Selection, A: ActionExt> Default for PickBuilder<'a, T, S, A> {
@@ -368,11 +381,25 @@ impl<'a, T: MMItem, S: Selection, A: ActionExt> Default for PickBuilder<'a, T, S
 
 impl<T: MMItem, S: Selection> Matchmaker<T, S>
 {
+    pub fn register_print_handler(&mut self, print_handle: AppendOnly<String>, formatter: Arc<RenderFn<T>>) {
+        self.register_interrupt_handler(
+            Interrupt::Print("".into()),
+            move |state, i| {
+                if let Interrupt::Print(template) = i
+                && let Some(t) = state.current_raw() {
+                    let s = formatter(t, template);
+                    print_handle.push(s);
+                }
+            },
+        );
+    }
+
     pub fn register_execute_handler(&mut self, formatter: Arc<RenderFn<T>>) {
         let preview_formatter = formatter.clone();
 
         self.register_interrupt_handler(Interrupt::Execute("".into()), move |state, interrupt| {
             if let Interrupt::Execute(template) = interrupt &&
+            !template.is_empty() &&
             let Some(t) = state.current_raw() {
                 let cmd = formatter(t, template);
                 let mut vars = state.make_env_vars();
@@ -401,6 +428,7 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
 
         self.register_interrupt_handler(Interrupt::Become("".into()), move |state, interrupt| {
             if let Interrupt::Become(template) = interrupt &&
+            !template.is_empty() &&
             let Some(t) = state.current_raw() {
                 let cmd = formatter(t, template);
                 let mut vars = state.make_env_vars();
@@ -417,7 +445,12 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
     }
 }
 
-pub fn make_previewer<T: MMItem, S: Selection>(previewer_config: PreviewerConfig, mm: &mut Matchmaker<T, S>, formatter: Arc<RenderFn<T>>, help_str: Text<'static>) -> Previewer {
+pub fn make_previewer<T: MMItem, S: Selection>(
+    mm: &mut Matchmaker<T, S>,
+    previewer_config: PreviewerConfig, // help_str is provided seperately so help_colors is ignored
+    formatter: Arc<RenderFn<T>>,
+    help_str: Text<'static>
+) -> Previewer {
     // initialize previewer
     let (previewer, tx) = Previewer::new(previewer_config);
     let preview = previewer.view();
@@ -463,7 +496,7 @@ pub fn make_previewer<T: MMItem, S: Selection>(previewer_config: PreviewerConfig
     mm.register_event_handler([Event::PreviewSet], move |state, _event| {
         if state.preview_show {
             let msg = if let Some(m) = state.preview_set_payload() {
-                let m = if m.is_empty() {
+                let m = if m.is_empty() && !help_str.lines.is_empty() {
                     help_str.clone()
                 } else {
                     Text::from(m.clone())
@@ -495,7 +528,7 @@ impl<T: MMItem + Debug, S: Selection + Debug> Debug for Matchmaker<T, S> {
         .field("selection_set", &self.selection_set)
         .field("event_handlers", &self.event_handlers)
         .field("interrupt_handlers", &self.interrupt_handlers)
-        .field("previewer", &self.previewer)
+        .field("previewer", &self.preview)
         .finish()
     }
 }

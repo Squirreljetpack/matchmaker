@@ -38,23 +38,25 @@ impl ResultsUI {
             config,
         }
     }
-
-    pub fn indentation(&self) -> usize {
-        self.config.multi_prefix.width()
+    // as given by ratatui area
+    pub fn update_dimensions(&mut self, area: &Rect) {
+        let border = self.config.border.height();
+        self.width = area.width.saturating_sub(border);
+        self.height = area.height.saturating_sub(border);
     }
 
-    pub fn col(&self) -> Option<usize> {
-        self.col
+    // ------ config -------
+    pub fn reverse(&self) -> bool {
+        self.config.reverse.unwrap()
+    }
+    pub fn is_wrap(&self) -> bool {
+        self.config.wrap
+    }
+    pub fn wrap(&mut self, wrap: bool) {
+        self.config.wrap = wrap;
     }
 
-    pub fn widths(&self) -> &Vec<u16> {
-        &self.widths
-    }
-
-    pub fn width(&self) -> u16 {
-        self.width.saturating_sub(self.indentation() as u16)
-    }
-
+    // ----- columns --------
     // todo: support cooler things like only showing/outputting a specific column/cycling columns
     pub fn toggle_col(&mut self, col_idx: usize) -> bool {
         if self.col == Some(col_idx) {
@@ -64,21 +66,6 @@ impl ResultsUI {
         }
         self.col.is_some()
     }
-
-    pub fn match_style(&self) -> Style {
-        Style::default()
-        .fg(self.config.match_fg)
-        .add_modifier(self.config.match_modifier)
-    }
-
-    pub fn wrap(&mut self, wrap: bool) {
-        self.config.wrap = wrap;
-    }
-
-    pub fn is_wrap(&self) -> bool {
-        self.config.wrap
-    }
-
     pub fn cycle_col(&mut self) {
         self.col = match self.col {
             None => {
@@ -95,19 +82,15 @@ impl ResultsUI {
         };
     }
 
-    pub fn reverse(&self) -> bool {
-        self.config.reverse.unwrap()
-    }
-
+    // ------- NAVIGATION ---------
     fn scroll_padding(&self) -> u16 {
         self.config.scroll_padding.min(self.height / 2)
     }
-
-    // as given by ratatui area
-    pub fn update_dimensions(&mut self, area: &Rect) {
-        let border = self.config.border.height();
-        self.width = area.width.saturating_sub(border);
-        self.height = area.height.saturating_sub(border);
+    pub fn end(&self) -> u32 {
+        self.status.matched_count.saturating_sub(1)
+    }
+    pub fn index(&self) -> u32 {
+        (self.cursor + self.bottom) as u32
     }
 
     pub fn cursor_prev(&mut self) -> bool {
@@ -147,11 +130,24 @@ impl ResultsUI {
             self.cursor = index - self.bottom;
         }
     }
-    pub fn end(&self) -> u32 {
-        self.status.matched_count.saturating_sub(1)
+
+    // ------- RENDERING ----------
+    pub fn indentation(&self) -> usize {
+        self.config.multi_prefix.width()
     }
-    pub fn index(&self) -> u32 {
-        (self.cursor + self.bottom) as u32
+    pub fn col(&self) -> Option<usize> {
+        self.col
+    }
+    pub fn widths(&self) -> &Vec<u16> {
+        &self.widths
+    }
+    pub fn width(&self) -> u16 {
+        self.width.saturating_sub(self.indentation() as u16)
+    }
+    pub fn match_style(&self) -> Style {
+        Style::default()
+        .fg(self.config.match_fg)
+        .add_modifier(self.config.match_modifier)
     }
 
     pub fn max_widths(&self) -> Vec<u16> {

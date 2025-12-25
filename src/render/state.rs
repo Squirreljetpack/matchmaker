@@ -28,27 +28,35 @@ use ratatui::{
         events: HashSet<Event>,
     }
 
-    pub struct EphemeralState<'a, T: MMItem, S: Selection> {
+    pub struct MMState<'a, T: MMItem, S: Selection> {
         state: &'a State<S>,
 
-        picker_ui: &'a PickerUI<'a, T, S>,
-        ui: &'a UI,
-        preview_ui: Option<&'a PreviewUI>,
+        pub picker_ui: &'a PickerUI<'a, T, S>,
+        pub ui: &'a UI,
+        pub preview_ui: Option<&'a PreviewUI>,
 
         /// Exposes flags which affect the render loop
         pub effects: Effects,
     }
 
+    // mutate this to mutate
     #[derive(Default)]
     pub struct Effects {
         pub clear_preview_set: bool,
         pub overlay_widget: Option<Box<dyn Overlay>>,
         pub header: Option<Text<'static>>,
         pub footer: Option<Text<'static>>,
+        pub input: Option<(String, u16)>
     }
 
-    impl<'a, T: MMItem, S: Selection> EphemeralState<'a, T, S> {
-        pub fn new(
+    impl Effects {
+        pub fn clear_input(&mut self) {
+            self.input = Some(Default::default())
+        }
+    }
+
+    impl<'a, T: MMItem, S: Selection> MMState<'a, T, S> {
+        pub(crate) fn new(
             state: &'a State<S>,
             picker_ui: &'a PickerUI<T, S>,
             ui: &'a UI,
@@ -175,8 +183,8 @@ use ratatui::{
             changed
         }
 
-        pub fn update_preview_set(&mut self, context: &str) -> bool {
-            let next = Some(context.into());
+        pub fn update_preview_set(&mut self, context: String) -> bool {
+            let next = Some(context);
             let changed = self.preview_set != next;
             if changed {
                 self.preview_set = next;
@@ -223,8 +231,8 @@ use ratatui::{
             self.update_current(current_raw.map(picker_ui.selections.identifier));
         }
 
-        pub fn dispatcher<'a, T: MMItem>(&'a self, ui: &'a UI, picker_ui: &'a PickerUI<T, S>, preview_ui: Option<&'a PreviewUI>) -> EphemeralState<'a, T, S> {
-            EphemeralState::new(self,
+        pub fn dispatcher<'a, T: MMItem>(&'a self, ui: &'a UI, picker_ui: &'a PickerUI<T, S>, preview_ui: Option<&'a PreviewUI>) -> MMState<'a, T, S> {
+            MMState::new(self,
                 picker_ui,
                 ui,
                 preview_ui,
@@ -233,7 +241,7 @@ use ratatui::{
 
         #[allow(unused)]
         // Using effects avoids lifetime issues at the cost of additional allocation
-        pub fn apply<T: MMItem>(&mut self, effects: Effects, ui: &mut UI, picker_ui: &mut PickerUI<T, S>, preview_ui: Option<&mut PreviewUI>, overlay_ui: &mut OverlayUI) {
+        pub fn apply_effects<T: MMItem>(&mut self, effects: Effects, ui: &mut UI, picker_ui: &mut PickerUI<T, S>, preview_ui: Option<&mut PreviewUI>, overlay_ui: &mut OverlayUI) {
             if effects.clear_preview_set {
                 self.preview_set = None
             }
@@ -245,6 +253,9 @@ use ratatui::{
             }
             if let Some(overlay) = effects.overlay_widget {
                 overlay_ui.set(overlay, &ui.area);
+            }
+            if let Some((input, cursor)) = effects.input {
+                picker_ui.input.set(input, cursor);
             }
         }
 
@@ -273,7 +284,7 @@ use ratatui::{
         }
     }
 
-    impl<'a, T: MMItem, S: Selection> Deref for EphemeralState<'a, T, S> {
+    impl<'a, T: MMItem, S: Selection> Deref for MMState<'a, T, S> {
         type Target = State<S>;
 
         fn deref(&self) -> &Self::Target {

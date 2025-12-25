@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::EphemeralState;
+use super::MMState;
 use crate::{
     MMItem, Selection,
     message::{Interrupt, Event},
@@ -8,7 +8,7 @@ use crate::{
 
 // note: beware that same handler could be called multiple times for the same event in one iteration
 // We choose not to return a Option<Result<S, E>> to simplify defining handlers, but will rather expose some mechanisms on state later on if a use case arises
-pub type DynamicMethod<T, S, E> = Box<dyn Fn(&mut EphemeralState<'_, T, S>, &E) + Send + Sync>;
+pub type DynamicMethod<T, S, E> = Box<dyn Fn(&mut MMState<'_, T, S>, &E) + Send + Sync>;
 pub type DynamicHandlers<T, S> = (EventHandlers<T, S>, InterruptHandlers<T, S>);
 
 #[allow(clippy::type_complexity)]

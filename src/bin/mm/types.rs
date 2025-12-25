@@ -1,18 +1,16 @@
 use std::{
-    path::{Path, PathBuf},
-    sync::LazyLock,
+    ffi::OsString, path::{Path, PathBuf}, sync::LazyLock
 };
 
 use clap::Parser;
-use matchmaker::config::Config;
 use anyhow::Result;
+
+use crate::config::Config;
 
 #[derive(Debug, Parser, Default, Clone)]
 pub struct Cli {
-    #[arg(long, value_name = "DIR", default_value_os = config_dir().as_os_str() )]
-    pub config: PathBuf,
-    #[arg(long, value_name = "CONFIG_STR")]
-    pub config_string: Option<String>,
+    #[arg(long, value_name = "PATH_OR_STRING")]
+    pub config: Option<OsString>,
     #[arg(long)]
     pub dump_config: bool,
     #[arg(short = 'F')]
@@ -37,10 +35,19 @@ fn config_dir_impl() -> Option<PathBuf> {
     dirs::config_dir().map(|x| x.join(BINARY_FULL))
 }
 
-pub fn config_dir() -> &'static Path {
-    static DEFAULT_PATH: LazyLock<PathBuf> =
-    LazyLock::new(|| config_dir_impl().unwrap_or_default());
-    &DEFAULT_PATH
+pub fn config_file() -> &'static Path {
+    #[cfg(debug_assertions)]
+    {
+        static DEFAULT_PATH: LazyLock<PathBuf> =
+        LazyLock::new(|| config_dir_impl().unwrap_or_default().join("dev.toml"));
+        &DEFAULT_PATH
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        static DEFAULT_PATH: LazyLock<PathBuf> =
+        LazyLock::new(|| config_dir_impl().unwrap_or_default().join("config.toml"));
+        &DEFAULT_PATH
+    }
 }
 
 pub fn state_dir() -> Option<PathBuf> {
@@ -62,10 +69,8 @@ pub fn logs_dir() -> &'static Path {
 
 // ----------------------- CONFIG
 impl Cli {
+    /// merge cli opts (not including config_path) into config
     pub fn merge_config(&self, config: &mut Config) -> Result<()> {
-        if let Some(s) = &self.config_string {
-            *config = toml::from_str(s)?;
-        };
         if self.fullscreen {
             config.tui.layout = None;
         }

@@ -271,6 +271,9 @@ macro_rules! impl_display_and_from_str_enum {
                     (s, None)
                 };
 
+                if let Ok(x) = name.parse::<A>() {
+                    return Ok(Self::Custom(x))
+                }
                 match name {
                     $( stringify!($unit) => {
                         if data.is_some() {
@@ -316,13 +319,7 @@ macro_rules! impl_display_and_from_str_enum {
                         Ok(Self::$tuple_string_default(d))
                     }, )*
 
-                    s => {
-                        if let Ok(x) = s.parse::<A>() {
-                            Ok(Self::Custom(x))
-                        } else {
-                            Err(format!("Unknown variant {}", s))
-                        }
-                    }
+                    _ => Err(format!("Unknown variant {}", s))
                 }
             }
         }

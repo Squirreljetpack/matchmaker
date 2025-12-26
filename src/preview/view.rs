@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use super::AppendOnly;
 
+// Images?
 #[derive(Debug)]
 pub struct Preview {
     lines: AppendOnly<Line<'static>>,

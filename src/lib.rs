@@ -9,7 +9,7 @@ pub mod render;
 pub mod ui;
 // picker
 pub mod nucleo;
-pub mod proc;
+pub mod preview;
 mod selection;
 pub use selection::SelectionSet;
 mod matchmaker;

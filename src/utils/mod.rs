@@ -1,6 +1,5 @@
 pub mod text;
 
-
 // macro_rules! impl_convert_for_deserialize {
 //     ($src:ty => $dst:ty, { $($field:ident),* $(,)? }) => {
 //         impl From<$src> for $dst {

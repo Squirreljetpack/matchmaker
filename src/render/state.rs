@@ -1,3 +1,4 @@
+use cli_boilerplate_automation::{broc::EnvVars, env_vars};
 use ratatui::{
     layout::Rect, text::Text}
     ;
@@ -7,7 +8,7 @@ use ratatui::{
     };
 
     use crate::{
-        MMItem, Selection, SelectionSet, env_vars, message::Event, nucleo::{Status, injector::WorkerInjector}, proc::EnvVars, render::DynamicMethod, ui::{Overlay, OverlayUI, PickerUI, PreviewUI, UI}
+        MMItem, Selection, SelectionSet, message::Event, nucleo::{Status, injector::WorkerInjector}, render::DynamicMethod, ui::{Overlay, OverlayUI, PickerUI, PreviewUI, UI}
     };
 
     // --------------------------------------------------------------------

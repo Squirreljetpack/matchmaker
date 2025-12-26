@@ -7,6 +7,7 @@ repository = "https://github.com/Squirreljetpack/matchmaker"
 license-file = "LICENSE"
 
 [dependencies]
+cli_boilerplate_automation = "0"
 ansi-to-tui = "7.0.0"
 anyhow = "1.0.100"
 atty = "0.2.14"
@@ -54,3 +55,5 @@ path = "examples/frecency.rs"
 name = "ripgrep"
 path = "examples/ripgrep.rs"
 
+[patch.crates-io]
+cli_boilerplate_automation = { path = "../cli_boilerplate_automation" }

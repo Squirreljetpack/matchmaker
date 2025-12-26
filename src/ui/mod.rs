@@ -6,7 +6,7 @@ use ratatui::{
 use crate::{
     MMItem, Selection, SelectionSet, config::{
         DisplayConfig, InputConfig, PreviewLayoutSetting, RenderConfig, ResultsConfig, TerminalLayoutSettings, UiConfig
-    }, nucleo::Worker, proc::Preview, tui::Tui
+    }, nucleo::Worker, preview::Preview, tui::Tui
 };
 
 mod input;

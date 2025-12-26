@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use matchmaker::action::{ActionExt, NullActionExt};
 use matchmaker::config::{MatcherConfig, PreviewerConfig, RenderConfig, TerminalConfig};
-use matchmaker::{Result, binds::BindMap};
+use matchmaker::{binds::BindMap};
 
 /// Full config.
 /// Clients probably want to make their own type with RenderConfig + custom settings to instantiate their matchmaker.
@@ -24,42 +24,6 @@ pub struct Config<A: ActionExt + Default = NullActionExt> {
 
     // this is in a bit of a awkward place because the matcher, worker, picker and reader all want pieces of it.
     pub matcher: MatcherConfig,
-}
-
-use std::borrow::Cow;
-use std::path::Path;
-
-pub fn get_config(path: &Path) -> Result<Config> {
-    let config_content: Cow<'static, str> = if !path.exists() {
-        Cow::Borrowed(include_str!("../../../assets/config.toml"))
-    } else {
-        Cow::Owned(std::fs::read_to_string(path)?)
-    };
-
-    let config: Config = toml::from_str(&config_content)?;
-
-    Ok(config)
-}
-
-pub fn write_config(path: &Path) -> Result<()> {
-
-    let default_config_content = include_str!("../../../assets/config.toml");
-    let parent_dir = path.parent().unwrap();
-    std::fs::create_dir_all(parent_dir)?;
-    std::fs::write(path, default_config_content)?;
-
-    println!("Config written to: {}", path.display());
-    Ok(())
-}
-
-#[cfg(debug_assertions)]
-pub fn write_config_dev(path: &Path) -> Result<()> {
-    let default_config_content = include_str!("../../../assets/dev.toml");
-    let parent_dir = path.parent().unwrap();
-    std::fs::create_dir_all(parent_dir)?;
-    std::fs::write(path, default_config_content)?;
-
-    Ok(())
 }
 
 #[cfg(test)]

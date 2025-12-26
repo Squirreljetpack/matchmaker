@@ -35,7 +35,7 @@ fn config_dir_impl() -> Option<PathBuf> {
     dirs::config_dir().map(|x| x.join(BINARY_FULL))
 }
 
-pub fn config_file() -> &'static Path {
+pub fn default_config_path() -> &'static Path {
     #[cfg(debug_assertions)]
     {
         static DEFAULT_PATH: LazyLock<PathBuf> =

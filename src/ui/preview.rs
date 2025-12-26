@@ -6,7 +6,7 @@ use ratatui::{
 
 use crate::{
     config::{PreviewConfig, PreviewLayoutSetting},
-    proc::Preview,
+    preview::Preview,
 };
 
 #[derive(Debug)]

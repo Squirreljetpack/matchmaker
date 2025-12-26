@@ -1,58 +1,88 @@
-use std::{env, path::Path, process::{Stdio, exit}};
+use std::{env, io::Read, path::Path, process::{Stdio, exit}};
 
+use cli_boilerplate_automation::{bo::{MapReaderError, map_chunks, map_reader_lines, read_to_chunks, write_str}};
+use cli_boilerplate_automation::{bo::load_type, bog::BogUnwrapExt, broc::spawn_script};
 use log::{debug, error};
 use matchmaker::{
-    MatchError, Matchmaker, OddEnds, PickBuilder, binds::display_binds, config::{MatcherConfig, StartConfig}, event::EventLoop, make_previewer, message::Interrupt, nucleo::{Segmented, injector::{IndexedInjector, Injector, SegmentedInjector}}, proc::{AppendOnly, map_reader, spawn}
+    MMItem, MatchError, Matchmaker, OddEnds, PickOptions, binds::display_binds, config::{MatcherConfig, StartConfig}, event::EventLoop, make_previewer, message::Interrupt, nucleo::{Segmented, injector::{IndexedInjector, Injector, SegmentedInjector}}, preview::AppendOnly
 };
-use crate::{Result, config::{Config, get_config, write_config}, types::config_file};
-
-#[cfg(debug_assertions)]
-use crate::config::write_config_dev;
+use crate::{config::Config, types::default_config_path};
 use crate::parse::parse;
 
-
-pub fn enter() -> Result<Config> {
+pub fn enter() -> anyhow::Result<Config> {
     let args = env::args();
     let cli = parse(args.collect());
     log::debug!("{cli:?}");
-
-    let cfg_path = {
-        if let Some(cfg) = &cli.config && let p = Path::new(cfg) && p.is_file() {
-            p
-        } else {
-            config_file()
-        }
-    };
-
-    #[cfg(debug_assertions)]
-    write_config_dev(cfg_path)?;
-
-    if cli.dump_config && atty::is(atty::Stream::Stdout) {
-        write_config(cfg_path)?;
-        exit(0);
-    }
     if cli.test_keys {
         super::crokey::main();
         exit(0);
     }
 
-    let mut config = if cli.config.as_ref().is_none_or(|x| x.to_str().is_none() || Path::new(x).is_file()) {
-        get_config(cfg_path)?
-    } else {
-        toml::from_str(cli.config.as_ref().unwrap().to_str().unwrap())?
+    let (cfg_path, mut config): (_, Config) = {
+        // parse cli arg as path or toml
+        if let Some(cfg) = &cli.config {
+            let p = Path::new(cfg);
+            (
+                p,
+                if p.is_file() || p.to_str().is_none() {
+                    load_type(|s| toml::from_str(s), p).or_exit()
+                } else {
+                    toml::from_str(cfg.to_str().unwrap())?
+                }
+            )
+        } else {
+            // get config from default location or default config
+            let p = default_config_path();
+
+            // always update dev config in standard location of latest debug build
+            #[cfg(debug_assertions)]
+            write_str(include_str!("../../../assets/dev.toml"),p).unwrap();
+            (
+                p,
+                if p.is_file() {
+                    load_type(|s| toml::from_str(s), p).or_exit()
+                } else {
+                    toml::from_str(include_str!("../../../assets/config.toml"))?
+                }
+            )
+        }
     };
+
+    // todo
     cli.merge_config(&mut config)?;
 
-    if cli.dump_config && ! atty::is(atty::Stream::Stdout) {
-        let toml_str = toml::to_string_pretty(&config)
+    if cli.dump_config {
+        let contents = toml::to_string_pretty(&config)
         .expect("failed to serialize to TOML");
-        std::io::Write::write_all(&mut std::io::stdout(), toml_str.as_bytes())?;
+
+        // if stdout: dump the default cfg with comments
+        if atty::is(atty::Stream::Stdout) {
+            write_str(include_str!("../../../assets/config.toml"), cfg_path)?;
+        } else {
+            // if piped: dump the current cfg
+            std::io::Write::write_all(&mut std::io::stdout(), contents.as_bytes())?;
+        }
+
         exit(0);
     }
 
     log::debug!("{config:?}");
 
     Ok(config)
+}
+
+/// Spawns a tokio task mapping f to reader segments.
+/// Read aborts on error. Read errors are logged.
+pub fn map_reader<E: MMItem>(reader: impl Read + MMItem, f: impl FnMut(String) -> Result<(), E> + MMItem, input_separator: Option<char>) -> tokio::task::JoinHandle<Result<(), MapReaderError<E>>> {
+    if let Some(delim) = input_separator {
+        tokio::spawn(async move {
+            map_chunks::<true, E>(read_to_chunks(reader, delim), f)
+        })
+    } else {
+        tokio::spawn(async move {
+            map_reader_lines::<true, E>(reader, f)
+        })
+    }
 }
 
 pub async fn pick(config: Config, print_handle: AppendOnly<String>) -> Result<Vec<Segmented<String>>, MatchError> {
@@ -100,7 +130,7 @@ pub async fn pick(config: Config, print_handle: AppendOnly<String>) -> Result<Ve
             // );
             // vars.extend(extra);
             debug!("Reloading: {cmd}");
-            if let Some(mut child) = spawn(&cmd, vars, Stdio::null(), Stdio::piped(), Stdio::null()) {
+            if let Some(mut child) = spawn_script(&cmd, vars, Stdio::null(), Stdio::piped(), Stdio::null()) {
                 if let Some(stdout) = child.stdout.take() {
                     map_reader(stdout, move |line| injector.push(line), delimiter);
                 } else {
@@ -123,7 +153,7 @@ pub async fn pick(config: Config, print_handle: AppendOnly<String>) -> Result<Ve
             delimiter
         )
     } else if !default_command.is_empty() {
-        if let Some(mut child) = spawn(&default_command, vec![], Stdio::null(), Stdio::piped(), Stdio::null())
+        if let Some(mut child) = spawn_script(&default_command, vec![], Stdio::null(), Stdio::piped(), Stdio::null())
         && let Some(stdout) = child.stdout.take() {
             map_reader(
                 stdout,
@@ -145,5 +175,5 @@ pub async fn pick(config: Config, print_handle: AppendOnly<String>) -> Result<Ve
         let _ = handle.await;
     }
 
-    mm.pick(PickBuilder::new().event_loop(event_loop).matcher(matcher.0).previewer(previewer)).await
+    mm.pick(PickOptions::new().event_loop(event_loop).matcher(matcher.0).previewer(previewer)).await
 }

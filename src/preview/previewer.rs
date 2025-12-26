@@ -1,4 +1,5 @@
 use ansi_to_tui::IntoText;
+use cli_boilerplate_automation::broc::{EnvVars, spawn_script};
 use futures::FutureExt;
 use log::{debug, error, warn};
 use ratatui::text::{Line, Text};
@@ -13,8 +14,8 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::watch::{Receiver, Sender, channel};
 use tokio::task::JoinHandle;
 
-use super::{AppendOnly, EnvVars, spawn};
-use crate::proc::Preview;
+use super::AppendOnly;
+use crate::preview::Preview;
 use crate::config::PreviewerConfig;
 use crate::message::Event;
 
@@ -103,7 +104,7 @@ impl Previewer {
 
             match &*self.rx.borrow() {
                 PreviewMessage::Run(cmd, variables) => {
-                    if let Some(mut child) = spawn(
+                    if let Some(mut child) = spawn_script(
                         cmd,
                         variables.iter().cloned(),
                         Stdio::null(),

@@ -1,13 +1,14 @@
 
-use std::{fmt::{self, Debug, Formatter}, process::Stdio, sync::Arc};
+use std::{fmt::{self, Debug, Formatter}, io::Write, process::Stdio, sync::Arc};
 
+use cli_boilerplate_automation::{broc::{exec_script, spawn_script}, env_vars};
 use log::{debug, info, warn};
 use ratatui::text::Text;
 
 use crate::{
     MMItem, MatchError, RenderFn, Result, Selection, SelectionSet, SplitterFn, action::{ActionExt, ActionExtAliaser, ActionExtHandler, NullActionExt}, binds::BindMap, config::{
         ExitConfig, PreviewerConfig, RenderConfig, Split, TerminalConfig, WorkerConfig
-    }, env_vars, event::EventLoop, message::{Event, Interrupt}, nucleo::{
+    }, event::EventLoop, message::{Event, Interrupt}, nucleo::{
         Indexed,
         Segmented,
         Worker,
@@ -17,14 +18,10 @@ use crate::{
             SegmentedInjector,
             WorkerInjector,
         },
-    }, proc::{
-        AppendOnly, Preview, exec, previewer::{PreviewMessage, Previewer}, spawn, tty_or_null
+    }, preview::{
+        AppendOnly, Preview, previewer::{PreviewMessage, Previewer}
     }, render::{
-        self,
-        DynamicMethod,
-        MMState,
-        EventHandlers,
-        InterruptHandlers,
+        self, DynamicMethod, EventHandlers, InterruptHandlers, MMState
     }, tui, ui::UI
 };
 
@@ -238,8 +235,12 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
     }
 
     /// The main method of the Matchmaker. It starts listening for events and renders the TUI with ratatui. It successfully returns with all the selected items selected when the Accept action is received.
-    pub async fn pick<A: ActionExt>(mut self, builder: PickBuilder<'_, T, S, A>) -> Result<Vec<S>, MatchError> {
-        let PickBuilder { previewer, ext_handler, ext_aliaser, .. } = builder;
+    pub async fn pick<A: ActionExt>(mut self, builder: PickOptions<'_, T, S, A>) -> Result<Vec<S>, MatchError> {
+        let PickOptions { previewer, ext_handler, ext_aliaser, .. } = builder;
+
+        if self.exit_config.select_1 && self.worker.counts().0 == 1 {
+            return Ok(self.selection_set.map_to_vec([self.worker.get_nth(0).unwrap()]));
+        }
 
         let mut event_loop = if let Some(e) = builder.event_loop {
             e
@@ -249,6 +250,7 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
             EventLoop::new()
         };
 
+        // note: this part is "crate-specific" since clients likely use their own previewer
         if let Some(mut previewer) = previewer {
             if self.preview.is_none() {
                 self.preview = Some(previewer.view());
@@ -259,17 +261,9 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
             });
         }
 
-        log::debug!("pick start");
-
-        if self.exit_config.select_1 && self.worker.counts().0 == 1 {
-            return Ok(self.selection_set.map_to_vec([self.worker.get_nth(0).unwrap()]));
-        }
-
         let (render_tx, render_rx) = tokio::sync::mpsc::unbounded_channel();
-        // We need a event_loop rather than an event_controller because of this part, otherwise event_loop::start(Some(previewer)) -> Controller would be nice
         event_loop
         .add_tx(render_tx.clone());
-
 
         let mut tui = tui::Tui::new(self.tui_config).map_err(|e| MatchError::TUIError(e.to_string()))?;
         tui.enter().map_err(|e| MatchError::TUIError(e.to_string()))?;
@@ -279,7 +273,7 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
         tokio::spawn(async move {
             let _ = event_loop.run().await;
         });
-        log::debug!("event start");
+        log::debug!("event loop started");
 
         if let Some(matcher) = builder.matcher {
             let (ui, picker, preview) = UI::new(self.render_config, matcher, self.worker, self.selection_set, self.preview, &mut tui);
@@ -292,13 +286,13 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
     }
 
     pub async fn pick_default(self) -> Result<Vec<S>, MatchError> {
-        self.pick::<NullActionExt>(PickBuilder::new()).await
+        self.pick::<NullActionExt>(PickOptions::new()).await
     }
 }
 
 // --------- BUILDER -------------
 
-pub struct PickBuilder<'a, T: MMItem, S: Selection, A: ActionExt> {
+pub struct PickOptions<'a, T: MMItem, S: Selection, A: ActionExt> {
     pub matcher: Option<&'a mut nucleo::Matcher>,
     pub event_loop: Option<EventLoop<A>>,
     pub previewer: Option<Previewer>,
@@ -308,7 +302,7 @@ pub struct PickBuilder<'a, T: MMItem, S: Selection, A: ActionExt> {
     pub ext_aliaser: Option<ActionExtAliaser<T, S, A>>,
 }
 
-impl<'a, T: MMItem, S: Selection, A: ActionExt> PickBuilder<'a, T, S, A> {
+impl<'a, T: MMItem, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
     pub fn new() -> Self {
         Self {
             matcher: None,
@@ -370,7 +364,7 @@ impl<'a, T: MMItem, S: Selection, A: ActionExt> PickBuilder<'a, T, S, A> {
     }
 }
 
-impl<'a, T: MMItem, S: Selection, A: ActionExt> Default for PickBuilder<'a, T, S, A> {
+impl<'a, T: MMItem, S: Selection, A: ActionExt> Default for PickOptions<'a, T, S, A> {
     fn default() -> Self {
         Self::new()
     }
@@ -408,8 +402,8 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
                     "FZF_PREVIEW_COMMAND" => preview_cmd,
                 );
                 vars.extend(extra);
-                let tty = tty_or_null();
-                if let Some(mut child) = spawn(&cmd, vars, tty, Stdio::inherit(), Stdio::inherit()) {
+                let tty = maybe_tty();
+                if let Some(mut child) = spawn_script(&cmd, vars, tty, Stdio::inherit(), Stdio::inherit()) {
                     match child.wait() {
                         Ok(i) => {
                             info!("Command [{cmd}] exited with {i}")
@@ -439,7 +433,7 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
                 );
                 vars.extend(extra);
                 debug!("Becoming: {cmd}");
-                exec(&cmd, vars);
+                exec_script(&cmd, vars);
             }
         });
     }
@@ -453,11 +447,8 @@ pub fn make_previewer<T: MMItem, S: Selection>(
 ) -> Previewer {
     // initialize previewer
     let (previewer, tx) = Previewer::new(previewer_config);
-    let preview = previewer.view();
-    debug!("{help_str:?}");
+    mm.connect_preview(previewer.view());
     let preview_tx = tx.clone();
-
-    mm.connect_preview(preview);
 
     // preview handler
     mm.register_event_handler([Event::CursorChange, Event::PreviewChange], move |state, event| {
@@ -512,9 +503,17 @@ pub fn make_previewer<T: MMItem, S: Selection>(
         }
     });
 
-    // previewer.connect_controller(event_loop.get_controller());
-
     previewer
+}
+
+fn maybe_tty() -> Stdio {
+    if let Ok(mut tty) = std::fs::File::open("/dev/tty") {
+        let _ = tty.flush(); // does nothing but seems logical
+        Stdio::from(tty)
+    } else {
+        log::error!("Failed to open /dev/tty");
+        Stdio::inherit()
+    }
 }
 
 // ------------ BOILERPLATE ---------------

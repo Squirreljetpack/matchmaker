@@ -8,19 +8,20 @@ mod utils;
 mod setup;
 mod config;
 
+use cli_boilerplate_automation::bog::{BogOkExt, BogUnwrapExt};
 use matchmaker::{
-    MatchError, Result, proc::AppendOnly
+    MatchError, preview::AppendOnly
 };
 use types::*;
 use utils::*;
 use setup::*;
 
 #[tokio::main(flavor = "multi_thread")]
-async fn main() -> Result<()> {
+async fn main() {
     init_logger(&logs_dir().join(format!("{BINARY_SHORT}.log")));
 
     // get config
-    let config = enter()?;
+    let config = enter().or_err().or_exit();
     let delimiter = config.matcher.start.output_separator.clone();
     let print = AppendOnly::new();
 
@@ -50,7 +51,5 @@ async fn main() -> Result<()> {
                 }
             }
         }
-    }
-
-    Ok(())
+    };
 }

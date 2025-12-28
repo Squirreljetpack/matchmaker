@@ -78,7 +78,9 @@ pub struct RenderConfig {
     pub results: ResultsConfig,
     pub preview: PreviewConfig,
     pub footer: DisplayConfig,
-    pub header: DisplayConfig
+    pub header: DisplayConfig,
+    pub overlay: Option<OverlayConfig>
+    // pub overlay: OverlayConfig // overlay_config is seperate due to specificity
 }
 
 impl RenderConfig {
@@ -91,12 +93,18 @@ impl RenderConfig {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct TerminalConfig {
-    pub stream: IoStream,
-    pub sleep: u16, // necessary to give ratatui a small delay before resizing after entering and exiting
-    // todo: lowpri: will need a value which can deserialize to none when implementing cli parsing
+    pub stream: IoStream, // consumed
     pub restore_fullscreen: bool,
+    pub redraw_on_resize: bool,
+    pub sleep: u64, // necessary to give ratatui a small delay before resizing after entering and exiting
+    // todo: lowpri: will need a value which can deserialize to none when implementing cli parsing
     #[serde(flatten)]
     pub layout: Option<TerminalLayoutSettings> // None for fullscreen
+}
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct TerminalSettings {
+
 }
 
 
@@ -123,11 +131,16 @@ impl Default for UiConfig {
 pub struct InputConfig {
     pub border: BorderSetting,
 
+
+
     // text styles
     pub fg: Color,
     #[serde(deserialize_with = "deserialize_modifier", serialize_with = "serialize_modifier")]
     pub modifier: Modifier,
-    // todo: status on input?
+
+    pub prompt_fg: Color,
+    #[serde(deserialize_with = "deserialize_modifier", serialize_with = "serialize_modifier")]
+    pub prompt_modifier: Modifier,
 
     #[serde(deserialize_with = "deserialize_string_or_char_as_double_width")]
     pub prompt: String,
@@ -141,6 +154,8 @@ impl Default for InputConfig {
             border: Default::default(),
             fg: Default::default(),
             modifier: Default::default(),
+            prompt_fg: Default::default(),
+            prompt_modifier: Default::default(),
             prompt: "> ".to_string(),
             cursor: Default::default(),
             initial: Default::default(),
@@ -152,7 +167,7 @@ impl Default for InputConfig {
 #[serde(default, deny_unknown_fields)]
 pub struct OverlayConfig {
     pub border: BorderSetting,
-    pub outer_alpha: Percentage,
+    pub outer_dim: bool,
     pub layout: OverlayLayoutSettings,
 }
 
@@ -172,7 +187,7 @@ impl Default for OverlayLayoutSettings {
         Self {
             percentage: [Percentage(60), Percentage(30)],
             min: [10, 5],
-            max: [50, 30]
+            max: [200, 30]
         }
     }
 }
@@ -193,6 +208,7 @@ pub struct ResultsConfig {
     pub fg: Color,
     #[serde(deserialize_with = "deserialize_modifier", serialize_with = "serialize_modifier")]
     pub modifier: Modifier,
+
     #[serde(default = "default_green")]
     pub match_fg: Color,
     #[serde(deserialize_with = "deserialize_modifier", serialize_with = "serialize_modifier")]
@@ -312,12 +328,13 @@ impl Default for PreviewConfig {
     fn default() -> Self {
         PreviewConfig {
             border: Default::default(),
-            layout: vec![
-                PreviewSetting {
-                    layout: PreviewLayoutSetting::default(),
-                    command: String::new()
-                }
-            ],
+            // layout: vec![
+            // PreviewSetting {
+            //     layout: PreviewLayoutSetting::default(),
+            //     command: String::new()
+            // }
+            // ],
+            layout: Default::default(),
             scroll_wrap: default_true(),
             wrap: Default::default(),
             show: Default::default(),
@@ -398,6 +415,29 @@ impl BorderSetting {
 
         if !self.title.is_empty() {
             let title = Span::styled(&self.title, Style::default().add_modifier(self.title_modifier));
+
+            ret = ret.title(title)
+        };
+
+        if self.sides != Borders::NONE {
+            ret = ret.borders(self.sides)
+            .border_type(self.r#type)
+            .border_style(
+                ratatui::style::Style::default()
+                .fg(self.color)
+            )
+        }
+
+        ret
+    }
+
+    pub fn as_static_block(&self) -> ratatui::widgets::Block<'static> {
+        let mut ret = ratatui::widgets::Block::default()
+        .padding(self.padding)
+        .style(Style::default().bg(self.bg));
+
+        if !self.title.is_empty() {
+            let title: Span<'static> = Span::styled(self.title.clone(), Style::default().add_modifier(self.title_modifier));
 
             ret = ret.title(title)
         };
@@ -498,7 +538,7 @@ impl Default for PreviewLayoutSetting {
     fn default() -> Self {
         Self {
             side: Side::Right,
-            percentage: Percentage(40),
+            percentage: Percentage(60),
             min: 30,
             max: 120
         }
@@ -1029,7 +1069,7 @@ impl Percentage {
         self.0 as u16
     }
 
-    pub fn get_max(&self, total: u16, max: u16) -> u16 {
+    pub fn compute_with_clamp(&self, total: u16, max: u16) -> u16 {
         let pct_height = (total * self.get()).div_ceil(100);
         let max_height = if max == 0 { total } else { max };
         pct_height.min(max_height)

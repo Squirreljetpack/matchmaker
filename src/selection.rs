@@ -60,7 +60,7 @@ impl<T, S: Selection> SelectionSet<T, S> {
         std::mem::take(&mut *set).into_values()
     }
 
-    pub fn map_to_vec<I>(&self, items: I) -> Vec<S>
+    pub fn identify_to_vec<I>(&self, items: I) -> Vec<S>
     where
     I: IntoIterator,
     I::Item: std::borrow::Borrow<T> + Send,
@@ -72,6 +72,14 @@ impl<T, S: Selection> SelectionSet<T, S> {
         // .into_par_iter()
         .map(|item| (self.identifier)(item.borrow()).1)
         .collect()
+    }
+
+    pub fn map_to_vec<U, F>(&self, f: F) -> Vec<U>
+    where
+    F: FnMut(&S) -> U,
+    {
+        // let items_vec: Vec<I::Item> = items.into_iter().collect();
+        self.selections.map_to_vec(f)
     }
 
     pub fn cycle_all_bg<I>(&self, items: I)
@@ -162,5 +170,13 @@ S: Selection,
     pub fn is_empty(&self) -> bool {
         let set = self.set.lock().unwrap();
         set.is_empty()
+    }
+
+    pub fn map_to_vec<U, F>(&self, f: F) -> Vec<U>
+    where
+    F: FnMut(&S) -> U,
+    {
+        let set = self.set.lock().unwrap();
+        set.values().map(f).collect()
     }
 }

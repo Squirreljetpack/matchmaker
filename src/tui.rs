@@ -1,4 +1,4 @@
-use crate::{Result, config::{TerminalConfig, TerminalLayoutSettings}};
+use crate::{Result, config::TerminalConfig};
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture}, execute, terminal::{ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode}
 };
@@ -12,10 +12,8 @@ where
 W: Write,
 {
     pub terminal: ratatui::Terminal<CrosstermBackend<W>>,
-    layout: Option<TerminalLayoutSettings>,
     pub area: Rect,
-    pub sleep : u64,
-    restore_fullscreen: bool
+    pub config: TerminalConfig
 }
 
 impl<W> Tui<W>
@@ -24,13 +22,13 @@ W: Write,
 {
     // waiting on https://github.com/ratatui/ratatui/issues/984 to implement growable inline, currently just tries to request max
     // if max > than remainder, then scrolls up a bit
-    pub fn new_with_writer(writer: W, config: TerminalConfig) -> Result<Self> {
+    pub fn new_with_writer(writer: W, mut config: TerminalConfig) -> Result<Self> {
         let mut backend = CrosstermBackend::new(writer);
         let mut options = TerminalOptions::default();
 
         let (width, height) = Self::full_size().unwrap_or_default();
         let area = if let Some(ref layout) = config.layout {
-            let request = layout.percentage.get_max(height, layout.max).min(height);
+            let request = layout.percentage.compute_with_clamp(height, layout.max).min(height);
 
             let cursor_y= Self::get_cursor_y().unwrap_or_else(|e| {
                 warn!("Failed to read cursor: {e}");
@@ -80,12 +78,11 @@ W: Write,
         debug!("TUI area: {area}");
 
         let terminal = Terminal::with_options(backend, options)?;
+        if config.sleep == 0 { config.sleep = 100 };
         Ok(Self {
             terminal,
-            layout: config.layout,
-            restore_fullscreen: config.restore_fullscreen,
-            area,
-            sleep: if config.sleep == 0 { 100 } else { config.sleep as u64 }
+            config,
+            area
         })
     }
 
@@ -117,7 +114,7 @@ W: Write,
 
     pub fn enter_execute(&mut self) {
         self.exit();
-        sleep(Duration::from_millis(self.sleep)); // necessary to give resize some time
+        sleep(Duration::from_millis(self.config.sleep)); // necessary to give resize some time
         debug!("state: {:?}", crossterm::terminal::is_raw_mode_enabled());
 
         // do we ever need to scroll up?
@@ -145,7 +142,7 @@ W: Write,
             let _ = self.enter_alternate();
         }
 
-        sleep(Duration::from_millis(self.sleep));
+        sleep(Duration::from_millis(self.config.sleep));
 
         let _ = execute!(
             self.terminal.backend_mut(),
@@ -153,7 +150,7 @@ W: Write,
         )
         .map_err(|e| warn!("{e}"));
 
-        if self.is_fullscreen() || self.restore_fullscreen {
+        if self.is_fullscreen() || self.config.restore_fullscreen {
             if let Some((width, height)) = Self::full_size() {
                 self.resize(Rect::new(0, 0, width, height));
             } else {
@@ -223,13 +220,10 @@ W: Write,
         }
     }
     pub fn is_fullscreen(&self) -> bool {
-        self.layout.is_none()
+        self.config.layout.is_none()
     }
     pub fn set_fullscreen(&mut self) {
-        self.layout = None;
-    }
-    pub fn layout(&self) -> &Option<TerminalLayoutSettings> {
-        &self.layout
+        self.config.layout = None;
     }
 }
 

@@ -11,6 +11,7 @@ use ratatui::layout::Rect;
 use tokio::sync::mpsc;
 use tokio::time::{self};
 
+pub type RenderSender<A> = mpsc::UnboundedSender<RenderCommand<A>>;
 #[derive(Debug)]
 pub struct EventLoop<A: ActionExt> {
     txs: Vec<mpsc::UnboundedSender<RenderCommand<A>>>,
@@ -117,6 +118,7 @@ impl<A: ActionExt> EventLoop<A> {
         self.event_stream = Some(EventStream::new());
         let mut interval = time::interval(self.tick_interval);
 
+        // this loops infinitely until all readers are closed
         loop {
             while self.paused {
                 if let Some(event) = self.controller_rx.recv().await {
@@ -161,7 +163,6 @@ impl<A: ActionExt> EventLoop<A> {
                     } else {
                         self.send(RenderCommand::quit());
                         info!("Received ctrl-c");
-                        break;
                     }
                 }
 
@@ -195,11 +196,7 @@ impl<A: ActionExt> EventLoop<A> {
                                         } else {
                                             // a basic set of keys to prevent confusion
                                             match key {
-                                                key!(ctrl-c) | key!(esc) => {
-                                                    info!("quitting");
-                                                    self.send(RenderCommand::quit());
-                                                    break;
-                                                }
+                                                key!(ctrl-c) | key!(esc) => self.send(RenderCommand::quit()),
                                                 key!(up) => self.send_action(Action::Up(Count(1))),
                                                 key!(down) => self.send_action(Action::Down(Count(1))),
                                                 key!(enter) => self.send_action(Action::Accept),

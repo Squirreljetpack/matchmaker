@@ -18,8 +18,7 @@ use crate::{
     message::Event,
 };
 
-pub use crokey::key;
-use crokey::KeyCombination;
+pub use crokey::{key, KeyCombination};
 pub use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
 
 

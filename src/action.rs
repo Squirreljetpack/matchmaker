@@ -114,8 +114,8 @@ impl std::str::FromStr for NullActionExt {
 pub trait ActionExt: Debug + Clone + FromStr + Display + PartialEq + MMItem
 {}
 
-pub type ActionExtHandler<T, S, A> = fn(A, &mut MMState<'_, T, S>);
-pub type ActionExtAliaser<T, S, A> = fn(&A, &MMState<'_, T, S>) -> Option<Vec<Action<A>>>;
+pub type ActionExtHandler<T, S, A> = fn(A, &mut MMState<'_, T, S>) -> Vec<Effect>;
+pub type ActionAliaser<T, S, A> = fn(&Action<A>, &MMState<'_, T, S>) -> Option<Vec<Action<A>>>;
 
 
 
@@ -343,7 +343,7 @@ impl_display_and_from_str_enum!(
     Help
 );
 
-use crate::{MMItem, config::StringOrVec, impl_int_wrapper, render::MMState};
+use crate::{MMItem, config::StringOrVec, impl_int_wrapper, render::{Effect, MMState}};
 impl_int_wrapper!(Exit, i32, 1);
 impl_int_wrapper!(Count, u16, 1);
 

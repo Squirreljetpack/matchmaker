@@ -25,7 +25,7 @@ pub fn enter() -> anyhow::Result<Config> {
             (
                 p,
                 if p.is_file() || p.to_str().is_none() {
-                    load_type(|s| toml::from_str(s), p).or_exit()
+                    load_type(p, |s| toml::from_str(s)).or_exit()
                 } else {
                     toml::from_str(cfg.to_str().unwrap())?
                 }
@@ -36,11 +36,11 @@ pub fn enter() -> anyhow::Result<Config> {
 
             // always update dev config in standard location of latest debug build
             #[cfg(debug_assertions)]
-            write_str(include_str!("../../../assets/dev.toml"),p).unwrap();
+            write_str(p, include_str!("../../../assets/dev.toml")).unwrap();
             (
                 p,
                 if p.is_file() {
-                    load_type(|s| toml::from_str(s), p).or_exit()
+                    load_type(p, |s| toml::from_str(s)).or_exit()
                 } else {
                     toml::from_str(include_str!("../../../assets/config.toml"))?
                 }
@@ -57,7 +57,7 @@ pub fn enter() -> anyhow::Result<Config> {
 
         // if stdout: dump the default cfg with comments
         if atty::is(atty::Stream::Stdout) {
-            write_str(include_str!("../../../assets/config.toml"), cfg_path)?;
+            write_str(cfg_path, include_str!("../../../assets/config.toml"))?;
         } else {
             // if piped: dump the current cfg
             std::io::Write::write_all(&mut std::io::stdout(), contents.as_bytes())?;
@@ -138,6 +138,7 @@ pub async fn pick(config: Config, print_handle: AppendOnly<String>) -> Result<Ve
                 }
             }
         }
+        vec![]
     });
 
     debug!("{mm:?}");

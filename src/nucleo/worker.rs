@@ -224,7 +224,7 @@ impl<T: MMItem> Worker<T> {
 
         let (snapshot, status) = Self::new_snapshot(&mut self.nucleo);
 
-        let mut widths = vec![0u16; self.columns.len()];
+        let mut widths = vec![0u16; self.columns.len()]; // first cell reserved for prefix
 
         let iter =
         snapshot.matched_items(start.min(status.matched_count)..end.min(status.matched_count));

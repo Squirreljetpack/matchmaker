@@ -6,9 +6,9 @@ use log::{debug, info, warn};
 use ratatui::text::Text;
 
 use crate::{
-    MMItem, MatchError, RenderFn, Result, Selection, SelectionSet, SplitterFn, action::{ActionExt, ActionExtAliaser, ActionExtHandler, NullActionExt}, binds::BindMap, config::{
+    MMItem, MatchError, RenderFn, Result, Selection, SelectionSet, SplitterFn, action::{ActionExt, ActionAliaser, ActionExtHandler, NullActionExt}, binds::BindMap, config::{
         ExitConfig, PreviewerConfig, RenderConfig, Split, TerminalConfig, WorkerConfig
-    }, event::EventLoop, message::{Event, Interrupt}, nucleo::{
+    }, event::{EventLoop, RenderSender}, message::{Event, Interrupt}, nucleo::{
         Indexed,
         Segmented,
         Worker,
@@ -21,8 +21,8 @@ use crate::{
     }, preview::{
         AppendOnly, Preview, previewer::{PreviewMessage, Previewer}
     }, render::{
-        self, DynamicMethod, EventHandlers, InterruptHandlers, MMState
-    }, tui, ui::UI
+        self, DynamicMethod, Effect, EventHandlers, InterruptHandlers, MMState
+    }, tui, ui::{Overlay, OverlayUI, UI}
 };
 
 
@@ -154,22 +154,23 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
             selection_set: SelectionSet::new(identifier),
             event_handlers: EventHandlers::new(),
             interrupt_handlers: InterruptHandlers::new(),
-            preview: None
+            preview: None,
         }
     }
 
-    pub fn new_raw(worker: Worker<T>, identifier: fn(&T) -> (u32, S)) -> Self {
-        Matchmaker {
-            worker,
-            render_config: RenderConfig::default(),
-            tui_config: TerminalConfig::default(),
-            exit_config: ExitConfig::default(),
-            selection_set: SelectionSet::new(identifier),
-            event_handlers: EventHandlers::new(),
-            interrupt_handlers: InterruptHandlers::new(),
-            preview: None
-        }
-    }
+    // pub fn new_raw(worker: Worker<T>, identifier: fn(&T) -> (u32, S)) -> Self {
+    //     Matchmaker {
+    //         worker,
+    //         render_config: RenderConfig::default(),
+    //         overlay_config: Default::default(),
+    //         tui_config: TerminalConfig::default(),
+    //         exit_config: ExitConfig::default(),
+    //         selection_set: SelectionSet::new(identifier),
+    //         event_handlers: EventHandlers::new(),
+    //         interrupt_handlers: InterruptHandlers::new(),
+    //         preview: None
+    //     }
+    // }
 
     /// The contents of the preview are displayed in a pane when picking.
     pub fn connect_preview(&mut self, preview: Preview) {
@@ -191,11 +192,10 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
         self.exit_config = exit;
         self
     }
-
     /// Register a handler to listen on [`Event`]s
     pub fn register_event_handler<F, I>(&mut self, events: I, handler: F)
     where
-    F: Fn(&mut MMState<'_, T, S>, &Event) + MMItem,
+    F: Fn(&mut MMState<'_, T, S>, &Event) -> Vec<Effect> + MMItem,
     I: IntoIterator<Item = Event>,
     {
         let boxed = Box::new(handler);
@@ -220,7 +220,7 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
         handler: F,
     )
     where
-    F: Fn(&mut MMState<'_, T, S>, &Interrupt) + MMItem,
+    F: Fn(&mut MMState<'_, T, S>, &Interrupt) -> Vec<Effect> + MMItem,
     {
         let boxed = Box::new(handler);
         self.register_boxed_interrupt_handler(interrupt, boxed);
@@ -239,7 +239,7 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
         let PickOptions { previewer, ext_handler, ext_aliaser, .. } = builder;
 
         if self.exit_config.select_1 && self.worker.counts().0 == 1 {
-            return Ok(self.selection_set.map_to_vec([self.worker.get_nth(0).unwrap()]));
+            return Ok(self.selection_set.identify_to_vec([self.worker.get_nth(0).unwrap()]));
         }
 
         let mut event_loop = if let Some(e) = builder.event_loop {
@@ -261,7 +261,7 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
             });
         }
 
-        let (render_tx, render_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (render_tx, render_rx) = builder.channel.unwrap_or_else(tokio::sync::mpsc::unbounded_channel);
         event_loop
         .add_tx(render_tx.clone());
 
@@ -275,13 +275,49 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
         });
         log::debug!("event loop started");
 
+        let overlay_ui = if builder.overlays.is_empty() {
+            None
+        } else {
+            Some(
+                OverlayUI::new(builder.overlays.into_boxed_slice(), self.render_config.overlay.take().unwrap_or_default())
+            )
+        };
+
         if let Some(matcher) = builder.matcher {
             let (ui, picker, preview) = UI::new(self.render_config, matcher, self.worker, self.selection_set, self.preview, &mut tui);
-            render::render_loop(ui, picker, preview, tui, render_rx, event_controller,(self.event_handlers, self.interrupt_handlers), ext_handler, ext_aliaser, self.exit_config).await
+            render::render_loop(
+                ui,
+                picker,
+                preview,
+                tui,
+
+                overlay_ui,
+                self.exit_config,
+
+                render_rx,
+                event_controller,
+                (self.event_handlers, self.interrupt_handlers),
+                ext_handler,
+                ext_aliaser,
+                // signal_handler
+            ).await
         } else {
             let mut matcher=  nucleo::Matcher::new(nucleo::Config::DEFAULT);
             let (ui, picker, preview) = UI::new(self.render_config, &mut matcher, self.worker, self.selection_set, self.preview, &mut tui);
-            render::render_loop(ui, picker, preview, tui, render_rx, event_controller,(self.event_handlers, self.interrupt_handlers), ext_handler, ext_aliaser, self.exit_config).await
+            render::render_loop(
+                ui,
+                picker,
+                preview,
+                tui,
+                overlay_ui,
+                self.exit_config,
+                render_rx,
+                event_controller,
+                (self.event_handlers, self.interrupt_handlers),
+                ext_handler,
+                ext_aliaser,
+                // signal_handler
+            ).await
         }
     }
 
@@ -291,19 +327,24 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
 }
 
 // --------- BUILDER -------------
-
-pub struct PickOptions<'a, T: MMItem, S: Selection, A: ActionExt> {
+pub struct PickOptions<'a, T: MMItem, S: Selection, A: ActionExt = NullActionExt> {
     pub matcher: Option<&'a mut nucleo::Matcher>,
     pub event_loop: Option<EventLoop<A>>,
     pub previewer: Option<Previewer>,
     pub binds: Option<BindMap<A>>,
     pub matcher_config: nucleo::Config,
     pub ext_handler: Option<ActionExtHandler<T, S, A>>,
-    pub ext_aliaser: Option<ActionExtAliaser<T, S, A>>,
+    pub ext_aliaser: Option<ActionAliaser<T, S, A>>,
+    // pub signal_handler: Option<(&'static std::sync::atomic::AtomicUsize, SignalHandler<T, S>)>,
+    pub overlays: Vec<Box<dyn Overlay<A=A>>>,
+
+    pub channel: Option<(RenderSender<A>, tokio::sync::mpsc::UnboundedReceiver<crate::message::RenderCommand<A>>)>
 }
 
+pub type SignalHandler<T, S> = fn(usize, &mut MMState<'_, T, S>);
+
 impl<'a, T: MMItem, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             matcher: None,
             event_loop: None,
@@ -311,7 +352,10 @@ impl<'a, T: MMItem, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
             binds: None,
             matcher_config: nucleo::Config::DEFAULT,
             ext_handler: None,
-            ext_aliaser: None
+            ext_aliaser: None,
+            // signal_handler: None,
+            overlays: Vec::new(),
+            channel: None
         }
     }
 
@@ -357,10 +401,39 @@ impl<'a, T: MMItem, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
 
     pub fn ext_aliaser(
         mut self,
-        aliaser: ActionExtAliaser<T, S, A>,
+        aliaser: ActionAliaser<T, S, A>,
     ) -> Self {
         self.ext_aliaser = Some(aliaser);
         self
+    }
+
+    pub fn push_overlay<O>(mut self, overlay: O) -> Self
+    where
+    O: Overlay<A = A> + 'static,
+    {
+        self.overlays.push(Box::new(overlay));
+        self
+    }
+
+    // pub fn signal_handler(
+    //     mut self,
+    //     signal: &'static std::sync::atomic::AtomicUsize,
+    //     handler: SignalHandler<T, S>,
+    // ) -> Self {
+    //     self.signal_handler = Some((signal, handler));
+    //     self
+    // }
+
+    pub fn get_tx(&mut self) -> RenderSender<A>{
+        if let Some((s, _)) = &self.channel {
+            s.clone()
+        } else {
+            let channel = tokio::sync::mpsc::unbounded_channel();
+            let ret = channel.0.clone();
+            self.channel = Some(channel);
+            ret
+        }
+
     }
 }
 
@@ -383,7 +456,8 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
                 && let Some(t) = state.current_raw() {
                     let s = formatter(t, template);
                     print_handle.push(s);
-                }
+                };
+                vec![]
             },
         );
     }
@@ -413,7 +487,8 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
                         }
                     }
                 }
-            }
+            };
+            vec![]
         });
     }
 
@@ -435,6 +510,7 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
                 debug!("Becoming: {cmd}");
                 exec_script(&cmd, vars);
             }
+            vec![]
         });
     }
 }
@@ -451,37 +527,29 @@ pub fn make_previewer<T: MMItem, S: Selection>(
     let preview_tx = tx.clone();
 
     // preview handler
-    mm.register_event_handler([Event::CursorChange, Event::PreviewChange], move |state, event| {
-        match event {
-            Event::CursorChange | Event::PreviewChange => {
-                state.effects.clear_preview_set = true;
+    mm.register_event_handler([Event::CursorChange, Event::PreviewChange], move |state, _| {
+        if state.preview_show &&
+        let Some(t) = state.current_raw() &&
+        let m = state.preview_payload() &&
+        !m.is_empty()
+        {
+            let cmd = formatter(t, m);
+            let mut envs = state.make_env_vars();
+            let extra = env_vars!(
+                "COLUMNS" => state.previewer_area().map_or("0".to_string(), |r| r.width.to_string()),
+                "LINES" => state.previewer_area().map_or("0".to_string(), |r| r.height.to_string()),
+            );
+            envs.extend(extra);
 
-                if state.preview_show &&
-                let Some(t) = state.current_raw() &&
-                let m = state.preview_payload() &&
-                !m.is_empty()
-                {
-                    let cmd = formatter(t, m);
-                    let mut envs = state.make_env_vars();
-                    let extra = env_vars!(
-                        "COLUMNS" => state.previewer_area().map_or("0".to_string(), |r| r.width.to_string()),
-                        "LINES" => state.previewer_area().map_or("0".to_string(), |r| r.height.to_string()),
-                    );
-                    envs.extend(extra);
-
-                    let msg = PreviewMessage::Run(cmd.clone(), envs);
-                    if preview_tx.send(msg.clone()).is_err() {
-                        warn!("Failed to send: {}", msg)
-                    }
-                    return;
-                }
-
-                if preview_tx.send(PreviewMessage::Stop).is_err() {
-                    warn!("Failed to send to preview: stop")
-                }
-            },
-            _ => {}
+            let msg = PreviewMessage::Run(cmd.clone(), envs);
+            if preview_tx.send(msg.clone()).is_err() {
+                warn!("Failed to send to preview: {}", msg)
+            }
+        } else if preview_tx.send(PreviewMessage::Stop).is_err() {
+            warn!("Failed to send to preview: stop")
         }
+
+        vec![render::Effect::ClearPreviewSet] //
     });
 
     mm.register_event_handler([Event::PreviewSet], move |state, _event| {
@@ -501,6 +569,7 @@ pub fn make_previewer<T: MMItem, S: Selection>(
                 warn!("Failed to send: {}", msg)
             }
         }
+        vec![]
     });
 
     previewer

@@ -1,14 +1,3 @@
-use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect},
-    widgets::Table,
-};
-
-use crate::{
-    MMItem, Selection, SelectionSet, config::{
-        DisplayConfig, InputConfig, PreviewLayoutSetting, RenderConfig, ResultsConfig, TerminalLayoutSettings, UiConfig
-    }, nucleo::Worker, preview::Preview, tui::Tui
-};
-
 mod input;
 mod preview;
 mod results;
@@ -19,8 +8,19 @@ pub use input::InputUI;
 pub use preview::PreviewUI;
 pub use results::ResultsUI;
 pub use overlay::*;
-// UI
 
+pub use ratatui::{
+    layout::{Constraint, Direction, Layout, Rect},
+    widgets::Table,
+    Frame
+}; // reexport for convenience
+
+use crate::{
+    MMItem, Selection, SelectionSet, config::{
+        DisplayConfig, InputConfig, PreviewLayoutSetting, RenderConfig, ResultsConfig, TerminalLayoutSettings, UiConfig
+    }, nucleo::Worker, preview::Preview, tui::Tui
+};
+// UI
 pub struct UI {
     pub layout: Option<TerminalLayoutSettings>,
     pub area: Rect, // unused
@@ -43,7 +43,7 @@ impl UI {
         }
 
         let ui = Self {
-            layout: tui.layout().clone(),
+            layout: tui.config.layout.clone(),
             area: tui.area,
             config: config.ui
         };

@@ -1,3 +1,6 @@
+#[allow(unused)]
+use log::debug;
+
 use ratatui::{
     layout::Rect,
     style::{Style, Stylize},
@@ -23,6 +26,8 @@ pub struct ResultsUI {
     col: Option<usize>,
     pub status: Status,
     pub config: ResultsConfig,
+
+    pub cursor_disabled: bool,
 }
 
 impl ResultsUI {
@@ -36,6 +41,7 @@ impl ResultsUI {
             height: 0, // uninitialized, so be sure to call update_dimensions
             width: 0,
             config,
+            cursor_disabled: false
         }
     }
     // as given by ratatui area
@@ -90,10 +96,17 @@ impl ResultsUI {
         self.status.matched_count.saturating_sub(1)
     }
     pub fn index(&self) -> u32 {
-        (self.cursor + self.bottom) as u32
+        if self.cursor_disabled {
+            u32::MAX
+        } else {
+            (self.cursor + self.bottom) as u32
+        }
     }
-
     pub fn cursor_prev(&mut self) -> bool {
+        if self.cursor_disabled {
+            return false
+        }
+
         if self.cursor <= self.scroll_padding() && self.bottom > 0 {
             self.bottom -= 1;
         } else if self.cursor > 0 {
@@ -105,6 +118,10 @@ impl ResultsUI {
         false
     }
     pub fn cursor_next(&mut self) -> bool {
+        if self.cursor_disabled {
+            self.cursor_disabled = false
+        }
+
         if self.cursor + 1 + self.scroll_padding() >= self.height
         && self.bottom + self.height < self.status.matched_count as u16
         {
@@ -119,7 +136,10 @@ impl ResultsUI {
         }
         false
     }
+
     pub fn cursor_jump(&mut self, index: u32) {
+        self.cursor_disabled = false;
+
         let end = self.end();
         let index = index.min(end) as u16;
 
@@ -205,13 +225,15 @@ impl ResultsUI {
 
         let (mut results, mut widths, status) = worker.results(offset, end, &self.max_widths(), self.match_style(), matcher);
 
-        if status.matched_count < (self.bottom + self.cursor) as u32 {
-            self.cursor_jump(status.matched_count);
+        let match_count = status.matched_count;
+
+        self.status = status;
+        if match_count < (self.bottom + self.cursor) as u32 && !self.cursor_disabled {
+            self.cursor_jump(match_count);
         }
 
         widths[0] += self.indentation() as u16;
 
-        self.status = status;
 
         let mut rows = vec![];
         let mut total_height = 0;
@@ -220,10 +242,8 @@ impl ResultsUI {
             return Table::new(rows, widths)
         }
 
-        // debug!("sb: {}, {}, {}, {}", self.bottom, self.cursor, total_height, self.height);
-
-
-        let cursor_result_h = results[self.cursor as usize].2;
+        // debug!("sb: {}, {}, {}, {}, {}", self.bottom, self.cursor, total_height, self.height, results.len());
+        let cursor_result_h = results[(self.cursor as usize).min(results.len())].2;
         let mut start_index = 0;
 
         let cursor_should_above = self.height - self.scroll_padding();
@@ -309,7 +329,7 @@ impl ResultsUI {
 
             prefix_text(&mut row[0], prefix);
 
-            if i == self.cursor {
+            if !self.cursor_disabled && i == self.cursor {
                 row = row
                 .into_iter()
                 .enumerate()
@@ -345,9 +365,11 @@ impl ResultsUI {
         };
 
 
-        let mut table = Table::new(rows, self.widths.clone()).column_spacing(self.config.column_spacing.0);
+        let mut table = Table::new(rows, self.widths.clone()).column_spacing(self.config.column_spacing.0)
+        .style(self.config.fg)
+        .add_modifier(self.config.modifier);
 
-        table = table.block(self.config.border.as_block()).style(self.config.fg).add_modifier(self.config.modifier);
+        table = table.block(self.config.border.as_block());
         table
     }
 

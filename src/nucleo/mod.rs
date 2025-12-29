@@ -3,8 +3,9 @@ mod worker;
 pub mod query;
 pub mod variants;
 
-use std::{fmt::{self, Display, Formatter}, sync::Arc, hash::{Hash, Hasher}};
+use std::{fmt::{self, Display, Formatter}, hash::{Hash, Hasher}};
 
+use arrayvec::ArrayVec;
 pub use variants::*;
 pub use worker::*;
 
@@ -13,7 +14,7 @@ pub use ratatui::{
     text::{Line, Span, Text},
 };
 
-use crate::SegmentableItem;
+use crate::{MAX_SPLITS, SegmentableItem};
 
 // ------------- Wrapper structs
 
@@ -21,7 +22,7 @@ use crate::SegmentableItem;
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct Segmented<T: SegmentableItem> {
     pub inner: T,
-    ranges: Arc<[(usize, usize)]>,
+    ranges: ArrayVec<(usize, usize), MAX_SPLITS>,
 }
 
 impl<T: SegmentableItem> ColumnIndexable for Segmented<T> {

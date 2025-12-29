@@ -156,7 +156,7 @@ impl<T: SegmentableItem, I: Injector<InputItem = Segmented<T>>> Injector
         &self,
         item: Self::InputItem,
     ) -> Result<<Self::Inner as Injector>::InputItem, WorkerError> {
-        let ranges = Arc::from((self.splitter)(&item).into_boxed_slice());
+        let ranges = (self.splitter)(&item);
         Ok(Segmented {
             inner: item,
             ranges,

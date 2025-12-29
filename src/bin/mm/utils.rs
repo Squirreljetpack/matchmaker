@@ -1,22 +1,52 @@
-use env_logger::Builder;
-use log::LevelFilter;
+use cli_boilerplate_automation::{bog::{self, BogOkExt}, misc::ResultExt};
 use std::{fs::OpenOptions, path::Path};
+use crate::types::BINARY_FULL;
 
-pub fn init_logger(file: &Path) {
-    if let Some(parent) = file.parent() {
-        std::fs::create_dir_all(parent).expect("Failed to create parent directories for log file");
+pub fn init_logger(log_path: &Path) {
+    bog::init_bogger(true, false);
+    #[cfg(debug_assertions)]
+    bog::init_filter(5);
+    #[cfg(not(debug_assertions))]
+    bog::init_filter(2);
+
+    let rust_log = std::env::var("RUST_LOG").ok().map(|val| val.to_lowercase());
+
+    let mut builder = env_logger::Builder::from_default_env();
+
+    if rust_log.is_none() {
+        #[cfg(debug_assertions)]
+        {
+            builder
+            .filter(None, log::LevelFilter::Info)
+            .filter(Some(BINARY_FULL), log::LevelFilter::Debug);
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            builder
+            .format_module_path(false)
+            .format_target(false)
+            .format_timestamp(None);
+
+            let level = cli_boilerplate_automation::misc::level_filter_from_env();
+
+            builder
+            .filter(
+                Some(BINARY_FULL),
+                level,
+            );
+        }
     }
 
-    let file = OpenOptions::new()
-    .create(true)
-    .write(true)
+    if let Some(log_file) = OpenOptions::new()
     .truncate(true)
-    .open(file)
-    .expect("Failed to open log file");
+    .write(true)
+    .create(true)
+    .open(log_path)
+    .prefix_err("Failed to open log file")
+    .or_warn()
+    {
+        builder.target(env_logger::Target::Pipe(Box::new(log_file)));
+    }
 
-    Builder::new()
-    .target(env_logger::Target::Pipe(Box::new(file)))
-    .filter(None, LevelFilter::Debug)
-    .init();
+    builder.init();
 }
-

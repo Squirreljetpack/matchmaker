@@ -1,10 +1,9 @@
 use super::State;
 use crate::{
-    MMItem, Selection,
-    action::ActionExt,
-    ui::{OverlayUI, PickerUI, PreviewUI, UI},
+    MAX_EFFECTS, MMItem, Selection, action::ActionExt, ui::{OverlayUI, PickerUI, PreviewUI, UI}
 };
 
+use arrayvec::ArrayVec;
 use ratatui::text::{Span, Text};
 
 #[derive(Debug, Clone)]
@@ -16,6 +15,7 @@ pub enum Effect {
     ClearFooter,
     ClearHeader,
     ClearState,
+    Reload,
 
     Prompt(Span<'static>),
     Input((String, u16)),
@@ -23,9 +23,19 @@ pub enum Effect {
     DisableCursor(bool),
     SetIndex(u32),
 }
-
 #[derive(Debug, Default)]
-pub struct Effects(Vec<Effect>);
+pub struct Effects(ArrayVec<Effect, MAX_EFFECTS>); 
+
+#[macro_export]
+macro_rules! efx {
+    ( $( $x:expr ),* $(,)? ) => {
+        {
+            [$($x),*].into_iter().collect::<$crate::render::Effects>()
+        }
+    };
+}
+pub use crate::acs;
+
 
 impl<S: Selection> State<S> {
     // note: apparently its important that this is a method on state to satisfy borrow checker
@@ -76,6 +86,9 @@ impl<S: Selection> State<S> {
                         tui.redraw();
                     }
                 }
+                Effect::Reload => {
+                    picker_ui.worker.restart(true);
+                }
 
                 // ----- input -------
                 Effect::Input((input, cursor)) => {
@@ -109,13 +122,7 @@ impl Eq for Effect {}
 
 impl Effects {
     pub fn new() -> Self {
-        Self(Vec::new())
-    }
-
-    pub fn append(&mut self, end: Vec<Effect>) {
-        for effect in end {
-            self.insert(effect);
-        }
+        Self(ArrayVec::new())
     }
 
     /// Insert only if not already present
@@ -135,26 +142,20 @@ impl Effects {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
+
+    pub fn append(&mut self, other: Self) {
+        for effect in other {
+            self.insert(effect);
+        }
+    }
 }
 
 impl IntoIterator for Effects {
     type Item = Effect;
-    type IntoIter = std::vec::IntoIter<Effect>;
+    type IntoIter = arrayvec::IntoIter<Effect, 12>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
-    }
-}
-
-impl From<Vec<Effect>> for Effects {
-    fn from(vec: Vec<Effect>) -> Self {
-        let mut unique = Vec::new();
-        for e in vec {
-            if !unique.contains(&e) {
-                unique.push(e);
-            }
-        }
-        Effects(unique)
     }
 }
 

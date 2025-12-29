@@ -20,6 +20,7 @@ use crate::{
 
 pub use crokey::{key, KeyCombination};
 pub use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
+pub use crate::bindmap;
 
 
 #[allow(type_alias_bounds)]

@@ -170,7 +170,7 @@ impl PreviewLayoutSetting {
             area.height
         };
 
-        let p = self.percentage.get();
+        let p = self.percentage.inner();
 
         let mut side_size = if p != 0 { total * p / 100 } else { 0 };
 

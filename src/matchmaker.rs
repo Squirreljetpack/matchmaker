@@ -1,14 +1,15 @@
 
 use std::{fmt::{self, Debug, Formatter}, io::Write, process::Stdio, sync::Arc};
 
+use arrayvec::ArrayVec;
 use cli_boilerplate_automation::{broc::{exec_script, spawn_script}, env_vars};
 use log::{debug, info, warn};
 use ratatui::text::Text;
 
 use crate::{
-    MMItem, MatchError, RenderFn, Result, Selection, SelectionSet, SplitterFn, action::{ActionExt, ActionAliaser, ActionExtHandler, NullActionExt}, binds::BindMap, config::{
+    MMItem, MatchError, RenderFn, Result, Selection, SelectionSet, SplitterFn, action::{ActionAliaser, ActionExt, ActionExtHandler, NullActionExt}, binds::BindMap, config::{
         ExitConfig, PreviewerConfig, RenderConfig, Split, TerminalConfig, WorkerConfig
-    }, event::{EventLoop, RenderSender}, message::{Event, Interrupt}, nucleo::{
+    }, efx, event::{EventLoop, RenderSender}, message::{Event, Interrupt}, nucleo::{
         Indexed,
         Segmented,
         Worker,
@@ -21,7 +22,7 @@ use crate::{
     }, preview::{
         AppendOnly, Preview, previewer::{PreviewMessage, Previewer}
     }, render::{
-        self, DynamicMethod, Effect, EventHandlers, InterruptHandlers, MMState
+        self, DynamicMethod, Effects, EventHandlers, InterruptHandlers, MMState
     }, tui, ui::{Overlay, OverlayUI, UI}
 };
 
@@ -64,7 +65,7 @@ impl ConfigMatchmaker {
         let worker: Worker<Indexed<Segmented<String>>> = match cc.split {
             Split::Delimiter(_) | Split::Regexes(_) => {
                 let names: Vec<Arc<str>> = if cc.names.is_empty() {
-                    (0..cc.max_columns)
+                    (0..cc.max_cols())
                     .map(|n| Arc::from(n.to_string()))
                     .collect()
                 } else {
@@ -79,6 +80,7 @@ impl ConfigMatchmaker {
 
         let injector = worker.injector();
 
+        // the computed number of columns, <= cc.max_columns = MAX_COLUMNS
         let col_count = worker.columns.len();
 
         // Arc over box due to capturing
@@ -86,10 +88,9 @@ impl ConfigMatchmaker {
             Split::Delimiter(ref rg) => {
                 let rg = rg.clone();
                 Arc::new(move |s| {
-                    let mut ranges = Vec::new();
+                    let mut ranges = ArrayVec::new();
                     let mut last_end = 0;
-                    for (i, m) in rg.find_iter(s).enumerate() {
-                        if i >= col_count - 1 { break; }
+                    for m in rg.find_iter(s).take(col_count) {
                         ranges.push((last_end, m.start()));
                         last_end = m.end();
                     }
@@ -100,7 +101,7 @@ impl ConfigMatchmaker {
             Split::Regexes(ref rgs) => {
                 let rgs = rgs.clone(); // or Arc
                 Arc::new(move |s| {
-                    let mut ranges = Vec::new();
+                    let mut ranges = ArrayVec::new();
                     for re in rgs.iter().take(col_count) {
                         if let Some(m) = re.find(s) {
                             ranges.push((m.start(), m.end()));
@@ -111,7 +112,7 @@ impl ConfigMatchmaker {
                     ranges
                 })
             }
-            Split::None => Arc::new(|s| vec![(0, s.len())]),
+            Split::None => Arc::new(|s| ArrayVec::from_iter([(0, s.len())])),
         };
         let injector= IndexedInjector::new(injector, 0);
         let injector= SegmentedInjector::new(injector, splitter.clone());
@@ -195,7 +196,7 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
     /// Register a handler to listen on [`Event`]s
     pub fn register_event_handler<F, I>(&mut self, events: I, handler: F)
     where
-    F: Fn(&mut MMState<'_, T, S>, &Event) -> Vec<Effect> + MMItem,
+    F: Fn(&mut MMState<'_, T, S>, &Event) -> Effects + MMItem,
     I: IntoIterator<Item = Event>,
     {
         let boxed = Box::new(handler);
@@ -220,7 +221,7 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
         handler: F,
     )
     where
-    F: Fn(&mut MMState<'_, T, S>, &Interrupt) -> Vec<Effect> + MMItem,
+    F: Fn(&mut MMState<'_, T, S>, &Interrupt) -> Effects + MMItem,
     {
         let boxed = Box::new(handler);
         self.register_boxed_interrupt_handler(interrupt, boxed);
@@ -457,7 +458,7 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
                     let s = formatter(t, template);
                     print_handle.push(s);
                 };
-                vec![]
+                efx![]
             },
         );
     }
@@ -488,7 +489,7 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
                     }
                 }
             };
-            vec![]
+            efx![]
         });
     }
 
@@ -510,7 +511,7 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
                 debug!("Becoming: {cmd}");
                 exec_script(&cmd, vars);
             }
-            vec![]
+            efx![]
         });
     }
 }
@@ -549,7 +550,7 @@ pub fn make_previewer<T: MMItem, S: Selection>(
             warn!("Failed to send to preview: stop")
         }
 
-        vec![render::Effect::ClearPreviewSet] //
+        efx![render::Effect::ClearPreviewSet] //
     });
 
     mm.register_event_handler([Event::PreviewSet], move |state, _event| {
@@ -569,7 +570,7 @@ pub fn make_previewer<T: MMItem, S: Selection>(
                 warn!("Failed to send: {}", msg)
             }
         }
-        vec![]
+        efx![]
     });
 
     previewer

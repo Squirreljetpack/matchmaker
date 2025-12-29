@@ -4,7 +4,7 @@ use ratatui::{
     style::{Style, Stylize}, text::Text, widgets::{Paragraph, Wrap}
 };
 
-use crate::{config::{DisplayConfig, StringOrVec}, utils::text::left_pad};
+use crate::{config::DisplayConfig, utils::{serde::StringOrVec, text::left_pad}};
 
 #[derive(Debug, Clone)]
 pub struct DisplayUI {

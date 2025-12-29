@@ -3,9 +3,10 @@
 
 use std::{fmt, ops::Deref};
 
+use crate::MAX_SPLITS;
 use crate::utils::text::parse_escapes;
-
 use crate::{Result, action::{Count}, tui::IoStream};
+
 use ratatui::style::Style;
 use ratatui::text::{Span};
 use ratatui::{
@@ -16,6 +17,8 @@ use serde::{Serialize, Serializer};
 use serde::de::IntoDeserializer;
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, de::{self, Visitor}};
+
+pub use crate::utils::{Percentage, serde::StringOrVec};
 
 /// Settings unrelated to event loop/picker_ui.
 ///
@@ -185,7 +188,7 @@ pub struct OverlayLayoutSettings {
 impl Default for OverlayLayoutSettings {
     fn default() -> Self {
         Self {
-            percentage: [Percentage(60), Percentage(30)],
+            percentage: [Percentage::new(60), Percentage::new(30)],
             min: [10, 5],
             max: [200, 30]
         }
@@ -394,7 +397,7 @@ impl Deref for FormatString {
 #[derive(Default, Debug, Clone, PartialEq, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct BorderSetting {
-    #[serde(with = "serde_from_str")]
+    #[serde(with = "crate::utils::serde::fromstr")]
     pub r#type: BorderType,
     pub color: Color,
     #[serde(serialize_with = "serialize_borders", deserialize_with = "deserialize_borders")]
@@ -500,7 +503,7 @@ pub struct TerminalLayoutSettings {
 impl Default for TerminalLayoutSettings {
     fn default() -> Self {
         Self {
-            percentage: Percentage(50),
+            percentage: Percentage::new(50),
             min: 10,
             max: 120
         }
@@ -538,7 +541,7 @@ impl Default for PreviewLayoutSetting {
     fn default() -> Self {
         Self {
             side: Side::Right,
-            percentage: Percentage(60),
+            percentage: Percentage::new(60),
             min: 30,
             max: 120
         }
@@ -554,23 +557,20 @@ pub enum CursorSetting {
     Default,
 }
 
-
+use crate::utils::serde::bounded_usize;
 // todo: pass filter and hidden to mm
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ColumnsConfig {
     pub split: Split,
     pub names: Vec<ColumnSetting>,
-    pub max_columns: u8,
+    #[serde(deserialize_with = "bounded_usize::<{crate::MAX_SPLITS},_>")]
+    max_columns: usize,
 }
 
-impl Default for ColumnsConfig {
-    fn default() -> Self {
-        Self {
-            split: Default::default(),
-            names: Default::default(),
-            max_columns: u8::MAX,
-        }
+impl ColumnsConfig {
+    pub fn max_cols(&self) -> usize {
+        self.max_columns.min(MAX_SPLITS)
     }
 }
 
@@ -600,46 +600,6 @@ impl PartialEq for Split {
             (Split::None, Split::None) => true,
             _ => false,
         }
-    }
-}
-
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum StringOrVec {
-    String(String),
-    Vec(Vec<String>)
-}
-impl Default for StringOrVec {
-    fn default() -> Self {
-        StringOrVec::String(String::new())
-    }
-}
-
-
-// ----------- UTILS -------------------------
-
-pub mod serde_from_str {
-    use std::fmt::Display;
-    use std::str::FromStr;
-    use serde::{Deserialize, Deserializer, Serializer, de};
-
-    pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
-    where
-    T: Display,
-    S: Serializer,
-    {
-        serializer.serialize_str(&value.to_string())
-    }
-
-    pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
-    where
-    T: FromStr,
-    T::Err: Display,
-    D: Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        T::from_str(&s).map_err(de::Error::custom)
     }
 }
 
@@ -1044,84 +1004,6 @@ impl<'de> Deserialize<'de> for ColumnSetting {
         }
     }
 }
-
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(transparent)]
-pub struct Percentage(u8);
-
-impl Default for Percentage {
-    fn default() -> Self {
-        Self(100)
-    }
-}
-
-impl Percentage {
-    pub fn new(value: u8) -> Option<Self> {
-        if value <= 100 {
-            Some(Self(value))
-        } else {
-            None
-        }
-    }
-
-    pub fn get(&self) -> u16 {
-        self.0 as u16
-    }
-
-    pub fn compute_with_clamp(&self, total: u16, max: u16) -> u16 {
-        let pct_height = (total * self.get()).div_ceil(100);
-        let max_height = if max == 0 { total } else { max };
-        pct_height.min(max_height)
-    }
-}
-
-impl From<u8> for Percentage {
-    fn from(value: u8) -> Self {
-        Self(if value > 100 { 100 } else { value })
-    }
-}
-
-
-impl Deref for Percentage {
-    type Target = u8;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl fmt::Display for Percentage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}%", self.0)
-    }
-}
-
-impl<'de> Deserialize<'de> for Percentage {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-    D: Deserializer<'de>,
-    {
-        let v = u8::deserialize(deserializer)?;
-        if v <= 100 {
-            Ok(Percentage(v))
-        } else {
-            Err(serde::de::Error::custom(format!("percentage out of range: {}", v)))
-        }
-    }
-}
-impl std::str::FromStr for Percentage {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim_end_matches('%'); // allow optional trailing '%'
-        let value: u8 = s
-        .parse()
-        .map_err(|e: std::num::ParseIntError| format!("Invalid number: {}", e))?;
-        Self::new(value).ok_or_else(|| format!("Percentage out of range: {}", value))
-    }
-}
-
 
 pub fn serialize_padding<S>(padding: &Padding, serializer: S) -> Result<S::Ok, S::Error>
 where

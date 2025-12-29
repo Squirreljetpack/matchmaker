@@ -1,5 +1,7 @@
 use std::ops::{Index, Range};
 
+use arrayvec::ArrayVec;
+
 /// Thread safe (items and fns)
 pub trait MMItem: Sync + Send + 'static {}
 impl<T: Sync + Send + 'static> MMItem for T {}
@@ -14,26 +16,9 @@ impl<T: MMItem + Index<Range<usize>, Output = str>> SegmentableItem for T {}
 
 // pub trait HashMapLike {}
 
+pub const MAX_SPLITS: usize = 10;
 pub type RenderFn<T> = Box<dyn for<'a> Fn(&'a T, &'a str) -> String + Send + Sync>;
-pub type SplitterFn<T> = std::sync::Arc<dyn for<'a> Fn(&'a T) -> Vec<(usize, usize)> + Send + Sync>;
+pub type SplitterFn<T> = std::sync::Arc<dyn for<'a> Fn(&'a T) -> ArrayVec<(usize, usize), MAX_SPLITS> + Send + Sync>;
 
-// #[easy_ext::ext(MaybeExt)]
-// pub impl<T> T
-// where
-//     T: Sized,
-// {
-//     fn maybe_take(&mut self, maybe: Option<T>) {
-//         if let Some(v) = maybe {
-//             *self = v;
-//         }
-//     }
-
-//     fn maybe_clone(&mut self, maybe: &Option<T>)
-//     where
-//         T: Clone,
-//     {
-//         if let Some(v) = maybe {
-//             *self = v.clone();
-//         }
-//     }
-// }
+pub const MAX_ACTIONS: usize = 6;
+pub const MAX_EFFECTS: usize = 12; // number of effect discriminants

@@ -1,9 +1,12 @@
 use std::{fmt::{self, Debug, Display}, mem::discriminant, str::FromStr};
 
+use cli_boilerplate_automation::impl_transparent_wrapper;
 use serde::{Deserialize, Serialize, Serializer};
 
+use crate::{MAX_ACTIONS, MMItem, utils::serde::StringOrVec, render::{Effects, MMState}};
+
 #[derive(Debug, Clone, Default)]
-pub enum Action<A: ActionExt> {
+pub enum Action<A: ActionExt = NullActionExt> {
     #[default] // used to satisfy enumstring
     Select,
     Deselect,
@@ -12,17 +15,17 @@ pub enum Action<A: ActionExt> {
     Accept,
     // Returns MatchError::Abort
     Quit(Exit),
-
+    
     // UI
     CyclePreview,
     Preview(String), // if match: hide, else match
     Help(String), // content is shown in preview, empty for default help display
     SwitchPreview(Option<u8>), // n => ^ but with layout + layout_cmd, None => just toggle visibility
     SetPreview(Option<u8>), // n => set layout, None => set current layout cmd
-
+    
     ToggleWrap,
     ToggleWrapPreview,
-
+    
     // Programmable
     /// Pauses the tui display and the event loop, and invokes the handler for [`crate::message::Interrupt::Execute`]
     /// The remaining actions in the buffer are still processed
@@ -31,24 +34,24 @@ pub enum Action<A: ActionExt> {
     Become(String),
     /// Restarts the matcher-worker and invokes the handler for [`crate::message::Interrupt::Reload`]
     Reload(String),
-
+    
     /// Invokes the handler for [`crate::message::Interrupt::Print`]
     /// See also: [`crate::Matchmaker::register_print_handler`]
     Print(String),
-
+    
     SetInput(String),
     SetHeader(Option<String>),
     SetFooter(Option<String>),
     SetPrompt(Option<String>),
     Column(usize),
     CycleColumn,
-
+    
     // Unimplemented
     HistoryUp,
     HistoryDown,
     ChangePrompt,
     ChangeQuery,
-
+    
     // Edit
     ForwardChar,
     BackwardChar,
@@ -60,7 +63,7 @@ pub enum Action<A: ActionExt> {
     DeleteLineEnd,
     Cancel,
     InputPos(i32),
-
+    
     // Navigation
     Up(Count),
     Down(Count),
@@ -69,7 +72,7 @@ pub enum Action<A: ActionExt> {
     PreviewHalfPageUp,
     PreviewHalfPageDown,
     Pos(i32),
-
+    
     // Other/Experimental/Debugging
     Redraw,
     Custom(A),
@@ -105,7 +108,7 @@ impl fmt::Display for NullActionExt {
 
 impl std::str::FromStr for NullActionExt {
     type Err = ();
-
+    
     fn from_str(_: &str) -> Result<Self, Self::Err> {
         Err(())
     }
@@ -114,14 +117,38 @@ impl std::str::FromStr for NullActionExt {
 pub trait ActionExt: Debug + Clone + FromStr + Display + PartialEq + MMItem
 {}
 
-pub type ActionExtHandler<T, S, A> = fn(A, &mut MMState<'_, T, S>) -> Vec<Effect>;
-pub type ActionAliaser<T, S, A> = fn(&Action<A>, &MMState<'_, T, S>) -> Option<Vec<Action<A>>>;
-
-
+pub type ActionExtHandler<T, S, A> = fn(A, &mut MMState<'_, T, S>) -> Effects;
+pub type ActionAliaser<T, S, A> = fn(Action<A>, &MMState<'_, T, S>) -> Actions<A>;
+pub use arrayvec::ArrayVec;
+/// # Example
+/// ```rust
+///     use matchmaker::{action::{Action, Actions, acs}, render::MMState};
+///     pub fn fsaction_aliaser(
+///         a: Action,
+///         state: &MMState<'_, String, String>,
+///     ) -> Actions {
+///         match a {
+///             Action::Custom(_) => {
+///               log::debug!("Ignoring custom action");
+///               acs![]
+///             }
+///             _ => acs![a], // no change
+///         }
+///     }
+/// ```
+#[macro_export]
+macro_rules! acs {
+    ( $( $x:expr ),* $(,)? ) => {
+        {
+            $crate::action::Actions::from([$($x),*])
+        }
+    };
+}
+pub use crate::acs;
 
 /// # Example
 /// ```rust
-///     use matchmaker::{bindmap, key, action::Action, binds::BindMap};
+///     use matchmaker::{binds::{BindMap, bindmap, key}, action::Action};
 ///     let default_config: BindMap = bindmap!(
 ///        key!(alt-enter) => Action::Print("".into())
 ///        // custom actions can be specified directly: key!(ctrl-c) => FsAction::Enter
@@ -138,36 +165,44 @@ macro_rules! bindmap {
     }};
 }
 // ----------- ACTIONS ---------------
-
 #[derive(Debug, Clone, PartialEq)]
-pub struct Actions<A: ActionExt>(pub Vec<Action<A>>);
+pub struct Actions<A: ActionExt = NullActionExt>(pub ArrayVec<Action<A>, MAX_ACTIONS>);
 
-impl<const N: usize, A: ActionExt> From<[Action<A>; N]> for Actions<A> {
-    fn from(arr: [Action<A>; N]) -> Self {
-        Actions(arr.into())
+macro_rules! repeat_impl {
+    ($($len:expr),*) => {
+        $(
+            impl<A: ActionExt> From<[Action<A>; $len]> for Actions<A> {
+                fn from(arr: [Action<A>; $len]) -> Self {
+                    Actions(ArrayVec::from_iter(arr))
+                }
+            }
+            
+            impl<A: ActionExt> From<[A; $len]> for Actions<A> {
+                fn from(arr: [A; $len]) -> Self {
+                    Actions(arr.into_iter().map(Action::Custom).collect())
+                }
+            }
+        )*
     }
 }
+impl<A: ActionExt> From<[Action<A>; 0]> for Actions<A> {
+    fn from(empty: [Action<A>; 0]) -> Self {
+        Actions(ArrayVec::from_iter(empty))
+    }
+}
+repeat_impl!(1, 2, 3, 4, 5, 6);
 
 impl<A: ActionExt> From<Action<A>> for Actions<A> {
     fn from(action: Action<A>) -> Self {
-        Actions(vec![action])
+        acs![action]
     }
 }
-
 // no conflict because Action is local type
-impl<const N: usize, A: ActionExt> From<[A; N]> for Actions<A> {
-    fn from(arr: [A; N]) -> Self {
-        Actions(arr.into_iter().map(Action::Custom).collect())
-    }
-}
-
 impl<A: ActionExt> From<A> for Actions<A> {
     fn from(action: A) -> Self {
-        Actions(vec![Action::Custom(action)])
+        acs![Action::Custom(action)]
     }
 }
-
-
 
 // ---------- SERDE ----------------
 
@@ -181,13 +216,20 @@ impl<'de, A: ActionExt> Deserialize<'de> for Actions<A> {
             StringOrVec::String(s) => vec![s],
             StringOrVec::Vec(v) => v,
         };
-
-        let mut actions = Vec::with_capacity(strings.len());
+        
+        if strings.len() > MAX_ACTIONS {
+            return Err(
+                serde::de::Error::custom(format!("Too many actions, max is {MAX_ACTIONS}.")
+            )
+            );
+        }
+        
+        let mut actions = ArrayVec::new();
         for s in strings {
             let action = Action::from_str(&s).map_err(serde::de::Error::custom)?;
             actions.push(action);
         }
-
+        
         Ok(Actions(actions))
     }
 }
@@ -207,6 +249,8 @@ impl<A: ActionExt> Serialize for Actions<A> {
     }
 }
 
+// ----- action serde
+
 macro_rules! impl_display_and_from_str_enum {
     (
         $($unit:ident),*;
@@ -220,10 +264,10 @@ macro_rules! impl_display_and_from_str_enum {
                 match self {
                     // Unit variants
                     $( Self::$unit => write!(f, stringify!($unit)), )*
-
+                    
                     // Tuple variants (always show inner)
                     $( Self::$tuple(inner) => write!(f, concat!(stringify!($tuple), "({})"), inner), )*
-
+                    
                     // Tuple variants with generic default fallback
                     $( Self::$tuple_default(inner) => {
                         if *inner == core::default::Default::default() {
@@ -232,7 +276,7 @@ macro_rules! impl_display_and_from_str_enum {
                             write!(f, concat!(stringify!($tuple_default), "({})"), inner)
                         }
                     }, )*
-
+                    
                     // Tuple variants with Option<T>
                     $( Self::$tuple_option(opt) => {
                         if let Some(inner) = opt {
@@ -241,7 +285,7 @@ macro_rules! impl_display_and_from_str_enum {
                             write!(f, stringify!($tuple_option))
                         }
                     }, )*
-
+                    
                     $( Self::$tuple_string_default(inner) => {
                         if inner.is_empty() {
                             write!(f, stringify!($tuple_string_default))
@@ -249,17 +293,17 @@ macro_rules! impl_display_and_from_str_enum {
                             write!(f, concat!(stringify!($tuple_string_default), "({})"), inner)
                         }
                     }, )*
-
+                    
                     Self::Custom(inner) => {
                         write!(f, "{}", inner.to_string())
                     }
                 }
             }
         }
-
+        
         impl<A: ActionExt>  std::str::FromStr for Action<A> {
             type Err = String;
-
+            
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 let (name, data) = if let Some(pos) = s.find('(') {
                     if s.ends_with(')') {
@@ -270,7 +314,7 @@ macro_rules! impl_display_and_from_str_enum {
                 } else {
                     (s, None)
                 };
-
+                
                 if let Ok(x) = name.parse::<A>() {
                     return Ok(Self::Custom(x))
                 }
@@ -283,7 +327,7 @@ macro_rules! impl_display_and_from_str_enum {
                             Ok(Self::$unit)
                         }
                     }, )*
-
+                    
                     $( stringify!($tuple) => {
                         let d = data
                         .ok_or_else(|| format!("Missing data for {}", stringify!($tuple)))?
@@ -291,7 +335,7 @@ macro_rules! impl_display_and_from_str_enum {
                         .map_err(|_| format!("Invalid data for {}", stringify!($tuple)))?;
                         Ok(Self::$tuple(d))
                     }, )*
-
+                    
                     $( stringify!($tuple_default) => {
                         let d = match data {
                             Some(val) => val.parse()
@@ -300,7 +344,7 @@ macro_rules! impl_display_and_from_str_enum {
                         };
                         Ok(Self::$tuple_default(d))
                     }, )*
-
+                    
                     $( stringify!($tuple_option) => {
                         let d = match data {
                             Some(val) if !val.is_empty() => {
@@ -310,7 +354,7 @@ macro_rules! impl_display_and_from_str_enum {
                         };
                         Ok(Self::$tuple_option(d))
                     }, )*
-
+                    
                     $( stringify!($tuple_string_default) => {
                         let d = match data {
                             Some(val) if !val.is_empty() => val.to_string(),
@@ -318,7 +362,7 @@ macro_rules! impl_display_and_from_str_enum {
                         };
                         Ok(Self::$tuple_string_default(d))
                     }, )*
-
+                    
                     _ => Err(format!("Unknown variant {}", s))
                 }
             }
@@ -343,7 +387,6 @@ impl_display_and_from_str_enum!(
     Help
 );
 
-use crate::{MMItem, config::StringOrVec, impl_int_wrapper, render::{Effect, MMState}};
-impl_int_wrapper!(Exit, i32, 1);
-impl_int_wrapper!(Count, u16, 1);
+impl_transparent_wrapper!(Exit, i32, 1);
+impl_transparent_wrapper!(Count, u16, 1; derive(Copy));
 

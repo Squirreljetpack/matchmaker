@@ -230,6 +230,8 @@ impl ResultsUI {
         self.status = status;
         if match_count < (self.bottom + self.cursor) as u32 && !self.cursor_disabled {
             self.cursor_jump(match_count);
+        } else {
+            self.cursor = self.cursor.min(results.len().saturating_sub(1) as u16)
         }
 
         widths[0] += self.indentation() as u16;
@@ -243,7 +245,7 @@ impl ResultsUI {
         }
 
         // debug!("sb: {}, {}, {}, {}, {}", self.bottom, self.cursor, total_height, self.height, results.len());
-        let cursor_result_h = results[(self.cursor as usize).min(results.len())].2;
+        let cursor_result_h = results[self.cursor as usize].2;
         let mut start_index = 0;
 
         let cursor_should_above = self.height - self.scroll_padding();

@@ -22,6 +22,7 @@ use crate::tui::Tui;
 use crate::ui::{DisplayUI, InputUI, OverlayUI, PickerUI, PreviewUI, ResultsUI, UI};
 use crate::{MatchError, MMItem, Selection};
 
+// todo: we can make it return a stack allocated smallvec ig
 fn apply_aliases<T: MMItem, S: Selection, A: ActionExt>(
     buffer: &mut Vec<RenderCommand<A>>,
     aliaser: ActionAliaser<T, S, A>,
@@ -32,14 +33,8 @@ fn apply_aliases<T: MMItem, S: Selection, A: ActionExt>(
     
     for cmd in buffer.drain(..) {
         match cmd {
-            RenderCommand::Action(ref a) => {
-                if let Some(v) = aliaser(a, state) {
-                    for x in v {
-                        out.push(RenderCommand::Action(x));
-                    }
-                } else {
-                    out.push(cmd);
-                }
+            RenderCommand::Action(a) => {
+                out.extend(aliaser(a, state).0.into_iter().map(RenderCommand::Action))
             },
             RenderCommand::Effect(e) => { 
                 effects.insert(e);
@@ -331,7 +326,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: MMItem, S: Selection, A: Action
                         Action::Custom(e) => {
                             if let Some(handler) = ext_handler {
                                 let mut dispatcher = state.dispatcher(&ui, &picker_ui, preview_ui.as_ref());
-                                let effects = handler(e, &mut dispatcher).into();
+                                let effects = handler(e, &mut dispatcher);
                                 state.apply_effects(effects, &mut ui, &mut picker_ui, &mut preview_ui, &mut overlay_ui, &mut tui);
                             }
                         }

@@ -31,9 +31,9 @@ pub trait Overlay {
     /// Draw the widget within the rect
     ///
     /// # Example
-    /// ```rust,ignore
+    /// ```rust
     //  pub fn draw(&self, frame: &mut Frame, area: Rect) {
-    //      let widget = overlay.make_widget();
+    //      let widget = self.make_widget();
     //      frame.render_widget(Clear, area);
     //      frame.render_widget(widget, area);
     // }

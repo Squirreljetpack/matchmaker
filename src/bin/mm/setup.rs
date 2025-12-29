@@ -4,7 +4,7 @@ use cli_boilerplate_automation::{bo::{MapReaderError, map_chunks, map_reader_lin
 use cli_boilerplate_automation::{bo::load_type, bog::BogUnwrapExt, broc::spawn_script};
 use log::{debug, error};
 use matchmaker::{
-    MMItem, MatchError, Matchmaker, OddEnds, PickOptions, binds::display_binds, config::{MatcherConfig, StartConfig}, event::EventLoop, make_previewer, message::Interrupt, nucleo::{Segmented, injector::{IndexedInjector, Injector, SegmentedInjector}}, preview::AppendOnly
+    MMItem, MatchError, Matchmaker, OddEnds, PickOptions, binds::display_binds, config::{MatcherConfig, StartConfig}, efx, event::EventLoop, make_previewer, message::Interrupt, nucleo::{Segmented, injector::{IndexedInjector, Injector, SegmentedInjector}}, preview::AppendOnly
 };
 use crate::{config::Config, types::default_config_path};
 use crate::parse::parse;
@@ -138,7 +138,7 @@ pub async fn pick(config: Config, print_handle: AppendOnly<String>) -> Result<Ve
                 }
             }
         }
-        vec![]
+        efx![]
     });
 
     debug!("{mm:?}");

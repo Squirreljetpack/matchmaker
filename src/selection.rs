@@ -1,4 +1,4 @@
-use crate::Selection;
+use crate::{Identifier, Selection};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use std::sync::Mutex;
@@ -7,11 +7,11 @@ use std::{borrow::Borrow, hash::Hash, sync::Arc};
 #[derive(Debug)]
 pub struct SelectionSet<T, S> {
     selections: SelectionSetImpl<u32, S>,
-    pub identifier: fn(&T) -> (u32, S),
+    pub identifier: Identifier<T, S>,
 }
 
 impl<T, S: Selection> SelectionSet<T, S> {
-    pub fn new(identifier: fn(&T) -> (u32, S)) -> Self {
+    pub fn new(identifier: Identifier<T, S>) -> Self {
         Self {
             selections: SelectionSetImpl::new(),
             identifier,

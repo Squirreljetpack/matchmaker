@@ -1,7 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use crate::{
-    MMItem, RenderFn, nucleo::Indexed, utils::text::plain_text,
+    MMItem, RenderFn, nucleo::Indexed, utils::text::plain_text
 };
 
 use super::{injector::{self}, Text, worker::{Column, Worker}};

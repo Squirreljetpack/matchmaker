@@ -194,11 +194,16 @@ impl<S: Selection> State<S> {
     }
 
     pub fn update<'a, T: MMItem>(&'a mut self, picker_ui: &'a PickerUI<T, S>){
+        if self.iterations == 0 {
+            self.insert(Event::Start);
+        }
+        self.iterations += 1;
+
         self.update_input(&picker_ui.input.input);
         self.col = picker_ui.results.col();
 
         if self.matcher_running != picker_ui.results.status.running {
-            if !picker_ui.results.status.running {
+            if !picker_ui.results.status.running && picker_ui.results.status.item_count != 0 {
                 self.insert(Event::Synced);
             }
             self.matcher_running = picker_ui.results.status.running;
@@ -221,7 +226,7 @@ impl<S: Selection> State<S> {
     }
 
     fn reset(&mut self) {
-        self.iterations += 1;
+        // nothing
     }
 
     pub fn events(

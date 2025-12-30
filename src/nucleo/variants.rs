@@ -73,8 +73,7 @@ impl<T: MMItem> Worker<T> {
     }
 }
 
-/// Returns &str, not Cow because it must be cheap
-/// Either impl as_str or as_text
+/// You must either impl as_str or as_text
 pub trait Render {
     fn as_str(&self) -> Cow<'_, str> {
         plain_text(&self.as_text()).into()
@@ -93,7 +92,7 @@ impl<T: Render + MMItem> Worker<Indexed<T>> {
     /// Create a new worker over items which are displayed in the picker as exactly their as_str representation.
     pub fn new_single_column() -> Self {
         Self::new(
-            vec![Column::new("_", |item: &Indexed<T>| {
+            [Column::new("_", |item: &Indexed<T>| {
                 item.inner.as_text()
             })],
             0,

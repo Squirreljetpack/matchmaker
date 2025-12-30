@@ -13,6 +13,7 @@ pub use ratatui::{
     style::{Style, Stylize, Color, Modifier},
     text::{Line, Span, Text},
 };
+pub use nucleo;
 
 use crate::{MAX_SPLITS, SegmentableItem};
 

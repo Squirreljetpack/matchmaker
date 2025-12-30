@@ -102,6 +102,13 @@ impl ResultsUI {
             (self.cursor + self.bottom) as u32
         }
     }
+    pub fn cursor(&self) -> Option<u16> {
+        if self.cursor_disabled {
+            None
+        } else {
+            Some(self.cursor)
+        }
+    }
     pub fn cursor_prev(&mut self) -> bool {
         if self.cursor_disabled {
             return false

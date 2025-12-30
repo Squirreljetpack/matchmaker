@@ -2,7 +2,7 @@
 use std::{fmt::{self, Debug, Formatter}, io::Write, process::Stdio, sync::Arc};
 
 use arrayvec::ArrayVec;
-use cli_boilerplate_automation::{broc::{exec_script, spawn_script}, env_vars};
+use cli_boilerplate_automation::{broc::{exec_script, spawn_script}, env_vars, printlns};
 use easy_ext::ext;
 use log::{debug, info, warn};
 use ratatui::text::Text;
@@ -331,8 +331,11 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
 }
 
 #[ext(ResultExt)]
-impl <S: Selection> Result<Vec<S>, MatchError> {
-    pub fn first(self) -> Result<S, MatchError> {
+impl <T> Result<T, MatchError> {
+    pub fn first<S>(self) -> Result<S, MatchError>
+    where
+    T: IntoIterator<Item = S>
+    {
         match self {
             Ok(v) =>
             v
@@ -342,24 +345,31 @@ impl <S: Selection> Result<Vec<S>, MatchError> {
             Err(e)  => Err(e)
         }
     }
+
+    pub fn abort(self) -> Result<T, MatchError> {
+        match self {
+            Err(MatchError::Abort(x))  => std::process::exit(x),
+            _ => self
+        }
+    }
 }
 
 // --------- BUILDER -------------
 pub struct PickOptions<'a, T: MMItem, S: Selection, A: ActionExt = NullActionExt> {
-    pub matcher: Option<&'a mut nucleo::Matcher>,
-    pub event_loop: Option<EventLoop<A>>,
-    pub previewer: Option<Previewer>,
-    pub binds: Option<BindMap<A>>,
-    pub matcher_config: nucleo::Config,
-    pub ext_handler: Option<ActionExtHandler<T, S, A>>,
-    pub ext_aliaser: Option<ActionAliaser<T, S, A>>,
-    pub overlays: Vec<Box<dyn Overlay<A=A>>>,
+    matcher: Option<&'a mut nucleo::Matcher>,
+    event_loop: Option<EventLoop<A>>,
+    previewer: Option<Previewer>,
+    binds: Option<BindMap<A>>,
+    matcher_config: nucleo::Config,
+    ext_handler: Option<ActionExtHandler<T, S, A>>,
+    ext_aliaser: Option<ActionAliaser<T, S, A>>,
+    overlays: Vec<Box<dyn Overlay<A=A>>>,
 
     /// # Experimental
     // pub signal_handler: Option<(&'static std::sync::atomic::AtomicUsize, SignalHandler<T, S>)>,
     /// Initializing code, i.e. to setup context in the running thread. Since render_loop runs on the same thread this isn't actually necessary
     /// but it seems a good idea to provide a standard way.
-    pub initializer: Option<Box<dyn FnOnce()>>,
+    initializer: Option<Box<dyn FnOnce()>>,
 
     pub channel: Option<(RenderSender<A>, tokio::sync::mpsc::UnboundedReceiver<crate::message::RenderCommand<A>>)>
 }
@@ -439,15 +449,6 @@ impl<'a, T: MMItem, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
         self
     }
 
-    // pub fn signal_handler(
-    //     mut self,
-    //     signal: &'static std::sync::atomic::AtomicUsize,
-    //     handler: SignalHandler<T, S>,
-    // ) -> Self {
-    //     self.signal_handler = Some((signal, handler));
-    //     self
-    // }
-
     pub fn get_tx(&mut self) -> RenderSender<A>{
         if let Some((s, _)) = &self.channel {
             s.clone()
@@ -457,8 +458,25 @@ impl<'a, T: MMItem, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
             self.channel = Some(channel);
             ret
         }
-
     }
+
+
+    // pub fn signal_handler(
+    //     mut self,
+    //     signal: &'static std::sync::atomic::AtomicUsize,
+    //     handler: SignalHandler<T, S>,
+    // ) -> Self {
+    //     self.signal_handler = Some((signal, handler));
+    //     self
+    // }
+
+    // pub fn initializer(
+    //     mut self,
+    //     initializer: impl FnOnce() + 'static,
+    // ) -> Self {
+    //     self.initializer = Some(Box::new(initializer));
+    //     self
+    // }
 }
 
 impl<'a, T: MMItem, S: Selection, A: ActionExt> Default for PickOptions<'a, T, S, A> {
@@ -479,7 +497,11 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
                 if let Interrupt::Print(template) = i
                 && let Some(t) = state.current_raw() {
                     let s = formatter(t, template);
-                    print_handle.push(s);
+                    if atty::is(atty::Stream::Stdout) {
+                        print_handle.push(s);
+                    } else {
+                        printlns!(s);
+                    }
                 };
                 efx![]
             },

@@ -64,13 +64,15 @@ impl<T> Column<T> {
     }
 }
 
-/// Worker: can instantiate, can push, can get lines and get nth, a view into computation
+/// Worker: can instantiate, push, and get results. A view into computation.
+/// 
+/// Additionally, the worker can affect the computation via find and restart.
 pub struct Worker<T>
 where
 T: MMItem,
 {
     /// The inner `Nucleo` fuzzy matcher.
-    pub(super) nucleo: nucleo::Nucleo<T>,
+    pub(crate) nucleo: nucleo::Nucleo<T>,
     /// The last pattern that was matched against.
     pub(super) query: PickerQuery,
     /// A pre-allocated buffer used to collect match indices when fetching the results

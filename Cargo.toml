@@ -53,8 +53,12 @@ name = "basic"
 path = "examples/basic.rs"
 
 [[example]]
-name = "frecency"
-path = "examples/frecency.rs"
+name = "noninteractive"
+path = "examples/noninteractive.rs"
+
+[[example]]
+name = "pick_1"
+path = "examples/pick_1.rs"
 
 [[example]]
 name = "ripgrep"

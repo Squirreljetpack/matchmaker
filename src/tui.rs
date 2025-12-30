@@ -193,14 +193,21 @@ W: Write,
         debug!("Terminal exited");
     }
     
-    // wrappers to hide impl
     // note: do not start before event stream
     pub fn get_cursor_y() -> io::Result<u16> {
-        crossterm::cursor::position().map(|x| x.1)
-    }
-    
-    pub fn get_cursor() -> io::Result<(u16, u16)> {
-        crossterm::cursor::position()
+        // crossterm uses stdout to determine cursor position
+        // todo: workarounds?
+        // #[cfg(not(target_os = "windows"))]
+        {
+            if !atty::is(atty::Stream::Stdout) {
+                return Err(io::Error::new(
+                    io::ErrorKind::NotConnected,
+                    "stdout is not a TTY",
+                ));
+            }
+        }
+        
+        crossterm::cursor::position().map(|u| u.1)
     }
     
     pub fn scroll_up(backend: &mut CrosstermBackend<W>, lines: u16) -> io::Result<u16> {

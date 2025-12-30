@@ -8,8 +8,11 @@ use crate::{MAX_ACTIONS, MMItem, utils::serde::StringOrVec, render::{Effects, MM
 #[derive(Debug, Clone, Default)]
 pub enum Action<A: ActionExt = NullActionExt> {
     #[default] // used to satisfy enumstring
+    /// Add item to selections
     Select,
+    /// Remove item from selections
     Deselect,
+    /// Toggle item in selections
     Toggle,
     CycleAll,
     Accept,
@@ -157,7 +160,7 @@ pub use crate::acs;
 #[macro_export]
 macro_rules! bindmap {
     ( $( $k:expr => $v1:expr ),* $(,)? ) => {{
-        let mut map = std::collections::BTreeMap::new();
+        let mut map = $crate::binds::BindMap::new();
         $(
             map.insert($k.into(), $crate::action::Actions::from($v1));
         )*
@@ -378,13 +381,13 @@ impl_display_and_from_str_enum!(
     BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord,
     DeleteLineStart, DeleteLineEnd, Cancel, Redraw;
     // tuple variants
-    Execute, Become, Reload, Print, Preview, SetInput, Column, Pos, InputPos;
+    Execute, Become, Reload, Preview, SetInput, Column, Pos, InputPos;
     // tuple with default
     Up, Down, PreviewUp, PreviewDown, Quit;
     // tuple with option
     SwitchPreview, SetPreview, SetPrompt, SetHeader, SetFooter;
-    //
-    Help
+    // tuple_string_default
+    Print, Help
 );
 
 impl_transparent_wrapper!(Exit, i32, 1);

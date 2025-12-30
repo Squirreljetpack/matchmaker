@@ -22,3 +22,5 @@ mod aliases;
 pub mod errors;
 pub use aliases::*;
 pub use errors::*;
+
+pub mod noninteractive;

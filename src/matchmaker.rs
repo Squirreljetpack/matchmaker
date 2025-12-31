@@ -8,9 +8,16 @@ use log::{debug, info, warn};
 use ratatui::text::Text;
 
 use crate::{
-    Identifier, SSS, MatchError, RenderFn, Result, Selection, SelectionSet, SplitterFn, action::{ActionAliaser, ActionExt, ActionExtHandler, NullActionExt}, binds::BindMap, config::{
+    MatchError, RenderFn, Result, SSS, Selection, Selector, SplitterFn,
+    action::{ActionAliaser, ActionExt, ActionExtHandler, NullActionExt},
+    binds::BindMap,
+    config::{
         ExitConfig, PreviewerConfig, RenderConfig, Split, TerminalConfig, WorkerConfig
-    }, efx, event::{EventLoop, RenderSender}, message::{Event, Interrupt}, nucleo::{
+    },
+    efx,
+    event::{EventLoop, RenderSender},
+    message::{Event, Interrupt},
+    nucleo::{
         Indexed,
         Segmented,
         Worker,
@@ -40,7 +47,7 @@ pub struct Matchmaker<T: SSS, S: Selection=T> {
     render_config: RenderConfig,
     tui_config: TerminalConfig,
     exit_config: ExitConfig,
-    selection_set: SelectionSet<T, S>,
+    selector: Selector<T, S>,
     event_handlers: EventHandlers<T, S>,
     interrupt_handlers: InterruptHandlers<T, S>,
     preview: Option<Preview>,
@@ -118,7 +125,7 @@ impl ConfigMatchmaker {
         let injector= IndexedInjector::new(injector, 0);
         let injector= SegmentedInjector::new(injector, splitter.clone());
 
-        let selection_set = SelectionSet::new(Indexed::identifier);
+        let selection_set = Selector::new(Indexed::identifier);
 
         let event_handlers = EventHandlers::new();
         let interrupt_handlers = InterruptHandlers::new();
@@ -129,7 +136,7 @@ impl ConfigMatchmaker {
             render_config,
             tui_config,
             exit_config: worker_config.exit,
-            selection_set,
+            selector: selection_set,
             event_handlers,
             interrupt_handlers,
             preview: None
@@ -147,13 +154,13 @@ impl ConfigMatchmaker {
 
 impl<T: SSS, S: Selection> Matchmaker<T, S>
 {
-    pub fn new(worker: Worker<T>, identifier: Identifier<T, S>) -> Self {
+    pub fn new(worker: Worker<T>, selector: Selector<T, S>) -> Self {
         Matchmaker {
             worker,
             render_config: RenderConfig::default(),
             tui_config: TerminalConfig::default(),
             exit_config: ExitConfig::default(),
-            selection_set: SelectionSet::new(identifier),
+            selector,
             event_handlers: EventHandlers::new(),
             interrupt_handlers: InterruptHandlers::new(),
             preview: None,
@@ -241,7 +248,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S>
         let PickOptions { previewer, ext_handler, ext_aliaser, initializer, .. } = builder;
 
         if self.exit_config.select_1 && self.worker.counts().0 == 1 {
-            return Ok(self.selection_set.identify_to_vec([self.worker.get_nth(0).unwrap()]));
+            return Ok(self.selector.identify_to_vec([self.worker.get_nth(0).unwrap()]));
         }
 
         let mut event_loop = if let Some(e) = builder.event_loop {
@@ -286,7 +293,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S>
         };
 
         if let Some(matcher) = builder.matcher {
-            let (ui, picker, preview) = UI::new(self.render_config, matcher, self.worker, self.selection_set, self.preview, &mut tui);
+            let (ui, picker, preview) = UI::new(self.render_config, matcher, self.worker, self.selector, self.preview, &mut tui);
             render::render_loop(
                 ui,
                 picker,
@@ -306,7 +313,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S>
             ).await
         } else {
             let mut matcher=  nucleo::Matcher::new(nucleo::Config::DEFAULT);
-            let (ui, picker, preview) = UI::new(self.render_config, &mut matcher, self.worker, self.selection_set, self.preview, &mut tui);
+            let (ui, picker, preview) = UI::new(self.render_config, &mut matcher, self.worker, self.selector, self.preview, &mut tui);
             render::render_loop(
                 ui,
                 picker,
@@ -639,7 +646,7 @@ impl<T: SSS + Debug, S: Selection + Debug> Debug for Matchmaker<T, S> {
         // omit `worker`
         .field("render_config", &self.render_config)
         .field("tui_config", &self.tui_config)
-        .field("selection_set", &self.selection_set)
+        .field("selection_set", &self.selector)
         .field("event_handlers", &self.event_handlers)
         .field("interrupt_handlers", &self.interrupt_handlers)
         .field("previewer", &self.preview)

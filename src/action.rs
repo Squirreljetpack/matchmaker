@@ -15,6 +15,7 @@ pub enum Action<A: ActionExt = NullActionExt> {
     /// Toggle item in selections
     Toggle,
     CycleAll,
+    ClearAll,
     Accept,
     // Returns MatchError::Abort
     Quit(Exit),
@@ -375,7 +376,7 @@ macro_rules! impl_display_and_from_str_enum {
 
 // call it like:
 impl_display_and_from_str_enum!(
-    Select, Deselect, Toggle, CycleAll, Accept, CyclePreview, CycleColumn,
+    Select, Deselect, Toggle, CycleAll, ClearAll, Accept, CyclePreview, CycleColumn,
     PreviewHalfPageUp, PreviewHalfPageDown, HistoryUp, HistoryDown,
     ChangePrompt, ChangeQuery, ToggleWrap, ToggleWrapPreview, ForwardChar,
     BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord,

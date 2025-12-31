@@ -9,7 +9,7 @@ use ratatui::{
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
-    SSS, Selection, SelectionSet,
+    SSS, Selection, Selector,
     config::ResultsConfig,
     nucleo::{Status, Worker},
     utils::text::{clip_text_lines, fit_width, prefix_text, substitute_escaped},
@@ -224,7 +224,7 @@ impl ResultsUI {
     pub fn make_table<'a, T: SSS>(
         &'a mut self,
         worker: &'a mut Worker<T>,
-        selections: &mut SelectionSet<T, impl Selection>,
+        selections: &mut Selector<T, impl Selection>,
         matcher: &mut nucleo::Matcher,
     ) -> Table<'a> {
         let offset = self.bottom as u32;

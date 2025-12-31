@@ -11,7 +11,7 @@ pub mod ui;
 pub mod nucleo;
 pub mod preview;
 mod selection;
-pub use selection::SelectionSet;
+pub use selection::Selector;
 mod matchmaker;
 pub use matchmaker::*;
 pub mod tui;

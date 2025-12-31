@@ -14,7 +14,8 @@ pub enum Effect {
     Footer(Text<'static>),
     ClearFooter,
     ClearHeader,
-    ClearState,
+    ClearSelections,
+    RevalidateSelectons,
     Reload,
 
     Prompt(Span<'static>),
@@ -60,12 +61,10 @@ impl<S: Selection> State<S> {
 
                 // ----- displays -------
                 Effect::Header(text) => {
-                    picker_ui.header.text = text;
-                    picker_ui.header.show = true;
+                    picker_ui.header.set(text);
                 }
                 Effect::Footer(text) => {
-                    picker_ui.footer.text = text;
-                    picker_ui.footer.show = true;
+                    picker_ui.footer.set(text);
                 }
                 Effect::ClearHeader => {
                     picker_ui.header.show = false;
@@ -75,11 +74,12 @@ impl<S: Selection> State<S> {
                 }
 
                 // ----- other -------
-                Effect::ClearState => {
-                    picker_ui.input.set(Default::default(), 0);
+                Effect::ClearSelections => {
                     picker_ui.selections.clear();
                 }
-
+                Effect::RevalidateSelectons => {
+                    picker_ui.selections.revalidate();
+                }
                 Effect::OverlayWidget(index) => {
                     if let Some(x) = overlay_ui.as_mut() {
                         x.enable(index, &ui.area);

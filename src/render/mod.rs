@@ -27,24 +27,19 @@ fn apply_aliases<T: SSS, S: Selection, A: ActionExt>(
     buffer: &mut Vec<RenderCommand<A>>,
     aliaser: ActionAliaser<T, S, A>,
     state: &MMState<'_, T, S>
-) -> Effects {
+) {
     let mut out = Vec::new();
-    let mut effects = Effects::new();
 
     for cmd in buffer.drain(..) {
         match cmd {
             RenderCommand::Action(a) => {
                 out.extend(aliaser(a, state).0.into_iter().map(RenderCommand::Action))
             },
-            RenderCommand::Effect(e) => {
-                effects.insert(e);
-            },
             other => out.push(other),
         }
     }
 
     *buffer = out;
-    effects
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -84,23 +79,12 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         let mut did_exit = false;
         let mut did_resize = false;
 
+        let mut effects = Effects::new();
         // todo: why exactly can we not borrow the picker_ui mutably?
-        let mut effects = if let Some(aliaser) = ext_aliaser {
+        if let Some(aliaser) = ext_aliaser {
             let state = state.dispatcher(&ui, &picker_ui, preview_ui.as_ref());
             apply_aliases(&mut buffer, aliaser, &state)
-        } else {
-            // buffer
-            // .extract_if(.., |cmd|
-            //     matches!(cmd, RenderCommand::Effect(_))
-            // )
-            // .map(|cmd|
-            //     match cmd {
-            //         RenderCommand::Effect(e) => e,
-            //         _ => unreachable!(),
-            //     }
-            // )
-            // .collect::<Effects>()
-            Effects::new()
+            // effects could be moved out for efficiency, but it seems more logical to add them as they come so that we can trigger interrupts
         };
 
         // todo: benchmark vs drain
@@ -136,8 +120,19 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 RenderCommand::Refresh => {
                     tui.redraw();
                 }
-                RenderCommand::Effect(_e) => {
-                    effects.insert(_e);
+                RenderCommand::Effect(e) => {
+                    #[allow(warnings)]
+                    match e {
+                        Effect::Reload => {
+                            // its jank but the Reload effect triggers the reload handler in this unique case.
+                            // Its useful for when the reload action can't be used when overlay is in effect.
+                            interrupt = Interrupt::Reload("".into());
+                        }
+                        _ => {
+                            effects.insert(e);
+                        }
+                    }
+
                 }
                 RenderCommand::Action(action) => {
                     if let Some(x) = overlay_ui.as_mut() && x.handle_action(&action) {
@@ -161,6 +156,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         }
                         Action::CycleAll => {
                             selections.cycle_all_bg(worker.raw_results());
+                        }
+                        Action::ClearAll => {
+                            selections.clear();
                         }
                         Action::Accept => {
                             if selections.is_empty() {

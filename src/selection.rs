@@ -4,17 +4,28 @@ use rustc_hash::FxBuildHasher;
 use std::sync::Mutex;
 use std::{borrow::Borrow, hash::Hash, sync::Arc};
 
+pub type SelectionValidator<S> = fn(&S) -> bool;
 #[derive(Debug)]
-pub struct SelectionSet<T, S> {
-    selections: SelectionSetImpl<u32, S>,
+pub struct Selector<T, S> {
+    selections: SelectorImpl<u32, S>,
     pub identifier: Identifier<T, S>,
+    pub validator: SelectionValidator<S>,
 }
 
-impl<T, S: Selection> SelectionSet<T, S> {
+pub fn truthy_validator<S>(_: &S) -> bool {
+    true
+}
+
+impl<T, S: Selection> Selector<T, S> {
     pub fn new(identifier: Identifier<T, S>) -> Self {
+        Self::new_with_validator(identifier, truthy_validator)
+    }
+
+    pub fn new_with_validator(identifier: Identifier<T, S>, validator: SelectionValidator<S>) -> Self {
         Self {
-            selections: SelectionSetImpl::new(),
+            selections: SelectorImpl::new(),
             identifier,
+            validator
         }
     }
 
@@ -82,6 +93,13 @@ impl<T, S: Selection> SelectionSet<T, S> {
         self.selections.map_to_vec(f)
     }
 
+    pub fn revalidate(&mut self) {
+        let mut set = self.selections.set.lock().unwrap();
+        let validator = &self.validator;
+
+        set.retain(|_, v| validator(v));
+    }
+
     pub fn cycle_all_bg<I>(&self, items: I)
     where
     I: IntoIterator,
@@ -122,11 +140,11 @@ impl<T, S: Selection> SelectionSet<T, S> {
 
 // ---------- Selection Set ---------------
 #[derive(Debug, Clone)]
-struct SelectionSetImpl<K: Eq + Hash, S> {
+struct SelectorImpl<K: Eq + Hash, S> {
     pub set: Arc<Mutex<IndexMap<K, S, FxBuildHasher>>>,
 }
 
-impl<K: Eq + Hash, S> SelectionSetImpl<K, S>
+impl<K: Eq + Hash, S> SelectorImpl<K, S>
 where
 S: Selection,
 {

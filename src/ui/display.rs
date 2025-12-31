@@ -9,7 +9,7 @@ use crate::{config::DisplayConfig, utils::{serde::StringOrVec, text::left_pad}};
 #[derive(Debug, Clone)]
 pub struct DisplayUI {
     height: u16,
-    pub text: Text<'static>,
+    text: Text<'static>,
     pub show: bool,
     pub config: DisplayConfig,
 }
@@ -41,10 +41,12 @@ impl DisplayUI {
         height
     }
 
+    /// Set text and visibility.
     pub fn set(&mut self, text: impl Into<Text<'static>>) {
         let text = text.into();
         self.height = text.lines.len() as u16;
         self.text = text;
+        self.show = true;
     }
 
     pub fn make_display(&self, result_indentation: usize) -> Paragraph<'_> {

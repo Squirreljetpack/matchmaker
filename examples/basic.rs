@@ -1,5 +1,5 @@
 use matchmaker::nucleo::{Worker, Indexed};
-use matchmaker::{Matchmaker, MatchError, Result};
+use matchmaker::{MatchError, Matchmaker, Result, Selector};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -7,9 +7,8 @@ async fn main() -> Result<()> {
 
     let worker = Worker::new_single_column();
     worker.append(items);
-    let identifier = Indexed::identifier;
-
-    let mm = Matchmaker::new(worker, identifier);
+    let selector = Selector::new(Indexed::identifier);
+    let mm = Matchmaker::new(worker, selector);
 
     match mm.pick_default().await {
         Ok(v) => {

@@ -20,7 +20,7 @@
 - configurable active and passive column colors
 - ensure uniform fg/bg config on widgets
 - benchmarks (what kinds of speed matter?)
-
+- crossterm cannot read cursor info when piped, maybe we can be smarter about the minimum height by comparing with terminal size and rows moved up. Also, may need to clear artifacts.
 ### Low priority
 - a scroll action could dispatch between preview and results
 - Should event handlers return an Option<Result<??>> to allow exiting the loop? if a use case comes up might be worth changing

@@ -1,13 +1,13 @@
 use matchmaker::nucleo::{Indexed, Render, Worker};
-use matchmaker::{SSS, MatchError, Matchmaker, Result, ResultExt};
+use matchmaker::{MatchError, Matchmaker, Result, ResultExt, SSS, Selector};
 
 pub async fn mm_get<T: SSS + Render + Clone>(
     items: impl IntoIterator<Item = T>,
 ) -> Result<T, MatchError> {
     let worker = Worker::new_single_column();
     worker.append(items);
-    let identifier = Indexed::identifier;
-    let mm = Matchmaker::new(worker, identifier);
+    let selector = Selector::new(Indexed::identifier);
+    let mm = Matchmaker::new(worker, selector);
 
     mm.pick_default().await.first()
 }

@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    SSS, Selection, SelectionSet, message::Event, nucleo::{Status, injector::WorkerInjector}, ui::{PickerUI, PreviewUI, Rect, UI}
+    SSS, Selection, Selector, message::Event, nucleo::{Status, injector::WorkerInjector}, ui::{PickerUI, PreviewUI, Rect, UI}
 };
 
 // --------------------------------------------------------------------
@@ -68,7 +68,7 @@ impl<'a, T: SSS, S: Selection> MMState<'a, T, S> {
         &self.picker_ui.results.status
     }
 
-    pub fn selections(&self) -> &SelectionSet<T, S> {
+    pub fn selections(&self) -> &Selector<T, S> {
         &self.picker_ui.selections
     }
 

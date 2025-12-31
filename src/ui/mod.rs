@@ -16,7 +16,7 @@ pub use ratatui::{
 }; // reexport for convenience
 
 use crate::{
-    SSS, Selection, SelectionSet, config::{
+    SSS, Selection, Selector, config::{
         DisplayConfig, InputConfig, PreviewLayoutSetting, RenderConfig, ResultsConfig, TerminalLayoutSettings, UiConfig
     }, nucleo::Worker, preview::Preview, tui::Tui
 };
@@ -32,7 +32,7 @@ impl UI {
         mut config: RenderConfig,
         matcher: &'a mut nucleo::Matcher,
         worker: Worker<T>,
-        selection_set: SelectionSet<T, S>,
+        selection_set: Selector<T, S>,
         view: Option<Preview>,
         tui: &mut Tui<W>,
     ) -> (Self, PickerUI<'a, T, S>, Option<PreviewUI>) {
@@ -83,7 +83,7 @@ pub struct PickerUI<'a, T: SSS, S: Selection> {
     pub header: DisplayUI,
     pub footer: DisplayUI,
     pub matcher: &'a mut nucleo::Matcher,
-    pub selections: SelectionSet<T, S>,
+    pub selections: Selector<T, S>,
     pub worker: Worker<T>,
 }
 
@@ -95,7 +95,7 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
         footer_config: DisplayConfig,
         matcher: &'a mut nucleo::Matcher,
         worker: Worker<T>,
-        selections: SelectionSet<T, S>,
+        selections: Selector<T, S>,
     ) -> Self {
         Self {
             results: ResultsUI::new(results_config),

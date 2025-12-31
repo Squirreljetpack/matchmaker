@@ -1,6 +1,6 @@
 use super::State;
 use crate::{
-    MAX_EFFECTS, MMItem, Selection, action::ActionExt, ui::{OverlayUI, PickerUI, PreviewUI, UI}
+    MAX_EFFECTS, SSS, Selection, action::ActionExt, ui::{OverlayUI, PickerUI, PreviewUI, UI}
 };
 
 use arrayvec::ArrayVec;
@@ -24,7 +24,7 @@ pub enum Effect {
     SetIndex(u32),
 }
 #[derive(Debug, Default)]
-pub struct Effects(ArrayVec<Effect, MAX_EFFECTS>); 
+pub struct Effects(ArrayVec<Effect, MAX_EFFECTS>);
 
 #[macro_export]
 macro_rules! efx {
@@ -39,7 +39,7 @@ pub use crate::acs;
 
 impl<S: Selection> State<S> {
     // note: apparently its important that this is a method on state to satisfy borrow checker
-    pub fn apply_effects<T: MMItem, A: ActionExt, W: std::io::Write>(
+    pub fn apply_effects<T: SSS, A: ActionExt, W: std::io::Write>(
         &mut self,
         effects: Effects,
         ui: &mut UI,
@@ -68,10 +68,10 @@ impl<S: Selection> State<S> {
                     picker_ui.footer.show = true;
                 }
                 Effect::ClearHeader => {
-                    picker_ui.header.show = true;
+                    picker_ui.header.show = false;
                 }
                 Effect::ClearFooter => {
-                    picker_ui.footer.show = true;
+                    picker_ui.footer.show = false;
                 }
 
                 // ----- other -------
@@ -103,6 +103,7 @@ impl<S: Selection> State<S> {
                     picker_ui.results.cursor_disabled = disabled;
                 }
                 Effect::SetIndex(index) => {
+                    log::info!("{:?}", picker_ui.results);
                     picker_ui.results.cursor_jump(index);
                 }
             }

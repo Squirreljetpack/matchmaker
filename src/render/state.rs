@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    MMItem, Selection, SelectionSet, message::Event, nucleo::{Status, injector::WorkerInjector}, ui::{PickerUI, PreviewUI, Rect, UI}
+    SSS, Selection, SelectionSet, message::Event, nucleo::{Status, injector::WorkerInjector}, ui::{PickerUI, PreviewUI, Rect, UI}
 };
 
 // --------------------------------------------------------------------
@@ -27,7 +27,7 @@ pub struct State<S: Selection> {
     pub(crate) events: HashSet<Event>,
 }
 
-pub struct MMState<'a, T: MMItem, S: Selection> {
+pub struct MMState<'a, T: SSS, S: Selection> {
     pub(crate) state: &'a State<S>,
 
     pub picker_ui: &'a PickerUI<'a, T, S>,
@@ -35,7 +35,7 @@ pub struct MMState<'a, T: MMItem, S: Selection> {
     pub preview_ui: Option<&'a PreviewUI>,
 }
 
-impl<'a, T: MMItem, S: Selection> MMState<'a, T, S> {
+impl<'a, T: SSS, S: Selection> MMState<'a, T, S> {
     pub fn previewer_area(&self) -> Option<&Rect> {
         self.preview_ui.map(|ui| &ui.area)
     }
@@ -193,7 +193,7 @@ impl<S: Selection> State<S> {
         changed
     }
 
-    pub fn update<'a, T: MMItem>(&'a mut self, picker_ui: &'a PickerUI<T, S>){
+    pub fn update<'a, T: SSS>(&'a mut self, picker_ui: &'a PickerUI<T, S>){
         if self.iterations == 0 {
             self.insert(Event::Start);
         }
@@ -216,7 +216,7 @@ impl<S: Selection> State<S> {
 
 
     // ---------- flush -----------
-    pub fn dispatcher<'a, T: MMItem>(&'a self, ui: &'a UI, picker_ui: &'a PickerUI<T, S>, preview_ui: Option<&'a PreviewUI>) -> MMState<'a, T, S> {
+    pub fn dispatcher<'a, T: SSS>(&'a self, ui: &'a UI, picker_ui: &'a PickerUI<T, S>, preview_ui: Option<&'a PreviewUI>) -> MMState<'a, T, S> {
         MMState {
             state: self,
             picker_ui,
@@ -252,7 +252,7 @@ impl<S: Selection> std::fmt::Debug for State<S> {
     }
 }
 
-impl<'a, T: MMItem, S: Selection> Deref for MMState<'a, T, S> {
+impl<'a, T: SSS, S: Selection> Deref for MMState<'a, T, S> {
     type Target = State<S>;
 
     fn deref(&self) -> &Self::Target {

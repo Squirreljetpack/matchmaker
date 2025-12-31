@@ -1,16 +1,16 @@
 use std::{borrow::Cow, sync::Arc};
 
 use crate::{
-    MMItem, RenderFn, nucleo::Indexed, utils::text::plain_text
+    SSS, RenderFn, nucleo::Indexed, utils::text::plain_text
 };
 
 use super::{injector::{self}, Text, worker::{Column, Worker}};
 
-impl<T: MMItem> Worker<T> {
+impl<T: SSS> Worker<T> {
     /// Returns a function which templates a string given an item using the column functions
     pub fn make_format_fn<const QUOTE: bool>(
         &self,
-        blank_format: impl Fn(&T) -> Cow<'_, str> + MMItem,
+        blank_format: impl Fn(&T) -> Cow<'_, str> + SSS,
     ) -> RenderFn<T> {
         let columns = self.columns.clone();
 
@@ -88,7 +88,7 @@ impl<T: AsRef<str>> Render for T {
     }
 }
 
-impl<T: Render + MMItem> Worker<Indexed<T>> {
+impl<T: Render + SSS> Worker<Indexed<T>> {
     /// Create a new worker over items which are displayed in the picker as exactly their as_str representation.
     pub fn new_single_column() -> Self {
         Self::new(
@@ -120,7 +120,7 @@ pub trait ColumnIndexable {
 
 impl<T> Worker<T>
 where
-T: ColumnIndexable + MMItem,
+T: ColumnIndexable + SSS,
 {
     /// Create a new worker over indexable items, whose columns as displayed in the picker correspond to indices according to the relative order of the column names given to this function.
     pub fn new_indexable<I, S>(column_names: I) -> Self

@@ -16,7 +16,7 @@ pub use ratatui::{
 }; // reexport for convenience
 
 use crate::{
-    MMItem, Selection, SelectionSet, config::{
+    SSS, Selection, SelectionSet, config::{
         DisplayConfig, InputConfig, PreviewLayoutSetting, RenderConfig, ResultsConfig, TerminalLayoutSettings, UiConfig
     }, nucleo::Worker, preview::Preview, tui::Tui
 };
@@ -28,7 +28,7 @@ pub struct UI {
 }
 
 impl UI {
-    pub fn new<'a, T: MMItem, S: Selection, W: std::io::Write>(
+    pub fn new<'a, T: SSS, S: Selection, W: std::io::Write>(
         mut config: RenderConfig,
         matcher: &'a mut nucleo::Matcher,
         worker: Worker<T>,
@@ -77,7 +77,7 @@ impl UI {
     }
 }
 
-pub struct PickerUI<'a, T: MMItem, S: Selection> {
+pub struct PickerUI<'a, T: SSS, S: Selection> {
     pub results: ResultsUI,
     pub input: InputUI,
     pub header: DisplayUI,
@@ -87,7 +87,7 @@ pub struct PickerUI<'a, T: MMItem, S: Selection> {
     pub worker: Worker<T>,
 }
 
-impl<'a, T: MMItem, S: Selection> PickerUI<'a, T, S> {
+impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
     pub fn new(
         results_config: ResultsConfig,
         input_config: InputConfig,
@@ -136,7 +136,7 @@ impl<'a, T: MMItem, S: Selection> PickerUI<'a, T, S> {
     }
 }
 
-impl<'a, T: MMItem, O: Selection> PickerUI<'a, T, O> {
+impl<'a, T: SSS, O: Selection> PickerUI<'a, T, O> {
     pub fn make_table(&mut self) -> Table<'_> {
         self.results
         .make_table(&mut self.worker, &mut self.selections, self.matcher)

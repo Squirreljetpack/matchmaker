@@ -20,10 +20,10 @@ use crate::config::{CursorSetting, ExitConfig};
 use crate::message::{Event, Interrupt, RenderCommand};
 use crate::tui::Tui;
 use crate::ui::{DisplayUI, InputUI, OverlayUI, PickerUI, PreviewUI, ResultsUI, UI};
-use crate::{MatchError, MMItem, Selection};
+use crate::{MatchError, SSS, Selection};
 
 // todo: we can make it return a stack allocated smallvec ig
-fn apply_aliases<T: MMItem, S: Selection, A: ActionExt>(
+fn apply_aliases<T: SSS, S: Selection, A: ActionExt>(
     buffer: &mut Vec<RenderCommand<A>>,
     aliaser: ActionAliaser<T, S, A>,
     state: &MMState<'_, T, S>
@@ -48,7 +48,7 @@ fn apply_aliases<T: MMItem, S: Selection, A: ActionExt>(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) async fn render_loop<'a, W: Write, T: MMItem, S: Selection, A: ActionExt>(
+pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt>(
     mut ui: UI,
     mut picker_ui: PickerUI<'a, T, S>,
     mut preview_ui: Option<PreviewUI>,
@@ -517,7 +517,7 @@ fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {
     frame.render_widget(widget, area);
 }
 
-fn render_results<T: MMItem, S: Selection>(
+fn render_results<T: SSS, S: Selection>(
     frame: &mut Frame,
     area: Rect,
     ui: &mut PickerUI<T, S>,

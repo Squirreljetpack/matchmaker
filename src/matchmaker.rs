@@ -8,7 +8,7 @@ use log::{debug, info, warn};
 use ratatui::text::Text;
 
 use crate::{
-    Identifier, MMItem, MatchError, RenderFn, Result, Selection, SelectionSet, SplitterFn, action::{ActionAliaser, ActionExt, ActionExtHandler, NullActionExt}, binds::BindMap, config::{
+    Identifier, SSS, MatchError, RenderFn, Result, Selection, SelectionSet, SplitterFn, action::{ActionAliaser, ActionExt, ActionExtHandler, NullActionExt}, binds::BindMap, config::{
         ExitConfig, PreviewerConfig, RenderConfig, Split, TerminalConfig, WorkerConfig
     }, efx, event::{EventLoop, RenderSender}, message::{Event, Interrupt}, nucleo::{
         Indexed,
@@ -35,7 +35,7 @@ use crate::{
 /// 4. Register your handlers
 ///    4.5 Start and connect your previewer
 /// 5. Call mm.pick() or mm.pick_with_matcher(&mut matcher)
-pub struct Matchmaker<T: MMItem, S: Selection=T> {
+pub struct Matchmaker<T: SSS, S: Selection=T> {
     pub worker: Worker<T>,
     render_config: RenderConfig,
     tui_config: TerminalConfig,
@@ -145,7 +145,7 @@ impl ConfigMatchmaker {
 }
 
 
-impl<T: MMItem, S: Selection> Matchmaker<T, S>
+impl<T: SSS, S: Selection> Matchmaker<T, S>
 {
     pub fn new(worker: Worker<T>, identifier: Identifier<T, S>) -> Self {
         Matchmaker {
@@ -197,7 +197,7 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
     /// Register a handler to listen on [`Event`]s
     pub fn register_event_handler<F, I>(&mut self, events: I, handler: F)
     where
-    F: Fn(&mut MMState<'_, T, S>, &Event) -> Effects + MMItem,
+    F: Fn(&mut MMState<'_, T, S>, &Event) -> Effects + SSS,
     I: IntoIterator<Item = Event>,
     {
         let boxed = Box::new(handler);
@@ -222,7 +222,7 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
         handler: F,
     )
     where
-    F: Fn(&mut MMState<'_, T, S>, &Interrupt) -> Effects + MMItem,
+    F: Fn(&mut MMState<'_, T, S>, &Interrupt) -> Effects + SSS,
     {
         let boxed = Box::new(handler);
         self.register_boxed_interrupt_handler(interrupt, boxed);
@@ -355,7 +355,7 @@ impl <T> Result<T, MatchError> {
 }
 
 // --------- BUILDER -------------
-pub struct PickOptions<'a, T: MMItem, S: Selection, A: ActionExt = NullActionExt> {
+pub struct PickOptions<'a, T: SSS, S: Selection, A: ActionExt = NullActionExt> {
     matcher: Option<&'a mut nucleo::Matcher>,
     event_loop: Option<EventLoop<A>>,
     previewer: Option<Previewer>,
@@ -376,7 +376,7 @@ pub struct PickOptions<'a, T: MMItem, S: Selection, A: ActionExt = NullActionExt
 
 pub type SignalHandler<T, S> = fn(usize, &mut MMState<'_, T, S>);
 
-impl<'a, T: MMItem, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
+impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
     pub const fn new() -> Self {
         Self {
             matcher: None,
@@ -479,7 +479,7 @@ impl<'a, T: MMItem, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
     // }
 }
 
-impl<'a, T: MMItem, S: Selection, A: ActionExt> Default for PickOptions<'a, T, S, A> {
+impl<'a, T: SSS, S: Selection, A: ActionExt> Default for PickOptions<'a, T, S, A> {
     fn default() -> Self {
         Self::new()
     }
@@ -488,7 +488,7 @@ impl<'a, T: MMItem, S: Selection, A: ActionExt> Default for PickOptions<'a, T, S
 
 // ----------- ATTACHMENTS ------------------
 
-impl<T: MMItem, S: Selection> Matchmaker<T, S>
+impl<T: SSS, S: Selection> Matchmaker<T, S>
 {
     pub fn register_print_handler(&mut self, print_handle: AppendOnly<String>, formatter: Arc<RenderFn<T>>) {
         self.register_interrupt_handler(
@@ -561,7 +561,7 @@ impl<T: MMItem, S: Selection> Matchmaker<T, S>
     }
 }
 
-pub fn make_previewer<T: MMItem, S: Selection>(
+pub fn make_previewer<T: SSS, S: Selection>(
     mm: &mut Matchmaker<T, S>,
     previewer_config: PreviewerConfig, // help_str is provided seperately so help_colors is ignored
     formatter: Arc<RenderFn<T>>,
@@ -633,7 +633,7 @@ fn maybe_tty() -> Stdio {
 
 // ------------ BOILERPLATE ---------------
 
-impl<T: MMItem + Debug, S: Selection + Debug> Debug for Matchmaker<T, S> {
+impl<T: SSS + Debug, S: Selection + Debug> Debug for Matchmaker<T, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Matchmaker")
         // omit `worker`

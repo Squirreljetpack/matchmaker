@@ -31,4 +31,3 @@
 - (automatic) horizontal scrolling of results
 - Should payloads be wrapped by formatstring
 - interrupts may want the payload seperate from the enum
-- Nonasync so that MMItem doesn't need static

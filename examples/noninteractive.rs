@@ -1,10 +1,10 @@
 use std::time::Duration;
 
 use matchmaker::noninteractive::get_matches;
-use matchmaker::{MMItem, Result};
+use matchmaker::{SSS, Result};
 use matchmaker::nucleo::Render;
 
-pub fn mm_get_match<T: MMItem + Clone + Render>(
+pub fn mm_get_match<T: SSS + Clone + Render>(
     items: impl IntoIterator<Item = T>,
     query: &str,
 ) -> Option<T> {
@@ -27,10 +27,10 @@ fn main() -> Result<()> {
             _ => None
         }
     });
-    
+
     if let Some(m) = mm_get_match(items, ".") {
         println!("Found: {m}")
     };
-    
+
     Ok(())
 }

@@ -18,7 +18,7 @@ use ratatui::style::Modifier;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
-use crate::{MMItem, utils::text::{plain_text, wrap_text}};
+use crate::{SSS, utils::text::{plain_text, wrap_text}};
 
 use super::{injector::WorkerInjector, query::PickerQuery};
 
@@ -41,7 +41,7 @@ impl<T> Column<T> {
 
     pub fn new<F>(name: impl Into<Arc<str>>, f: F) -> Self
     where
-    F: for<'a> Fn(&'a T) -> Text<'a> + MMItem,
+    F: for<'a> Fn(&'a T) -> Text<'a> + SSS,
     {
         Self {
             name: name.into(),
@@ -65,11 +65,11 @@ impl<T> Column<T> {
 }
 
 /// Worker: can instantiate, push, and get results. A view into computation.
-/// 
+///
 /// Additionally, the worker can affect the computation via find and restart.
 pub struct Worker<T>
 where
-T: MMItem,
+T: SSS,
 {
     /// The inner `Nucleo` fuzzy matcher.
     pub(crate) nucleo: nucleo::Nucleo<T>,
@@ -86,7 +86,7 @@ T: MMItem,
 
 impl<T> Worker<T>
 where
-T: MMItem,
+T: SSS,
 {
     pub fn new(
         columns: impl IntoIterator<Item = Column<T>>,
@@ -214,7 +214,7 @@ pub enum WorkerError {
     InjectorShutdown,
 }
 
-impl<T: MMItem> Worker<T> {
+impl<T: SSS> Worker<T> {
     pub fn results(
         &mut self,
         start: u32,

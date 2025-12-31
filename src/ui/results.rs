@@ -9,7 +9,7 @@ use ratatui::{
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
-    MMItem, Selection, SelectionSet,
+    SSS, Selection, SelectionSet,
     config::ResultsConfig,
     nucleo::{Status, Worker},
     utils::text::{clip_text_lines, fit_width, prefix_text, substitute_escaped},
@@ -102,13 +102,13 @@ impl ResultsUI {
             (self.cursor + self.bottom) as u32
         }
     }
-    pub fn cursor(&self) -> Option<u16> {
-        if self.cursor_disabled {
-            None
-        } else {
-            Some(self.cursor)
-        }
-    }
+    // pub fn cursor(&self) -> Option<u16> {
+    //     if self.cursor_disabled {
+    //         None
+    //     } else {
+    //         Some(self.cursor)
+    //     }
+    // }
     pub fn cursor_prev(&mut self) -> bool {
         if self.cursor_disabled {
             return false
@@ -221,7 +221,7 @@ impl ResultsUI {
 
     // this updates the internal status, so be sure to call make_status afterward
     // some janky wrapping is implemented, dunno whats causing flickering, padding is fixed going down only
-    pub fn make_table<'a, T: MMItem>(
+    pub fn make_table<'a, T: SSS>(
         &'a mut self,
         worker: &'a mut Worker<T>,
         selections: &mut SelectionSet<T, impl Selection>,

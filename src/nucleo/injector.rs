@@ -11,7 +11,7 @@ use std::{
 
 use super::worker::{Column, Worker, WorkerError};
 use super::{Indexed, Segmented};
-use crate::{MMItem, SegmentableItem, SplitterFn};
+use crate::{SSS, SegmentableItem, SplitterFn};
 
 pub trait Injector: Clone {
     type InputItem;
@@ -59,7 +59,7 @@ pub struct WorkerInjector<T> {
 
 
 
-impl<T: MMItem> Injector for WorkerInjector<T> {
+impl<T: SSS> Injector for WorkerInjector<T> {
     type InputItem = T;
     type Inner = ();
     type Context = Worker<T>;

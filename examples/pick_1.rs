@@ -1,7 +1,7 @@
 use matchmaker::nucleo::{Indexed, Render, Worker};
-use matchmaker::{MMItem, MatchError, Matchmaker, Result, ResultExt};
+use matchmaker::{SSS, MatchError, Matchmaker, Result, ResultExt};
 
-pub async fn mm_get<T: MMItem + Render + Clone>(
+pub async fn mm_get<T: SSS + Render + Clone>(
     items: impl IntoIterator<Item = T>,
 ) -> Result<T, MatchError> {
     let worker = Worker::new_single_column();

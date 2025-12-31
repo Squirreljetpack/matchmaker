@@ -4,7 +4,7 @@ use cli_boilerplate_automation::{bo::{MapReaderError, map_chunks, map_reader_lin
 use cli_boilerplate_automation::{bo::load_type, bog::BogUnwrapExt, broc::spawn_script};
 use log::{debug, error};
 use matchmaker::{
-    MMItem, MatchError, Matchmaker, OddEnds, PickOptions, binds::display_binds, config::{MatcherConfig, StartConfig}, efx, event::EventLoop, make_previewer, message::Interrupt, nucleo::{Segmented, injector::{IndexedInjector, Injector, SegmentedInjector}}, preview::AppendOnly
+    SSS, MatchError, Matchmaker, OddEnds, PickOptions, binds::display_binds, config::{MatcherConfig, StartConfig}, efx, event::EventLoop, make_previewer, message::Interrupt, nucleo::{Segmented, injector::{IndexedInjector, Injector, SegmentedInjector}}, preview::AppendOnly
 };
 use crate::{config::Config, types::default_config_path};
 use crate::parse::parse;
@@ -73,7 +73,7 @@ pub fn enter() -> anyhow::Result<Config> {
 
 /// Spawns a tokio task mapping f to reader segments.
 /// Read aborts on error. Read errors are logged.
-pub fn map_reader<E: MMItem>(reader: impl Read + MMItem, f: impl FnMut(String) -> Result<(), E> + MMItem, input_separator: Option<char>) -> tokio::task::JoinHandle<Result<(), MapReaderError<E>>> {
+pub fn map_reader<E: SSS>(reader: impl Read + SSS, f: impl FnMut(String) -> Result<(), E> + SSS, input_separator: Option<char>) -> tokio::task::JoinHandle<Result<(), MapReaderError<E>>> {
     if let Some(delim) = input_separator {
         tokio::spawn(async move {
             map_chunks::<true, E>(read_to_chunks(reader, delim), f)

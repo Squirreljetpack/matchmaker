@@ -2,7 +2,7 @@ use std::fmt;
 
 use super::MMState;
 use crate::{
-    MMItem, Selection,
+    SSS, Selection,
     message::{Event, Interrupt}, render::{Effects},
 };
 
@@ -12,22 +12,22 @@ pub type DynamicMethod<T, S, E> = Box<dyn Fn(&mut MMState<'_, T, S>, &E) -> Effe
 pub type DynamicHandlers<T, S> = (EventHandlers<T, S>, InterruptHandlers<T, S>);
 
 #[allow(clippy::type_complexity)]
-pub struct EventHandlers<T: MMItem, S: Selection> {
+pub struct EventHandlers<T: SSS, S: Selection> {
     handlers: Vec<(Vec<Event>, DynamicMethod<T, S, Event>)>,
 }
 
 #[allow(clippy::type_complexity)]
-pub struct InterruptHandlers<T: MMItem, S: Selection> {
+pub struct InterruptHandlers<T: SSS, S: Selection> {
     handlers: Vec<(Interrupt, Vec<DynamicMethod<T, S, Interrupt>>)>,
 }
 
-impl<T: MMItem, S: Selection> Default for EventHandlers<T, S> {
+impl<T: SSS, S: Selection> Default for EventHandlers<T, S> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: MMItem, S: Selection> EventHandlers<T, S> {
+impl<T: SSS, S: Selection> EventHandlers<T, S> {
     pub fn new() -> Self {
         Self { handlers: vec![] }
     }
@@ -47,13 +47,13 @@ impl<T: MMItem, S: Selection> EventHandlers<T, S> {
     }
 }
 
-impl<T: MMItem, S: Selection> Default for InterruptHandlers<T, S> {
+impl<T: SSS, S: Selection> Default for InterruptHandlers<T, S> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: MMItem, S: Selection> InterruptHandlers<T, S> {
+impl<T: SSS, S: Selection> InterruptHandlers<T, S> {
     pub fn new() -> Self {
         Self { handlers: vec![] }
     }
@@ -76,7 +76,7 @@ impl<T: MMItem, S: Selection> InterruptHandlers<T, S> {
 
 // -------------------------------BOILERPLATE----------------------------------
 
-impl<T: MMItem, S: Selection> fmt::Debug for EventHandlers<T, S> {
+impl<T: SSS, S: Selection> fmt::Debug for EventHandlers<T, S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("EventHandlers")
             .field("handler_count", &self.handlers.len())
@@ -84,7 +84,7 @@ impl<T: MMItem, S: Selection> fmt::Debug for EventHandlers<T, S> {
     }
 }
 
-impl<T: MMItem, S: Selection> fmt::Debug for InterruptHandlers<T, S> {
+impl<T: SSS, S: Selection> fmt::Debug for InterruptHandlers<T, S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("InterruptHandlers")
             .field("variant_count", &self.handlers.len())

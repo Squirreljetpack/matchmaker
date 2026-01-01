@@ -325,11 +325,17 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         Action::Redraw => {
                             tui.redraw();
                         }
+                        Action::Overlay(index) => {
+                            if let Some(x) = overlay_ui.as_mut() {
+                                x.enable(index, &ui.area);
+                                tui.redraw();
+                            };
+                        }
                         Action::Custom(e) => {
                             if let Some(handler) = ext_handler {
                                 let mut dispatcher = state.dispatcher(&ui, &picker_ui, preview_ui.as_ref());
                                 let effects = handler(e, &mut dispatcher);
-                                state.apply_effects(effects, &mut ui, &mut picker_ui, &mut preview_ui, &mut overlay_ui, &mut tui);
+                                state.apply_effects(effects, &mut ui, &mut picker_ui, &mut preview_ui);
                             }
                         }
                         _ => {}
@@ -357,8 +363,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 _ => {}
             }
 
-            state.update(&picker_ui);
-
+            state.update_current(&picker_ui);
             // Apply interrupt effect
             {
                 let mut effects = Effects::new();
@@ -372,7 +377,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 if let Interrupt::Become(context) = interrupt {
                     return Err(MatchError::Become(context));
                 }
-                state.apply_effects(effects, &mut ui, &mut picker_ui, &mut preview_ui, &mut overlay_ui, &mut tui);
+                state.apply_effects(effects, &mut ui, &mut picker_ui, &mut preview_ui);
             }
         }
 
@@ -452,7 +457,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
         // note: the remainder could be scoped by a conditional on having run?
         // ====== Event handling ==========
-        state.update(&picker_ui);
+        state.update(&picker_ui, &overlay_ui);
         let events = state.events();
 
         // ---- Invoke handlers -------
@@ -475,7 +480,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         }
 
         // apply effects
-        state.apply_effects(effects, &mut ui, &mut picker_ui, &mut preview_ui, &mut overlay_ui, &mut tui);
+        state.apply_effects(effects, &mut ui, &mut picker_ui, &mut preview_ui);
 
         // ------------------------------
         // send events into controller

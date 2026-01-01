@@ -248,6 +248,7 @@ pub struct ResultsConfig {
     // experimental
     pub column_spacing: Count,
     pub current_prefix: String,
+    pub right_align_last: bool
 }
 
 impl Default for ResultsConfig {
@@ -279,6 +280,7 @@ impl Default for ResultsConfig {
 
             column_spacing: Default::default(),
             current_prefix: Default::default(),
+            right_align_last: true
         }
     }
 }

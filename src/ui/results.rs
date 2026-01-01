@@ -2,7 +2,7 @@
 use log::debug;
 
 use ratatui::{
-    layout::Rect,
+    layout::{Alignment, Rect},
     style::{Style, Stylize},
     widgets::{Paragraph, Row, Table},
 };
@@ -287,7 +287,32 @@ impl ResultsUI {
 
                     prefix_text(&mut row[0], prefix);
 
-                    let row = Row::from_iter(row.clone().into_iter().enumerate().filter_map(|(i, v) | (widths[i] != 0).then_some(v) )).height(height);
+
+
+                    let last_visible = self.config.right_align_last.then(|| {
+                        widths
+                        .iter()
+                        .enumerate()
+                        .rev()
+                        .find(|(_, w)| **w != 0)
+                        .map(|(i, _)| i)
+                    }).flatten();
+
+                    let row = Row::new(
+                        row.iter()
+                        .cloned()
+                        .enumerate()
+                        .filter_map(|(i, mut text)| {
+                            (widths[i] != 0).then(|| {
+                                if Some(i) == last_visible &&
+                                let Some(last_line) = text.lines.last_mut() {
+                                    last_line.alignment = Some(Alignment::Right);
+                                }
+                                text
+                            })
+                        }),
+                    )
+                    .height(height);
                     // debug!("1: {} {:?} {}", start_index, row, h_exceedance);
 
                     rows.push(row);

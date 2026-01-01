@@ -16,11 +16,11 @@ pub enum OverlayEffect {
 
 pub trait Overlay {
     type A: ActionExt;
-    fn on_enable(&mut self, area: Rect) {
+    fn on_enable(&mut self, area: &Rect) {
         let _ = area;
     }
     fn on_disable(&mut self) {}
-    fn handle_input(&mut self, action: char) -> OverlayEffect;
+    fn handle_input(&mut self, c: char) -> OverlayEffect;
     fn handle_action(&mut self, action: &Action<Self::A>) -> OverlayEffect {
         let _ = action;
         OverlayEffect::None
@@ -46,7 +46,7 @@ pub trait Overlay {
 
     /// Called when layout area changes.
     /// The output of this is processed and cached into the area which the draw method is called with.
-    /// 
+    ///
     /// # Notes
     /// Return None or Err([0, 0]) to draw in the default area (see [`OverlayConfig`] and [`default_area`])
     fn area(&mut self, ui_area: &Rect) -> Result<Rect, [u16; 2]> {
@@ -81,9 +81,8 @@ impl<A: ActionExt> OverlayUI<A> {
     pub fn enable(&mut self, index: usize, ui_area: &Rect) {
         assert!(index < self.overlays.len());
         self.index = Some(index);
+        self.current_mut().unwrap().on_enable(ui_area);
         self.update_dimensions(ui_area);
-        let area = self.cached_area;
-        self.current_mut().unwrap().on_enable(area);
     }
 
     pub fn disable(&mut self) {
@@ -114,7 +113,8 @@ impl<A: ActionExt> OverlayUI<A> {
                 Ok(x) => x,
                 // centered
                 Err(pref) => default_area(pref, &self.config.layout, ui_area)
-            }
+            };
+            log::debug!("Overlay area: {}", self.cached_area);
         }
     }
 

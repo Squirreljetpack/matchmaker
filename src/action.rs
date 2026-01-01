@@ -65,7 +65,7 @@ pub enum Action<A: ActionExt = NullActionExt> {
     DeleteWord,
     DeleteLineStart,
     DeleteLineEnd,
-    Cancel,
+    Cancel, // clear input
     InputPos(i32),
 
     // Navigation
@@ -80,6 +80,7 @@ pub enum Action<A: ActionExt = NullActionExt> {
     // Other/Experimental/Debugging
     Redraw,
     Custom(A),
+    Overlay(usize)
 }
 
 impl<A: ActionExt> serde::Serialize for Action<A> {
@@ -384,7 +385,7 @@ impl_display_and_from_str_enum!(
     // tuple variants
     Execute, Become, Reload, Preview, SetInput, Column, Pos, InputPos;
     // tuple with default
-    Up, Down, PreviewUp, PreviewDown, Quit;
+    Up, Down, PreviewUp, PreviewDown, Quit, Overlay;
     // tuple with option
     SwitchPreview, SetPreview, SetPrompt, SetHeader, SetFooter;
     // tuple_string_default

@@ -212,6 +212,8 @@ pub struct Status {
 pub enum WorkerError {
     #[error("the matcher injector has been shut down")]
     InjectorShutdown,
+    #[error("{0}")]
+    Custom(&'static str),
 }
 
 impl<T: SSS> Worker<T> {

@@ -2,7 +2,7 @@
 use std::{fmt::{self, Debug, Formatter}, io::Write, process::Stdio, sync::Arc};
 
 use arrayvec::ArrayVec;
-use cli_boilerplate_automation::{broc::{exec_script, spawn_script}, env_vars, printlns};
+use cli_boilerplate_automation::{broc::{exec_script, spawn_script}, dog, env_vars, prints};
 use easy_ext::ext;
 use log::{debug, info, warn};
 use ratatui::text::Text;
@@ -348,7 +348,7 @@ impl <T> Result<T, MatchError> {
             v
             .into_iter()
             .next()
-            .ok_or(MatchError::Empty),
+            .ok_or(MatchError::NoMatch),
             Err(e)  => Err(e)
         }
     }
@@ -382,7 +382,7 @@ pub struct PickOptions<'a, T: SSS, S: Selection, A: ActionExt = NullActionExt> {
 }
 
 pub type SignalHandler<T, S> = fn(usize, &mut MMState<'_, T, S>);
-
+// todo: support initializing render loop from (tx, event_loop, elcfg, nothing)
 impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
     pub const fn new() -> Self {
         Self {
@@ -422,6 +422,7 @@ impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
         self
     }
 
+    /// Set a [`Previewer`]
     pub fn previewer(mut self, previewer: Previewer) -> Self {
         self.previewer = Some(previewer);
         self
@@ -448,7 +449,7 @@ impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
         self
     }
 
-    pub fn push_overlay<O>(mut self, overlay: O) -> Self
+    pub fn overlay<O>(mut self, overlay: O) -> Self
     where
     O: Overlay<A = A> + 'static,
     {
@@ -507,7 +508,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S>
                     if atty::is(atty::Stream::Stdout) {
                         print_handle.push(s);
                     } else {
-                        printlns!(s);
+                        prints!(s);
                     }
                 };
                 efx![]
@@ -595,6 +596,7 @@ pub fn make_previewer<T: SSS, S: Selection>(
             envs.extend(extra);
 
             let msg = PreviewMessage::Run(cmd.clone(), envs);
+            dog!("{cmd:?}");
             if preview_tx.send(msg.clone()).is_err() {
                 warn!("Failed to send to preview: {}", msg)
             }

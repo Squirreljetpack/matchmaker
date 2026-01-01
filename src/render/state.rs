@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    SSS, Selection, Selector, message::Event, nucleo::{Status, injector::WorkerInjector}, ui::{PickerUI, PreviewUI, Rect, UI}
+    SSS, Selection, Selector, action::ActionExt, message::Event, nucleo::{Status, injector::WorkerInjector}, ui::{OverlayUI, PickerUI, PreviewUI, Rect, UI}
 };
 
 // --------------------------------------------------------------------
@@ -22,6 +22,7 @@ pub struct State<S: Selection> {
     pub iterations: u32,
     pub preview_show: bool,
     pub layout: [Rect; 4],
+    pub overlay_index: Option<usize>,
 
     pub(crate) matcher_running: bool,
     pub(crate) events: HashSet<Event>,
@@ -99,6 +100,7 @@ impl<S: Selection> State<S> {
             preview_set: None,
             preview_show: false,
             layout: [Rect::default(); 4],
+            overlay_index: None,
             col: None,
 
             input: String::new(),
@@ -109,7 +111,7 @@ impl<S: Selection> State<S> {
         }
     }
     // ------ properties -----------
-    pub fn take_current(&mut self) -> Option<S> {
+    pub(crate) fn take_current(&mut self) -> Option<S> {
         self.current.take().map(|x| x.1)
     }
 
@@ -130,16 +132,22 @@ impl<S: Selection> State<S> {
     }
 
     // ------- updates --------------
-    pub fn update_current(&mut self, new_current: Option<(u32, S)>) -> bool {
+    pub(crate) fn update_current<T: SSS>(
+        &mut self,
+        picker_ui: &PickerUI<T, S>,
+        // new_current: Option<(u32, S)>
+    ) {
+        let current_raw = picker_ui.worker.get_nth(picker_ui.results.index());
+        let new_current = current_raw.map(picker_ui.selections.identifier);
+
         let changed = self.current.as_ref().map(|x| x.0) != new_current.as_ref().map(|x| x.0);
         if changed {
             self.current = new_current;
             self.insert(Event::CursorChange);
         }
-        changed
     }
 
-    pub fn update_input(&mut self, new_input: &str) -> bool {
+    pub(crate) fn update_input(&mut self, new_input: &str) -> bool {
         let changed = self.input != new_input;
         if changed {
             self.input = new_input.to_string();
@@ -148,7 +156,7 @@ impl<S: Selection> State<S> {
         changed
     }
 
-    pub fn update_preview(&mut self, context: &str) -> bool {
+    pub(crate) fn update_preview(&mut self, context: &str) -> bool {
         let changed = self.preview_run != context;
         if changed {
             self.preview_run = context.into();
@@ -157,7 +165,7 @@ impl<S: Selection> State<S> {
         changed
     }
 
-    pub fn update_preview_set(&mut self, context: String) -> bool {
+    pub(crate) fn update_preview_set(&mut self, context: String) -> bool {
         let next = Some(context);
         let changed = self.preview_set != next;
         if changed {
@@ -167,12 +175,12 @@ impl<S: Selection> State<S> {
         changed
     }
 
-    pub fn update_preview_unset(&mut self) {
+    pub(crate) fn update_preview_unset(&mut self) {
         self.preview_set = None;
         self.insert(Event::PreviewSet);
     }
 
-    pub fn update_layout(&mut self, context: [Rect; 4]) -> bool {
+    pub(crate) fn update_layout(&mut self, context: [Rect; 4]) -> bool {
         let changed = self.layout != context;
         if changed {
             self.insert(Event::Resize);
@@ -182,7 +190,7 @@ impl<S: Selection> State<S> {
     }
 
     /// Emit PreviewChange event on visibility change
-    pub fn update_preview_ui(&mut self, preview_ui: &PreviewUI) -> bool {
+    pub(crate) fn update_preview_ui(&mut self, preview_ui: &PreviewUI) -> bool {
         let next = preview_ui.is_show();
         let changed = self.preview_show != next;
         self.preview_show = next;
@@ -193,7 +201,8 @@ impl<S: Selection> State<S> {
         changed
     }
 
-    pub fn update<'a, T: SSS>(&'a mut self, picker_ui: &'a PickerUI<T, S>){
+
+    pub(crate) fn update<'a, T: SSS, A: ActionExt>(&'a mut self, picker_ui: &'a PickerUI<T, S>, overlay_ui: &'a Option<OverlayUI<A>>){
         if self.iterations == 0 {
             self.insert(Event::Start);
         }
@@ -209,14 +218,20 @@ impl<S: Selection> State<S> {
             self.matcher_running = picker_ui.results.status.running;
         };
 
-        let current_raw = picker_ui.worker.get_nth(picker_ui.results.index());
-        self.update_current(current_raw.map(picker_ui.selections.identifier));
+        if let Some(o) = overlay_ui {
+            if self.overlay_index != o.index() {
+                self.insert(Event::OverlayChange);
+                self.overlay_index = o.index()
+            }
+            self.overlay_index = o.index()
+        }
+        self.update_current(picker_ui);
     }
 
 
 
     // ---------- flush -----------
-    pub fn dispatcher<'a, T: SSS>(&'a self, ui: &'a UI, picker_ui: &'a PickerUI<T, S>, preview_ui: Option<&'a PreviewUI>) -> MMState<'a, T, S> {
+    pub(crate) fn dispatcher<'a, T: SSS>(&'a self, ui: &'a UI, picker_ui: &'a PickerUI<T, S>, preview_ui: Option<&'a PreviewUI>) -> MMState<'a, T, S> {
         MMState {
             state: self,
             picker_ui,
@@ -229,7 +244,7 @@ impl<S: Selection> State<S> {
         // nothing
     }
 
-    pub fn events(
+    pub(crate) fn events(
         &mut self,
     ) -> HashSet<Event> {
         self.reset();

@@ -13,13 +13,14 @@ pub enum Event {
     QueryChange,
     CursorChange,
     PreviewChange,
+    OverlayChange,
     PreviewSet,
     Synced,
     Resize,
     Refresh,
     Pause,
     Resume,
-    Custom(String)
+    Custom(usize)
 }
 
 #[derive(Default, Debug, Clone)]
@@ -31,7 +32,7 @@ pub enum Interrupt {
     Execute(String),
     Print(String),
     Reload(String),
-    Custom(String)
+    Custom(usize)
 }
 
 impl PartialEq for Interrupt {

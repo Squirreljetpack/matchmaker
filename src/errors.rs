@@ -17,8 +17,8 @@ pub enum MatchError {
     #[error("TUI Error: {0}")]
     TUIError(String),
     /// Should not arise in normal execution
-    #[error("Empty")]
-    Empty
+    #[error("no match")]
+    NoMatch
 }
 
 

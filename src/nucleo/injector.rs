@@ -2,11 +2,10 @@
 // Modified by Squirreljetpack, 2025
 
 use std::{
-    marker::PhantomData,
-    sync::{
+    marker::PhantomData, sync::{
         Arc,
         atomic::{AtomicU32, Ordering},
-    },
+    }
 };
 
 use super::worker::{Column, Worker, WorkerError};
@@ -172,6 +171,42 @@ impl<T: SegmentableItem, I: Injector<InputItem = Segmented<T>>> Injector
         self.inner().push(item)
     }
 }
+
+// pub type SeenMap<T> = Arc<std::sync::Mutex<collections::HashSet<T>>>;
+// #[derive(Clone)]
+// pub struct UniqueInjector<T, I: Injector<InputItem = T>> {
+//     injector: I,
+//     seen: SeenMap<T>,
+// }
+// impl<T, I> Injector for UniqueInjector<T, I>
+// where
+//     T: Eq + std::hash::Hash + Clone,
+//     I: Injector<InputItem = T>,
+// {
+//     type InputItem = T;
+//     type Inner = I;
+//     type Context = SeenMap<T>;
+
+//     fn new(injector: Self::Inner, _ctx: Self::Context) -> Self {
+//         Self {
+//             injector,
+//             seen: _ctx,
+//         }
+//     }
+
+//     fn wrap(&self, item: Self::InputItem) -> Result<<Self::Inner as Injector>::InputItem, WorkerError> {
+//         let mut seen = self.seen.lock().unwrap();
+//         if seen.insert(item.clone()) {
+//             Ok(item)
+//         } else {
+//             Err(WorkerError::Custom("Duplicate"))
+//         }
+//     }
+
+//     fn inner(&self) -> &Self::Inner {
+//         &self.injector
+//     }
+// }
 
 
 // ----------- CLONE ----------------------------

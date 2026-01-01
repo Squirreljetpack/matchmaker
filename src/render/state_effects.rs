@@ -1,6 +1,6 @@
 use super::State;
 use crate::{
-    MAX_EFFECTS, SSS, Selection, action::ActionExt, ui::{OverlayUI, PickerUI, PreviewUI, UI}
+    MAX_EFFECTS, SSS, Selection, message::Event, ui::{PickerUI, PreviewUI, UI}
 };
 
 use arrayvec::ArrayVec;
@@ -9,13 +9,14 @@ use ratatui::text::{Span, Text};
 #[derive(Debug, Clone)]
 pub enum Effect {
     ClearPreviewSet,
-    OverlayWidget(usize),
     Header(Text<'static>),
     Footer(Text<'static>),
     ClearFooter,
     ClearHeader,
     ClearSelections,
     RevalidateSelectons,
+    /// Reload the nucleo matcher
+    /// Note that the reload interrupt handler is NOT triggered if this is produced from a dynamic handler
     Reload,
 
     Prompt(Span<'static>),
@@ -23,6 +24,7 @@ pub enum Effect {
 
     DisableCursor(bool),
     SetIndex(u32),
+    TrySync,
 }
 #[derive(Debug, Default)]
 pub struct Effects(ArrayVec<Effect, MAX_EFFECTS>);
@@ -40,14 +42,12 @@ pub use crate::acs;
 
 impl<S: Selection> State<S> {
     // note: apparently its important that this is a method on state to satisfy borrow checker
-    pub fn apply_effects<T: SSS, A: ActionExt, W: std::io::Write>(
+    pub fn apply_effects<T: SSS>(
         &mut self,
         effects: Effects,
-        ui: &mut UI,
+        _ui: &mut UI,
         picker_ui: &mut PickerUI<T, S>,
         _preview_ui: &mut Option<PreviewUI>,
-        overlay_ui: &mut Option<OverlayUI<A>>,
-        tui: &mut crate::tui::Tui<W>
     ) {
         if !effects.is_empty() {
             log::debug!("{effects:?}");
@@ -73,23 +73,6 @@ impl<S: Selection> State<S> {
                     picker_ui.footer.show = false;
                 }
 
-                // ----- other -------
-                Effect::ClearSelections => {
-                    picker_ui.selections.clear();
-                }
-                Effect::RevalidateSelectons => {
-                    picker_ui.selections.revalidate();
-                }
-                Effect::OverlayWidget(index) => {
-                    if let Some(x) = overlay_ui.as_mut() {
-                        x.enable(index, &ui.area);
-                        tui.redraw();
-                    }
-                }
-                Effect::Reload => {
-                    picker_ui.worker.restart(true);
-                }
-
                 // ----- input -------
                 Effect::Input((input, cursor)) => {
                     picker_ui.input.set(input, cursor);
@@ -106,6 +89,27 @@ impl<S: Selection> State<S> {
                     log::info!("{:?}", picker_ui.results);
                     picker_ui.results.cursor_jump(index);
                 }
+
+                // -------- selections ---------
+                Effect::ClearSelections => {
+                    picker_ui.selections.clear();
+                }
+                Effect::RevalidateSelectons => {
+                    picker_ui.selections.revalidate();
+                }
+
+                // ---------- misc -------------
+                // this may not be the best place for these? We're trying to trigger a handler
+                Effect::Reload => {
+                    // the reload handler is not triggered when a handler produces this effect
+                    picker_ui.worker.restart(false);
+                }
+                Effect::TrySync => {
+                    if !picker_ui.results.status.running && picker_ui.results.status.item_count != 0 {
+                        self.insert(Event::Synced);
+                    }
+                }
+
             }
         }
     }

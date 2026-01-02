@@ -21,6 +21,7 @@ pub enum Effect {
 
     Prompt(Span<'static>),
     Input((String, u16)),
+    RestoreInputPromptMarker,
 
     DisableCursor(bool),
     SetIndex(u32),
@@ -80,6 +81,9 @@ impl<S: Selection> State<S> {
                 Effect::Prompt(prompt) => {
                     picker_ui.input.prompt = prompt;
                 }
+                Effect::RestoreInputPromptMarker => {
+                    picker_ui.input.prompt = Span::from(picker_ui.input.config.prompt.clone());
+                }
 
                 // ----- results -------
                 Effect::DisableCursor(disabled) => {
@@ -105,7 +109,7 @@ impl<S: Selection> State<S> {
                     picker_ui.worker.restart(false);
                 }
                 Effect::TrySync => {
-                    if !picker_ui.results.status.running && picker_ui.results.status.item_count != 0 {
+                    if !picker_ui.results.status.running {
                         self.insert(Event::Synced);
                     }
                 }

@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::{bog::{self, BogOkExt}, misc::ResultExt};
+use cli_boilerplate_automation::{bog::{self, BogOkExt}, bait::ResultExt};
 use std::{fs::OpenOptions, path::Path};
 use crate::types::BINARY_FULL;
 
@@ -27,7 +27,7 @@ pub fn init_logger(log_path: &Path) {
             .format_target(false)
             .format_timestamp(None);
 
-            let level = cli_boilerplate_automation::misc::level_filter_from_env();
+            let level = cli_boilerplate_automation::bother::level_filter_from_env();
 
             builder
             .filter(
@@ -43,7 +43,7 @@ pub fn init_logger(log_path: &Path) {
     .create(true)
     .open(log_path)
     .prefix_err("Failed to open log file")
-    .or_warn()
+    ._wbog()
     {
         builder.target(env_logger::Target::Pipe(Box::new(log_file)));
     }

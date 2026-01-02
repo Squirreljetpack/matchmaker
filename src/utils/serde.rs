@@ -1,7 +1,9 @@
 
 #![allow(unused)]
 use cli_boilerplate_automation::wbog;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de};
+
+use crate::utils::text::parse_escapes;
 
 pub mod fromstr {
     use std::fmt::Display;
@@ -15,7 +17,7 @@ pub mod fromstr {
     {
         serializer.serialize_str(&value.to_string())
     }
-    
+
     pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
     where
     T: FromStr,
@@ -50,5 +52,37 @@ D: Deserializer<'de>,
     } else {
         Ok(v)
         // return Err(serde::de::Error::custom(format!"{} exceeds the maximum of {MAX}"));
+    }
+}
+
+
+pub fn escaped_opt_string<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+D: serde::Deserializer<'de>,
+{
+    let opt = Option::<String>::deserialize(deserializer)?;
+    Ok(opt.map(|s| parse_escapes(&s)))
+}
+
+pub fn escaped_opt_char<'de, D>(deserializer: D) -> Result<Option<char>, D::Error>
+where
+D: serde::Deserializer<'de>,
+{
+    let opt = Option::<String>::deserialize(deserializer)?;
+    match opt {
+        Some(s) => {
+            let parsed = parse_escapes(&s);
+            let mut chars = parsed.chars();
+            let first = chars.next().ok_or_else(|| {
+                serde::de::Error::custom("escaped string is empty")
+            })?;
+            if chars.next().is_some() {
+                return Err(serde::de::Error::custom(
+                    "escaped string must be exactly one character",
+                ));
+            }
+            Ok(Some(first))
+        }
+        None => Ok(None),
     }
 }

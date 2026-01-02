@@ -168,6 +168,7 @@ impl ResultsUI {
     pub fn widths(&self) -> &Vec<u16> {
         &self.widths
     }
+    // results width
     pub fn width(&self) -> u16 {
         self.width.saturating_sub(self.indentation() as u16)
     }
@@ -287,16 +288,15 @@ impl ResultsUI {
 
                     prefix_text(&mut row[0], prefix);
 
-
-
+                    // we don't want to align the first column
                     let last_visible = self.config.right_align_last.then(|| {
                         widths
                         .iter()
                         .enumerate()
                         .rev()
                         .find(|(_, w)| **w != 0)
-                        .map(|(i, _)| i)
-                    }).flatten();
+                        .map(|(i, _)| if i == 0 { None } else { Some(i) })
+                    }).flatten().flatten();
 
                     let row = Row::new(
                         row.iter()
@@ -379,7 +379,32 @@ impl ResultsUI {
                 .collect();
             }
 
-            let row = Row::from_iter(row.into_iter().enumerate().filter_map(|(i, v) | (widths[i] != 0).then_some(v) )).height(height);
+            // same as above
+            let last_visible = self.config.right_align_last.then(|| {
+                widths
+                .iter()
+                .enumerate()
+                .rev()
+                .find(|(_, w)| **w != 0)
+                .map(|(i, _)| if i == 0 { None } else { Some(i) })
+            }).flatten().flatten();
+
+            // filter out zero width cells, altho it is a bit fragile
+            let row = Row::new(
+                row.iter()
+                .cloned()
+                .enumerate()
+                .filter_map(|(i, mut text)| {
+                    (widths[i] != 0).then(|| {
+                        if Some(i) == last_visible &&
+                        let Some(last_line) = text.lines.last_mut() {
+                            last_line.alignment = Some(Alignment::Right);
+                        }
+                        text
+                    })
+                }),
+            )
+            .height(height);
 
             rows.push(row);
         }
@@ -393,9 +418,15 @@ impl ResultsUI {
             }
         }
 
+        // up to the last nonempty row position
         self.widths = {
             let pos = widths.iter().rposition(|&x| x != 0).map_or(0, |p| p + 1);
-            widths[..pos].to_vec()
+            let mut widths = widths[..pos].to_vec();
+            if pos > 2 && self.config.right_align_last {
+                let used = widths.iter().take(widths.len() - 1).sum();
+                widths[pos - 1] = self.width().saturating_sub(used);
+            }
+            widths
         };
 
 

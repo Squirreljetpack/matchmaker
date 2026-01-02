@@ -4,7 +4,6 @@
 use std::{fmt, ops::Deref};
 
 use crate::MAX_SPLITS;
-use crate::utils::text::parse_escapes;
 use crate::{Result, action::{Count}, tui::IoStream};
 
 use ratatui::style::Style;
@@ -18,7 +17,7 @@ use serde::de::IntoDeserializer;
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, de::{self, Visitor}};
 
-pub use crate::utils::{Percentage, serde::StringOrVec};
+pub use crate::utils::{Percentage, serde::{StringOrVec, escaped_opt_char, escaped_opt_string}};
 
 /// Settings unrelated to event loop/picker_ui.
 ///
@@ -53,9 +52,9 @@ pub struct WorkerConfig {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct StartConfig {
-    #[serde(default, deserialize_with = "parse_escaped_char_opt")]
+    #[serde(default, deserialize_with = "escaped_opt_char")]
     pub input_separator: Option<char>,
-    #[serde(default, deserialize_with = "parse_escaped_opt")]
+    #[serde(default, deserialize_with = "escaped_opt_string")]
     pub output_separator: Option<String>,
     pub default_command: String,
     pub sync: bool
@@ -133,8 +132,6 @@ impl Default for UiConfig {
 #[serde(default, deny_unknown_fields)]
 pub struct InputConfig {
     pub border: BorderSetting,
-
-
 
     // text styles
     pub fg: Color,
@@ -1125,37 +1122,6 @@ T: Deserialize<'de>,
     }
 }
 
-
-fn parse_escaped_opt<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
-where
-D: serde::Deserializer<'de>,
-{
-    let opt = Option::<String>::deserialize(deserializer)?;
-    Ok(opt.map(|s| parse_escapes(&s)))
-}
-
-fn parse_escaped_char_opt<'de, D>(deserializer: D) -> Result<Option<char>, D::Error>
-where
-D: serde::Deserializer<'de>,
-{
-    let opt = Option::<String>::deserialize(deserializer)?;
-    match opt {
-        Some(s) => {
-            let parsed = parse_escapes(&s);
-            let mut chars = parsed.chars();
-            let first = chars.next().ok_or_else(|| {
-                serde::de::Error::custom("escaped string is empty")
-            })?;
-            if chars.next().is_some() {
-                return Err(serde::de::Error::custom(
-                    "escaped string must be exactly one character",
-                ));
-            }
-            Ok(Some(first))
-        }
-        None => Ok(None),
-    }
-}
 
 
 impl<'de> Deserialize<'de> for BorderSetting {

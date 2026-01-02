@@ -8,7 +8,7 @@ mod utils;
 mod setup;
 mod config;
 
-use cli_boilerplate_automation::bog::{BogOkExt, BogUnwrapExt};
+use cli_boilerplate_automation::bog::BogOkExt;
 use matchmaker::{
     MatchError, preview::AppendOnly
 };
@@ -21,7 +21,7 @@ async fn main() {
     init_logger(&logs_dir().join(format!("{BINARY_SHORT}.log")));
 
     // get config
-    let config = enter().or_err().or_exit();
+    let config = enter().__ebog();
     let delimiter = config.matcher.start.output_separator.clone();
     let print = AppendOnly::new();
 

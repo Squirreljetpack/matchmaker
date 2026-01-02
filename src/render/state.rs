@@ -212,7 +212,7 @@ impl<S: Selection> State<S> {
         self.col = picker_ui.results.col();
 
         if self.matcher_running != picker_ui.results.status.running {
-            if !picker_ui.results.status.running && picker_ui.results.status.item_count != 0 {
+            if !picker_ui.results.status.running {
                 self.insert(Event::Synced);
             }
             self.matcher_running = picker_ui.results.status.running;

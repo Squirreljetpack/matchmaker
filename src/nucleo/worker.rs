@@ -88,6 +88,7 @@ impl<T> Worker<T>
 where
 T: SSS,
 {
+    /// Column names must be distinct!
     pub fn new(
         columns: impl IntoIterator<Item = Column<T>>,
         default_column: usize,
@@ -136,6 +137,7 @@ T: SSS,
             .get(&column.name)
             .map(|f| &**f)
             .unwrap_or_default();
+
             let old_pattern = old_query
             .get(&column.name)
             .map(|f| &**f)

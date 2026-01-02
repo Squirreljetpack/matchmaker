@@ -172,6 +172,12 @@ macro_rules! bindmap {
 // ----------- ACTIONS ---------------
 #[derive(Debug, Clone, PartialEq)]
 pub struct Actions<A: ActionExt = NullActionExt>(pub ArrayVec<Action<A>, MAX_ACTIONS>);
+impl<A: ActionExt> Default for Actions<A> {
+    fn default() -> Self {
+        Self(ArrayVec::new())
+    }
+}
+
 
 macro_rules! repeat_impl {
     ($($len:expr),*) => {

@@ -68,6 +68,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
     let mut state: State<S> = State::new();
 
+    // place the initial command in the state where the preview listener can access
     if let Some(ref preview_ui) = preview_ui
     && !preview_ui.command().is_empty()
     {

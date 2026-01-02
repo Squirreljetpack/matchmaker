@@ -1,8 +1,8 @@
 
-use std::{fmt::{self, Debug, Formatter}, io::Write, process::Stdio, sync::Arc};
+use std::{fmt::{self, Debug, Formatter}, process::Stdio, sync::Arc};
 
 use arrayvec::ArrayVec;
-use cli_boilerplate_automation::{broc::{exec_script, spawn_script}, dog, env_vars, prints};
+use cli_boilerplate_automation::{_log, broc::{exec_script, spawn_script}, env_vars, prints};
 use easy_ext::ext;
 use log::{debug, info, warn};
 use ratatui::text::Text;
@@ -596,7 +596,7 @@ pub fn make_previewer<T: SSS, S: Selection>(
             envs.extend(extra);
 
             let msg = PreviewMessage::Run(cmd.clone(), envs);
-            dog!("{cmd:?}");
+            _log!("{cmd:?}");
             if preview_tx.send(msg.clone()).is_err() {
                 warn!("Failed to send to preview: {}", msg)
             }
@@ -632,7 +632,7 @@ pub fn make_previewer<T: SSS, S: Selection>(
 
 fn maybe_tty() -> Stdio {
     if let Ok(mut tty) = std::fs::File::open("/dev/tty") {
-        let _ = tty.flush(); // does nothing but seems logical
+        let _ = std::io::Write::flush(&mut tty);  // does nothing but seems logical
         Stdio::from(tty)
     } else {
         log::error!("Failed to open /dev/tty");

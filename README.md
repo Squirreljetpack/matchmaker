@@ -64,7 +64,7 @@ Here is how to use `Matchmaker` to select from a list of strings.
 
 ```rust
 use matchmaker::nucleo::{Worker, Indexed};
-use matchmaker::{Matchmaker, MatchError, Result};
+use matchmaker::{MatchError, Matchmaker, Result, Selector};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -72,11 +72,10 @@ async fn main() -> Result<()> {
 
     let worker = Worker::new_single_column();
     worker.append(items);
-    let identifier = Indexed::identifier;
+    let selector = Selector::new(Indexed::identifier);
+    let mm = Matchmaker::new(worker, selector);
 
-    let mm = Matchmaker::new(worker, identifier);
-
-    match mm.pick().await {
+    match mm.pick_default().await {
         Ok(v) => {
             println!("{}", v[0]);
         }
@@ -106,9 +105,9 @@ Some actions can generate these triggers, as well usually performing a minimal a
 
 For example, the `Preview(bat {})` command generates a `PreviewChanged` event, and leaves the string contents as a payload in the render state. This render state is exposed to the handler, and is used to spawn the command which is then displayed to preview.
 
-As you can see, this paradigm fixes very little of the Preview action's behavior. The `Execute` action is another example: it simply leaves the tui before raising the execute interrupt, then re-enters before the next render -- the handler associated to the interrupt is what spawns the process in the main app.
+In this way, very little of the Preview action's behavior is fixed. The `Execute` action is another example: it simply leaves the tui before raising the execute interrupt, then re-enters before the next render -- the handler associated to the interrupt is what spawns the process in the main app.
 
-Consequently, there exist severable actions whose behaviors are open to modification to your own purposes if you so choose.
+Consequently, action handling can in some cases be customized with minimal changes. For more extensive customization however, the set of actions can be extended with a type implementing `ActionExt`.
 
 For more information, check out the [examples](./examples/) and [Architecture.md](./ARCHITECTURE.md)
 

@@ -19,17 +19,17 @@ pub enum Action<A: ActionExt = NullActionExt> {
     Accept,
     // Returns MatchError::Abort
     Quit(Exit),
-
+    
     // UI
     CyclePreview,
     Preview(String), // if match: hide, else match
     Help(String), // content is shown in preview, empty for default help display
     SwitchPreview(Option<u8>), // n => ^ but with layout + layout_cmd, None => just toggle visibility
     SetPreview(Option<u8>), // n => set layout, None => set current layout cmd
-
+    
     ToggleWrap,
     ToggleWrapPreview,
-
+    
     // Programmable
     /// Pauses the tui display and the event loop, and invokes the handler for [`crate::message::Interrupt::Execute`]
     /// The remaining actions in the buffer are still processed
@@ -38,24 +38,24 @@ pub enum Action<A: ActionExt = NullActionExt> {
     Become(String),
     /// Restarts the matcher-worker and invokes the handler for [`crate::message::Interrupt::Reload`]
     Reload(String),
-
+    
     /// Invokes the handler for [`crate::message::Interrupt::Print`]
     /// See also: [`crate::Matchmaker::register_print_handler`]
     Print(String),
-
+    
     SetInput(String),
     SetHeader(Option<String>),
     SetFooter(Option<String>),
     SetPrompt(Option<String>),
     Column(usize),
     CycleColumn,
-
+    
     // Unimplemented
     HistoryUp,
     HistoryDown,
     ChangePrompt,
     ChangeQuery,
-
+    
     // Edit
     ForwardChar,
     BackwardChar,
@@ -67,7 +67,7 @@ pub enum Action<A: ActionExt = NullActionExt> {
     DeleteLineEnd,
     Cancel, // clear input
     InputPos(i32),
-
+    
     // Navigation
     Up(Count),
     Down(Count),
@@ -76,8 +76,9 @@ pub enum Action<A: ActionExt = NullActionExt> {
     PreviewHalfPageUp,
     PreviewHalfPageDown,
     Pos(i32),
-
+    
     // Other/Experimental/Debugging
+    Input(char),
     Redraw,
     Custom(A),
     Overlay(usize)
@@ -113,7 +114,7 @@ impl fmt::Display for NullActionExt {
 
 impl std::str::FromStr for NullActionExt {
     type Err = ();
-
+    
     fn from_str(_: &str) -> Result<Self, Self::Err> {
         Err(())
     }
@@ -187,7 +188,7 @@ macro_rules! repeat_impl {
                     Actions(ArrayVec::from_iter(arr))
                 }
             }
-
+            
             impl<A: ActionExt> From<[A; $len]> for Actions<A> {
                 fn from(arr: [A; $len]) -> Self {
                     Actions(arr.into_iter().map(Action::Custom).collect())
@@ -227,22 +228,22 @@ impl<'de, A: ActionExt> Deserialize<'de> for Actions<A> {
             StringOrVec::String(s) => vec![s],
             StringOrVec::Vec(v) => v,
         };
-
+        
         if strings.len() > MAX_ACTIONS {
             return Err(
                 serde::de::Error::custom(format!("Too many actions, max is {MAX_ACTIONS}.")
             )
-            );
-        }
-
-        let mut actions = ArrayVec::new();
-        for s in strings {
-            let action = Action::from_str(&s).map_err(serde::de::Error::custom)?;
-            actions.push(action);
-        }
-
-        Ok(Actions(actions))
+        );
     }
+    
+    let mut actions = ArrayVec::new();
+    for s in strings {
+        let action = Action::from_str(&s).map_err(serde::de::Error::custom)?;
+        actions.push(action);
+    }
+    
+    Ok(Actions(actions))
+}
 }
 
 impl<A: ActionExt> Serialize for Actions<A> {
@@ -275,10 +276,10 @@ macro_rules! impl_display_and_from_str_enum {
                 match self {
                     // Unit variants
                     $( Self::$unit => write!(f, stringify!($unit)), )*
-
+                    
                     // Tuple variants (always show inner)
                     $( Self::$tuple(inner) => write!(f, concat!(stringify!($tuple), "({})"), inner), )*
-
+                    
                     // Tuple variants with generic default fallback
                     $( Self::$tuple_default(inner) => {
                         if *inner == core::default::Default::default() {
@@ -287,7 +288,7 @@ macro_rules! impl_display_and_from_str_enum {
                             write!(f, concat!(stringify!($tuple_default), "({})"), inner)
                         }
                     }, )*
-
+                    
                     // Tuple variants with Option<T>
                     $( Self::$tuple_option(opt) => {
                         if let Some(inner) = opt {
@@ -296,7 +297,7 @@ macro_rules! impl_display_and_from_str_enum {
                             write!(f, stringify!($tuple_option))
                         }
                     }, )*
-
+                    
                     $( Self::$tuple_string_default(inner) => {
                         if inner.is_empty() {
                             write!(f, stringify!($tuple_string_default))
@@ -304,17 +305,20 @@ macro_rules! impl_display_and_from_str_enum {
                             write!(f, concat!(stringify!($tuple_string_default), "({})"), inner)
                         }
                     }, )*
-
+                    
                     Self::Custom(inner) => {
                         write!(f, "{}", inner.to_string())
+                    }
+                    Self::Input(c) => {
+                        write!(f, "{c}")
                     }
                 }
             }
         }
-
+        
         impl<A: ActionExt>  std::str::FromStr for Action<A> {
             type Err = String;
-
+            
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 let (name, data) = if let Some(pos) = s.find('(') {
                     if s.ends_with(')') {
@@ -325,7 +329,7 @@ macro_rules! impl_display_and_from_str_enum {
                 } else {
                     (s, None)
                 };
-
+                
                 if let Ok(x) = name.parse::<A>() {
                     return Ok(Self::Custom(x))
                 }
@@ -338,7 +342,7 @@ macro_rules! impl_display_and_from_str_enum {
                             Ok(Self::$unit)
                         }
                     }, )*
-
+                    
                     $( stringify!($tuple) => {
                         let d = data
                         .ok_or_else(|| format!("Missing data for {}", stringify!($tuple)))?
@@ -346,7 +350,7 @@ macro_rules! impl_display_and_from_str_enum {
                         .map_err(|_| format!("Invalid data for {}", stringify!($tuple)))?;
                         Ok(Self::$tuple(d))
                     }, )*
-
+                    
                     $( stringify!($tuple_default) => {
                         let d = match data {
                             Some(val) => val.parse()
@@ -355,7 +359,7 @@ macro_rules! impl_display_and_from_str_enum {
                         };
                         Ok(Self::$tuple_default(d))
                     }, )*
-
+                    
                     $( stringify!($tuple_option) => {
                         let d = match data {
                             Some(val) if !val.is_empty() => {
@@ -365,7 +369,7 @@ macro_rules! impl_display_and_from_str_enum {
                         };
                         Ok(Self::$tuple_option(d))
                     }, )*
-
+                    
                     $( stringify!($tuple_string_default) => {
                         let d = match data {
                             Some(val) if !val.is_empty() => val.to_string(),
@@ -373,7 +377,7 @@ macro_rules! impl_display_and_from_str_enum {
                         };
                         Ok(Self::$tuple_string_default(d))
                     }, )*
-
+                    
                     _ => Err(format!("Unknown variant {}", s))
                 }
             }

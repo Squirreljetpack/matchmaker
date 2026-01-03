@@ -17,7 +17,7 @@ use serde::de::IntoDeserializer;
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, de::{self, Visitor}};
 
-pub use crate::utils::{Percentage, serde::{StringOrVec, escaped_opt_char, escaped_opt_string}};
+pub use crate::utils::{Percentage, serde::{StringOrVec, escaped_opt_char, escaped_opt_string, serde_duration_ms}};
 
 /// Settings unrelated to event loop/picker_ui.
 ///
@@ -98,7 +98,8 @@ pub struct TerminalConfig {
     pub stream: IoStream, // consumed
     pub restore_fullscreen: bool,
     pub redraw_on_resize: bool,
-    pub sleep: u64, // necessary to give ratatui a small delay before resizing after entering and exiting
+    #[serde(with = "serde_duration_ms")]
+    pub sleep_ms: std::time::Duration, // necessary to give ratatui a small delay before resizing after entering and exiting
     // todo: lowpri: will need a value which can deserialize to none when implementing cli parsing
     #[serde(flatten)]
     pub layout: Option<TerminalLayoutSettings> // None for fullscreen
@@ -108,7 +109,6 @@ pub struct TerminalConfig {
 pub struct TerminalSettings {
 
 }
-
 
 /// The container ui.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

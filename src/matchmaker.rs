@@ -44,13 +44,13 @@ use crate::{
 /// 5. Call mm.pick() or mm.pick_with_matcher(&mut matcher)
 pub struct Matchmaker<T: SSS, S: Selection=T> {
     pub worker: Worker<T>,
-    render_config: RenderConfig,
-    tui_config: TerminalConfig,
-    exit_config: ExitConfig,
-    selector: Selector<T, S>,
-    event_handlers: EventHandlers<T, S>,
-    interrupt_handlers: InterruptHandlers<T, S>,
-    preview: Option<Preview>,
+    pub render_config: RenderConfig,
+    pub tui_config: TerminalConfig,
+    pub exit_config: ExitConfig,
+    pub selector: Selector<T, S>,
+    pub event_handlers: EventHandlers<T, S>,
+    pub interrupt_handlers: InterruptHandlers<T, S>,
+    pub preview: Option<Preview>,
 }
 
 
@@ -245,7 +245,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S>
 
     /// The main method of the Matchmaker. It starts listening for events and renders the TUI with ratatui. It successfully returns with all the selected items selected when the Accept action is received.
     pub async fn pick<A: ActionExt>(mut self, builder: PickOptions<'_, T, S, A>) -> Result<Vec<S>, MatchError> {
-        let PickOptions { previewer, ext_handler, ext_aliaser, initializer, .. } = builder;
+        let PickOptions { previewer, ext_handler, ext_aliaser, .. } = builder;
 
         if self.exit_config.select_1 && self.worker.counts().0 == 1 {
             return Ok(self.selector.identify_to_vec([self.worker.get_nth(0).unwrap()]));
@@ -292,6 +292,9 @@ impl<T: SSS, S: Selection> Matchmaker<T, S>
             )
         };
 
+        // initial redraw to clear artifacts, 
+        tui.redraw();
+
         if let Some(matcher) = builder.matcher {
             let (ui, picker, preview) = UI::new(self.render_config, matcher, self.worker, self.selector, self.preview, &mut tui);
             render::render_loop(
@@ -308,8 +311,6 @@ impl<T: SSS, S: Selection> Matchmaker<T, S>
                 (self.event_handlers, self.interrupt_handlers),
                 ext_handler,
                 ext_aliaser,
-                initializer
-                // signal_handler
             ).await
         } else {
             let mut matcher=  nucleo::Matcher::new(nucleo::Config::DEFAULT);
@@ -326,8 +327,6 @@ impl<T: SSS, S: Selection> Matchmaker<T, S>
                 (self.event_handlers, self.interrupt_handlers),
                 ext_handler,
                 ext_aliaser,
-                initializer
-                // signal_handler
             ).await
         }
     }
@@ -337,8 +336,9 @@ impl<T: SSS, S: Selection> Matchmaker<T, S>
     }
 }
 
-#[ext(ResultExt)]
+#[ext(MatchResultExt)]
 impl <T> Result<T, MatchError> {
+    /// Return the first element
     pub fn first<S>(self) -> Result<S, MatchError>
     where
     T: IntoIterator<Item = S>
@@ -353,6 +353,7 @@ impl <T> Result<T, MatchError> {
         }
     }
 
+    /// Handle [`MatchError::Abort`] using [`std::process::exit`]
     pub fn abort(self) -> Result<T, MatchError> {
         match self {
             Err(MatchError::Abort(x))  => std::process::exit(x),
@@ -362,26 +363,31 @@ impl <T> Result<T, MatchError> {
 }
 
 // --------- BUILDER -------------
+
+
+/// Used to configure [`Matchmaker::pick`] with additional options.
 pub struct PickOptions<'a, T: SSS, S: Selection, A: ActionExt = NullActionExt> {
     matcher: Option<&'a mut nucleo::Matcher>,
-    event_loop: Option<EventLoop<A>>,
-    previewer: Option<Previewer>,
-    binds: Option<BindMap<A>>,
     matcher_config: nucleo::Config,
+
+    event_loop: Option<EventLoop<A>>,
+    binds: Option<BindMap<A>>,
+
     ext_handler: Option<ActionExtHandler<T, S, A>>,
     ext_aliaser: Option<ActionAliaser<T, S, A>>,
+
     overlays: Vec<Box<dyn Overlay<A=A>>>,
+    previewer: Option<Previewer>,
 
     /// # Experimental
     // pub signal_handler: Option<(&'static std::sync::atomic::AtomicUsize, SignalHandler<T, S>)>,
     /// Initializing code, i.e. to setup context in the running thread. Since render_loop runs on the same thread this isn't actually necessary
     /// but it seems a good idea to provide a standard way.
-    initializer: Option<Box<dyn FnOnce()>>,
+    // initializer: Option<Box<dyn FnOnce()>>,
 
     pub channel: Option<(RenderSender<A>, tokio::sync::mpsc::UnboundedReceiver<crate::message::RenderCommand<A>>)>
 }
 
-pub type SignalHandler<T, S> = fn(usize, &mut MMState<'_, T, S>);
 // todo: support initializing render loop from (tx, event_loop, elcfg, nothing)
 impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
     pub const fn new() -> Self {
@@ -393,10 +399,8 @@ impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
             matcher_config: nucleo::Config::DEFAULT,
             ext_handler: None,
             ext_aliaser: None,
-            // signal_handler: None,
             overlays: Vec::new(),
             channel: None,
-            initializer: None
         }
     }
 

@@ -13,10 +13,14 @@ pub enum MatchError {
     /// Exited via [`crate::action::Action::Become`]
     #[error("Became: {0}")]
     Become(String),
-    /// Critical error in TUI execution
+    /// Critical error in TUI initialization/execution.
     #[error("TUI Error: {0}")]
     TUIError(String),
-    /// Should not arise in normal execution
+    /// Specifically for [`crate::MatchResultExt::first`], this
+    /// error should not arise in normal execution
+    /// unless cursor is disabled when the render
+    /// loop exits with success status.
+    /// The cursor is never disabled in the binary crate.
     #[error("no match")]
     NoMatch
 }

@@ -1,12 +1,12 @@
 use crate::{Result, config::TerminalConfig};
+use cli_boilerplate_automation::bait::ResultExt;
 use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture}, execute, terminal::{ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode}
+    event::{DisableMouseCapture, EnableMouseCapture}, execute, terminal::{ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode,}
 };
-use log::{debug, error, warn};
+use log::{debug, error};
 use ratatui::{Terminal, TerminalOptions, Viewport, layout::Rect, prelude::CrosstermBackend};
 use serde::{Deserialize, Serialize};
 use std::{io::{self, Write}, thread::sleep, time::Duration};
-
 pub struct Tui<W>
 where
 W: Write,
@@ -25,21 +25,23 @@ W: Write,
     pub fn new_with_writer(writer: W, mut config: TerminalConfig) -> Result<Self> {
         let mut backend = CrosstermBackend::new(writer);
         let mut options = TerminalOptions::default();
+        if config.sleep_ms.is_zero() { config.sleep_ms = Duration::from_millis(100) };
         
         let (width, height) = Self::full_size().unwrap_or_default();
         let area = if let Some(ref layout) = config.layout {
             let request = layout.percentage.compute_with_clamp(height, layout.max).min(height);
             
-            let cursor_y= Self::get_cursor_y().unwrap_or_else(|e| {
-                warn!("Failed to read cursor: {e}");
-                height // overestimate
+            let cursor_y= Self::get_cursor_y(config.sleep_ms)
+            .unwrap_or_else(|e| {
+                error!("Failed to read cursor: {e}");
+                height - 1 // overestimate
             });
             
             let initial_height = height
             .saturating_sub(cursor_y);
             
             let scroll = request.saturating_sub(initial_height);
-            debug!("TUI dimensions: {width}, {height}. Cursor: {cursor_y}.", );
+            debug!("TUI dimensions: {width}, {height}. Cursor_y: {cursor_y}.", );
             
             // ensure available by scrolling
             let cursor_y = match Self::scroll_up(&mut backend, scroll) {
@@ -53,7 +55,7 @@ W: Write,
             let available_height = height
             .saturating_sub(cursor_y);
             
-            debug!("TUI quantities: min: {}, initial: {initial_height}, requested: {request}, available: {available_height}, requested scroll: {scroll}", layout.min);
+            debug!("TUI quantities: min: {}, initial_available: {initial_height}, requested: {request}, available: {available_height}, requested scroll: {scroll}", layout.min);
             
             if available_height < layout.min {
                 error!("Failed to allocate minimum height, falling back to fullscreen");
@@ -78,7 +80,6 @@ W: Write,
         debug!("TUI area: {area}");
         
         let terminal = Terminal::with_options(backend, options)?;
-        if config.sleep == 0 { config.sleep = 100 };
         Ok(Self {
             terminal,
             config,
@@ -89,12 +90,12 @@ W: Write,
     pub fn enter(&mut self) -> Result<()> {
         let fullscreen = self.is_fullscreen();
         let backend = self.terminal.backend_mut();
-        enable_raw_mode()?;
         execute!(backend, EnableMouseCapture)?;
         
         if fullscreen {
             self.enter_alternate()?;
         }
+        crossterm::terminal::enable_raw_mode()?;
         Ok(())
     }
     
@@ -112,41 +113,42 @@ W: Write,
     
     pub fn enter_execute(&mut self) {
         self.exit();
-        sleep(Duration::from_millis(self.config.sleep)); // necessary to give resize some time
+        sleep(self.config.sleep_ms); // necessary to give resize some time
         debug!("state: {:?}", crossterm::terminal::is_raw_mode_enabled());
         
         // do we ever need to scroll up?
     }
     
     pub fn resize(&mut self, area: Rect) {
-        let _ = self
+        self
         .terminal
         .resize(area)
-        .map_err(|e| error!("{e}"));
+        ._elog();
         self.area = area
     }
     
     pub fn redraw(&mut self) {
-        let _ = self
+        self
         .terminal
         .resize(self.area)
-        .map_err(|e| error!("{e}"));
+        ._elog();
     }
     
     pub fn return_execute(&mut self) -> Result<()> {
         self.enter()?;
         if !self.is_fullscreen() {
             // altho we cannot resize the viewport, this is the best we can do
-            let _ = self.enter_alternate();
+            self.enter_alternate()
+                    ._elog();
         }
         
-        sleep(Duration::from_millis(self.config.sleep));
+        sleep(self.config.sleep_ms);
         
-        let _ = execute!(
+        execute!(
             self.terminal.backend_mut(),
             crossterm::terminal::Clear(ClearType::All)
         )
-        .map_err(|e| warn!("{e}"));
+        ._wlog();
         
         if self.is_fullscreen() || self.config.restore_fullscreen {
             if let Some((width, height)) = Self::full_size() {
@@ -166,53 +168,51 @@ W: Write,
         let backend = self.terminal.backend_mut();
         
         // if !fullscreen {
-        let _ = execute!(
+        execute!(
             backend,
             crossterm::cursor::MoveTo(0, self.area.y),
             crossterm::terminal::Clear(ClearType::FromCursorDown)
         )
-        .map_err(|e| warn!("{e}"));
+        ._elog();
         // } else {
         //     if let Err(e) = execute!(backend, cursor::MoveTo(0, 0)) {
         //         warn!("Failed to move cursor: {:?}", e);
         //     }
         // }
         
-        let _ = execute!(backend, LeaveAlternateScreen, DisableMouseCapture)
-        .map_err(|e| warn!("{e}"));
+        execute!(backend, LeaveAlternateScreen, DisableMouseCapture)
+        ._wlog();
         
-        let _ = self
+        self
         .terminal
         .show_cursor()
-        .map_err(|e| warn!("{e}"));
+        ._wlog();
         
-        let _ = disable_raw_mode()
-        .map_err(|e| warn!("{e}"));
+        disable_raw_mode()
+        ._wlog();
         
         
         debug!("Terminal exited");
     }
     
     // note: do not start before event stream
-    pub fn get_cursor_y() -> io::Result<u16> {
+    pub fn get_cursor_y(timeout: Duration) -> io::Result<u16> {
         // crossterm uses stdout to determine cursor position
         // todo: workarounds?
         // #[cfg(not(target_os = "windows"))]
-        {
+        Ok(
             if !atty::is(atty::Stream::Stdout) {
-                return Err(io::Error::new(
-                    io::ErrorKind::NotConnected,
-                    "stdout is not a TTY",
-                ));
+                utils::query_cursor_position(timeout).map_err(io::Error::other)?.1
+            } else {
+                crossterm::cursor::position()?.1
             }
-        }
-        
-        crossterm::cursor::position().map(|u| u.1)
+        )
     }
     
     pub fn scroll_up(backend: &mut CrosstermBackend<W>, lines: u16) -> io::Result<u16> {
         execute!(backend, crossterm::terminal::ScrollUp(lines))?;
-        Self::get_cursor_y() // note: do we want to skip this for speed
+        Ok(0) // not used
+        // Self::get_cursor_y() // note: do we want to skip this for speed
     }
     pub fn size() -> io::Result<(u16, u16)> {
         crossterm::terminal::size()
@@ -265,5 +265,75 @@ impl IoStream {
             IoStream::Stdout => Box::new(io::stdout()),
             IoStream::BufferedStderr => Box::new(io::LineWriter::new(io::stderr())),
         }
+    }
+}
+
+// ------------------------------------------------------------
+
+mod utils {
+    use std::{fs::OpenOptions, io::{Read, Write}, os::fd::{AsFd, AsRawFd}, time::Duration};
+    use cli_boilerplate_automation::bait::{OptionExt, ResultExt};
+    use anyhow::{Result, bail};
+    use nix::sys::{select::{FdSet, select}, time::{TimeVal, TimeValLike}};
+    
+    /// Query the terminal for the current cursor position (col, row)
+    /// Needed because crossterm implementation fails when stdout is not connected.
+    pub fn query_cursor_position(timeout: Duration) -> Result<(u16, u16)> {
+        let mut tty = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open("/dev/tty")
+        .context("Failed to open /dev/tty")?;
+        
+        // Send the ANSI cursor position report query
+        tty.write_all(b"\x1b[6n")?;
+        tty.flush()?;
+        
+        // Wait for input using select()
+        let fd = tty.as_fd();
+        let mut fds = FdSet::new();
+        fds.insert(fd);
+        
+        let mut timeout = TimeVal::milliseconds(timeout.as_millis() as i64);
+        
+        let raw_fd = fd.as_raw_fd();
+        let ready = select(raw_fd + 1, &mut fds, None, None, Some(&mut timeout))
+        .context("select() failed")?;
+        
+        if ready == 0 {
+            bail!("Timed out waiting for cursor position response");
+        }
+        
+        // Read the response
+        let mut buf = [0u8; 64];
+        let n = tty.read(&mut buf)?;
+        let s = String::from_utf8_lossy(&buf[..n]);
+        
+        parse_cursor_response(&s)
+        .context(format!("Failed to parse terminal response: {s}"))
+    }
+    
+    /// Parse the terminal response with format ESC [ row ; col R
+    /// and return (col, row) as 0-based coordinates.
+    fn parse_cursor_response(s: &str) -> Result<(u16, u16)> {
+        let coords = s
+        .strip_prefix("\x1b[")
+        .context("Missing ESC]")?
+        .strip_suffix('R')
+        .context("Missing R")?;
+        
+        let mut parts = coords.split(';');
+        
+        let row: u16 = parts
+        .next()
+        .context("Missing row")?
+        .parse()?;
+        
+        let col: u16 = parts
+        .next()
+        .context("Missing column")?
+        .parse()?;
+        
+        Ok((col - 1, row - 1)) // convert to 0-based
     }
 }

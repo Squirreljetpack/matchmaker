@@ -58,12 +58,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
     dynamic_handlers: DynamicHandlers<T, S>,
     ext_handler: Option<ActionExtHandler<T, S, A>>,
     ext_aliaser: Option<ActionAliaser<T, S, A>>,
-    initializer: Option<Box<dyn FnOnce()>>
     // signal_handler: Option<(&'static std::sync::atomic::AtomicUsize, SignalHandler<T, S>)>,
 ) -> Result<Vec<S>, MatchError> {
-    if let Some(initializer) = initializer {
-        initializer()
-    }
     let mut buffer = Vec::with_capacity(256);
 
     let mut state: State<S> = State::new();
@@ -107,7 +103,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             }
 
             match event {
-                RenderCommand::Input(c) => {
+                RenderCommand::Action(Action::Input(c)) => {
                     if let Some(x) = overlay_ui.as_mut() && x.handle_input(c) {
                         continue;
                     }
@@ -388,7 +384,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         picker_ui.update();
         // process exit conditions
         if exit_config.select_1 && picker_ui.results.status.matched_count == 1 {
-            return Ok(vec![state.take_current().unwrap()]);
+            return Ok(state.take_current().into_iter().collect());
         }
 
         // resume tui

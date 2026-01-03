@@ -86,3 +86,24 @@ D: serde::Deserializer<'de>,
         None => Ok(None),
     }
 }
+
+pub mod serde_duration_ms {
+    use serde::{Deserialize, Deserializer, Serializer};
+    use std::time::Duration;
+
+    pub fn serialize<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let ms = duration.as_millis() as u64;
+        serializer.serialize_u64(ms)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Duration, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let ms = u64::deserialize(deserializer)?;
+        Ok(Duration::from_millis(ms))
+    }
+}

@@ -192,7 +192,7 @@ impl<A: ActionExt> EventLoop<A> {
                                         if let Some(actions) = self.binds.get(&key.into()) {
                                             self.send_actions(actions);
                                         } else if let Some(c) = key_code_as_letter(key) {
-                                            self.send(RenderCommand::Input(c));
+                                            self.send(RenderCommand::Action(Action::Input(c)));
                                         } else {
                                             // a basic set of keys to prevent confusion
                                             match key {

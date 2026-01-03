@@ -47,7 +47,6 @@ impl Eq for Interrupt {}
 #[derive(Debug, strum_macros::Display, Clone)]
 pub enum RenderCommand<A: ActionExt> {
     Action(Action<A>),
-    Input(char),
     Mouse(MouseEvent),
     Resize(Rect),
     Effect(Effect),

@@ -1,5 +1,5 @@
 use matchmaker::nucleo::{Indexed, Render, Worker};
-use matchmaker::{MatchError, Matchmaker, Result, ResultExt, SSS, Selector};
+use matchmaker::{MatchError, MatchResultExt, Matchmaker, Result, SSS, Selector};
 
 pub async fn mm_get<T: SSS + Render + Clone>(
     items: impl IntoIterator<Item = T>,

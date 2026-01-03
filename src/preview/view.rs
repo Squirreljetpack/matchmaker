@@ -1,6 +1,6 @@
 use ratatui::text::{Line, Text};
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 use super::AppendOnly;
 
@@ -8,7 +8,8 @@ use super::AppendOnly;
 #[derive(Debug)]
 pub struct Preview {
     lines: AppendOnly<Line<'static>>,
-    string: Arc<Mutex<Option<Text<'static>>>>, /// Overrides lines when present
+    string: Arc<Mutex<Option<Text<'static>>>>,
+    /// Overrides lines when present
     changed: Arc<AtomicBool>,
 }
 
@@ -44,7 +45,15 @@ impl Preview {
         self.changed.swap(false, Ordering::Relaxed)
     }
 
-    pub fn new(lines: AppendOnly<Line<'static>>, string: Arc<Mutex<Option<Text<'static>>>>, changed: Arc<AtomicBool>) -> Self {
-        Self { lines, string, changed }
+    pub fn new(
+        lines: AppendOnly<Line<'static>>,
+        string: Arc<Mutex<Option<Text<'static>>>>,
+        changed: Arc<AtomicBool>,
+    ) -> Self {
+        Self {
+            lines,
+            string,
+            changed,
+        }
     }
 }

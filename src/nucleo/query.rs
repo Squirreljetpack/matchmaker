@@ -56,7 +56,7 @@ impl PickerQuery {
         let mut text = String::new();
         self.column_ranges.clear();
         self.column_ranges
-        .push((0..usize::MAX, Some(primary_field.clone())));
+            .push((0..usize::MAX, Some(primary_field.clone())));
 
         macro_rules! finish_field {
             () => {
@@ -96,9 +96,9 @@ impl PickerQuery {
                         finish_field!();
                     }
                     let (range, _field) = self
-                    .column_ranges
-                    .last_mut()
-                    .expect("column_ranges is non-empty");
+                        .column_ranges
+                        .last_mut()
+                        .expect("column_ranges is non-empty");
                     range.end = idx;
                     in_field = true;
                 }
@@ -111,17 +111,17 @@ impl PickerQuery {
                     // Go over all columns and their indices, find all that starts with field key,
                     // select a column that fits key the most.
                     field = self
-                    .column_names
-                    .iter()
-                    .filter(|col| col.starts_with(&text))
-                    // select "fittest" column
-                    .min_by_key(|col| col.len());
+                        .column_names
+                        .iter()
+                        .filter(|col| col.starts_with(&text))
+                        // select "fittest" column
+                        .min_by_key(|col| col.len());
 
                     // Update the column range for this column.
                     if let Some((_range, current_field)) = self
-                    .column_ranges
-                    .last_mut()
-                    .filter(|(range, _)| range.end == usize::MAX)
+                        .column_ranges
+                        .last_mut()
+                        .filter(|(range, _)| range.end == usize::MAX)
                     {
                         *current_field = field.cloned();
                     } else {
@@ -137,9 +137,9 @@ impl PickerQuery {
         }
 
         let new_inner: HashMap<_, _> = fields
-        .into_iter()
-        .map(|(field, query)| (field, query.as_str().into()))
-        .collect();
+            .into_iter()
+            .map(|(field, query)| (field, query.as_str().into()))
+            .collect();
 
         mem::replace(&mut self.inner, new_inner)
     }
@@ -152,12 +152,12 @@ impl PickerQuery {
     /// `cursor` is a byte index that represents the location of the prompt's cursor.
     pub fn active_column(&self, cursor: usize) -> Option<&Arc<str>> {
         let point = self
-        .column_ranges
-        .partition_point(|(range, _field)| cursor > range.end);
+            .column_ranges
+            .partition_point(|(range, _field)| cursor > range.end);
 
         self.column_ranges
-        .get(point)
-        .filter(|(range, _field)| cursor >= range.start && cursor <= range.end)
-        .and_then(|(_range, field)| field.as_ref())
+            .get(point)
+            .filter(|(range, _field)| cursor >= range.start && cursor <= range.end)
+            .and_then(|(_range, field)| field.as_ref())
     }
 }

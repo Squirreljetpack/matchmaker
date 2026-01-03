@@ -22,7 +22,5 @@ pub enum MatchError {
     /// loop exits with success status.
     /// The cursor is never disabled in the binary crate.
     #[error("no match")]
-    NoMatch
+    NoMatch,
 }
-
-

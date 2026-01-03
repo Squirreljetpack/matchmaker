@@ -20,7 +20,7 @@ use crate::{
 pub struct ResultsUI {
     cursor: u16,
     bottom: u16,
-    height: u16,      // actual height
+    height: u16, // actual height
     width: u16,
     widths: Vec<u16>, // not sure how to support it yet
     col: Option<usize>,
@@ -41,7 +41,7 @@ impl ResultsUI {
             height: 0, // uninitialized, so be sure to call update_dimensions
             width: 0,
             config,
-            cursor_disabled: false
+            cursor_disabled: false,
         }
     }
     // as given by ratatui area
@@ -75,7 +75,11 @@ impl ResultsUI {
     pub fn cycle_col(&mut self) {
         self.col = match self.col {
             None => {
-                if !self.widths.is_empty() { Some(0) } else { None }
+                if !self.widths.is_empty() {
+                    Some(0)
+                } else {
+                    None
+                }
             }
             Some(c) => {
                 let next = c + 1;
@@ -111,7 +115,7 @@ impl ResultsUI {
     // }
     pub fn cursor_prev(&mut self) -> bool {
         if self.cursor_disabled {
-            return false
+            return false;
         }
 
         if self.cursor <= self.scroll_padding() && self.bottom > 0 {
@@ -130,7 +134,7 @@ impl ResultsUI {
         }
 
         if self.cursor + 1 + self.scroll_padding() >= self.height
-        && self.bottom + self.height < self.status.matched_count as u16
+            && self.bottom + self.height < self.status.matched_count as u16
         {
             self.bottom += 1;
         } else if self.index() < self.end() {
@@ -174,12 +178,12 @@ impl ResultsUI {
     }
     pub fn match_style(&self) -> Style {
         Style::default()
-        .fg(self.config.match_fg)
-        .add_modifier(self.config.match_modifier)
+            .fg(self.config.match_fg)
+            .add_modifier(self.config.match_modifier)
     }
 
     pub fn max_widths(&self) -> Vec<u16> {
-        if ! self.config.wrap {
+        if !self.config.wrap {
             return vec![];
         }
 
@@ -231,7 +235,8 @@ impl ResultsUI {
         let offset = self.bottom as u32;
         let end = (self.bottom + self.height) as u32;
 
-        let (mut results, mut widths, status) = worker.results(offset, end, &self.max_widths(), self.match_style(), matcher);
+        let (mut results, mut widths, status) =
+            worker.results(offset, end, &self.max_widths(), self.match_style(), matcher);
 
         let match_count = status.matched_count;
 
@@ -244,12 +249,11 @@ impl ResultsUI {
 
         widths[0] += self.indentation() as u16;
 
-
         let mut rows = vec![];
         let mut total_height = 0;
 
         if results.is_empty() {
-            return Table::new(rows, widths)
+            return Table::new(rows, widths);
         }
 
         // debug!("sb: {}, {}, {}, {}, {}", self.bottom, self.cursor, total_height, self.height, results.len());
@@ -262,14 +266,20 @@ impl ResultsUI {
             start_index = self.cursor;
             self.bottom += self.cursor;
             self.cursor = 0;
-        } else if let cursor_cum_h = results[0..=self.cursor as usize].iter().map(|(_, _, height)| height).sum::<u16>() && cursor_cum_h > cursor_should_above && self.bottom + self.height < self.status.matched_count as u16 {
+        } else if let cursor_cum_h = results[0..=self.cursor as usize]
+            .iter()
+            .map(|(_, _, height)| height)
+            .sum::<u16>()
+            && cursor_cum_h > cursor_should_above
+            && self.bottom + self.height < self.status.matched_count as u16
+        {
             start_index = 1;
             let mut height = cursor_cum_h - cursor_should_above;
             for (row, item, h) in results[..self.cursor as usize].iter_mut() {
                 let h = *h;
 
                 if height < h {
-                    for (_, t) in row.iter_mut().enumerate().filter(|(i, _) | widths[*i] != 0 ) {
+                    for (_, t) in row.iter_mut().enumerate().filter(|(i, _)| widths[*i] != 0) {
                         clip_text_lines(t, height, !self.reverse());
                     }
                     total_height += height;
@@ -280,7 +290,10 @@ impl ResultsUI {
                         fit_width(
                             &substitute_escaped(
                                 &self.config.default_prefix,
-                                &[('d', &(start_index - 1).to_string()), ('r', &self.index().to_string())],
+                                &[
+                                    ('d', &(start_index - 1).to_string()),
+                                    ('r', &self.index().to_string()),
+                                ],
                             ),
                             self.indentation(),
                         )
@@ -289,59 +302,62 @@ impl ResultsUI {
                     prefix_text(&mut row[0], prefix);
 
                     // we don't want to align the first column
-                    let last_visible = self.config.right_align_last.then(|| {
-                        widths
-                        .iter()
-                        .enumerate()
-                        .rev()
-                        .find(|(_, w)| **w != 0)
-                        .map(|(i, _)| if i == 0 { None } else { Some(i) })
-                    }).flatten().flatten();
+                    let last_visible = self
+                        .config
+                        .right_align_last
+                        .then(|| {
+                            widths
+                                .iter()
+                                .enumerate()
+                                .rev()
+                                .find(|(_, w)| **w != 0)
+                                .map(|(i, _)| if i == 0 { None } else { Some(i) })
+                        })
+                        .flatten()
+                        .flatten();
 
-                    let row = Row::new(
-                        row.iter()
-                        .cloned()
-                        .enumerate()
-                        .filter_map(|(i, mut text)| {
+                    let row =
+                        Row::new(row.iter().cloned().enumerate().filter_map(|(i, mut text)| {
                             (widths[i] != 0).then(|| {
-                                if Some(i) == last_visible &&
-                                let Some(last_line) = text.lines.last_mut() {
+                                if Some(i) == last_visible
+                                    && let Some(last_line) = text.lines.last_mut()
+                                {
                                     last_line.alignment = Some(Alignment::Right);
                                 }
                                 text
                             })
-                        }),
-                    )
-                    .height(height);
+                        }))
+                        .height(height);
                     // debug!("1: {} {:?} {}", start_index, row, h_exceedance);
 
                     rows.push(row);
 
                     self.bottom += start_index - 1;
                     self.cursor -= start_index - 1;
-                    break
+                    break;
                 } else if height == h {
                     self.bottom += start_index;
                     self.cursor -= start_index;
                     // debug!("2: {} {}", start_index, h);
-                    break
+                    break;
                 }
 
                 start_index += 1;
                 height -= h;
             }
-
         }
 
         // debug!("si: {start_index}, {}, {}, {}", self.bottom, self.cursor, total_height);
 
-        for (i, (mut row, item, mut height)) in (start_index..).zip(results.drain(start_index as usize..)) {
+        for (i, (mut row, item, mut height)) in
+            (start_index..).zip(results.drain(start_index as usize..))
+        {
             if self.height - total_height == 0 {
-                break
+                break;
             } else if self.height - total_height < height {
                 height = self.height - total_height;
 
-                for (_, t) in row.iter_mut().enumerate().filter(|(i, _) | widths[*i] != 0 ) {
+                for (_, t) in row.iter_mut().enumerate().filter(|(i, _)| widths[*i] != 0) {
                     clip_text_lines(t, height, self.reverse());
                 }
                 total_height = self.height;
@@ -365,50 +381,50 @@ impl ResultsUI {
 
             if !self.cursor_disabled && i == self.cursor {
                 row = row
-                .into_iter()
-                .enumerate()
-                .map(|(i, t)| {
-                    if self.col.is_none_or(|a| i == a) {
-                        t.style(self.config.current_fg)
-                        .bg(self.config.current_bg)
-                        .add_modifier(self.config.current_modifier)
-                    } else {
-                        t
-                    }
-                })
-                .collect();
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, t)| {
+                        if self.col.is_none_or(|a| i == a) {
+                            t.style(self.config.current_fg)
+                                .bg(self.config.current_bg)
+                                .add_modifier(self.config.current_modifier)
+                        } else {
+                            t
+                        }
+                    })
+                    .collect();
             }
 
             // same as above
-            let last_visible = self.config.right_align_last.then(|| {
-                widths
-                .iter()
-                .enumerate()
-                .rev()
-                .find(|(_, w)| **w != 0)
-                .map(|(i, _)| if i == 0 { None } else { Some(i) })
-            }).flatten().flatten();
+            let last_visible = self
+                .config
+                .right_align_last
+                .then(|| {
+                    widths
+                        .iter()
+                        .enumerate()
+                        .rev()
+                        .find(|(_, w)| **w != 0)
+                        .map(|(i, _)| if i == 0 { None } else { Some(i) })
+                })
+                .flatten()
+                .flatten();
 
             // filter out zero width cells, altho it is a bit fragile
-            let row = Row::new(
-                row.iter()
-                .cloned()
-                .enumerate()
-                .filter_map(|(i, mut text)| {
-                    (widths[i] != 0).then(|| {
-                        if Some(i) == last_visible &&
-                        let Some(last_line) = text.lines.last_mut() {
-                            last_line.alignment = Some(Alignment::Right);
-                        }
-                        text
-                    })
-                }),
-            )
+            let row = Row::new(row.iter().cloned().enumerate().filter_map(|(i, mut text)| {
+                (widths[i] != 0).then(|| {
+                    if Some(i) == last_visible
+                        && let Some(last_line) = text.lines.last_mut()
+                    {
+                        last_line.alignment = Some(Alignment::Right);
+                    }
+                    text
+                })
+            }))
             .height(height);
 
             rows.push(row);
         }
-
 
         if self.reverse() {
             rows.reverse();
@@ -429,10 +445,10 @@ impl ResultsUI {
             widths
         };
 
-
-        let mut table = Table::new(rows, self.widths.clone()).column_spacing(self.config.column_spacing.0)
-        .style(self.config.fg)
-        .add_modifier(self.config.modifier);
+        let mut table = Table::new(rows, self.widths.clone())
+            .column_spacing(self.config.column_spacing.0)
+            .style(self.config.fg)
+            .add_modifier(self.config.modifier);
 
         table = table.block(self.config.border.as_block());
         table
@@ -447,4 +463,3 @@ impl ResultsUI {
         .add_modifier(self.config.count_modifier)
     }
 }
-

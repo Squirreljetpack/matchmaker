@@ -1,4 +1,3 @@
-
 #![allow(unused)]
 use cli_boilerplate_automation::wbog;
 use serde::{Deserialize, Deserializer, Serialize, de};
@@ -6,23 +5,23 @@ use serde::{Deserialize, Deserializer, Serialize, de};
 use crate::utils::text::parse_escapes;
 
 pub mod fromstr {
+    use serde::{Deserialize, Deserializer, Serializer, de};
     use std::fmt::Display;
     use std::str::FromStr;
-    use serde::{Deserialize, Deserializer, Serializer, de};
 
     pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
     where
-    T: Display,
-    S: Serializer,
+        T: Display,
+        S: Serializer,
     {
         serializer.serialize_str(&value.to_string())
     }
 
     pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
     where
-    T: FromStr,
-    T::Err: Display,
-    D: Deserializer<'de>,
+        T: FromStr,
+        T::Err: Display,
+        D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
         T::from_str(&s).map_err(de::Error::custom)
@@ -33,7 +32,7 @@ pub mod fromstr {
 #[serde(untagged)]
 pub enum StringOrVec {
     String(String),
-    Vec(Vec<String>)
+    Vec(Vec<String>),
 }
 impl Default for StringOrVec {
     fn default() -> Self {
@@ -43,7 +42,7 @@ impl Default for StringOrVec {
 
 pub fn bounded_usize<'de, const MAX: usize, D>(d: D) -> Result<usize, D::Error>
 where
-D: Deserializer<'de>,
+    D: Deserializer<'de>,
 {
     let v = usize::deserialize(d)?;
     if v > MAX {
@@ -55,10 +54,9 @@ D: Deserializer<'de>,
     }
 }
 
-
 pub fn escaped_opt_string<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
 where
-D: serde::Deserializer<'de>,
+    D: serde::Deserializer<'de>,
 {
     let opt = Option::<String>::deserialize(deserializer)?;
     Ok(opt.map(|s| parse_escapes(&s)))
@@ -66,16 +64,16 @@ D: serde::Deserializer<'de>,
 
 pub fn escaped_opt_char<'de, D>(deserializer: D) -> Result<Option<char>, D::Error>
 where
-D: serde::Deserializer<'de>,
+    D: serde::Deserializer<'de>,
 {
     let opt = Option::<String>::deserialize(deserializer)?;
     match opt {
         Some(s) => {
             let parsed = parse_escapes(&s);
             let mut chars = parsed.chars();
-            let first = chars.next().ok_or_else(|| {
-                serde::de::Error::custom("escaped string is empty")
-            })?;
+            let first = chars
+                .next()
+                .ok_or_else(|| serde::de::Error::custom("escaped string is empty"))?;
             if chars.next().is_some() {
                 return Err(serde::de::Error::custom(
                     "escaped string must be exactly one character",

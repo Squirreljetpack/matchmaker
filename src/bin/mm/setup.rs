@@ -1,13 +1,32 @@
-use std::{env, io::Read, path::Path, process::{Stdio, exit}};
+use std::{
+    env,
+    io::Read,
+    path::Path,
+    process::{Stdio, exit},
+};
 
-use cli_boilerplate_automation::{bo::{MapReaderError, map_chunks, map_reader_lines, read_to_chunks, write_str}, bait::OptionExt};
+use crate::parse::parse;
+use crate::{config::Config, types::default_config_path};
+use cli_boilerplate_automation::{
+    bait::OptionExt,
+    bo::{MapReaderError, map_chunks, map_reader_lines, read_to_chunks, write_str},
+};
 use cli_boilerplate_automation::{bo::load_type, broc::spawn_script};
 use log::{debug, error};
 use matchmaker::{
-    SSS, MatchError, Matchmaker, OddEnds, PickOptions, binds::display_binds, config::{MatcherConfig, StartConfig}, efx, event::EventLoop, make_previewer, message::Interrupt, nucleo::{Segmented, injector::{IndexedInjector, Injector, SegmentedInjector}}, preview::AppendOnly
+    MatchError, Matchmaker, OddEnds, PickOptions, SSS,
+    binds::display_binds,
+    config::{MatcherConfig, StartConfig},
+    efx,
+    event::EventLoop,
+    make_previewer,
+    message::Interrupt,
+    nucleo::{
+        Segmented,
+        injector::{IndexedInjector, Injector, SegmentedInjector},
+    },
+    preview::AppendOnly,
 };
-use crate::{config::Config, types::default_config_path};
-use crate::parse::parse;
 
 pub fn enter() -> anyhow::Result<Config> {
     let args = env::args();
@@ -28,7 +47,7 @@ pub fn enter() -> anyhow::Result<Config> {
                     load_type(p, |s| toml::from_str(s)).or_exit()
                 } else {
                     toml::from_str(cfg.to_str().unwrap())?
-                }
+                },
             )
         } else {
             // get config from default location or default config
@@ -43,7 +62,7 @@ pub fn enter() -> anyhow::Result<Config> {
                     load_type(p, |s| toml::from_str(s)).or_exit()
                 } else {
                     toml::from_str(include_str!("../../../assets/config.toml"))?
-                }
+                },
             )
         }
     };
@@ -52,8 +71,7 @@ pub fn enter() -> anyhow::Result<Config> {
     cli.merge_config(&mut config)?;
 
     if cli.dump_config {
-        let contents = toml::to_string_pretty(&config)
-        .expect("failed to serialize to TOML");
+        let contents = toml::to_string_pretty(&config).expect("failed to serialize to TOML");
 
         // if stdout: dump the default cfg with comments
         if atty::is(atty::Stream::Stdout) {
@@ -73,41 +91,61 @@ pub fn enter() -> anyhow::Result<Config> {
 
 /// Spawns a tokio task mapping f to reader segments.
 /// Read aborts on error. Read errors are logged.
-pub fn map_reader<E: SSS>(reader: impl Read + SSS, f: impl FnMut(String) -> Result<(), E> + SSS, input_separator: Option<char>) -> tokio::task::JoinHandle<Result<(), MapReaderError<E>>> {
+pub fn map_reader<E: SSS>(
+    reader: impl Read + SSS,
+    f: impl FnMut(String) -> Result<(), E> + SSS,
+    input_separator: Option<char>,
+) -> tokio::task::JoinHandle<Result<(), MapReaderError<E>>> {
     if let Some(delim) = input_separator {
-        tokio::spawn(async move {
-            map_chunks::<true, E>(read_to_chunks(reader, delim), f)
-        })
+        tokio::spawn(async move { map_chunks::<true, E>(read_to_chunks(reader, delim), f) })
     } else {
-        tokio::spawn(async move {
-            map_reader_lines::<true, E>(reader, f)
-        })
+        tokio::spawn(async move { map_reader_lines::<true, E>(reader, f) })
     }
 }
 
-pub async fn pick(config: Config, print_handle: AppendOnly<String>) -> Result<Vec<Segmented<String>>, MatchError> {
+pub async fn pick(
+    config: Config,
+    print_handle: AppendOnly<String>,
+) -> Result<Vec<Segmented<String>>, MatchError> {
     let Config {
         render,
         tui,
         previewer,
-        matcher: MatcherConfig {
-            matcher,
-            worker,
-            start: StartConfig { input_separator: delimiter, default_command, sync, .. }
-        },
+        matcher:
+            MatcherConfig {
+                matcher,
+                worker,
+                start:
+                    StartConfig {
+                        input_separator: delimiter,
+                        default_command,
+                        sync,
+                        ..
+                    },
+            },
         binds,
     } = config;
 
     let event_loop = EventLoop::with_binds(binds).with_tick_rate(render.tick_rate());
     // make matcher and matchmaker with matchmaker-and-matcher-maker
-    let (mut mm, injector, OddEnds { formatter, splitter }) = Matchmaker::new_from_config(render, tui, worker);
+    let (
+        mut mm,
+        injector,
+        OddEnds {
+            formatter,
+            splitter,
+        },
+    ) = Matchmaker::new_from_config(render, tui, worker);
     // make previewer
     let help_str = display_binds(&event_loop.binds, Some(&previewer.help_colors));
     let previewer = make_previewer(&mut mm, previewer, formatter.clone(), help_str);
 
     // ---------------------- register handlers ---------------------------
     // print handler
-    let print_formatter = std::sync::Arc::new(mm.worker.make_format_fn::<false>(|item| std::borrow::Cow::Borrowed(&item.inner.inner)));
+    let print_formatter = std::sync::Arc::new(
+        mm.worker
+            .make_format_fn::<false>(|item| std::borrow::Cow::Borrowed(&item.inner.inner)),
+    );
     mm.register_print_handler(print_handle, print_formatter);
 
     // execute handlers
@@ -118,11 +156,12 @@ pub async fn pick(config: Config, print_handle: AppendOnly<String>) -> Result<Ve
     let reload_formatter = formatter.clone();
     mm.register_interrupt_handler(Interrupt::Reload("".into()), move |state, interrupt| {
         let injector = state.injector();
-        let injector= IndexedInjector::new(injector, 0);
-        let injector= SegmentedInjector::new(injector, splitter.clone());
+        let injector = IndexedInjector::new(injector, 0);
+        let injector = SegmentedInjector::new(injector, splitter.clone());
 
         if let Interrupt::Reload(template) = interrupt
-        && let Some(t) = state.current_raw() {
+            && let Some(t) = state.current_raw()
+        {
             let cmd = reload_formatter(t, template);
             let vars = vec![];
             // let extra = env_vars!(
@@ -130,7 +169,9 @@ pub async fn pick(config: Config, print_handle: AppendOnly<String>) -> Result<Ve
             // );
             // vars.extend(extra);
             debug!("Reloading: {cmd}");
-            if let Some(mut child) = spawn_script(&cmd, vars, Stdio::null(), Stdio::piped(), Stdio::null()) {
+            if let Some(mut child) =
+                spawn_script(&cmd, vars, Stdio::null(), Stdio::piped(), Stdio::null())
+            {
                 if let Some(stdout) = child.stdout.take() {
                     map_reader(stdout, move |line| injector.push(line), delimiter);
                 } else {
@@ -146,23 +187,17 @@ pub async fn pick(config: Config, print_handle: AppendOnly<String>) -> Result<Ve
     // ----------- read -----------------------
     let handle = if !atty::is(atty::Stream::Stdin) {
         let stdin = std::io::stdin();
-        map_reader(
-            stdin,
-            move |line| {
-                injector.push(line)
-            },
-            delimiter
-        )
+        map_reader(stdin, move |line| injector.push(line), delimiter)
     } else if !default_command.is_empty() {
-        if let Some(mut child) = spawn_script(&default_command, vec![], Stdio::null(), Stdio::piped(), Stdio::null())
-        && let Some(stdout) = child.stdout.take() {
-            map_reader(
-                stdout,
-                move |line| {
-                    injector.push(line)
-                },
-                delimiter
-            )
+        if let Some(mut child) = spawn_script(
+            &default_command,
+            vec![],
+            Stdio::null(),
+            Stdio::piped(),
+            Stdio::null(),
+        ) && let Some(stdout) = child.stdout.take()
+        {
+            map_reader(stdout, move |line| injector.push(line), delimiter)
         } else {
             eprintln!("error: no stdout from default command.");
             exit(99)
@@ -176,5 +211,11 @@ pub async fn pick(config: Config, print_handle: AppendOnly<String>) -> Result<Ve
         let _ = handle.await;
     }
 
-    mm.pick(PickOptions::new().event_loop(event_loop).matcher(matcher.0).previewer(previewer)).await
+    mm.pick(
+        PickOptions::new()
+            .event_loop(event_loop)
+            .matcher(matcher.0)
+            .previewer(previewer),
+    )
+    .await
 }

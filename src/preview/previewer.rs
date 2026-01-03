@@ -5,8 +5,8 @@ use log::{debug, error, warn};
 use ratatui::text::{Line, Text};
 use std::io::BufReader;
 use std::process::{Child, Stdio};
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 use strum_macros::Display;
@@ -15,9 +15,9 @@ use tokio::sync::watch::{Receiver, Sender, channel};
 use tokio::task::JoinHandle;
 
 use super::AppendOnly;
-use crate::preview::Preview;
 use crate::config::PreviewerConfig;
 use crate::message::Event;
+use crate::preview::Preview;
 
 #[derive(Debug, Display, Clone)]
 pub enum PreviewMessage {
@@ -60,7 +60,11 @@ impl Previewer {
     }
 
     pub fn view(&self) -> Preview {
-        Preview::new(self.lines.clone(), self.string.clone(), self.changed.clone())
+        Preview::new(
+            self.lines.clone(),
+            self.string.clone(),
+            self.changed.clone(),
+        )
     }
 
     pub fn set_string(&self, s: Text<'static>) {
@@ -134,10 +138,10 @@ impl Previewer {
                                     };
 
                                     let split_at = leftover[..valid_up_to]
-                                    .iter()
-                                    .rposition(|&b| b == b'\n' || b == b'\r')
-                                    .map(|pos| pos + 1)
-                                    .unwrap_or(valid_up_to); // todo: fix this artificial break if line exceeds
+                                        .iter()
+                                        .rposition(|&b| b == b'\n' || b == b'\r')
+                                        .map(|pos| pos + 1)
+                                        .unwrap_or(valid_up_to); // todo: fix this artificial break if line exceeds
 
                                     let (valid_bytes, rest) = leftover.split_at(split_at);
 
@@ -151,7 +155,7 @@ impl Previewer {
                                             if self.config.try_lossy {
                                                 for bytes in valid_bytes.split(|b| *b == b'\n') {
                                                     let line =
-                                                    String::from_utf8_lossy(bytes).into_owned();
+                                                        String::from_utf8_lossy(bytes).into_owned();
                                                     lines.push(Line::from(line));
                                                 }
                                             } else {
@@ -176,7 +180,7 @@ impl Previewer {
                                             if self.config.try_lossy {
                                                 for bytes in leftover.split(|b| *b == b'\n') {
                                                     let line =
-                                                    String::from_utf8_lossy(bytes).into_owned();
+                                                        String::from_utf8_lossy(bytes).into_owned();
                                                     lines.push(Line::from(line));
                                                 }
                                             } else {
@@ -194,9 +198,8 @@ impl Previewer {
                         }
                     }
                 }
-                PreviewMessage::Stop => {
-                }
-                _ => unreachable!()
+                PreviewMessage::Stop => {}
+                _ => unreachable!(),
             }
 
             self.prune_procs();

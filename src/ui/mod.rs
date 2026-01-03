@@ -1,30 +1,35 @@
+mod display;
 mod input;
+mod overlay;
 mod preview;
 mod results;
-mod display;
-mod overlay;
 pub use display::DisplayUI;
 pub use input::InputUI;
+pub use overlay::*;
 pub use preview::PreviewUI;
 pub use results::ResultsUI;
-pub use overlay::*;
 
 pub use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout, Rect},
     widgets::Table,
-    Frame
 }; // reexport for convenience
 
 use crate::{
-    SSS, Selection, Selector, config::{
-        DisplayConfig, InputConfig, PreviewLayoutSetting, RenderConfig, ResultsConfig, TerminalLayoutSettings, UiConfig
-    }, nucleo::Worker, preview::Preview, tui::Tui
+    SSS, Selection, Selector,
+    config::{
+        DisplayConfig, InputConfig, PreviewLayoutSetting, RenderConfig, ResultsConfig,
+        TerminalLayoutSettings, UiConfig,
+    },
+    nucleo::Worker,
+    preview::Preview,
+    tui::Tui,
 };
 // UI
 pub struct UI {
     pub layout: Option<TerminalLayoutSettings>,
     pub area: Rect, // unused
-    pub config: UiConfig
+    pub config: UiConfig,
 }
 
 impl UI {
@@ -38,17 +43,25 @@ impl UI {
     ) -> (Self, PickerUI<'a, T, S>, Option<PreviewUI>) {
         if config.results.reverse.is_none() {
             config.results.reverse = Some(
-                tui.is_fullscreen() && tui.area.y < tui.area.height / 2 // reverse if fullscreen + cursor is in lower half of the screen
+                tui.is_fullscreen() && tui.area.y < tui.area.height / 2, // reverse if fullscreen + cursor is in lower half of the screen
             );
         }
 
         let ui = Self {
             layout: tui.config.layout.clone(),
             area: tui.area,
-            config: config.ui
+            config: config.ui,
         };
 
-        let picker = PickerUI::new(config.results, config.input, config.header, config.footer, matcher, worker, selection_set);
+        let picker = PickerUI::new(
+            config.results,
+            config.input,
+            config.header,
+            config.footer,
+            matcher,
+            worker,
+            selection_set,
+        );
 
         let preview = if let Some(view) = view {
             Some(PreviewUI::new(view, config.preview))
@@ -109,14 +122,19 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
     }
 
     pub fn layout(&self, area: Rect) -> [Rect; 5] {
-        let PickerUI { input, header, footer, .. } = self;
+        let PickerUI {
+            input,
+            header,
+            footer,
+            ..
+        } = self;
 
         let mut constraints = [
-        Constraint::Length(1 + input.config.border.height()), // input
-        Constraint::Length(1), // status
-        Constraint::Length(header.height()),
-        Constraint::Fill(1), // results
-        Constraint::Length(footer.height()),
+            Constraint::Length(1 + input.config.border.height()), // input
+            Constraint::Length(1),                                // status
+            Constraint::Length(header.height()),
+            Constraint::Fill(1), // results
+            Constraint::Length(footer.height()),
         ];
 
         if self.reverse() {
@@ -124,9 +142,9 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
         }
 
         let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(constraints)
-        .split(area);
+            .direction(Direction::Vertical)
+            .constraints(constraints)
+            .split(area);
 
         if self.reverse() {
             [chunks[4], chunks[3], chunks[2], chunks[1], chunks[0]]
@@ -139,7 +157,7 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
 impl<'a, T: SSS, O: Selection> PickerUI<'a, T, O> {
     pub fn make_table(&mut self) -> Table<'_> {
         self.results
-        .make_table(&mut self.worker, &mut self.selections, self.matcher)
+            .make_table(&mut self.worker, &mut self.selections, self.matcher)
     }
 
     pub fn update(&mut self) {
@@ -197,9 +215,9 @@ impl PreviewLayoutSetting {
         };
 
         let chunks = Layout::default()
-        .direction(direction)
-        .constraints(constraints)
-        .split(area);
+            .direction(direction)
+            .constraints(constraints)
+            .split(area);
 
         if side_first {
             [chunks[0], chunks[1]]

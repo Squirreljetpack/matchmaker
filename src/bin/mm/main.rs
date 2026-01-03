@@ -1,20 +1,17 @@
 use std::process::exit;
 
-
+mod config;
 mod crokey;
 mod parse;
+mod setup;
 mod types;
 mod utils;
-mod setup;
-mod config;
 
 use cli_boilerplate_automation::bog::BogOkExt;
-use matchmaker::{
-    MatchError, preview::AppendOnly
-};
+use matchmaker::{MatchError, preview::AppendOnly};
+use setup::*;
 use types::*;
 use utils::*;
-use setup::*;
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
@@ -32,24 +29,22 @@ async fn main() {
 
             let sep = delimiter.as_deref().unwrap_or("\n");
             let output = iter
-            .into_iter()
-            .map(|s| s.to_string())
-            .collect::<Vec<_>>()
-            .join(sep);
+                .into_iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>()
+                .join(sep);
             println!("{output}");
         }
-        Err(err) => {
-            match err {
-                MatchError::Abort(i) => {
-                    exit(i);
-                }
-                MatchError::EventLoopClosed => {
-                    exit(127);
-                }
-                _ => {
-                    unreachable!()
-                }
+        Err(err) => match err {
+            MatchError::Abort(i) => {
+                exit(i);
             }
-        }
+            MatchError::EventLoopClosed => {
+                exit(127);
+            }
+            _ => {
+                unreachable!()
+            }
+        },
     };
 }

@@ -1,10 +1,12 @@
 use std::{borrow::Cow, sync::Arc};
 
-use crate::{
-    SSS, RenderFn, nucleo::Indexed, utils::text::plain_text
-};
+use crate::{RenderFn, SSS, nucleo::Indexed, utils::text::plain_text};
 
-use super::{injector::{self}, Text, worker::{Column, Worker}};
+use super::{
+    Text,
+    injector::{self},
+    worker::{Column, Worker},
+};
 
 impl<T: SSS> Worker<T> {
     /// Returns a function which templates a string given an item using the column functions
@@ -42,10 +44,10 @@ impl<T: SSS> Worker<T> {
                             let replacement = match key.as_str() {
                                 "" => blank_format(item),
                                 _ => columns
-                                .iter()
-                                .find(|col| &*col.name == key.as_str())
-                                .map(|col| col.format_text(item))
-                                .unwrap_or_else(|| Cow::Borrowed("")),
+                                    .iter()
+                                    .find(|col| &*col.name == key.as_str())
+                                    .map(|col| col.format_text(item))
+                                    .unwrap_or_else(|| Cow::Borrowed("")),
                             };
 
                             if QUOTE {
@@ -92,9 +94,7 @@ impl<T: Render + SSS> Worker<Indexed<T>> {
     /// Create a new worker over items which are displayed in the picker as exactly their as_str representation.
     pub fn new_single_column() -> Self {
         Self::new(
-            [Column::new("_", |item: &Indexed<T>| {
-                item.inner.as_text()
-            })],
+            [Column::new("_", |item: &Indexed<T>| item.inner.as_text())],
             0,
         )
     }
@@ -120,13 +120,13 @@ pub trait ColumnIndexable {
 
 impl<T> Worker<T>
 where
-T: ColumnIndexable + SSS,
+    T: ColumnIndexable + SSS,
 {
     /// Create a new worker over indexable items, whose columns as displayed in the picker correspond to indices according to the relative order of the column names given to this function.
     pub fn new_indexable<I, S>(column_names: I) -> Self
     where
-    I: IntoIterator<Item = S>,
-    S: Into<Arc<str>>,
+        I: IntoIterator<Item = S>,
+        S: Into<Arc<str>>,
     {
         let columns = column_names.into_iter().enumerate().map(|(i, name)| {
             let name = name.into();

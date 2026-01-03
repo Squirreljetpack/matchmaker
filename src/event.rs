@@ -1,6 +1,6 @@
 use crate::Result;
 use crate::action::{Action, ActionExt, Actions, Count};
-use crate::binds::{BindMap};
+use crate::binds::BindMap;
 use crate::message::{Event, RenderCommand};
 use anyhow::bail;
 use crokey::{Combiner, KeyCombination, KeyCombinationFormat, key};
@@ -40,7 +40,6 @@ impl<A: ActionExt> EventLoop<A> {
         let fmt = KeyCombinationFormat::default();
         let (controller_tx, controller_rx) = tokio::sync::mpsc::unbounded_channel();
 
-
         Self {
             txs: vec![],
             tick_interval: time::Duration::from_secs(1),
@@ -53,7 +52,7 @@ impl<A: ActionExt> EventLoop<A> {
             controller_tx,
 
             mouse_events: false,
-            paused: false
+            paused: false,
         }
     }
 
@@ -67,7 +66,6 @@ impl<A: ActionExt> EventLoop<A> {
         self.tick_interval = time::Duration::from_secs_f64(1.0 / tick_rate as f64);
         self
     }
-
 
     pub fn add_tx(&mut self, handler: mpsc::UnboundedSender<RenderCommand<A>>) -> &mut Self {
         self.txs.push(handler);
@@ -98,7 +96,7 @@ impl<A: ActionExt> EventLoop<A> {
             }
             Event::Refresh => {
                 self.send(RenderCommand::Refresh);
-            },
+            }
             _ => {}
         }
         if let Some(actions) = self.binds.get(&e.into()) {
@@ -138,7 +136,7 @@ impl<A: ActionExt> EventLoop<A> {
             while let Ok(event) = self.controller_rx.try_recv() {
                 // todo: note that our dynamic event handlers don't detect events originating outside of render currently, tho maybe we could reseed here
                 self.handle_event(event);
-            };
+            }
 
             self.txs.retain(|tx| !tx.is_closed());
             if self.txs.is_empty() {
@@ -244,7 +242,7 @@ impl<A: ActionExt> EventLoop<A> {
     fn send(&self, action: RenderCommand<A>) {
         for tx in &self.txs {
             tx.send(action.clone())
-            .unwrap_or_else(|_| debug!("Failed to send {action}"));
+                .unwrap_or_else(|_| debug!("Failed to send {action}"));
         }
     }
 

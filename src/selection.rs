@@ -21,11 +21,14 @@ impl<T, S: Selection> Selector<T, S> {
         Self::new_with_validator(identifier, truthy_validator)
     }
 
-    pub fn new_with_validator(identifier: Identifier<T, S>, validator: SelectionValidator<S>) -> Self {
+    pub fn new_with_validator(
+        identifier: Identifier<T, S>,
+        validator: SelectionValidator<S>,
+    ) -> Self {
         Self {
             selections: SelectorImpl::new(),
             identifier,
-            validator
+            validator,
         }
     }
 
@@ -73,21 +76,21 @@ impl<T, S: Selection> Selector<T, S> {
 
     pub fn identify_to_vec<I>(&self, items: I) -> Vec<S>
     where
-    I: IntoIterator,
-    I::Item: std::borrow::Borrow<T> + Send,
+        I: IntoIterator,
+        I::Item: std::borrow::Borrow<T> + Send,
     {
         // let items_vec: Vec<I::Item> = items.into_iter().collect();
 
         items
-        .into_iter()
-        // .into_par_iter()
-        .map(|item| (self.identifier)(item.borrow()).1)
-        .collect()
+            .into_iter()
+            // .into_par_iter()
+            .map(|item| (self.identifier)(item.borrow()).1)
+            .collect()
     }
 
     pub fn map_to_vec<U, F>(&self, f: F) -> Vec<U>
     where
-    F: FnMut(&S) -> U,
+        F: FnMut(&S) -> U,
     {
         // let items_vec: Vec<I::Item> = items.into_iter().collect();
         self.selections.map_to_vec(f)
@@ -102,13 +105,13 @@ impl<T, S: Selection> Selector<T, S> {
 
     pub fn cycle_all_bg<I>(&self, items: I)
     where
-    I: IntoIterator,
-    I::Item: std::borrow::Borrow<T> + Send,
+        I: IntoIterator,
+        I::Item: std::borrow::Borrow<T> + Send,
     {
         let results: Vec<_> = items
-        .into_iter()
-        .map(|item| (self.identifier)(item.borrow()))
-        .collect();
+            .into_iter()
+            .map(|item| (self.identifier)(item.borrow()))
+            .collect();
 
         let selections = self.selections.clone();
 
@@ -146,7 +149,7 @@ struct SelectorImpl<K: Eq + Hash, S> {
 
 impl<K: Eq + Hash, S> SelectorImpl<K, S>
 where
-S: Selection,
+    S: Selection,
 {
     pub fn new() -> Self {
         Self {
@@ -192,7 +195,7 @@ S: Selection,
 
     pub fn map_to_vec<U, F>(&self, f: F) -> Vec<U>
     where
-    F: FnMut(&S) -> U,
+        F: FnMut(&S) -> U,
     {
         let set = self.set.lock().unwrap();
         set.values().map(f).collect()

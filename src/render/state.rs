@@ -1,11 +1,12 @@
 use cli_boilerplate_automation::{broc::EnvVars, env_vars};
-use std::{
-    collections::HashSet,
-    ops::Deref,
-};
+use std::{collections::HashSet, ops::Deref};
 
 use crate::{
-    SSS, Selection, Selector, action::ActionExt, message::Event, nucleo::{Status, injector::WorkerInjector}, ui::{OverlayUI, PickerUI, PreviewUI, Rect, UI}
+    SSS, Selection, Selector,
+    action::ActionExt,
+    message::Event,
+    nucleo::{Status, injector::WorkerInjector},
+    ui::{OverlayUI, PickerUI, PreviewUI, Rect, UI},
 };
 
 // --------------------------------------------------------------------
@@ -46,7 +47,9 @@ impl<'a, T: SSS, S: Selection> MMState<'a, T, S> {
     }
 
     pub fn current_raw(&self) -> Option<&T> {
-        self.picker_ui.worker.get_nth(self.picker_ui.results.index())
+        self.picker_ui
+            .worker
+            .get_nth(self.picker_ui.results.index())
     }
     /// Runs f on selections if nonempty, otherwise, the current item
     pub fn map_selected_to_vec<U>(&self, mut f: impl FnMut(&S) -> U) -> Vec<U> {
@@ -65,7 +68,8 @@ impl<'a, T: SSS, S: Selection> MMState<'a, T, S> {
         self.picker_ui.results.widths()
     }
 
-    pub fn status(&self) -> &Status { // replace StatusType with the actual type
+    pub fn status(&self) -> &Status {
+        // replace StatusType with the actual type
         &self.picker_ui.results.status
     }
 
@@ -201,8 +205,11 @@ impl<S: Selection> State<S> {
         changed
     }
 
-
-    pub(crate) fn update<'a, T: SSS, A: ActionExt>(&'a mut self, picker_ui: &'a PickerUI<T, S>, overlay_ui: &'a Option<OverlayUI<A>>){
+    pub(crate) fn update<'a, T: SSS, A: ActionExt>(
+        &'a mut self,
+        picker_ui: &'a PickerUI<T, S>,
+        overlay_ui: &'a Option<OverlayUI<A>>,
+    ) {
         if self.iterations == 0 {
             self.insert(Event::Start);
         }
@@ -228,10 +235,13 @@ impl<S: Selection> State<S> {
         self.update_current(picker_ui);
     }
 
-
-
     // ---------- flush -----------
-    pub(crate) fn dispatcher<'a, T: SSS>(&'a self, ui: &'a UI, picker_ui: &'a PickerUI<T, S>, preview_ui: Option<&'a PreviewUI>) -> MMState<'a, T, S> {
+    pub(crate) fn dispatcher<'a, T: SSS>(
+        &'a self,
+        ui: &'a UI,
+        picker_ui: &'a PickerUI<T, S>,
+        preview_ui: Option<&'a PreviewUI>,
+    ) -> MMState<'a, T, S> {
         MMState {
             state: self,
             picker_ui,
@@ -244,9 +254,7 @@ impl<S: Selection> State<S> {
         // nothing
     }
 
-    pub(crate) fn events(
-        &mut self,
-    ) -> HashSet<Event> {
+    pub(crate) fn events(&mut self) -> HashSet<Event> {
         self.reset();
         // this rules out persistent preview_set, todo: impl effects to trigger this instead
         std::mem::take(&mut self.events) // maybe copy is faster dunno
@@ -257,13 +265,13 @@ impl<S: Selection> State<S> {
 impl<S: Selection> std::fmt::Debug for State<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("State")
-        .field("input", &self.input)
-        .field("preview_payload", &self.preview_run)
-        .field("iterations", &self.iterations)
-        .field("preview_show", &self.preview_show)
-        .field("layout", &self.layout)
-        .field("events", &self.events)
-        .finish_non_exhaustive()
+            .field("input", &self.input)
+            .field("preview_payload", &self.preview_run)
+            .field("iterations", &self.iterations)
+            .field("preview_show", &self.preview_show)
+            .field("layout", &self.layout)
+            .field("events", &self.events)
+            .finish_non_exhaustive()
     }
 }
 

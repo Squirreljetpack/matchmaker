@@ -1,5 +1,5 @@
-mod view;
 pub mod previewer;
+mod view;
 pub use view::Preview;
 
 // -------------- APPENDONLY
@@ -42,7 +42,7 @@ impl<T> AppendOnly<T> {
 
     pub fn map_to_vec<U, F>(&self, mut f: F) -> Vec<U>
     where
-    F: FnMut(&T) -> U,
+        F: FnMut(&T) -> U,
     {
         let guard = self.0.read().unwrap();
         guard.iter().map(move |(_i, v)| f(v)).collect()

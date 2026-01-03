@@ -2,10 +2,11 @@
 // Modified by Squirreljetpack, 2025
 
 use std::{
-    marker::PhantomData, sync::{
+    marker::PhantomData,
+    sync::{
         Arc,
         atomic::{AtomicU32, Ordering},
-    }
+    },
 };
 
 use super::worker::{Column, Worker, WorkerError};
@@ -55,8 +56,6 @@ pub struct WorkerInjector<T> {
     pub(super) version: u32,
     pub(super) picker_version: Arc<AtomicU32>,
 }
-
-
 
 impl<T: SSS> Injector for WorkerInjector<T> {
     type InputItem = T;
@@ -128,7 +127,6 @@ impl<T, I: Injector<InputItem = Indexed<T>>> Injector for IndexedInjector<T, I> 
         &self.injector
     }
 }
-
 
 pub struct SegmentedInjector<T: SegmentableItem, I: Injector<InputItem = Segmented<T>>> {
     injector: I,
@@ -207,7 +205,6 @@ impl<T: SegmentableItem, I: Injector<InputItem = Segmented<T>>> Injector
 //         &self.injector
 //     }
 // }
-
 
 // ----------- CLONE ----------------------------
 impl<T> Clone for WorkerInjector<T> {

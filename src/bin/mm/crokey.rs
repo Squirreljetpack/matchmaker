@@ -50,7 +50,11 @@ pub fn main() {
                         break;
                     }
                     key!('?') | key!(shift - '?') => {
-                        println!("You typed {}. {}", key.blue(), "Type Esc or Ctrl-q to exit".blue());
+                        println!(
+                            "You typed {}. {}",
+                            key.blue(),
+                            "Type Esc or Ctrl-q to exit".blue()
+                        );
                     }
                     _ => {
                         println!("You typed {}", key.blue());

@@ -15,7 +15,7 @@ use ratatui::Frame;
 use ratatui::layout::Rect;
 use tokio::sync::mpsc;
 
-use crate::action::{Action, ActionExt, ActionAliaser, ActionExtHandler};
+use crate::action::{Action, ActionAliaser, ActionExt, ActionExtHandler};
 use crate::config::{CursorSetting, ExitConfig};
 use crate::message::{Event, Interrupt, RenderCommand};
 use crate::tui::Tui;
@@ -26,7 +26,7 @@ use crate::{MatchError, SSS, Selection};
 fn apply_aliases<T: SSS, S: Selection, A: ActionExt>(
     buffer: &mut Vec<RenderCommand<A>>,
     aliaser: ActionAliaser<T, S, A>,
-    state: &MMState<'_, T, S>
+    state: &MMState<'_, T, S>,
 ) {
     let mut out = Vec::new();
 
@@ -34,7 +34,7 @@ fn apply_aliases<T: SSS, S: Selection, A: ActionExt>(
         match cmd {
             RenderCommand::Action(a) => {
                 out.extend(aliaser(a, state).0.into_iter().map(RenderCommand::Action))
-            },
+            }
             other => out.push(other),
         }
     }
@@ -66,7 +66,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
     // place the initial command in the state where the preview listener can access
     if let Some(ref preview_ui) = preview_ui
-    && !preview_ui.command().is_empty()
+        && !preview_ui.command().is_empty()
     {
         state.update_preview(preview_ui.command());
     }
@@ -104,7 +104,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
             match event {
                 RenderCommand::Action(Action::Input(c)) => {
-                    if let Some(x) = overlay_ui.as_mut() && x.handle_input(c) {
+                    if let Some(x) = overlay_ui.as_mut()
+                        && x.handle_input(c)
+                    {
                         continue;
                     }
                     input.input.insert(input.cursor as usize, c);
@@ -129,10 +131,11 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             effects.insert(e);
                         }
                     }
-
                 }
                 RenderCommand::Action(action) => {
-                    if let Some(x) = overlay_ui.as_mut() && x.handle_action(&action) {
+                    if let Some(x) = overlay_ui.as_mut()
+                        && x.handle_action(&action)
+                    {
                         continue;
                     }
                     match action {
@@ -159,8 +162,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         }
                         Action::Accept => {
                             if selections.is_empty() {
-                                if let Some(item) = worker.get_nth(results.index())
-                                {
+                                if let Some(item) = worker.get_nth(results.index()) {
                                     selections.sel(item);
                                 } else if !exit_config.allow_empty {
                                     continue;
@@ -330,9 +332,15 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         }
                         Action::Custom(e) => {
                             if let Some(handler) = ext_handler {
-                                let mut dispatcher = state.dispatcher(&ui, &picker_ui, preview_ui.as_ref());
+                                let mut dispatcher =
+                                    state.dispatcher(&ui, &picker_ui, preview_ui.as_ref());
                                 let effects = handler(e, &mut dispatcher);
-                                state.apply_effects(effects, &mut ui, &mut picker_ui, &mut preview_ui);
+                                state.apply_effects(
+                                    effects,
+                                    &mut ui,
+                                    &mut picker_ui,
+                                    &mut preview_ui,
+                                );
                             }
                         }
                         _ => {}
@@ -345,7 +353,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 Interrupt::None => continue,
                 Interrupt::Execute(_) => {
                     if controller_tx.send(Event::Pause).is_err() {
-                        break
+                        break;
                     }
                     did_exit = true;
                     tui.enter_execute();
@@ -366,9 +374,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 let mut effects = Effects::new();
                 let mut dispatcher = state.dispatcher(&ui, &picker_ui, preview_ui.as_ref());
                 for h in dynamic_handlers.1.get(&interrupt) {
-                    effects.append(
-                        h(&mut dispatcher, &interrupt)
-                    )
+                    effects.append(h(&mut dispatcher, &interrupt))
                 }
 
                 if let Interrupt::Become(context) = interrupt {
@@ -389,62 +395,73 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
         // resume tui
         if did_exit {
-            tui.return_execute().map_err(|e| MatchError::TUIError(e.to_string()))?
+            tui.return_execute()
+                .map_err(|e| MatchError::TUIError(e.to_string()))?
         }
 
         let mut overlay_ui_ref = overlay_ui.as_mut();
         tui.terminal
-        .draw(|frame| {
-            let mut area = frame.area();
+            .draw(|frame| {
+                let mut area = frame.area();
 
-            render_ui(frame, &mut area, &ui);
+                render_ui(frame, &mut area, &ui);
 
-            let [preview, picker_area] = if let Some(preview_ui) = preview_ui.as_mut()
-            && let Some(layout) = preview_ui.layout()
-            {
-                let ret = layout.split(area);
-                if state.iterations == 0 && ret[1].width <= 5 {
-                    warn!("UI too narrow, hiding preview");
-                    preview_ui.show::<false>();
-                    [Rect::default(), area]
+                let [preview, picker_area] = if let Some(preview_ui) = preview_ui.as_mut()
+                    && let Some(layout) = preview_ui.layout()
+                {
+                    let ret = layout.split(area);
+                    if state.iterations == 0 && ret[1].width <= 5 {
+                        warn!("UI too narrow, hiding preview");
+                        preview_ui.show::<false>();
+                        [Rect::default(), area]
+                    } else {
+                        ret
+                    }
                 } else {
-                    ret
-                }
-            } else {
-                [Rect::default(), area]
-            };
+                    [Rect::default(), area]
+                };
 
-            let [input, status, header, results, footer] = picker_ui.layout(picker_area);
+                let [input, status, header, results, footer] = picker_ui.layout(picker_area);
 
-            // compare and save dimensions
-            did_resize = state.update_layout([preview, input, status, results]);
+                // compare and save dimensions
+                did_resize = state.update_layout([preview, input, status, results]);
 
-            if did_resize {
-                picker_ui.results.update_dimensions(&results);
-                // although these only want update when the whole ui change
-                ui.update_dimensions(area);
-                if let Some(x) = overlay_ui_ref.as_deref_mut() {
-                    x.update_dimensions(&area);
-                }
-            };
-
-            render_input(frame, input, &picker_ui.input);
-            render_status(frame, status, &picker_ui.results);
-            render_results(frame, results, &mut picker_ui);
-            render_display(frame, header, &picker_ui.header, picker_ui.results.indentation());
-            render_display(frame, footer, &picker_ui.footer, picker_ui.results.indentation());
-            if let Some(preview_ui) = preview_ui.as_mut() {
-                state.update_preview_ui(preview_ui);
                 if did_resize {
-                    preview_ui.update_dimensions(&preview);
+                    picker_ui.results.update_dimensions(&results);
+                    // although these only want update when the whole ui change
+                    ui.update_dimensions(area);
+                    if let Some(x) = overlay_ui_ref.as_deref_mut() {
+                        x.update_dimensions(&area);
+                    }
+                };
+
+                render_input(frame, input, &picker_ui.input);
+                render_status(frame, status, &picker_ui.results);
+                render_results(frame, results, &mut picker_ui);
+                render_display(
+                    frame,
+                    header,
+                    &picker_ui.header,
+                    picker_ui.results.indentation(),
+                );
+                render_display(
+                    frame,
+                    footer,
+                    &picker_ui.footer,
+                    picker_ui.results.indentation(),
+                );
+                if let Some(preview_ui) = preview_ui.as_mut() {
+                    state.update_preview_ui(preview_ui);
+                    if did_resize {
+                        preview_ui.update_dimensions(&preview);
+                    }
+                    render_preview(frame, preview, preview_ui);
                 }
-                render_preview(frame, preview, preview_ui);
-            }
-            if let Some(x) = overlay_ui_ref {
-                x.draw(frame);
-            }
-        })
-        .map_err(|e| MatchError::TUIError(e.to_string()))?;
+                if let Some(x) = overlay_ui_ref {
+                    x.draw(frame);
+                }
+            })
+            .map_err(|e| MatchError::TUIError(e.to_string()))?;
 
         // useful to clear artifacts
         if did_resize && tui.config.redraw_on_resize {
@@ -470,9 +487,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         // ping handlers with events
         for e in events.iter() {
             for h in dynamic_handlers.0.get(e) {
-                effects.append(
-                    h(&mut dispatcher, e)
-                )
+                effects.append(h(&mut dispatcher, e))
             }
         }
 
@@ -483,14 +498,14 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         // send events into controller
         for e in events {
             controller_tx
-            .send(e)
-            .unwrap_or_else(|err| eprintln!("send failed: {:?}", err));
+                .send(e)
+                .unwrap_or_else(|err| eprintln!("send failed: {:?}", err));
         }
         // =================================
 
         if did_pause {
             if controller_tx.send(Event::Resume).is_err() {
-                break
+                break;
             };
             // due to control flow, this does nothing, but is anyhow a useful safeguard to guarantee the pause
             while let Some(msg) = render_rx.recv().await {
@@ -517,11 +532,7 @@ fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {
     frame.render_widget(widget, area);
 }
 
-fn render_results<T: SSS, S: Selection>(
-    frame: &mut Frame,
-    area: Rect,
-    ui: &mut PickerUI<T, S>,
-) {
+fn render_results<T: SSS, S: Selection>(frame: &mut Frame, area: Rect, ui: &mut PickerUI<T, S>) {
     let widget = ui.make_table();
 
     frame.render_widget(widget, area);

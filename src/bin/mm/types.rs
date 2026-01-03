@@ -1,9 +1,11 @@
 use std::{
-    ffi::OsString, path::{Path, PathBuf}, sync::LazyLock
+    ffi::OsString,
+    path::{Path, PathBuf},
+    sync::LazyLock,
 };
 
-use clap::Parser;
 use anyhow::Result;
+use clap::Parser;
 
 use crate::config::Config;
 
@@ -39,13 +41,13 @@ pub fn default_config_path() -> &'static Path {
     #[cfg(debug_assertions)]
     {
         static DEFAULT_PATH: LazyLock<PathBuf> =
-        LazyLock::new(|| config_dir_impl().unwrap_or_default().join("dev.toml"));
+            LazyLock::new(|| config_dir_impl().unwrap_or_default().join("dev.toml"));
         &DEFAULT_PATH
     }
     #[cfg(not(debug_assertions))]
     {
         static DEFAULT_PATH: LazyLock<PathBuf> =
-        LazyLock::new(|| config_dir_impl().unwrap_or_default().join("config.toml"));
+            LazyLock::new(|| config_dir_impl().unwrap_or_default().join("config.toml"));
         &DEFAULT_PATH
     }
 }
@@ -54,11 +56,7 @@ pub fn state_dir() -> Option<PathBuf> {
     if let Some(ret) = dirs::state_dir() {
         Some(ret)
     } else {
-        dirs::home_dir().map(|home| {
-            home.join(".local")
-            .join("state")
-            .join(BINARY_FULL)
-        })
+        dirs::home_dir().map(|home| home.join(".local").join("state").join(BINARY_FULL))
     }
 }
 

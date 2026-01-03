@@ -3,7 +3,8 @@ use std::fmt;
 use super::MMState;
 use crate::{
     SSS, Selection,
-    message::{Event, Interrupt}, render::{Effects},
+    message::{Event, Interrupt},
+    render::Effects,
 };
 
 // note: beware that same handler could be called multiple times for the same event in one iteration
@@ -36,10 +37,7 @@ impl<T: SSS, S: Selection> EventHandlers<T, S> {
         self.handlers.push((events, handler));
     }
 
-    pub fn get(
-        &self,
-        event: &Event,
-    ) -> impl Iterator<Item = &DynamicMethod<T, S, Event>> {
+    pub fn get(&self, event: &Event) -> impl Iterator<Item = &DynamicMethod<T, S, Event>> {
         self.handlers
             .iter()
             .filter(move |(events, _)| events.contains(event))
@@ -66,7 +64,10 @@ impl<T: SSS, S: Selection> InterruptHandlers<T, S> {
         }
     }
 
-    pub fn get(&self, variant: &Interrupt) -> impl Iterator<Item = &DynamicMethod<T, S, Interrupt>> {
+    pub fn get(
+        &self,
+        variant: &Interrupt,
+    ) -> impl Iterator<Item = &DynamicMethod<T, S, Interrupt>> {
         self.handlers
             .iter()
             .filter_map(move |(v, h)| (v == variant).then_some(h))

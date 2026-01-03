@@ -1,6 +1,9 @@
-use cli_boilerplate_automation::{bog::{self, BogOkExt}, bait::ResultExt};
-use std::{fs::OpenOptions, path::Path};
 use crate::types::BINARY_FULL;
+use cli_boilerplate_automation::{
+    bait::ResultExt,
+    bog::{self, BogOkExt},
+};
+use std::{fs::OpenOptions, path::Path};
 
 pub fn init_logger(log_path: &Path) {
     bog::init_bogger(true, false);
@@ -17,33 +20,29 @@ pub fn init_logger(log_path: &Path) {
         #[cfg(debug_assertions)]
         {
             builder
-            .filter(None, log::LevelFilter::Info)
-            .filter(Some(BINARY_FULL), log::LevelFilter::Debug);
+                .filter(None, log::LevelFilter::Info)
+                .filter(Some(BINARY_FULL), log::LevelFilter::Debug);
         }
         #[cfg(not(debug_assertions))]
         {
             builder
-            .format_module_path(false)
-            .format_target(false)
-            .format_timestamp(None);
+                .format_module_path(false)
+                .format_target(false)
+                .format_timestamp(None);
 
             let level = cli_boilerplate_automation::bother::level_filter_from_env();
 
-            builder
-            .filter(
-                Some(BINARY_FULL),
-                level,
-            );
+            builder.filter(Some(BINARY_FULL), level);
         }
     }
 
     if let Some(log_file) = OpenOptions::new()
-    .truncate(true)
-    .write(true)
-    .create(true)
-    .open(log_path)
-    .prefix_err("Failed to open log file")
-    ._wbog()
+        .truncate(true)
+        .write(true)
+        .create(true)
+        .open(log_path)
+        .prefix_err("Failed to open log file")
+        ._wbog()
     {
         builder.target(env_logger::Target::Pipe(Box::new(log_file)));
     }

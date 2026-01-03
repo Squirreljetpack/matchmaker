@@ -1,4 +1,4 @@
-use matchmaker::nucleo::{Worker, Indexed};
+use matchmaker::nucleo::{Indexed, Worker};
 use matchmaker::{MatchError, Matchmaker, Result, Selector};
 
 #[tokio::main]
@@ -14,16 +14,14 @@ async fn main() -> Result<()> {
         Ok(v) => {
             println!("{}", v[0]);
         }
-        Err(err) => {
-            match err {
-                MatchError::Abort(1) => {
-                    eprintln!("cancelled");
-                }
-                _ => {
-                    eprintln!("Error: {err}");
-                }
+        Err(err) => match err {
+            MatchError::Abort(1) => {
+                eprintln!("cancelled");
             }
-        }
+            _ => {
+                eprintln!("Error: {err}");
+            }
+        },
     }
 
     Ok(())

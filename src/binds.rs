@@ -1,15 +1,9 @@
-use std::{
-    cmp::Ordering,
-    collections::BTreeMap,
-    fmt,
-    str::FromStr,
-};
+use std::{cmp::Ordering, collections::BTreeMap, fmt, str::FromStr};
 
 use serde::{
+    Deserializer, Serialize,
     de::{self, Visitor},
     ser,
-    Deserializer,
-    Serialize,
 };
 
 use crate::{
@@ -18,10 +12,9 @@ use crate::{
     message::Event,
 };
 
-pub use crokey::{key, KeyCombination};
-pub use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
 pub use crate::bindmap;
-
+pub use crokey::{KeyCombination, key};
+pub use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
 
 #[allow(type_alias_bounds)]
 pub type BindMap<A: ActionExt = NullActionExt> = BTreeMap<Trigger, Actions<A>>;
@@ -39,7 +32,9 @@ impl Ord for Trigger {
 
         match (self, other) {
             (Key(a), Key(b)) => a.to_string().cmp(&b.to_string()),
-            (Mouse(a), Mouse(b)) => mouse_event_kind_as_str(a.kind).cmp(mouse_event_kind_as_str(b.kind)),
+            (Mouse(a), Mouse(b)) => {
+                mouse_event_kind_as_str(a.kind).cmp(mouse_event_kind_as_str(b.kind))
+            }
             (Event(a), Event(b)) => a.to_string().cmp(&b.to_string()),
 
             // define variant order
@@ -90,7 +85,7 @@ impl From<Event> for Trigger {
 impl ser::Serialize for Trigger {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-    S: ser::Serializer,
+        S: ser::Serializer,
     {
         match self {
             Trigger::Key(key) => serializer.serialize_str(&key.to_string()),
@@ -138,7 +133,7 @@ pub fn mouse_event_kind_as_str(kind: MouseEventKind) -> &'static str {
 impl<'de> serde::Deserialize<'de> for Trigger {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-    D: Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         struct TriggerVisitor;
 
@@ -151,7 +146,7 @@ impl<'de> serde::Deserialize<'de> for Trigger {
 
             fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
             where
-            E: de::Error,
+                E: de::Error,
             {
                 // 1. Try KeyCombination
                 if let Ok(key) = KeyCombination::from_str(value) {
@@ -161,16 +156,17 @@ impl<'de> serde::Deserialize<'de> for Trigger {
                 // 2. Try MouseEvent: modifiers split by '+', last = mouse button
                 let parts: Vec<&str> = value.split('+').collect();
                 if let Some(last) = parts.last()
-                && let Some(kind) = match last.to_lowercase().as_str() {
-                    "left" => Some(MouseEventKind::Down(MouseButton::Left)),
-                    "middle" => Some(MouseEventKind::Down(MouseButton::Middle)),
-                    "right" => Some(MouseEventKind::Down(MouseButton::Right)),
-                    "scrolldown" => Some(MouseEventKind::ScrollDown),
-                    "scrollup" => Some(MouseEventKind::ScrollUp),
-                    "scrollleft" => Some(MouseEventKind::ScrollLeft),
-                    "scrollright" => Some(MouseEventKind::ScrollRight),
-                    _ => None,
-                } {
+                    && let Some(kind) = match last.to_lowercase().as_str() {
+                        "left" => Some(MouseEventKind::Down(MouseButton::Left)),
+                        "middle" => Some(MouseEventKind::Down(MouseButton::Middle)),
+                        "right" => Some(MouseEventKind::Down(MouseButton::Right)),
+                        "scrolldown" => Some(MouseEventKind::ScrollDown),
+                        "scrollup" => Some(MouseEventKind::ScrollUp),
+                        "scrollleft" => Some(MouseEventKind::ScrollLeft),
+                        "scrollright" => Some(MouseEventKind::ScrollRight),
+                        _ => None,
+                    }
+                {
                     let mut modifiers = KeyModifiers::empty();
                     for m in &parts[..parts.len() - 1] {
                         match m.to_lowercase().as_str() {
@@ -182,10 +178,7 @@ impl<'de> serde::Deserialize<'de> for Trigger {
                             "meta" => modifiers |= KeyModifiers::META,
                             "none" => {}
                             unknown => {
-                                return Err(E::custom(format!(
-                                    "Unknown modifier: {}",
-                                    unknown
-                                )));
+                                return Err(E::custom(format!("Unknown modifier: {}", unknown)));
                             }
                         }
                     }
@@ -209,22 +202,19 @@ impl<'de> serde::Deserialize<'de> for Trigger {
 }
 
 #[derive(Serialize)]
-#[serde(
-    bound(
-        serialize = "",
-    )
-)]
+#[serde(bound(serialize = "",))]
 struct BindFmtWrapper<'a, A: ActionExt> {
-    binds: &'a BindMap<A>
+    binds: &'a BindMap<A>,
 }
-use ratatui::style::{Style};
+use ratatui::style::Style;
 use ratatui::text::{Line, Span, Text};
 use regex::Regex;
 
-
-
 // random ai toml coloring cuz i dont wanna use bat just for this
-pub fn display_binds<A: ActionExt>(binds: &BindMap<A>, cfg: Option<&TomlColorConfig>) -> Text<'static> {
+pub fn display_binds<A: ActionExt>(
+    binds: &BindMap<A>,
+    cfg: Option<&TomlColorConfig>,
+) -> Text<'static> {
     let toml_string = toml::to_string(&BindFmtWrapper { binds }).unwrap();
 
     let Some(cfg) = cfg else {

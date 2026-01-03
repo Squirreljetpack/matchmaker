@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use matchmaker::action::{ActionExt, NullActionExt};
+use matchmaker::binds::BindMap;
 use matchmaker::config::{MatcherConfig, PreviewerConfig, RenderConfig, TerminalConfig};
-use matchmaker::{binds::BindMap};
 
 /// Full config.
 /// Clients probably want to make their own type with RenderConfig + custom settings to instantiate their matchmaker.

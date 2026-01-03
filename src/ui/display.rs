@@ -1,10 +1,15 @@
 #![allow(unused)]
 use log::debug;
 use ratatui::{
-    style::{Style, Stylize}, text::Text, widgets::{Paragraph, Wrap}
+    style::{Style, Stylize},
+    text::Text,
+    widgets::{Paragraph, Wrap},
 };
 
-use crate::{config::DisplayConfig, utils::{serde::StringOrVec, text::left_pad}};
+use crate::{
+    config::DisplayConfig,
+    utils::{serde::StringOrVec, text::left_pad},
+};
 
 #[derive(Debug, Clone)]
 pub struct DisplayUI {
@@ -53,8 +58,8 @@ impl DisplayUI {
         // debug!("{result_indentation}, {}, {text}", self.config.match_indent);
 
         let mut ret = Paragraph::new(self.text.clone())
-        .style(Style::default().fg(self.config.fg))
-        .add_modifier(self.config.modifier);
+            .style(Style::default().fg(self.config.fg))
+            .add_modifier(self.config.modifier);
 
         if self.config.wrap {
             ret = ret.wrap(Wrap { trim: false });
@@ -70,7 +75,6 @@ impl DisplayUI {
                 ret
             }
         };
-
 
         ret = ret.block(block);
 

@@ -1,4 +1,4 @@
-pub mod text;
-pub mod serde;
 mod percentage;
+pub mod serde;
+pub mod text;
 pub use percentage::Percentage;

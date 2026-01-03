@@ -5,7 +5,7 @@ use crate::action::{Action, ActionExt};
 use crate::config::OverlayLayoutSettings;
 use crate::ui::{Frame, Rect};
 
-use crate::{config::OverlayConfig};
+use crate::config::OverlayConfig;
 
 #[derive(Debug, Default)]
 pub enum OverlayEffect {
@@ -38,11 +38,7 @@ pub trait Overlay {
     //      frame.render_widget(widget, area);
     // }
     /// ```
-    fn draw(
-        &mut self,
-        frame: &mut Frame,
-        area: Rect
-    );
+    fn draw(&mut self, frame: &mut Frame, area: Rect);
 
     /// Called when layout area changes.
     /// The output of this is processed and cached into the area which the draw method is called with.
@@ -94,8 +90,8 @@ impl<A: ActionExt> OverlayUI<A> {
 
     pub fn current(&self) -> Option<&dyn Overlay<A = A>> {
         self.index
-        .and_then(|i| self.overlays.get(i))
-        .map(|b| b.as_ref())
+            .and_then(|i| self.overlays.get(i))
+            .map(|b| b.as_ref())
     }
 
     fn current_mut(&mut self) -> Option<&mut Box<dyn Overlay<A = A> + 'static>> {
@@ -112,12 +108,11 @@ impl<A: ActionExt> OverlayUI<A> {
             self.cached_area = match x.area(ui_area) {
                 Ok(x) => x,
                 // centered
-                Err(pref) => default_area(pref, &self.config.layout, ui_area)
+                Err(pref) => default_area(pref, &self.config.layout, ui_area),
             };
             log::debug!("Overlay area: {}", self.cached_area);
         }
     }
-
 
     // -----------
 
@@ -210,7 +205,11 @@ impl<A: ActionExt> OverlayUI<A> {
     }
 }
 
-pub fn default_area([mut w, mut h]: [u16; 2], layout: &OverlayLayoutSettings, ui_area: &Rect) -> Rect {
+pub fn default_area(
+    [mut w, mut h]: [u16; 2],
+    layout: &OverlayLayoutSettings,
+    ui_area: &Rect,
+) -> Rect {
     // compute preferred size from percentage then clamp to min/max
     if w == 0 {
         w = layout.percentage[0].compute_with_clamp(ui_area.width, 0);

@@ -22,7 +22,8 @@ impl<T: SSS + Index<Range<usize>, Output = str>> SegmentableItem for T {}
 
 pub const MAX_SPLITS: usize = 10;
 pub type RenderFn<T> = Box<dyn for<'a> Fn(&'a T, &'a str) -> String + Send + Sync>;
-pub type SplitterFn<T> = std::sync::Arc<dyn for<'a> Fn(&'a T) -> ArrayVec<(usize, usize), MAX_SPLITS> + Send + Sync>;
+pub type SplitterFn<T> =
+    std::sync::Arc<dyn for<'a> Fn(&'a T) -> ArrayVec<(usize, usize), MAX_SPLITS> + Send + Sync>;
 
 pub const MAX_ACTIONS: usize = 6;
 pub const MAX_EFFECTS: usize = 12; // number of effect discriminants

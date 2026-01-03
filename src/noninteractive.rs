@@ -1,18 +1,18 @@
-use std::{time::{Duration, Instant}};
+use std::time::{Duration, Instant};
 
-use crate::{SSS, nucleo::{Column, Render, Worker, injector::Injector}};
+use crate::{
+    SSS,
+    nucleo::{Column, Render, Worker, injector::Injector},
+};
 
 /// Map f on matches without starting the interface.
 pub fn get_matches<T: SSS + Render>(
     items: impl IntoIterator<Item = T>,
     query: &str,
     timeout: Duration,
-    mut f: impl FnMut(&T) -> bool
+    mut f: impl FnMut(&T) -> bool,
 ) {
-    let mut worker = Worker::new(
-        [Column::new("", |item: &T| item.as_text())]
-        , 0
-    );
+    let mut worker = Worker::new([Column::new("", |item: &T| item.as_text())], 0);
     let mut total = 0;
 
     let injector = worker.injector();
@@ -39,7 +39,7 @@ pub fn get_matches<T: SSS + Render>(
 
     for t in worker.raw_results() {
         if f(t) {
-            break
+            break;
         }
     }
 }

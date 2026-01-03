@@ -1,4 +1,4 @@
-use log::{error};
+use log::error;
 use ratatui::{
     layout::Rect,
     widgets::{Paragraph, Wrap},
@@ -25,7 +25,7 @@ impl PreviewUI {
             config,
             layout_idx: 0,
             offset: 0,
-            area: Rect::default()
+            area: Rect::default(),
         }
     }
     pub fn update_dimensions(&mut self, area: &Rect) {
@@ -45,11 +45,7 @@ impl PreviewUI {
             None
         } else {
             let ret = &self.config.layout[self.layout_idx].layout;
-            if ret.max == 0 {
-                None
-            } else {
-                Some(ret)
-            }
+            if ret.max == 0 { None } else { Some(ret) }
         }
     }
     pub fn command(&self) -> &str {
@@ -95,7 +91,6 @@ impl PreviewUI {
         self.config.wrap
     }
 
-
     // ----- actions --------
     pub fn up(&mut self, n: u16) {
         if self.offset >= n {
@@ -127,12 +122,7 @@ impl PreviewUI {
         let offset = self.offset as usize;
 
         // todo: can we avoid cloning?
-        let visible_lines: Vec<_> = results
-        .iter()
-        .skip(offset)
-        .take(height)
-        .cloned()
-        .collect();
+        let visible_lines: Vec<_> = results.iter().skip(offset).take(height).cloned().collect();
 
         let mut preview = Paragraph::new(visible_lines);
         preview = preview.block(self.config.border.as_block());

@@ -1,7 +1,7 @@
 // event
-pub mod config;
-pub mod binds;
 pub mod action;
+pub mod binds;
+pub mod config;
 pub mod event;
 
 pub mod message;
@@ -17,9 +17,9 @@ pub use matchmaker::*;
 pub mod tui;
 
 // misc
-mod utils;
 mod aliases;
 pub mod errors;
+mod utils;
 pub use aliases::*;
 pub use errors::*;
 

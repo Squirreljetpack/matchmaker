@@ -1,6 +1,8 @@
 use super::State;
 use crate::{
-    MAX_EFFECTS, SSS, Selection, message::Event, ui::{PickerUI, PreviewUI, UI}
+    MAX_EFFECTS, SSS, Selection,
+    message::Event,
+    ui::{PickerUI, PreviewUI, UI},
 };
 
 use arrayvec::ArrayVec;
@@ -39,7 +41,6 @@ macro_rules! efx {
     };
 }
 pub use crate::acs;
-
 
 impl<S: Selection> State<S> {
     // note: apparently its important that this is a method on state to satisfy borrow checker
@@ -113,7 +114,6 @@ impl<S: Selection> State<S> {
                         self.insert(Event::Synced);
                     }
                 }
-
             }
         }
     }

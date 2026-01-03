@@ -4,20 +4,27 @@
 use std::{fmt, ops::Deref};
 
 use crate::MAX_SPLITS;
-use crate::{Result, action::{Count}, tui::IoStream};
+use crate::{Result, action::Count, tui::IoStream};
 
 use ratatui::style::Style;
-use ratatui::text::{Span};
+use ratatui::text::Span;
 use ratatui::{
-    style::{Color, Modifier}, widgets::{BorderType, Borders, Padding}
+    style::{Color, Modifier},
+    widgets::{BorderType, Borders, Padding},
 };
 use regex::Regex;
-use serde::{Serialize, Serializer};
 use serde::de::IntoDeserializer;
 use serde::ser::SerializeSeq;
-use serde::{Deserialize, Deserializer, de::{self, Visitor}};
+use serde::{
+    Deserialize, Deserializer,
+    de::{self, Visitor},
+};
+use serde::{Serialize, Serializer};
 
-pub use crate::utils::{Percentage, serde::{StringOrVec, escaped_opt_char, escaped_opt_string, serde_duration_ms}};
+pub use crate::utils::{
+    Percentage,
+    serde::{StringOrVec, escaped_opt_char, escaped_opt_string, serde_duration_ms},
+};
 
 /// Settings unrelated to event loop/picker_ui.
 ///
@@ -42,7 +49,7 @@ pub struct WorkerConfig {
     pub columns: ColumnsConfig,
     #[serde(flatten)]
     pub exit: ExitConfig,
-    pub trim: bool, // todo
+    pub trim: bool,           // todo
     pub format: FormatString, // todo: implement
 }
 
@@ -57,9 +64,8 @@ pub struct StartConfig {
     #[serde(default, deserialize_with = "escaped_opt_string")]
     pub output_separator: Option<String>,
     pub default_command: String,
-    pub sync: bool
+    pub sync: bool,
 }
-
 
 /// Exit conditions of the render loop.
 ///
@@ -81,8 +87,7 @@ pub struct RenderConfig {
     pub preview: PreviewConfig,
     pub footer: DisplayConfig,
     pub header: DisplayConfig,
-    pub overlay: Option<OverlayConfig>
-    // pub overlay: OverlayConfig // overlay_config is seperate due to specificity
+    pub overlay: Option<OverlayConfig>, // pub overlay: OverlayConfig // overlay_config is seperate due to specificity
 }
 
 impl RenderConfig {
@@ -102,13 +107,11 @@ pub struct TerminalConfig {
     pub sleep_ms: std::time::Duration, // necessary to give ratatui a small delay before resizing after entering and exiting
     // todo: lowpri: will need a value which can deserialize to none when implementing cli parsing
     #[serde(flatten)]
-    pub layout: Option<TerminalLayoutSettings> // None for fullscreen
+    pub layout: Option<TerminalLayoutSettings>, // None for fullscreen
 }
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct TerminalSettings {
-
-}
+pub struct TerminalSettings {}
 
 /// The container ui.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -135,11 +138,17 @@ pub struct InputConfig {
 
     // text styles
     pub fg: Color,
-    #[serde(deserialize_with = "deserialize_modifier", serialize_with = "serialize_modifier")]
+    #[serde(
+        deserialize_with = "deserialize_modifier",
+        serialize_with = "serialize_modifier"
+    )]
     pub modifier: Modifier,
 
     pub prompt_fg: Color,
-    #[serde(deserialize_with = "deserialize_modifier", serialize_with = "serialize_modifier")]
+    #[serde(
+        deserialize_with = "deserialize_modifier",
+        serialize_with = "serialize_modifier"
+    )]
     pub prompt_modifier: Modifier,
 
     #[serde(deserialize_with = "deserialize_string_or_char_as_double_width")]
@@ -171,7 +180,6 @@ pub struct OverlayConfig {
     pub layout: OverlayLayoutSettings,
 }
 
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OverlayLayoutSettings {
     /// w, h
@@ -187,7 +195,7 @@ impl Default for OverlayLayoutSettings {
         Self {
             percentage: [Percentage::new(60), Percentage::new(30)],
             min: [10, 5],
-            max: [200, 30]
+            max: [200, 30],
         }
     }
 }
@@ -206,24 +214,38 @@ pub struct ResultsConfig {
 
     // text styles
     pub fg: Color,
-    #[serde(deserialize_with = "deserialize_modifier", serialize_with = "serialize_modifier")]
+    #[serde(
+        deserialize_with = "deserialize_modifier",
+        serialize_with = "serialize_modifier"
+    )]
     pub modifier: Modifier,
 
     #[serde(default = "default_green")]
     pub match_fg: Color,
-    #[serde(deserialize_with = "deserialize_modifier", serialize_with = "serialize_modifier")]
+    #[serde(
+        deserialize_with = "deserialize_modifier",
+        serialize_with = "serialize_modifier"
+    )]
     pub match_modifier: Modifier,
 
     pub current_fg: Color,
     #[serde(default = "default_black")]
     pub current_bg: Color,
-    #[serde(deserialize_with = "deserialize_modifier", serialize_with = "serialize_modifier", default = "default_bold")]
+    #[serde(
+        deserialize_with = "deserialize_modifier",
+        serialize_with = "serialize_modifier",
+        default = "default_bold"
+    )]
     pub current_modifier: Modifier,
 
     // status
     #[serde(default = "default_green")]
     pub count_fg: Color,
-    #[serde(deserialize_with = "deserialize_modifier", serialize_with = "serialize_modifier", default = "default_italic")]
+    #[serde(
+        deserialize_with = "deserialize_modifier",
+        serialize_with = "serialize_modifier",
+        default = "default_italic"
+    )]
     pub count_modifier: Modifier,
 
     // todo(?): lowpri
@@ -245,7 +267,7 @@ pub struct ResultsConfig {
     // experimental
     pub column_spacing: Count,
     pub current_prefix: String,
-    pub right_align_last: bool
+    pub right_align_last: bool,
 }
 
 impl Default for ResultsConfig {
@@ -277,11 +299,10 @@ impl Default for ResultsConfig {
 
             column_spacing: Default::default(),
             current_prefix: Default::default(),
-            right_align_last: true
+            right_align_last: true,
         }
     }
 }
-
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -290,7 +311,11 @@ pub struct DisplayConfig {
 
     #[serde(default = "default_green")]
     pub fg: Color,
-    #[serde(deserialize_with = "deserialize_modifier", serialize_with = "serialize_modifier", default = "default_italic")]
+    #[serde(
+        deserialize_with = "deserialize_modifier",
+        serialize_with = "serialize_modifier",
+        default = "default_italic"
+    )]
     pub modifier: Modifier,
 
     #[serde(default = "default_true")]
@@ -312,7 +337,6 @@ impl Default for DisplayConfig {
         }
     }
 }
-
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -353,7 +377,7 @@ pub struct PreviewerConfig {
     pub cache: u8,
 
     #[serde(default)]
-    pub help_colors: TomlColorConfig
+    pub help_colors: TomlColorConfig,
 }
 
 /// Help coloring
@@ -399,12 +423,21 @@ pub struct BorderSetting {
     #[serde(with = "crate::utils::serde::fromstr")]
     pub r#type: BorderType,
     pub color: Color,
-    #[serde(serialize_with = "serialize_borders", deserialize_with = "deserialize_borders")]
+    #[serde(
+        serialize_with = "serialize_borders",
+        deserialize_with = "deserialize_borders"
+    )]
     pub sides: Borders,
-    #[serde(serialize_with = "serialize_padding", deserialize_with = "deserialize_padding")]
+    #[serde(
+        serialize_with = "serialize_padding",
+        deserialize_with = "deserialize_padding"
+    )]
     pub padding: Padding,
     pub title: String,
-    #[serde(deserialize_with = "deserialize_modifier", serialize_with = "serialize_modifier")]
+    #[serde(
+        deserialize_with = "deserialize_modifier",
+        serialize_with = "serialize_modifier"
+    )]
     pub title_modifier: Modifier,
     pub bg: Color,
 }
@@ -412,22 +445,23 @@ pub struct BorderSetting {
 impl BorderSetting {
     pub fn as_block(&self) -> ratatui::widgets::Block<'_> {
         let mut ret = ratatui::widgets::Block::default()
-        .padding(self.padding)
-        .style(Style::default().bg(self.bg));
+            .padding(self.padding)
+            .style(Style::default().bg(self.bg));
 
         if !self.title.is_empty() {
-            let title = Span::styled(&self.title, Style::default().add_modifier(self.title_modifier));
+            let title = Span::styled(
+                &self.title,
+                Style::default().add_modifier(self.title_modifier),
+            );
 
             ret = ret.title(title)
         };
 
         if self.sides != Borders::NONE {
-            ret = ret.borders(self.sides)
-            .border_type(self.r#type)
-            .border_style(
-                ratatui::style::Style::default()
-                .fg(self.color)
-            )
+            ret = ret
+                .borders(self.sides)
+                .border_type(self.r#type)
+                .border_style(ratatui::style::Style::default().fg(self.color))
         }
 
         ret
@@ -435,22 +469,23 @@ impl BorderSetting {
 
     pub fn as_static_block(&self) -> ratatui::widgets::Block<'static> {
         let mut ret = ratatui::widgets::Block::default()
-        .padding(self.padding)
-        .style(Style::default().bg(self.bg));
+            .padding(self.padding)
+            .style(Style::default().bg(self.bg));
 
         if !self.title.is_empty() {
-            let title: Span<'static> = Span::styled(self.title.clone(), Style::default().add_modifier(self.title_modifier));
+            let title: Span<'static> = Span::styled(
+                self.title.clone(),
+                Style::default().add_modifier(self.title_modifier),
+            );
 
             ret = ret.title(title)
         };
 
         if self.sides != Borders::NONE {
-            ret = ret.borders(self.sides)
-            .border_type(self.r#type)
-            .border_style(
-                ratatui::style::Style::default()
-                .fg(self.color)
-            )
+            ret = ret
+                .borders(self.sides)
+                .border_type(self.r#type)
+                .border_style(ratatui::style::Style::default().fg(self.color))
         }
 
         ret
@@ -504,11 +539,10 @@ impl Default for TerminalLayoutSettings {
         Self {
             percentage: Percentage::new(50),
             min: 10,
-            max: 120
+            max: 120,
         }
     }
 }
-
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -525,7 +559,7 @@ pub struct PreviewSetting {
     #[serde(flatten)]
     pub layout: PreviewLayoutSetting,
     #[serde(default)]
-    pub command: String
+    pub command: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -542,11 +576,10 @@ impl Default for PreviewLayoutSetting {
             side: Side::Right,
             percentage: Percentage::new(60),
             min: 30,
-            max: 120
+            max: 120,
         }
     }
 }
-
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -585,7 +618,7 @@ pub enum Split {
     Delimiter(Regex),
     Regexes(Vec<Regex>),
     #[default]
-    None
+    None,
 }
 
 impl PartialEq for Split {
@@ -593,20 +626,23 @@ impl PartialEq for Split {
         match (self, other) {
             (Split::Delimiter(r1), Split::Delimiter(r2)) => r1.as_str() == r2.as_str(),
             (Split::Regexes(v1), Split::Regexes(v2)) => {
-                if v1.len() != v2.len() { return false; }
-                v1.iter().zip(v2.iter()).all(|(r1, r2)| r1.as_str() == r2.as_str())
-            },
+                if v1.len() != v2.len() {
+                    return false;
+                }
+                v1.iter()
+                    .zip(v2.iter())
+                    .all(|(r1, r2)| r1.as_str() == r2.as_str())
+            }
             (Split::None, Split::None) => true,
             _ => false,
         }
     }
 }
 
-
 // --------- Deserialize Helpers ------------
 pub fn serialize_borders<S>(borders: &Borders, serializer: S) -> Result<S::Ok, S::Error>
 where
-S: serde::Serializer,
+    S: serde::Serializer,
 {
     use serde::ser::SerializeSeq;
     let mut seq = serializer.serialize_seq(None)?;
@@ -627,7 +663,7 @@ S: serde::Serializer,
 
 pub fn deserialize_borders<'de, D>(deserializer: D) -> Result<Borders, D::Error>
 where
-D: Deserializer<'de>,
+    D: Deserializer<'de>,
 {
     let input = StringOrVec::deserialize(deserializer)?;
     let mut borders = Borders::NONE;
@@ -640,7 +676,7 @@ D: Deserializer<'de>,
                 return Err(de::Error::custom(format!(
                     "invalid border value '{}'",
                     other
-                )))
+                )));
             }
         },
         StringOrVec::Vec(list) => {
@@ -664,7 +700,7 @@ D: Deserializer<'de>,
 
 pub fn deserialize_borders_option<'de, D>(deserializer: D) -> Result<Option<Borders>, D::Error>
 where
-D: Deserializer<'de>,
+    D: Deserializer<'de>,
 {
     let input = Option::<StringOrVec>::deserialize(deserializer)?;
     match input {
@@ -679,7 +715,7 @@ D: Deserializer<'de>,
                         return Err(de::Error::custom(format!(
                             "invalid border value '{}'",
                             other
-                        )))
+                        )));
                     }
                 },
                 StringOrVec::Vec(list) => {
@@ -691,7 +727,9 @@ D: Deserializer<'de>,
                             "right" => borders |= Borders::RIGHT,
                             "all" => borders |= Borders::ALL,
                             "none" => borders = Borders::NONE,
-                            other => return Err(de::Error::custom(format!("invalid side '{}'", other))),
+                            other => {
+                                return Err(de::Error::custom(format!("invalid side '{}'", other)));
+                            }
                         }
                     }
                     borders
@@ -699,14 +737,14 @@ D: Deserializer<'de>,
             };
 
             Ok(Some(borders))
-        },
+        }
         None => Ok(None),
     }
 }
 
 pub fn deserialize_modifier<'de, D>(deserializer: D) -> Result<Modifier, D::Error>
 where
-D: Deserializer<'de>,
+    D: Deserializer<'de>,
 {
     let input = StringOrVec::deserialize(deserializer)?;
     let mut modifier = Modifier::empty();
@@ -767,7 +805,7 @@ D: Deserializer<'de>,
 
 pub fn serialize_modifier<S>(modifier: &Modifier, serializer: S) -> Result<S::Ok, S::Error>
 where
-S: Serializer,
+    S: Serializer,
 {
     let mut mods = Vec::new();
 
@@ -790,11 +828,10 @@ S: Serializer,
     }
 }
 
-
 pub fn deserialize_string_or_char_as_double_width<'de, D, T>(deserializer: D) -> Result<T, D::Error>
 where
-D: Deserializer<'de>,
-T: From<String>,
+    D: Deserializer<'de>,
+    T: From<String>,
 {
     struct GenericVisitor<T> {
         _marker: std::marker::PhantomData<T>,
@@ -802,7 +839,7 @@ T: From<String>,
 
     impl<'de, T> Visitor<'de> for GenericVisitor<T>
     where
-    T: From<String>,
+        T: From<String>,
     {
         type Value = T;
 
@@ -812,7 +849,7 @@ T: From<String>,
 
         fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
         where
-        E: de::Error,
+            E: de::Error,
         {
             let s = if v.chars().count() == 1 {
                 let mut s = String::with_capacity(2);
@@ -827,15 +864,16 @@ T: From<String>,
 
         fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
         where
-        E: de::Error,
+            E: de::Error,
         {
             self.visit_str(&v)
         }
     }
 
-    deserializer.deserialize_string(GenericVisitor { _marker: std::marker::PhantomData })
+    deserializer.deserialize_string(GenericVisitor {
+        _marker: std::marker::PhantomData,
+    })
 }
-
 
 // ----------- Nucleo config helper
 #[derive(Debug, Clone, PartialEq)]
@@ -856,11 +894,10 @@ struct MatcherConfigHelper {
     pub prefer_prefix: Option<bool>,
 }
 
-
 impl serde::Serialize for NucleoMatcherConfig {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-    S: serde::Serializer,
+        S: serde::Serializer,
     {
         let helper = MatcherConfigHelper {
             normalize: Some(self.0.normalize),
@@ -874,7 +911,8 @@ impl serde::Serialize for NucleoMatcherConfig {
 impl<'de> Deserialize<'de> for NucleoMatcherConfig {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-    D: serde::Deserializer<'de>,    {
+        D: serde::Deserializer<'de>,
+    {
         let helper = MatcherConfigHelper::deserialize(deserializer)?;
         let mut config = nucleo::Config::DEFAULT;
 
@@ -895,7 +933,7 @@ impl<'de> Deserialize<'de> for NucleoMatcherConfig {
 impl serde::Serialize for Split {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-    S: serde::Serializer,
+        S: serde::Serializer,
     {
         match self {
             Split::Delimiter(r) => serializer.serialize_str(r.as_str()),
@@ -914,7 +952,8 @@ impl serde::Serialize for Split {
 impl<'de> Deserialize<'de> for Split {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-    D: Deserializer<'de>,    {
+        D: Deserializer<'de>,
+    {
         struct SplitVisitor;
 
         impl<'de> Visitor<'de> for SplitVisitor {
@@ -926,21 +965,22 @@ impl<'de> Deserialize<'de> for Split {
 
             fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
             where
-            E: de::Error,
+                E: de::Error,
             {
                 // Try to compile single regex
                 Regex::new(value)
-                .map(Split::Delimiter)
-                .map_err(|e| E::custom(format!("Invalid regex: {}", e)))
+                    .map(Split::Delimiter)
+                    .map_err(|e| E::custom(format!("Invalid regex: {}", e)))
             }
 
             fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
             where
-            A: serde::de::SeqAccess<'de>,
+                A: serde::de::SeqAccess<'de>,
             {
                 let mut regexes = Vec::new();
                 while let Some(s) = seq.next_element::<String>()? {
-                    let r = Regex::new(&s).map_err(|e| de::Error::custom(format!("Invalid regex: {}", e)))?;
+                    let r = Regex::new(&s)
+                        .map_err(|e| de::Error::custom(format!("Invalid regex: {}", e)))?;
                     regexes.push(r);
                 }
                 Ok(Split::Regexes(regexes))
@@ -951,11 +991,10 @@ impl<'de> Deserialize<'de> for Split {
     }
 }
 
-
 impl serde::Serialize for ColumnSetting {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-    S: serde::Serializer,
+        S: serde::Serializer,
     {
         use serde::ser::SerializeStruct;
         let mut state = serializer.serialize_struct("ColumnSetting", 3)?;
@@ -969,7 +1008,8 @@ impl serde::Serialize for ColumnSetting {
 impl<'de> Deserialize<'de> for ColumnSetting {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-    D: Deserializer<'de>,    {
+        D: Deserializer<'de>,
+    {
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
         struct ColumnStruct {
@@ -980,7 +1020,9 @@ impl<'de> Deserialize<'de> for ColumnSetting {
             name: String,
         }
 
-        fn default_true() -> bool { true }
+        fn default_true() -> bool {
+            true
+        }
 
         #[derive(Deserialize)]
         #[serde(untagged)]
@@ -1006,10 +1048,11 @@ impl<'de> Deserialize<'de> for ColumnSetting {
 
 pub fn serialize_padding<S>(padding: &Padding, serializer: S) -> Result<S::Ok, S::Error>
 where
-S: serde::Serializer,
+    S: serde::Serializer,
 {
     use serde::ser::SerializeSeq;
-    if padding.top == padding.bottom && padding.left == padding.right && padding.top == padding.left {
+    if padding.top == padding.bottom && padding.left == padding.right && padding.top == padding.left
+    {
         serializer.serialize_u16(padding.top)
     } else if padding.top == padding.bottom && padding.left == padding.right {
         let mut seq = serializer.serialize_seq(Some(2))?;
@@ -1028,7 +1071,7 @@ S: serde::Serializer,
 
 pub fn deserialize_padding<'de, D>(deserializer: D) -> Result<Padding, D::Error>
 where
-D: Deserializer<'de>,
+    D: Deserializer<'de>,
 {
     struct PaddingVisitor;
 
@@ -1041,10 +1084,11 @@ D: Deserializer<'de>,
 
         fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
         where
-        E: de::Error,
+            E: de::Error,
         {
-            let v = u16::try_from(value)
-            .map_err(|_| E::custom(format!("padding value {} is out of range for u16", value)))?;
+            let v = u16::try_from(value).map_err(|_| {
+                E::custom(format!("padding value {} is out of range for u16", value))
+            })?;
 
             Ok(Padding {
                 top: v,
@@ -1056,10 +1100,11 @@ D: Deserializer<'de>,
 
         fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
         where
-        E: de::Error,
+            E: de::Error,
         {
-            let v = u16::try_from(value)
-            .map_err(|_| E::custom(format!("padding value {} is out of range for u16", value)))?;
+            let v = u16::try_from(value).map_err(|_| {
+                E::custom(format!("padding value {} is out of range for u16", value))
+            })?;
 
             Ok(Padding {
                 top: v,
@@ -1072,11 +1117,11 @@ D: Deserializer<'de>,
         // 3. Handle Sequences (Arrays)
         fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
         where
-        A: de::SeqAccess<'de>,
+            A: de::SeqAccess<'de>,
         {
             let first: u16 = seq
-            .next_element()?
-            .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                .next_element()?
+                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
 
             let second: Option<u16> = seq.next_element()?;
             let third: Option<u16> = seq.next_element()?;
@@ -1111,8 +1156,8 @@ D: Deserializer<'de>,
 
 pub fn deserialize_option_auto<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
 where
-D: serde::Deserializer<'de>,
-T: Deserialize<'de>,
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
 {
     let opt = Option::<String>::deserialize(deserializer)?;
     match opt.as_deref() {
@@ -1122,12 +1167,10 @@ T: Deserialize<'de>,
     }
 }
 
-
-
 impl<'de> Deserialize<'de> for BorderSetting {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-    D: Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         #[derive(Deserialize)]
         struct Helper {
@@ -1141,7 +1184,11 @@ impl<'de> Deserialize<'de> for BorderSetting {
             padding: Padding,
             #[serde(default)]
             title: String,
-            #[serde(default, deserialize_with = "deserialize_modifier", serialize_with = "serialize_modifier")]
+            #[serde(
+                default,
+                deserialize_with = "deserialize_modifier",
+                serialize_with = "serialize_modifier"
+            )]
             title_modifier: Modifier,
             #[serde(default)]
             bg: Color,

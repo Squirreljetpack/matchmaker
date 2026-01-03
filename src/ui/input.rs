@@ -1,5 +1,8 @@
 use ratatui::{
-    layout::{Position, Rect}, style::Stylize, text::{Line, Span}, widgets::Paragraph
+    layout::{Position, Rect},
+    style::Stylize,
+    text::{Line, Span},
+    widgets::Paragraph,
 };
 use unicode_segmentation::UnicodeSegmentation;
 // use unicode_width::UnicodeWidthStr;
@@ -11,7 +14,7 @@ pub struct InputUI {
     pub cursor: u16, // grapheme index
     pub input: String,
     pub config: InputConfig,
-    pub prompt: Span<'static>
+    pub prompt: Span<'static>,
 }
 
 impl InputUI {
@@ -51,7 +54,6 @@ impl InputUI {
         self.input.clear();
         self.cursor = 0;
     }
-
 
     // ---------- EDITING -------------
     pub fn forward_char(&mut self) {
@@ -96,10 +98,10 @@ impl InputUI {
         let mut in_word = false;
 
         let pre: Vec<&str> = self
-        .input
-        .graphemes(true)
-        .take(self.cursor as usize)
-        .collect();
+            .input
+            .graphemes(true)
+            .take(self.cursor as usize)
+            .collect();
 
         for g in pre.iter().rev() {
             self.cursor -= 1;
@@ -155,14 +157,12 @@ impl InputUI {
     pub fn make_input(&self) -> Paragraph<'_> {
         let line = Line::from(vec![
             self.prompt.clone(),
-            Span::raw(self.input.as_str()).style(self.config.fg)
-            .add_modifier(self.config.modifier),
-            ]
-        );
+            Span::raw(self.input.as_str())
+                .style(self.config.fg)
+                .add_modifier(self.config.modifier),
+        ]);
 
-
-        let mut input = Paragraph::new(line)
-        ;
+        let mut input = Paragraph::new(line);
 
         input = input.block(self.config.border.as_block());
 

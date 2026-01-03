@@ -1,19 +1,22 @@
 pub mod injector;
-mod worker;
 pub mod query;
 pub mod variants;
+mod worker;
 
-use std::{fmt::{self, Display, Formatter}, hash::{Hash, Hasher}};
+use std::{
+    fmt::{self, Display, Formatter},
+    hash::{Hash, Hasher},
+};
 
 use arrayvec::ArrayVec;
 pub use variants::*;
 pub use worker::*;
 
+pub use nucleo;
 pub use ratatui::{
-    style::{Style, Stylize, Color, Modifier},
+    style::{Color, Modifier, Style, Stylize},
     text::{Line, Span, Text},
 };
-pub use nucleo;
 
 use crate::{MAX_SPLITS, SegmentableItem};
 
@@ -57,7 +60,6 @@ impl<T> Hash for Indexed<T> {
 }
 
 impl<T: Clone> Indexed<T> {
-
     /// Matchmaker requires a way to identify and store selected items from their references in the nucleo matcher. This method simply identifies them by their insertion index and stores the clones of the items.
     pub fn identifier(&self) -> (u32, T) {
         (self.index, self.inner.clone())

@@ -6,13 +6,9 @@ use serde::{Deserialize, Deserializer};
 impl_restricted_wrapper!(Percentage, u16, 100);
 impl Percentage {
     pub fn new(value: u16) -> Self {
-        if value <= 100 {
-            Self(value)
-        } else {
-            Self(100)
-        }
+        if value <= 100 { Self(value) } else { Self(100) }
     }
-    
+
     pub fn compute_with_clamp(&self, total: u16, max: u16) -> u16 {
         let pct_height = (total * self.inner()).div_ceil(100);
         let max_height = if max == 0 { total } else { max };
@@ -25,7 +21,6 @@ impl fmt::Display for Percentage {
         write!(f, "{}%", self.0)
     }
 }
-
 
 impl TryFrom<u16> for Percentage {
     type Error = String;
@@ -41,7 +36,7 @@ impl TryFrom<u16> for Percentage {
 impl<'de> Deserialize<'de> for Percentage {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-    D: Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         let v = u16::deserialize(deserializer)?;
         v.try_into().map_err(serde::de::Error::custom)
@@ -49,12 +44,12 @@ impl<'de> Deserialize<'de> for Percentage {
 }
 impl std::str::FromStr for Percentage {
     type Err = String;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let s = s.trim_end_matches('%'); // allow optional trailing '%'
         let v: u16 = s
-        .parse()
-        .map_err(|e: std::num::ParseIntError| format!("Invalid number: {}", e))?;
+            .parse()
+            .map_err(|e: std::num::ParseIntError| format!("Invalid number: {}", e))?;
         v.try_into()
     }
 }

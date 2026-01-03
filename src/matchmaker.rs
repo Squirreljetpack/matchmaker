@@ -1,8 +1,15 @@
-
-use std::{fmt::{self, Debug, Formatter}, process::Stdio, sync::Arc};
+use std::{
+    fmt::{self, Debug, Formatter},
+    process::Stdio,
+    sync::Arc,
+};
 
 use arrayvec::ArrayVec;
-use cli_boilerplate_automation::{_log, broc::{exec_script, spawn_script}, env_vars, prints};
+use cli_boilerplate_automation::{
+    _log,
+    broc::{exec_script, spawn_script},
+    env_vars, prints,
+};
 use easy_ext::ext;
 use log::{debug, info, warn};
 use ratatui::text::Text;
@@ -11,29 +18,22 @@ use crate::{
     MatchError, RenderFn, Result, SSS, Selection, Selector, SplitterFn,
     action::{ActionAliaser, ActionExt, ActionExtHandler, NullActionExt},
     binds::BindMap,
-    config::{
-        ExitConfig, PreviewerConfig, RenderConfig, Split, TerminalConfig, WorkerConfig
-    },
+    config::{ExitConfig, PreviewerConfig, RenderConfig, Split, TerminalConfig, WorkerConfig},
     efx,
     event::{EventLoop, RenderSender},
     message::{Event, Interrupt},
     nucleo::{
-        Indexed,
-        Segmented,
-        Worker,
-        injector::{
-            IndexedInjector,
-            Injector,
-            SegmentedInjector,
-            WorkerInjector,
-        },
-    }, preview::{
-        AppendOnly, Preview, previewer::{PreviewMessage, Previewer}
-    }, render::{
-        self, DynamicMethod, Effects, EventHandlers, InterruptHandlers, MMState
-    }, tui, ui::{Overlay, OverlayUI, UI}
+        Indexed, Segmented, Worker,
+        injector::{IndexedInjector, Injector, SegmentedInjector, WorkerInjector},
+    },
+    preview::{
+        AppendOnly, Preview,
+        previewer::{PreviewMessage, Previewer},
+    },
+    render::{self, DynamicMethod, Effects, EventHandlers, InterruptHandlers, MMState},
+    tui,
+    ui::{Overlay, OverlayUI, UI},
 };
-
 
 /// The main entrypoint of the library. To use:
 /// 1. create your worker (T -> Columns)
@@ -42,7 +42,7 @@ use crate::{
 /// 4. Register your handlers
 ///    4.5 Start and connect your previewer
 /// 5. Call mm.pick() or mm.pick_with_matcher(&mut matcher)
-pub struct Matchmaker<T: SSS, S: Selection=T> {
+pub struct Matchmaker<T: SSS, S: Selection = T> {
     pub worker: Worker<T>,
     pub render_config: RenderConfig,
     pub tui_config: TerminalConfig,
@@ -53,37 +53,44 @@ pub struct Matchmaker<T: SSS, S: Selection=T> {
     pub preview: Option<Preview>,
 }
 
-
 // ----------- MAIN -----------------------
 
 // defined for lack of a better way to expose these fns, i.e. to allow clients to request new injectors in case of worker restart
 pub struct OddEnds {
     pub formatter: Arc<RenderFn<Indexed<Segmented<String>>>>,
-    pub splitter: SplitterFn<String>
+    pub splitter: SplitterFn<String>,
 }
 
-pub type ConfigInjector = SegmentedInjector<String, IndexedInjector<Segmented<String>, WorkerInjector<Indexed<Segmented<String>>>>>;
+pub type ConfigInjector = SegmentedInjector<
+    String,
+    IndexedInjector<Segmented<String>, WorkerInjector<Indexed<Segmented<String>>>>,
+>;
 pub type ConfigMatchmaker = Matchmaker<Indexed<Segmented<String>>, Segmented<String>>;
 
 impl ConfigMatchmaker {
     /// Creates a new Matchmaker from a config::BaseConfig.
-    pub fn new_from_config(render_config: RenderConfig, tui_config: TerminalConfig, worker_config: WorkerConfig) -> (Self, ConfigInjector, OddEnds) {
+    pub fn new_from_config(
+        render_config: RenderConfig,
+        tui_config: TerminalConfig,
+        worker_config: WorkerConfig,
+    ) -> (Self, ConfigInjector, OddEnds) {
         let cc = worker_config.columns;
 
         let worker: Worker<Indexed<Segmented<String>>> = match cc.split {
             Split::Delimiter(_) | Split::Regexes(_) => {
                 let names: Vec<Arc<str>> = if cc.names.is_empty() {
                     (0..cc.max_cols())
-                    .map(|n| Arc::from(n.to_string()))
-                    .collect()
+                        .map(|n| Arc::from(n.to_string()))
+                        .collect()
                 } else {
-                    cc.names.iter().map(|s| Arc::from(s.name.as_str())).collect()
+                    cc.names
+                        .iter()
+                        .map(|s| Arc::from(s.name.as_str()))
+                        .collect()
                 };
                 Worker::new_indexable(names)
-            },
-            Split::None => {
-                Worker::new_indexable([""])
             }
+            Split::None => Worker::new_indexable([""]),
         };
 
         let injector = worker.injector();
@@ -122,14 +129,16 @@ impl ConfigMatchmaker {
             }
             Split::None => Arc::new(|s| ArrayVec::from_iter([(0, s.len())])),
         };
-        let injector= IndexedInjector::new(injector, 0);
-        let injector= SegmentedInjector::new(injector, splitter.clone());
+        let injector = IndexedInjector::new(injector, 0);
+        let injector = SegmentedInjector::new(injector, splitter.clone());
 
         let selection_set = Selector::new(Indexed::identifier);
 
         let event_handlers = EventHandlers::new();
         let interrupt_handlers = InterruptHandlers::new();
-        let formatter = Arc::new(worker.make_format_fn::<true>(|item| std::borrow::Cow::Borrowed(&item.inner.inner)));
+        let formatter = Arc::new(
+            worker.make_format_fn::<true>(|item| std::borrow::Cow::Borrowed(&item.inner.inner)),
+        );
 
         let new = Matchmaker {
             worker,
@@ -139,21 +148,19 @@ impl ConfigMatchmaker {
             selector: selection_set,
             event_handlers,
             interrupt_handlers,
-            preview: None
+            preview: None,
         };
 
         let misc = OddEnds {
             formatter,
-            splitter
+            splitter,
         };
 
         (new, injector, misc)
     }
 }
 
-
-impl<T: SSS, S: Selection> Matchmaker<T, S>
-{
+impl<T: SSS, S: Selection> Matchmaker<T, S> {
     pub fn new(worker: Worker<T>, selector: Selector<T, S>) -> Self {
         Matchmaker {
             worker,
@@ -204,8 +211,8 @@ impl<T: SSS, S: Selection> Matchmaker<T, S>
     /// Register a handler to listen on [`Event`]s
     pub fn register_event_handler<F, I>(&mut self, events: I, handler: F)
     where
-    F: Fn(&mut MMState<'_, T, S>, &Event) -> Effects + SSS,
-    I: IntoIterator<Item = Event>,
+        F: Fn(&mut MMState<'_, T, S>, &Event) -> Effects + SSS,
+        I: IntoIterator<Item = Event>,
     {
         let boxed = Box::new(handler);
         self.register_boxed_event_handler(events, boxed);
@@ -215,21 +222,16 @@ impl<T: SSS, S: Selection> Matchmaker<T, S>
         &mut self,
         events: I,
         handler: DynamicMethod<T, S, Event>,
-    )
-    where
-    I: IntoIterator<Item = Event>,
+    ) where
+        I: IntoIterator<Item = Event>,
     {
         let events_vec: Vec<_> = events.into_iter().collect();
         self.event_handlers.set(events_vec, handler);
     }
     /// Register a handler to listen on [`Interrupt`]s
-    pub fn register_interrupt_handler<F>(
-        &mut self,
-        interrupt: Interrupt,
-        handler: F,
-    )
+    pub fn register_interrupt_handler<F>(&mut self, interrupt: Interrupt, handler: F)
     where
-    F: Fn(&mut MMState<'_, T, S>, &Interrupt) -> Effects + SSS,
+        F: Fn(&mut MMState<'_, T, S>, &Interrupt) -> Effects + SSS,
     {
         let boxed = Box::new(handler);
         self.register_boxed_interrupt_handler(interrupt, boxed);
@@ -244,11 +246,21 @@ impl<T: SSS, S: Selection> Matchmaker<T, S>
     }
 
     /// The main method of the Matchmaker. It starts listening for events and renders the TUI with ratatui. It successfully returns with all the selected items selected when the Accept action is received.
-    pub async fn pick<A: ActionExt>(mut self, builder: PickOptions<'_, T, S, A>) -> Result<Vec<S>, MatchError> {
-        let PickOptions { previewer, ext_handler, ext_aliaser, .. } = builder;
+    pub async fn pick<A: ActionExt>(
+        mut self,
+        builder: PickOptions<'_, T, S, A>,
+    ) -> Result<Vec<S>, MatchError> {
+        let PickOptions {
+            previewer,
+            ext_handler,
+            ext_aliaser,
+            ..
+        } = builder;
 
         if self.exit_config.select_1 && self.worker.counts().0 == 1 {
-            return Ok(self.selector.identify_to_vec([self.worker.get_nth(0).unwrap()]));
+            return Ok(self
+                .selector
+                .identify_to_vec([self.worker.get_nth(0).unwrap()]));
         }
 
         let mut event_loop = if let Some(e) = builder.event_loop {
@@ -270,12 +282,15 @@ impl<T: SSS, S: Selection> Matchmaker<T, S>
             });
         }
 
-        let (render_tx, render_rx) = builder.channel.unwrap_or_else(tokio::sync::mpsc::unbounded_channel);
-        event_loop
-        .add_tx(render_tx.clone());
+        let (render_tx, render_rx) = builder
+            .channel
+            .unwrap_or_else(tokio::sync::mpsc::unbounded_channel);
+        event_loop.add_tx(render_tx.clone());
 
-        let mut tui = tui::Tui::new(self.tui_config).map_err(|e| MatchError::TUIError(e.to_string()))?;
-        tui.enter().map_err(|e| MatchError::TUIError(e.to_string()))?;
+        let mut tui =
+            tui::Tui::new(self.tui_config).map_err(|e| MatchError::TUIError(e.to_string()))?;
+        tui.enter()
+            .map_err(|e| MatchError::TUIError(e.to_string()))?;
 
         // important to start after tui
         let event_controller = event_loop.get_controller();
@@ -287,34 +302,48 @@ impl<T: SSS, S: Selection> Matchmaker<T, S>
         let overlay_ui = if builder.overlays.is_empty() {
             None
         } else {
-            Some(
-                OverlayUI::new(builder.overlays.into_boxed_slice(), self.render_config.overlay.take().unwrap_or_default())
-            )
+            Some(OverlayUI::new(
+                builder.overlays.into_boxed_slice(),
+                self.render_config.overlay.take().unwrap_or_default(),
+            ))
         };
 
-        // initial redraw to clear artifacts, 
+        // initial redraw to clear artifacts,
         tui.redraw();
 
         if let Some(matcher) = builder.matcher {
-            let (ui, picker, preview) = UI::new(self.render_config, matcher, self.worker, self.selector, self.preview, &mut tui);
+            let (ui, picker, preview) = UI::new(
+                self.render_config,
+                matcher,
+                self.worker,
+                self.selector,
+                self.preview,
+                &mut tui,
+            );
             render::render_loop(
                 ui,
                 picker,
                 preview,
                 tui,
-
                 overlay_ui,
                 self.exit_config,
-
                 render_rx,
                 event_controller,
                 (self.event_handlers, self.interrupt_handlers),
                 ext_handler,
                 ext_aliaser,
-            ).await
+            )
+            .await
         } else {
-            let mut matcher=  nucleo::Matcher::new(nucleo::Config::DEFAULT);
-            let (ui, picker, preview) = UI::new(self.render_config, &mut matcher, self.worker, self.selector, self.preview, &mut tui);
+            let mut matcher = nucleo::Matcher::new(nucleo::Config::DEFAULT);
+            let (ui, picker, preview) = UI::new(
+                self.render_config,
+                &mut matcher,
+                self.worker,
+                self.selector,
+                self.preview,
+                &mut tui,
+            );
             render::render_loop(
                 ui,
                 picker,
@@ -327,7 +356,8 @@ impl<T: SSS, S: Selection> Matchmaker<T, S>
                 (self.event_handlers, self.interrupt_handlers),
                 ext_handler,
                 ext_aliaser,
-            ).await
+            )
+            .await
         }
     }
 
@@ -337,33 +367,28 @@ impl<T: SSS, S: Selection> Matchmaker<T, S>
 }
 
 #[ext(MatchResultExt)]
-impl <T> Result<T, MatchError> {
+impl<T> Result<T, MatchError> {
     /// Return the first element
     pub fn first<S>(self) -> Result<S, MatchError>
     where
-    T: IntoIterator<Item = S>
+        T: IntoIterator<Item = S>,
     {
         match self {
-            Ok(v) =>
-            v
-            .into_iter()
-            .next()
-            .ok_or(MatchError::NoMatch),
-            Err(e)  => Err(e)
+            Ok(v) => v.into_iter().next().ok_or(MatchError::NoMatch),
+            Err(e) => Err(e),
         }
     }
 
     /// Handle [`MatchError::Abort`] using [`std::process::exit`]
     pub fn abort(self) -> Result<T, MatchError> {
         match self {
-            Err(MatchError::Abort(x))  => std::process::exit(x),
-            _ => self
+            Err(MatchError::Abort(x)) => std::process::exit(x),
+            _ => self,
         }
     }
 }
 
 // --------- BUILDER -------------
-
 
 /// Used to configure [`Matchmaker::pick`] with additional options.
 pub struct PickOptions<'a, T: SSS, S: Selection, A: ActionExt = NullActionExt> {
@@ -376,7 +401,7 @@ pub struct PickOptions<'a, T: SSS, S: Selection, A: ActionExt = NullActionExt> {
     ext_handler: Option<ActionExtHandler<T, S, A>>,
     ext_aliaser: Option<ActionAliaser<T, S, A>>,
 
-    overlays: Vec<Box<dyn Overlay<A=A>>>,
+    overlays: Vec<Box<dyn Overlay<A = A>>>,
     previewer: Option<Previewer>,
 
     /// # Experimental
@@ -384,8 +409,10 @@ pub struct PickOptions<'a, T: SSS, S: Selection, A: ActionExt = NullActionExt> {
     /// Initializing code, i.e. to setup context in the running thread. Since render_loop runs on the same thread this isn't actually necessary
     /// but it seems a good idea to provide a standard way.
     // initializer: Option<Box<dyn FnOnce()>>,
-
-    pub channel: Option<(RenderSender<A>, tokio::sync::mpsc::UnboundedReceiver<crate::message::RenderCommand<A>>)>
+    pub channel: Option<(
+        RenderSender<A>,
+        tokio::sync::mpsc::UnboundedReceiver<crate::message::RenderCommand<A>>,
+    )>,
 }
 
 // todo: support initializing render loop from (tx, event_loop, elcfg, nothing)
@@ -437,31 +464,25 @@ impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
         self
     }
 
-    pub fn ext_handler(
-        mut self,
-        handler: ActionExtHandler<T, S, A>,
-    ) -> Self {
+    pub fn ext_handler(mut self, handler: ActionExtHandler<T, S, A>) -> Self {
         self.ext_handler = Some(handler);
         self
     }
 
-    pub fn ext_aliaser(
-        mut self,
-        aliaser: ActionAliaser<T, S, A>,
-    ) -> Self {
+    pub fn ext_aliaser(mut self, aliaser: ActionAliaser<T, S, A>) -> Self {
         self.ext_aliaser = Some(aliaser);
         self
     }
 
     pub fn overlay<O>(mut self, overlay: O) -> Self
     where
-    O: Overlay<A = A> + 'static,
+        O: Overlay<A = A> + 'static,
     {
         self.overlays.push(Box::new(overlay));
         self
     }
 
-    pub fn get_tx(&mut self) -> RenderSender<A>{
+    pub fn get_tx(&mut self) -> RenderSender<A> {
         if let Some((s, _)) = &self.channel {
             s.clone()
         } else {
@@ -471,7 +492,6 @@ impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
             ret
         }
     }
-
 
     // pub fn signal_handler(
     //     mut self,
@@ -497,36 +517,37 @@ impl<'a, T: SSS, S: Selection, A: ActionExt> Default for PickOptions<'a, T, S, A
     }
 }
 
-
 // ----------- ATTACHMENTS ------------------
 
-impl<T: SSS, S: Selection> Matchmaker<T, S>
-{
-    pub fn register_print_handler(&mut self, print_handle: AppendOnly<String>, formatter: Arc<RenderFn<T>>) {
-        self.register_interrupt_handler(
-            Interrupt::Print("".into()),
-            move |state, i| {
-                if let Interrupt::Print(template) = i
-                && let Some(t) = state.current_raw() {
-                    let s = formatter(t, template);
-                    if atty::is(atty::Stream::Stdout) {
-                        print_handle.push(s);
-                    } else {
-                        prints!(s);
-                    }
-                };
-                efx![]
-            },
-        );
+impl<T: SSS, S: Selection> Matchmaker<T, S> {
+    pub fn register_print_handler(
+        &mut self,
+        print_handle: AppendOnly<String>,
+        formatter: Arc<RenderFn<T>>,
+    ) {
+        self.register_interrupt_handler(Interrupt::Print("".into()), move |state, i| {
+            if let Interrupt::Print(template) = i
+                && let Some(t) = state.current_raw()
+            {
+                let s = formatter(t, template);
+                if atty::is(atty::Stream::Stdout) {
+                    print_handle.push(s);
+                } else {
+                    prints!(s);
+                }
+            };
+            efx![]
+        });
     }
 
     pub fn register_execute_handler(&mut self, formatter: Arc<RenderFn<T>>) {
         let preview_formatter = formatter.clone();
 
         self.register_interrupt_handler(Interrupt::Execute("".into()), move |state, interrupt| {
-            if let Interrupt::Execute(template) = interrupt &&
-            !template.is_empty() &&
-            let Some(t) = state.current_raw() {
+            if let Interrupt::Execute(template) = interrupt
+                && !template.is_empty()
+                && let Some(t) = state.current_raw()
+            {
                 let cmd = formatter(t, template);
                 let mut vars = state.make_env_vars();
                 let preview_cmd = preview_formatter(t, state.preview_payload());
@@ -535,11 +556,13 @@ impl<T: SSS, S: Selection> Matchmaker<T, S>
                 );
                 vars.extend(extra);
                 let tty = maybe_tty();
-                if let Some(mut child) = spawn_script(&cmd, vars, tty, Stdio::inherit(), Stdio::inherit()) {
+                if let Some(mut child) =
+                    spawn_script(&cmd, vars, tty, Stdio::inherit(), Stdio::inherit())
+                {
                     match child.wait() {
                         Ok(i) => {
                             info!("Command [{cmd}] exited with {i}")
-                        },
+                        }
                         Err(e) => {
                             info!("Failed to wait on command [{cmd}]: {e}")
                         }
@@ -554,9 +577,10 @@ impl<T: SSS, S: Selection> Matchmaker<T, S>
         let preview_formatter = formatter.clone();
 
         self.register_interrupt_handler(Interrupt::Become("".into()), move |state, interrupt| {
-            if let Interrupt::Become(template) = interrupt &&
-            !template.is_empty() &&
-            let Some(t) = state.current_raw() {
+            if let Interrupt::Become(template) = interrupt
+                && !template.is_empty()
+                && let Some(t) = state.current_raw()
+            {
                 let cmd = formatter(t, template);
                 let mut vars = state.make_env_vars();
 
@@ -577,7 +601,7 @@ pub fn make_previewer<T: SSS, S: Selection>(
     mm: &mut Matchmaker<T, S>,
     previewer_config: PreviewerConfig, // help_str is provided seperately so help_colors is ignored
     formatter: Arc<RenderFn<T>>,
-    help_str: Text<'static>
+    help_str: Text<'static>,
 ) -> Previewer {
     // initialize previewer
     let (previewer, tx) = Previewer::new(previewer_config);
@@ -636,7 +660,7 @@ pub fn make_previewer<T: SSS, S: Selection>(
 
 fn maybe_tty() -> Stdio {
     if let Ok(mut tty) = std::fs::File::open("/dev/tty") {
-        let _ = std::io::Write::flush(&mut tty);  // does nothing but seems logical
+        let _ = std::io::Write::flush(&mut tty); // does nothing but seems logical
         Stdio::from(tty)
     } else {
         log::error!("Failed to open /dev/tty");
@@ -649,13 +673,13 @@ fn maybe_tty() -> Stdio {
 impl<T: SSS + Debug, S: Selection + Debug> Debug for Matchmaker<T, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Matchmaker")
-        // omit `worker`
-        .field("render_config", &self.render_config)
-        .field("tui_config", &self.tui_config)
-        .field("selection_set", &self.selector)
-        .field("event_handlers", &self.event_handlers)
-        .field("interrupt_handlers", &self.interrupt_handlers)
-        .field("previewer", &self.preview)
-        .finish()
+            // omit `worker`
+            .field("render_config", &self.render_config)
+            .field("tui_config", &self.tui_config)
+            .field("selection_set", &self.selector)
+            .field("event_handlers", &self.event_handlers)
+            .field("interrupt_handlers", &self.interrupt_handlers)
+            .field("previewer", &self.preview)
+            .finish()
     }
 }

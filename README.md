@@ -25,7 +25,7 @@ Pass it some items:
 find . | mm
 ```
 
->[!NOTE]
+> [!NOTE]
 > The default input and preview commands rely on fd, bat and eza. For an optimal experience, install them or update your configuration.
 
 ## Configuration
@@ -37,11 +37,12 @@ matchmaker --dump-config
 ```
 
 The default locations are in order:
+
 - `~/.config/matchmaker/config.toml` (If the folder exists already).
 - `{PLATFORM_SPECIFIC_CONFIG_DIRECTORY}/matchmaker` (Generally the same as above when on linux)
 
-
 ### Keybindings
+
 All actions must be defined in your `config.toml`.
 
 The list of currently supported actions can be found [here](./src/action.rs).
@@ -63,7 +64,7 @@ cargo add matchmaker
 Here is how to use `Matchmaker` to select from a list of strings.
 
 ```rust
-use matchmaker::nucleo::{Worker, Indexed};
+use matchmaker::nucleo::{Indexed, Worker};
 use matchmaker::{MatchError, Matchmaker, Result, Selector};
 
 #[tokio::main]
@@ -79,16 +80,14 @@ async fn main() -> Result<()> {
         Ok(v) => {
             println!("{}", v[0]);
         }
-        Err(err) => {
-            match err {
-                MatchError::Abort(1) => {
-                    eprintln!("cancelled");
-                }
-                _ => {
-                    eprintln!("Error: {err}");
-                }
+        Err(err) => match err {
+            MatchError::Abort(1) => {
+                eprintln!("cancelled");
             }
-        }
+            _ => {
+                eprintln!("Error: {err}");
+            }
+        },
     }
 
     Ok(())
@@ -111,13 +110,12 @@ Consequently, action handling can in some cases be customized with minimal chang
 
 For more information, check out the [examples](./examples/) and [Architecture.md](./ARCHITECTURE.md)
 
-
 # See also
 
-* [junegunn/fzf](https://github.com/junegunn/fzf)
-* [helix-editor/nucleo](https://github.com/helix-editor/nucleo)
-* [skim-rs/skim](https://github.com/skim-rs/skim)
-* [autobib/nucleo-picker](https://github.com/autobib/nucleo-picker)
-* [alexpasmantier/television](https://github.com/alexpasmantier/television)
-* [helix-editor/helix](https://github.com/helix-editor/helix)
-* [Canop/crokey](https://github.com/Canop/crokey)
+- [junegunn/fzf](https://github.com/junegunn/fzf)
+- [helix-editor/nucleo](https://github.com/helix-editor/nucleo)
+- [skim-rs/skim](https://github.com/skim-rs/skim)
+- [autobib/nucleo-picker](https://github.com/autobib/nucleo-picker)
+- [alexpasmantier/television](https://github.com/alexpasmantier/television)
+- [helix-editor/helix](https://github.com/helix-editor/helix)
+- [Canop/crokey](https://github.com/Canop/crokey)

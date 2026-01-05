@@ -9,7 +9,7 @@ impl Percentage {
         if value <= 100 { Self(value) } else { Self(100) }
     }
 
-    pub fn compute_with_clamp(&self, total: u16, max: u16) -> u16 {
+    pub fn compute_with_max(&self, total: u16, max: u16) -> u16 {
         let pct_height = (total * self.inner()).div_ceil(100);
         let max_height = if max == 0 { total } else { max };
         pct_height.min(max_height)

@@ -15,6 +15,8 @@ use ratatui::Frame;
 use ratatui::layout::Rect;
 use tokio::sync::mpsc;
 
+#[cfg(feature = "bracketed-paste")]
+use crate::PasteHandler;
 use crate::action::{Action, ActionAliaser, ActionExt, ActionExtHandler};
 use crate::config::{CursorSetting, ExitConfig};
 use crate::message::{Event, Interrupt, RenderCommand};
@@ -58,7 +60,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
     dynamic_handlers: DynamicHandlers<T, S>,
     ext_handler: Option<ActionExtHandler<T, S, A>>,
     ext_aliaser: Option<ActionAliaser<T, S, A>>,
-    // signal_handler: Option<(&'static std::sync::atomic::AtomicUsize, SignalHandler<T, S>)>,
+    #[cfg(feature = "bracketed-paste")] paste_handler: Option<PasteHandler<T, S>>,
 ) -> Result<Vec<S>, MatchError> {
     let mut buffer = Vec::with_capacity(256);
 
@@ -88,31 +90,49 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         for event in buffer.drain(..) {
             let mut interrupt = Interrupt::None;
 
-            let PickerUI {
-                input,
-                results,
-                worker,
-                selections,
-                header,
-                footer,
-                ..
-            } = &mut picker_ui;
-
             if !matches!(event, RenderCommand::Tick) {
                 info!("Recieved {event:?}");
             }
 
             match event {
                 RenderCommand::Action(Action::Input(c)) => {
+                    // btw, why can't we do let input = picker_ui.input without running into issues?
                     if let Some(x) = overlay_ui.as_mut()
                         && x.handle_input(c)
                     {
                         continue;
                     }
-                    input.input.insert(input.cursor as usize, c);
-                    input.cursor += 1;
+                    picker_ui
+                        .input
+                        .input
+                        .insert(picker_ui.input.cursor as usize, c);
+                    picker_ui.input.cursor += 1;
+                }
+                #[cfg(feature = "bracketed-paste")]
+                RenderCommand::Paste(content) => {
+                    if let Some(handler) = paste_handler {
+                        let content = {
+                            let dispatcher = state.dispatcher(&ui, &picker_ui, preview_ui.as_ref());
+                            handler(content, &dispatcher)
+                        };
+                        if !content.is_empty() {
+                            use unicode_segmentation::UnicodeSegmentation;
+
+                            use crate::utils::text::grapheme_index_to_byte_index;
+
+                            let byte_idx = grapheme_index_to_byte_index(
+                                &picker_ui.input.input,
+                                picker_ui.input.cursor,
+                            );
+
+                            picker_ui.input.input.insert_str(byte_idx, &content);
+                            picker_ui.input.cursor += content.graphemes(true).count() as u16;
+                        }
+                    }
                 }
                 RenderCommand::Resize(area) => {
+                    picker_ui.footer.update_width(area.width);
+                    picker_ui.header.update_width(area.width);
                     tui.resize(area);
                     ui.area = area;
                 }
@@ -138,6 +158,16 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     {
                         continue;
                     }
+                    let PickerUI {
+                        input,
+                        results,
+                        worker,
+                        selections,
+                        header,
+                        footer,
+                        ..
+                    } = &mut picker_ui;
+                    // note: its possible to give dispatcher mutable ref if we don't move out like this, but effects api more controlled anyways
                     match action {
                         Action::Select => {
                             if let Some(item) = worker.get_nth(results.index()) {
@@ -332,9 +362,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         }
                         Action::Custom(e) => {
                             if let Some(handler) = ext_handler {
-                                let mut dispatcher =
+                                let dispatcher =
                                     state.dispatcher(&ui, &picker_ui, preview_ui.as_ref());
-                                let effects = handler(e, &mut dispatcher);
+                                let effects = handler(e, &dispatcher);
                                 state.apply_effects(
                                     effects,
                                     &mut ui,
@@ -396,7 +426,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         // resume tui
         if did_exit {
             tui.return_execute()
-                .map_err(|e| MatchError::TUIError(e.to_string()))?
+                .map_err(|e| MatchError::TUIError(e.to_string()))?;
+            tui.redraw();
         }
 
         let mut overlay_ui_ref = overlay_ui.as_mut();
@@ -464,7 +495,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             .map_err(|e| MatchError::TUIError(e.to_string()))?;
 
         // useful to clear artifacts
-        if did_resize && tui.config.redraw_on_resize {
+        if did_resize && tui.config.redraw_on_resize && !did_exit {
             tui.redraw();
         }
         buffer.clear();
@@ -504,12 +535,14 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         // =================================
 
         if did_pause {
+            log::debug!("Waiting for ack response to pause");
             if controller_tx.send(Event::Resume).is_err() {
                 break;
             };
             // due to control flow, this does nothing, but is anyhow a useful safeguard to guarantee the pause
             while let Some(msg) = render_rx.recv().await {
                 if matches!(msg, RenderCommand::Ack) {
+                    log::debug!("Recieved ack response to pause");
                     break;
                 }
             }

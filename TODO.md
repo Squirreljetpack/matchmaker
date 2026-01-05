@@ -22,7 +22,7 @@
 - benchmarks (what kinds of speed matter?)
 - crossterm cannot read cursor info when piped, maybe we can be smarter about the minimum height by comparing with terminal size and rows moved up. Also, may need to clear artifacts.
 - Add support for nucleo::Pattern in the matcher config
-
+- Adaptable percentage (higher on smaller)
 ### Low priority
 
 - a scroll action could dispatch between preview and results
@@ -34,3 +34,5 @@
 - (automatic) horizontal scrolling of results
 - Should payloads be wrapped by formatstring
 - interrupts may want the payload seperate from the enum
+
+

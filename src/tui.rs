@@ -42,7 +42,7 @@ where
         let area = if let Some(ref layout) = config.layout {
             let request = layout
                 .percentage
-                .compute_with_clamp(height, layout.max)
+                .compute_with_max(height, layout.max)
                 .min(height);
 
             let cursor_y = Self::get_cursor_y(config.sleep_ms).unwrap_or_else(|e| {
@@ -73,7 +73,12 @@ where
                 error!("Failed to allocate minimum height, falling back to fullscreen");
                 Rect::new(0, 0, width, height)
             } else {
-                let area = Rect::new(0, cursor_y, width, available_height.min(request));
+                let area = Rect::new(
+                    0,
+                    cursor_y,
+                    width,
+                    available_height.min(request).max(layout.min),
+                );
 
                 // options.viewport = Viewport::Inline(available_height.min(request));
                 options.viewport = Viewport::Fixed(area);
@@ -97,7 +102,10 @@ where
     pub fn enter(&mut self) -> Result<()> {
         let fullscreen = self.is_fullscreen();
         let backend = self.terminal.backend_mut();
+        crossterm::terminal::enable_raw_mode()?; // duplicate but crossterm checks this
         execute!(backend, EnableMouseCapture)?;
+        #[cfg(feature = "bracketed-paste")]
+        execute!(backend, crossterm::event::EnableBracketedPaste)?;
 
         if fullscreen {
             self.enter_alternate()?;
@@ -137,8 +145,8 @@ where
             // altho we cannot resize the viewport, this is the best we can do
             self.enter_alternate()._elog();
         }
-
         sleep(self.config.sleep_ms);
+        log::debug!("During return, slept {}", self.config.sleep_ms.as_millis());
 
         execute!(
             self.terminal.backend_mut(),

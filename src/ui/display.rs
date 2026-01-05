@@ -1,6 +1,7 @@
 #![allow(unused)]
 use log::debug;
 use ratatui::{
+    layout::Rect,
     style::{Style, Stylize},
     text::Text,
     widgets::{Paragraph, Wrap},
@@ -8,12 +9,16 @@ use ratatui::{
 
 use crate::{
     config::DisplayConfig,
-    utils::{serde::StringOrVec, text::left_pad},
+    utils::{
+        serde::StringOrVec,
+        text::{left_pad, wrapped_height},
+    },
 };
 
 #[derive(Debug, Clone)]
 pub struct DisplayUI {
     height: u16,
+    width: u16,
     text: Text<'static>,
     pub show: bool,
     pub config: DisplayConfig,
@@ -30,10 +35,20 @@ impl DisplayUI {
 
         Self {
             height,
+            width: 0,
             show: config.content.is_some(),
             text,
             config,
         }
+    }
+
+    // not update_dimensions to remind that we only want to call this on tui resize, not layout resize
+    pub fn update_width(&mut self, width: u16) {
+        let border = self.config.border.width();
+        self.width = width.saturating_sub(border);
+        if self.config.wrap {
+            self.height = wrapped_height(&self.text, self.width)
+        };
     }
 
     pub fn height(&self) -> u16 {
@@ -46,10 +61,14 @@ impl DisplayUI {
         height
     }
 
-    /// Set text and visibility.
+    /// Set text and visibility. Compute wrapped height.
     pub fn set(&mut self, text: impl Into<Text<'static>>) {
         let text = text.into();
-        self.height = text.lines.len() as u16;
+        self.height = if self.config.wrap {
+            wrapped_height(&text, self.width)
+        } else {
+            text.lines.len() as u16
+        };
         self.text = text;
         self.show = true;
     }

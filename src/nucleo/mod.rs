@@ -45,20 +45,6 @@ pub struct Indexed<T> {
     pub inner: T,
 }
 
-impl<T> PartialEq for Indexed<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.index == other.index
-    }
-}
-
-impl<T> Eq for Indexed<T> {}
-
-impl<T> Hash for Indexed<T> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.index.hash(state)
-    }
-}
-
 impl<T: Clone> Indexed<T> {
     /// Matchmaker requires a way to identify and store selected items from their references in the nucleo matcher. This method simply identifies them by their insertion index and stores the clones of the items.
     pub fn identifier(&self) -> (u32, T) {
@@ -82,5 +68,19 @@ impl<T: Display + SegmentableItem> Display for Segmented<T> {
 impl<T: Display> Display for Indexed<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.inner)
+    }
+}
+
+impl<T> PartialEq for Indexed<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.index == other.index
+    }
+}
+
+impl<T> Eq for Indexed<T> {}
+
+impl<T> Hash for Indexed<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.index.hash(state)
     }
 }

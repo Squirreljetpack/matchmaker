@@ -46,9 +46,9 @@ impl ResultsUI {
     }
     // as given by ratatui area
     pub fn update_dimensions(&mut self, area: &Rect) {
-        let border = self.config.border.height();
-        self.width = area.width.saturating_sub(border);
-        self.height = area.height.saturating_sub(border);
+        let [bw, bh] = [self.config.border.height(), self.config.border.width()];
+        self.width = area.width.saturating_sub(bw);
+        self.height = area.height.saturating_sub(bh);
     }
 
     // ------ config -------

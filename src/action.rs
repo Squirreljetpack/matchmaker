@@ -130,7 +130,7 @@ impl std::str::FromStr for NullActionExt {
 
 pub trait ActionExt: Debug + Clone + FromStr + Display + PartialEq + SSS {}
 
-pub type ActionExtHandler<T, S, A> = fn(A, &mut MMState<'_, T, S>) -> Effects;
+pub type ActionExtHandler<T, S, A> = fn(A, &MMState<'_, T, S>) -> Effects;
 pub type ActionAliaser<T, S, A> = fn(Action<A>, &MMState<'_, T, S>) -> Actions<A>;
 pub use arrayvec::ArrayVec;
 /// # Example
@@ -409,3 +409,22 @@ impl_display_and_from_str_enum!(
 
 impl_transparent_wrapper!(Exit, i32, 1);
 impl_transparent_wrapper!(Count, u16, 1; derive(Copy));
+
+// --------------------------------------
+impl<A: ActionExt> IntoIterator for Actions<A> {
+    type Item = Action<A>;
+    type IntoIter = <ArrayVec<Action<A>, MAX_ACTIONS> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'a, A: ActionExt> IntoIterator for &'a Actions<A> {
+    type Item = &'a Action<A>;
+    type IntoIter = <&'a ArrayVec<Action<A>, MAX_ACTIONS> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}

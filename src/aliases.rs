@@ -3,14 +3,22 @@ use std::ops::{Index, Range};
 use arrayvec::ArrayVec;
 
 /// Thread safe (items and fns)
-/// Sync and Send is required by Nucleo
+/// These traits are required by Nucleo since it works in a different thread
 pub trait SSS: Send + Sync + 'static {}
 impl<T: Send + Sync + 'static> SSS for T {}
 
-// Send is required just for cycle_all_bg
-// todo: lowpri: get rid of this
+#[cfg(feature = "parallelism")]
 pub trait Selection: Send + 'static {}
+
+#[cfg(not(feature = "parallelism"))]
+pub trait Selection {}
+
+#[cfg(feature = "parallelism")]
 impl<T: Send + 'static> Selection for T {}
+
+#[cfg(not(feature = "parallelism"))]
+impl<T> Selection for T {}
+
 pub type Identifier<T, S> = fn(&T) -> (u32, S);
 
 pub trait SegmentableItem: SSS + Index<Range<usize>, Output = str> {}

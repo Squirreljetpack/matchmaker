@@ -22,7 +22,7 @@ pub struct State<S: Selection> {
     pub(crate) preview_set: Option<String>,
     pub iterations: u32,
     pub preview_show: bool,
-    pub layout: [Rect; 4],
+    pub layout: [Rect; 4], //preview, input, status, results
     pub overlay_index: Option<usize>,
 
     pub(crate) matcher_running: bool,
@@ -184,11 +184,11 @@ impl<S: Selection> State<S> {
         self.insert(Event::PreviewSet);
     }
 
-    pub(crate) fn update_layout(&mut self, context: [Rect; 4]) -> bool {
-        let changed = self.layout != context;
+    pub(crate) fn update_layout(&mut self, new_layout: [Rect; 4]) -> bool {
+        let changed = self.layout != new_layout;
         if changed {
             self.insert(Event::Resize);
-            self.layout = context;
+            self.layout = new_layout;
         }
         changed
     }

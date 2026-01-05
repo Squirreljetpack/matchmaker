@@ -59,6 +59,22 @@ pub fn grapheme_index_to_byte_index(input: &str, grapheme_index: u16) -> usize {
     *offsets.get(grapheme_index as usize).unwrap_or(&input.len())
 }
 
+pub fn wrapped_height(text: &Text<'_>, width: u16) -> u16 {
+    if width == 0 {
+        return text.lines.len() as u16;
+    }
+
+    let width = width as usize;
+
+    text.lines
+        .iter()
+        .map(|line| {
+            let w = line.width();
+            if w == 0 { 1 } else { w.div_ceil(width) as u16 }
+        })
+        .sum()
+}
+
 pub fn substitute_escaped(input: &str, map: &[(char, &str)]) -> String {
     let mut out = String::new();
     let mut chars = input.chars().peekable();

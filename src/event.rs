@@ -1,5 +1,5 @@
 use crate::Result;
-use crate::action::{Action, ActionExt, Actions, Count};
+use crate::action::{Action, ActionExt, Count};
 use crate::binds::BindMap;
 use crate::message::{Event, RenderCommand};
 use anyhow::bail;
@@ -121,6 +121,7 @@ impl<A: ActionExt> EventLoop<A> {
             while self.paused {
                 if let Some(event) = self.controller_rx.recv().await {
                     if matches!(event, Event::Resume) {
+                        log::debug!("Resumed from pause");
                         self.paused = false;
                         self.send(RenderCommand::Ack);
                         self.event_stream = Some(EventStream::new());
@@ -150,80 +151,98 @@ impl<A: ActionExt> EventLoop<A> {
             };
 
             tokio::select! {
-                _ = interval.tick() => {
-                    self.send(RenderCommand::Tick)
-                }
-
-                // In case ctrl-c manifests as a signal instead of a key
-                _ = tokio::signal::ctrl_c() => {
-                    if let Some(actions) = self.binds.get(&key!(ctrl-c).into()) {
-                        self.send_actions(actions);
-                    } else {
-                        self.send(RenderCommand::quit());
-                        info!("Received ctrl-c");
+                    _ = interval.tick() => {
+                        self.send(RenderCommand::Tick)
                     }
-                }
 
-                Some(event) = self.controller_rx.recv() => {
-                    self.handle_event(event);
-                }
+                    // In case ctrl-c manifests as a signal instead of a key
+                    _ = tokio::signal::ctrl_c() => {
+                        if let Some(actions) = self.binds.get(&key!(ctrl-c).into()) {
+                            self.send_actions(actions);
+                        } else {
+                            self.send(RenderCommand::quit());
+                            info!("Received ctrl-c");
+                        }
+                    }
 
-                // Input ready
-                maybe_event = event => {
-                    match maybe_event {
-                        Some(Ok(event)) => {
-                            if !matches!(
-                                event,
-                                CrosstermEvent::Mouse(MouseEvent {
-                                    kind: crossterm::event::MouseEventKind::Moved,
-                                    ..
-                                })
-                            ) {
-                                info!("Event {event:?}");
-                            }
-                            match event {
-                                CrosstermEvent::Key(k) => {
-                                    info!("{k:?}");
-                                    if let Some(key) = self.combiner.transform(k) {
-                                        info!("{key:?}");
-                                        let key = KeyCombination::normalized(key);
-                                        if let Some(actions) = self.binds.get(&key.into()) {
-                                            self.send_actions(actions);
-                                        } else if let Some(c) = key_code_as_letter(key) {
-                                            self.send(RenderCommand::Action(Action::Input(c)));
-                                        } else {
-                                            // a basic set of keys to prevent confusion
-                                            match key {
-                                                key!(ctrl-c) | key!(esc) => self.send(RenderCommand::quit()),
-                                                key!(up) => self.send_action(Action::Up(Count(1))),
-                                                key!(down) => self.send_action(Action::Down(Count(1))),
-                                                key!(enter) => self.send_action(Action::Accept),
-                                                key!(right) => self.send_action(Action::ForwardChar),
-                                                key!(left) => self.send_action(Action::BackwardChar),
-                                                key!(ctrl-right) => self.send_action(Action::ForwardWord),
-                                                key!(ctrl-left) => self.send_action(Action::BackwardWord),
-                                                key!(backspace) => self.send_action(Action::DeleteChar),
-                                                key!(ctrl-h) => self.send_action(Action::DeleteWord),
-                                                key!(ctrl-u) => self.send_action(Action::Cancel),
-                                                key!(alt-h) => self.send_action(Action::Help("".to_string())),
-                                                _ => {}
+                    Some(event) = self.controller_rx.recv() => {
+                        self.handle_event(event);
+                    }
+
+                    // Input ready
+                    maybe_event = event => {
+                        match maybe_event {
+                            Some(Ok(event)) => {
+                                if !matches!(
+                                    event,
+                                    CrosstermEvent::Mouse(MouseEvent {
+                                        kind: crossterm::event::MouseEventKind::Moved,
+                                        ..
+                                    })
+                                ) {
+                                    info!("Event {event:?}");
+                                }
+                                match event {
+                                    CrosstermEvent::Key(k) => {
+                                        info!("{k:?}");
+                                        if let Some(key) = self.combiner.transform(k) {
+                                            info!("{key:?}");
+                                            let key = KeyCombination::normalized(key);
+                                            if let Some(actions) = self.binds.get(&key.into()) {
+                                                self.send_actions(actions);
+                                            } else if let Some(c) = key_code_as_letter(key) {
+                                                self.send(RenderCommand::Action(Action::Input(c)));
+                                            } else {
+                                                // a basic set of keys to prevent confusion
+                                                match key {
+                                                    key!(ctrl-c) | key!(esc) => self.send(RenderCommand::quit()),
+                                                    key!(up) => self.send_action(Action::Up(Count(1))),
+                                                    key!(down) => self.send_action(Action::Down(Count(1))),
+                                                    key!(enter) => self.send_action(Action::Accept),
+                                                    key!(right) => self.send_action(Action::ForwardChar),
+                                                    key!(left) => self.send_action(Action::BackwardChar),
+                                                    key!(ctrl-right) => self.send_action(Action::ForwardWord),
+                                                    key!(ctrl-left) => self.send_action(Action::BackwardWord),
+                                                    key!(backspace) => self.send_action(Action::DeleteChar),
+                                                    key!(ctrl-h) => self.send_action(Action::DeleteWord),
+                                                    key!(ctrl-u) => self.send_action(Action::Cancel),
+                                                    key!(alt-h) => self.send_action(Action::Help("".to_string())),
+                                                    _ => {}
+                                                }
                                             }
                                         }
                                     }
-                                }
-                                CrosstermEvent::Mouse(mouse) => {
-                                    if let Some(actions) = self.binds.get(&mouse.into()) {
-                                        self.send_actions(actions);
+                                    CrosstermEvent::Mouse(mouse) => {
+                                        if let Some(actions) = self.binds.get(&mouse.into()) {
+                                            self.send_actions(actions);
+                                        }
+                                    }
+                                    CrosstermEvent::Resize(width, height) => {
+                                        self.send(RenderCommand::Resize(Rect::new(0, 0, width, height)));
+                                    }
+                                    // CrosstermEvent::FocusLost => {
+                                    // }
+                                    // CrosstermEvent::FocusGained => {
+                                    // }
+                                    #[allow(unused_variables)]
+                                    CrosstermEvent::Paste(content) => {
+                                        #[cfg(feature = "bracketed-paste")]
+                                        {
+                                            self.send(RenderCommand::Paste(content));
+                                        }
+                                        #[cfg(not(feature = "bracketed-paste"))]
+                                        {
+                                            unreachable!()
+                                            // let actions: Vec<_> = x.chars().map(|c| {
+                                            //         let a: Action<A> = Action::Input(c);
+                                            //         a
+                                            //     }
+                                            // ).collect();
+                                            // self.send_actions(
+                                            //     &actions
+                                            // )
                                     }
                                 }
-                                CrosstermEvent::Resize(width, height) => {
-                                    self.send(RenderCommand::Resize(Rect::new(0, 0, width, height)));
-                                }
-                                // CrosstermEvent::FocusLost => {
-                                // }
-                                // CrosstermEvent::FocusGained => {
-                                // }
-                                // CrosstermEvent::Paste(_) => {}
                                 _ => {},
                             }
                         }
@@ -246,8 +265,8 @@ impl<A: ActionExt> EventLoop<A> {
         }
     }
 
-    fn send_actions(&self, actions: &Actions<A>) {
-        for action in actions.0.iter() {
+    fn send_actions<'a>(&self, actions: impl IntoIterator<Item = &'a Action<A>>) {
+        for action in actions {
             self.send(action.into());
         }
     }

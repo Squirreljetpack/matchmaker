@@ -53,6 +53,8 @@ pub enum RenderCommand<A: ActionExt> {
     Mouse(MouseEvent),
     Resize(Rect),
     Effect(Effect),
+    #[cfg(feature = "bracketed-paste")]
+    Paste(String),
     Ack,
     Tick,
     Refresh,

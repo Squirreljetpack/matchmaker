@@ -254,6 +254,8 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
             previewer,
             ext_handler,
             ext_aliaser,
+            #[cfg(feature = "bracketed-paste")]
+            paste_handler,
             ..
         } = builder;
 
@@ -332,6 +334,8 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
                 (self.event_handlers, self.interrupt_handlers),
                 ext_handler,
                 ext_aliaser,
+                #[cfg(feature = "bracketed-paste")]
+                paste_handler,
             )
             .await
         } else {
@@ -356,6 +360,8 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
                 (self.event_handlers, self.interrupt_handlers),
                 ext_handler,
                 ext_aliaser,
+                #[cfg(feature = "bracketed-paste")]
+                paste_handler,
             )
             .await
         }
@@ -390,6 +396,8 @@ impl<T> Result<T, MatchError> {
 
 // --------- BUILDER -------------
 
+/// Returns what should be pushed to input
+pub type PasteHandler<T, S> = fn(String, &MMState<'_, T, S>) -> String;
 /// Used to configure [`Matchmaker::pick`] with additional options.
 pub struct PickOptions<'a, T: SSS, S: Selection, A: ActionExt = NullActionExt> {
     matcher: Option<&'a mut nucleo::Matcher>,
@@ -400,6 +408,8 @@ pub struct PickOptions<'a, T: SSS, S: Selection, A: ActionExt = NullActionExt> {
 
     ext_handler: Option<ActionExtHandler<T, S, A>>,
     ext_aliaser: Option<ActionAliaser<T, S, A>>,
+    #[cfg(feature = "bracketed-paste")]
+    paste_handler: Option<PasteHandler<T, S>>,
 
     overlays: Vec<Box<dyn Overlay<A = A>>>,
     previewer: Option<Previewer>,
@@ -426,6 +436,8 @@ impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
             matcher_config: nucleo::Config::DEFAULT,
             ext_handler: None,
             ext_aliaser: None,
+            #[cfg(feature = "bracketed-paste")]
+            paste_handler: None,
             overlays: Vec::new(),
             channel: None,
         }
@@ -471,6 +483,12 @@ impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
 
     pub fn ext_aliaser(mut self, aliaser: ActionAliaser<T, S, A>) -> Self {
         self.ext_aliaser = Some(aliaser);
+        self
+    }
+
+    #[cfg(feature = "bracketed-paste")]
+    pub fn paste_handler(mut self, handler: PasteHandler<T, S>) -> Self {
+        self.paste_handler = Some(handler);
         self
     }
 
@@ -610,30 +628,30 @@ pub fn make_previewer<T: SSS, S: Selection>(
 
     // preview handler
     mm.register_event_handler([Event::CursorChange, Event::PreviewChange], move |state, _| {
-        if state.preview_show &&
-        let Some(t) = state.current_raw() &&
-        let m = state.preview_payload() &&
-        !m.is_empty()
-        {
-            let cmd = formatter(t, m);
-            let mut envs = state.make_env_vars();
-            let extra = env_vars!(
-                "COLUMNS" => state.previewer_area().map_or("0".to_string(), |r| r.width.to_string()),
-                "LINES" => state.previewer_area().map_or("0".to_string(), |r| r.height.to_string()),
-            );
-            envs.extend(extra);
+            if state.preview_show &&
+            let Some(t) = state.current_raw() &&
+            let m = state.preview_payload() &&
+            !m.is_empty()
+            {
+                let cmd = formatter(t, m);
+                let mut envs = state.make_env_vars();
+                let extra = env_vars!(
+                    "COLUMNS" => state.previewer_area().map_or("0".to_string(), |r| r.width.to_string()),
+                    "LINES" => state.previewer_area().map_or("0".to_string(), |r| r.height.to_string()),
+                );
+                envs.extend(extra);
 
-            let msg = PreviewMessage::Run(cmd.clone(), envs);
-            _log!("{cmd:?}");
-            if preview_tx.send(msg.clone()).is_err() {
-                warn!("Failed to send to preview: {}", msg)
+                let msg = PreviewMessage::Run(cmd.clone(), envs);
+                _log!("{cmd:?}");
+                if preview_tx.send(msg.clone()).is_err() {
+                    warn!("Failed to send to preview: {}", msg)
+                }
+            } else if preview_tx.send(PreviewMessage::Stop).is_err() {
+                warn!("Failed to send to preview: stop")
             }
-        } else if preview_tx.send(PreviewMessage::Stop).is_err() {
-            warn!("Failed to send to preview: stop")
-        }
 
-        efx![render::Effect::ClearPreviewSet] //
-    });
+            efx![render::Effect::ClearPreviewSet] //
+        });
 
     mm.register_event_handler([Event::PreviewSet], move |state, _event| {
         if state.preview_show {

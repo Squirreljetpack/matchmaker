@@ -22,6 +22,7 @@ pub enum Effect {
     Reload,
 
     Prompt(Span<'static>),
+    /// Set the input ui contents and cursor
     Input((String, u16)),
     RestoreInputPromptMarker,
 

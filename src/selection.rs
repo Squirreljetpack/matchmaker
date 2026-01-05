@@ -68,7 +68,9 @@ impl<T, S: Selection> Selector<T, S> {
         self.selections.is_empty()
     }
 
-    pub fn output(&mut self) -> impl Iterator<Item = S> {
+    pub fn output(&mut self) -> impl Iterator<Item = S>
+// indexmap::map::IntoValues<u32, S>
+    {
         let mut set = self.selections.set.lock().unwrap();
 
         std::mem::take(&mut *set).into_values()
@@ -115,6 +117,7 @@ impl<T, S: Selection> Selector<T, S> {
 
         let selections = self.selections.clone();
 
+        #[cfg(feature = "parallelism")]
         tokio::task::spawn_blocking(move || {
             let mut all = true;
             let mut set_guard = selections.set.lock().unwrap();
@@ -138,6 +141,30 @@ impl<T, S: Selection> Selector<T, S> {
                 }
             }
         });
+        #[cfg(not(feature = "parallelism"))]
+        {
+            let mut all = true;
+            let mut set_guard = selections.set.lock().unwrap();
+
+            let mut seen = 0;
+            for (i, (k, _v)) in results.iter().enumerate() {
+                if !set_guard.contains_key(k) {
+                    all = false;
+                    seen = i;
+                    break;
+                }
+            }
+
+            if all {
+                for (k, _v) in results {
+                    set_guard.swap_remove(&k); // swap instead of shift for speed
+                }
+            } else {
+                for (k, v) in results.into_iter().skip(seen) {
+                    set_guard.insert(k, v);
+                }
+            };
+        };
     }
 }
 

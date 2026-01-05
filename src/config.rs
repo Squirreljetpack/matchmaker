@@ -97,7 +97,7 @@ impl RenderConfig {
 }
 
 /// Terminal settings.
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct TerminalConfig {
     pub stream: IoStream, // consumed
@@ -108,6 +108,18 @@ pub struct TerminalConfig {
     // todo: lowpri: will need a value which can deserialize to none when implementing cli parsing
     #[serde(flatten)]
     pub layout: Option<TerminalLayoutSettings>, // None for fullscreen
+}
+
+impl Default for TerminalConfig {
+    fn default() -> Self {
+        Self {
+            stream: IoStream::default(),
+            restore_fullscreen: true,
+            redraw_on_resize: bool::default(),
+            sleep_ms: std::time::Duration::default(),
+            layout: Option::default(),
+        }
+    }
 }
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]

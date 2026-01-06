@@ -23,14 +23,24 @@
 use {
     crokey::*,
     crossterm::{
-        event::{Event, read},
+        event::{
+            Event, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags,
+            PushKeyboardEnhancementFlags, read,
+        },
+        execute,
         style::Stylize,
         terminal,
     },
+    std::io::stdout,
 };
 
 pub fn main() {
     let fmt = KeyCombinationFormat::default();
+    let _ = execute!(
+        stdout(),
+        PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)
+    );
+
     println!("Type any key combination (remember that your terminal intercepts many ones)");
     loop {
         terminal::enable_raw_mode().unwrap();
@@ -68,4 +78,5 @@ pub fn main() {
             }
         }
     }
+    let _ = execute!(stdout(), PopKeyboardEnhancementFlags);
 }

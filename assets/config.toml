@@ -72,7 +72,7 @@ max = 240
 "shift+scrolldown" = "PreviewDown"
 "?" = "SwitchPreview"
 "shift-?" = "SwitchPreview"
-"ctrl-7" = "CyclePreview" # ctrl-shift-/
+"ctrl-shift-/" = "CyclePreview" # ctrl-shift-/
 "alt-h" = "Help"
 "alt-1" = "Pos(0)"
 # todo: changing between preview presets, widths
@@ -84,5 +84,4 @@ max = 240
 "ctrl-r" = "Reload(find . -type f)"
 
 [matcher]
-select_1 = false
 default_command = "fd --strip-cwd-prefix"

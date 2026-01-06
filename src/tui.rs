@@ -1,7 +1,10 @@
 use crate::{Result, config::TerminalConfig};
 use cli_boilerplate_automation::bait::ResultExt;
 use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture},
+    event::{
+        DisableMouseCapture, EnableMouseCapture, KeyboardEnhancementFlags,
+        PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+    },
     execute,
     terminal::{ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode},
 };
@@ -103,17 +106,24 @@ where
         let fullscreen = self.is_fullscreen();
         let backend = self.terminal.backend_mut();
         crossterm::terminal::enable_raw_mode()?; // duplicate but crossterm checks this
-        execute!(backend, EnableMouseCapture)?;
+        execute!(backend, EnableMouseCapture)._elog();
         #[cfg(feature = "bracketed-paste")]
-        execute!(backend, crossterm::event::EnableBracketedPaste)?;
+        execute!(backend, crossterm::event::EnableBracketedPaste)._elog();
+        if self.config.extended_keys {
+            execute!(
+                backend,
+                PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)
+            )
+            ._elog();
+        }
 
         if fullscreen {
-            self.enter_alternate()?;
+            self.alternate_screen()?;
         }
         Ok(())
     }
 
-    pub fn enter_alternate(&mut self) -> Result<()> {
+    pub fn alternate_screen(&mut self) -> Result<()> {
         let backend = self.terminal.backend_mut();
         execute!(backend, EnterAlternateScreen)?;
         execute!(backend, crossterm::terminal::Clear(ClearType::All))?;
@@ -143,7 +153,7 @@ where
         self.enter()?;
         if !self.is_fullscreen() {
             // altho we cannot resize the viewport, this is the best we can do
-            self.enter_alternate()._elog();
+            self.alternate_screen()._elog();
         }
         sleep(self.config.sleep_ms);
         log::debug!("During return, slept {}", self.config.sleep_ms.as_millis());
@@ -178,6 +188,10 @@ where
             crossterm::terminal::Clear(ClearType::FromCursorDown)
         )
         ._elog();
+
+        if self.config.extended_keys {
+            execute!(backend, PopKeyboardEnhancementFlags)._elog();
+        }
         // } else {
         //     if let Err(e) = execute!(backend, cursor::MoveTo(0, 0)) {
         //         warn!("Failed to move cursor: {:?}", e);

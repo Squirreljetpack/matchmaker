@@ -103,6 +103,8 @@ pub struct TerminalConfig {
     pub stream: IoStream, // consumed
     pub restore_fullscreen: bool,
     pub redraw_on_resize: bool,
+    // https://docs.rs/crossterm/latest/crossterm/event/struct.PushKeyboardEnhancementFlags.html
+    pub extended_keys: bool,
     #[serde(with = "serde_duration_ms")]
     pub sleep_ms: std::time::Duration, // necessary to give ratatui a small delay before resizing after entering and exiting
     // todo: lowpri: will need a value which can deserialize to none when implementing cli parsing
@@ -118,6 +120,7 @@ impl Default for TerminalConfig {
             redraw_on_resize: bool::default(),
             sleep_ms: std::time::Duration::default(),
             layout: Option::default(),
+            extended_keys: true,
         }
     }
 }

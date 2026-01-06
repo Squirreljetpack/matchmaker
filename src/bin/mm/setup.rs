@@ -2,17 +2,18 @@ use std::{
     env,
     io::Read,
     path::Path,
-    process::{Stdio, exit},
+    process::{Command, exit},
 };
 
 use crate::parse::parse;
 use crate::{config::Config, types::default_config_path};
 use cli_boilerplate_automation::{
-    bait::OptionExt,
+    bait::{OptionExt, ResultExt},
     bo::{MapReaderError, map_chunks, map_reader_lines, read_to_chunks, write_str},
+    bog::BogOkExt,
 };
-use cli_boilerplate_automation::{bo::load_type, broc::spawn_script};
-use log::{debug, error};
+use cli_boilerplate_automation::{bo::load_type, broc::CommandExt};
+use log::debug;
 use matchmaker::{
     MatchError, Matchmaker, OddEnds, PickOptions, SSS,
     binds::display_binds,
@@ -163,20 +164,18 @@ pub async fn pick(
             && let Some(t) = state.current_raw()
         {
             let cmd = reload_formatter(t, template);
-            let vars = vec![];
+            // let vars = vec![];
             // let extra = env_vars!(
             //     "FZF_PREVIEW_COMMAND" => preview_cmd,
             // );
             // vars.extend(extra);
             debug!("Reloading: {cmd}");
-            if let Some(mut child) =
-                spawn_script(&cmd, vars, Stdio::null(), Stdio::piped(), Stdio::null())
+            if let Some(stdout) = Command::from_script(&cmd)
+                // .envs(vars)
+                .spawn_piped()
+                ._elog()
             {
-                if let Some(stdout) = child.stdout.take() {
-                    map_reader(stdout, move |line| injector.push(line), delimiter);
-                } else {
-                    error!("Failed to capture stdout");
-                }
+                map_reader(stdout, move |line| injector.push(line), delimiter);
             }
         }
         efx![]
@@ -189,17 +188,10 @@ pub async fn pick(
         let stdin = std::io::stdin();
         map_reader(stdin, move |line| injector.push(line), delimiter)
     } else if !default_command.is_empty() {
-        if let Some(mut child) = spawn_script(
-            &default_command,
-            vec![],
-            Stdio::null(),
-            Stdio::piped(),
-            Stdio::null(),
-        ) && let Some(stdout) = child.stdout.take()
-        {
-            map_reader(stdout, move |line| injector.push(line), delimiter)
+        if let Some(stdout) = Command::from_script(&default_command).spawn_piped()._ebog() {
+            map_reader(stdout, move |line| injector.push(line), delimiter);
+            exit(0)
         } else {
-            eprintln!("error: no stdout from default command.");
             exit(99)
         }
     } else {

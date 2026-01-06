@@ -1,5 +1,6 @@
 ## TODO
 
+- Fault tolerance
 - sane defaults for ui
   - it would be nice to have presets like full, simple, and minimal presets like fzf
   - it would be nice to have color presets too maybe

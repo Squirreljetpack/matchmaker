@@ -1,10 +1,10 @@
 use ansi_to_tui::IntoText;
-use cli_boilerplate_automation::broc::{EnvVars, spawn_script};
+use cli_boilerplate_automation::broc::{CommandExt, EnvVars};
 use futures::FutureExt;
 use log::{debug, error, warn};
 use ratatui::text::{Line, Text};
 use std::io::BufReader;
-use std::process::{Child, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -108,13 +108,13 @@ impl Previewer {
 
             match &*self.rx.borrow() {
                 PreviewMessage::Run(cmd, variables) => {
-                    if let Some(mut child) = spawn_script(
-                        cmd,
-                        variables.iter().cloned(),
-                        Stdio::null(),
-                        Stdio::piped(),
-                        Stdio::null(),
-                    ) {
+                    if let Some(mut child) = Command::from_script(cmd)
+                        .envs(variables.iter().cloned())
+                        .stdout(Stdio::piped())
+                        .stdin(Stdio::null())
+                        .stderr(Stdio::null())
+                        ._spawn()
+                    {
                         if let Some(stdout) = child.stdout.take() {
                             self.changed.store(true, Ordering::Relaxed);
                             let lines = self.lines.clone();

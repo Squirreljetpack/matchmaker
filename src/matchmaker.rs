@@ -1,15 +1,11 @@
 use std::{
     fmt::{self, Debug, Formatter},
-    process::Stdio,
+    process::{Command, Stdio},
     sync::Arc,
 };
 
 use arrayvec::ArrayVec;
-use cli_boilerplate_automation::{
-    _log,
-    broc::{exec_script, spawn_script},
-    env_vars, prints,
-};
+use cli_boilerplate_automation::{_log, broc::CommandExt, env_vars, prints};
 use easy_ext::ext;
 use log::{debug, info, warn};
 use ratatui::text::Text;
@@ -573,9 +569,10 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
                     "FZF_PREVIEW_COMMAND" => preview_cmd,
                 );
                 vars.extend(extra);
-                let tty = maybe_tty();
-                if let Some(mut child) =
-                    spawn_script(&cmd, vars, tty, Stdio::inherit(), Stdio::inherit())
+                if let Some(mut child) = Command::from_script(&cmd)
+                    .envs(vars)
+                    .stdin(maybe_tty())
+                    ._spawn()
                 {
                     match child.wait() {
                         Ok(i) => {
@@ -608,7 +605,8 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
                 );
                 vars.extend(extra);
                 debug!("Becoming: {cmd}");
-                exec_script(&cmd, vars);
+
+                Command::from_script(&cmd).envs(vars)._exec()
             }
             efx![]
         });
@@ -649,7 +647,7 @@ pub fn make_previewer<T: SSS, S: Selection>(
             } else if preview_tx.send(PreviewMessage::Stop).is_err() {
                 warn!("Failed to send to preview: stop")
             }
-
+            
             efx![render::Effect::ClearPreviewSet] //
         });
 

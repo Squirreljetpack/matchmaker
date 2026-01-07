@@ -125,7 +125,7 @@ impl ConfigMatchmaker {
             }
             Split::None => Arc::new(|s| ArrayVec::from_iter([(0, s.len())])),
         };
-        let injector = IndexedInjector::new(injector, 0);
+        let injector = IndexedInjector::new_globally_indexed(injector);
         let injector = SegmentedInjector::new(injector, splitter.clone());
 
         let selection_set = Selector::new(Indexed::identifier);

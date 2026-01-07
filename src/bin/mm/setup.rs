@@ -98,9 +98,9 @@ pub fn map_reader<E: SSS>(
     input_separator: Option<char>,
 ) -> tokio::task::JoinHandle<Result<(), MapReaderError<E>>> {
     if let Some(delim) = input_separator {
-        tokio::spawn(async move { map_chunks::<true, E>(read_to_chunks(reader, delim), f) })
+        tokio::task::spawn_blocking(move || map_chunks::<true, E>(read_to_chunks(reader, delim), f))
     } else {
-        tokio::spawn(async move { map_reader_lines::<true, E>(reader, f) })
+        tokio::task::spawn_blocking(move || map_reader_lines::<true, E>(reader, f))
     }
 }
 
@@ -157,7 +157,7 @@ pub async fn pick(
     let reload_formatter = formatter.clone();
     mm.register_interrupt_handler(Interrupt::Reload("".into()), move |state, interrupt| {
         let injector = state.injector();
-        let injector = IndexedInjector::new(injector, 0);
+        let injector = IndexedInjector::new_globally_indexed(injector);
         let injector = SegmentedInjector::new(injector, splitter.clone());
 
         if let Interrupt::Reload(template) = interrupt

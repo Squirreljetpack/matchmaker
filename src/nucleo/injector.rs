@@ -13,7 +13,7 @@ use super::worker::{Column, Worker, WorkerError};
 use super::{Indexed, Segmented};
 use crate::{SSS, SegmentableItem, SplitterFn};
 
-pub trait Injector: Clone {
+pub trait Injector {
     type InputItem;
     type Inner: Injector;
     type Context;
@@ -96,21 +96,22 @@ pub(super) fn push_impl<T>(injector: &nucleo::Injector<T>, columns: &[Column<T>]
 
 // ----- Injectors
 
+#[derive(Clone)]
 pub struct IndexedInjector<T, I: Injector<InputItem = Indexed<T>>> {
     injector: I,
-    count: Arc<AtomicU32>,
+    counter: &'static AtomicU32,
     input_type: PhantomData<T>,
 }
 
 impl<T, I: Injector<InputItem = Indexed<T>>> Injector for IndexedInjector<T, I> {
     type InputItem = T;
     type Inner = I;
-    type Context = u32;
+    type Context = &'static AtomicU32;
 
-    fn new(injector: Self::Inner, count: Self::Context) -> Self {
+    fn new(injector: Self::Inner, counter: Self::Context) -> Self {
         Self {
             injector,
-            count: Arc::new(AtomicU32::new(count)),
+            counter,
             input_type: PhantomData,
         }
     }
@@ -119,12 +120,28 @@ impl<T, I: Injector<InputItem = Indexed<T>>> Injector for IndexedInjector<T, I> 
         &self,
         item: Self::InputItem,
     ) -> Result<<Self::Inner as Injector>::InputItem, WorkerError> {
-        let index = self.count.fetch_add(1, Ordering::Relaxed);
+        let index = self.counter.fetch_add(1, Ordering::SeqCst);
         Ok(Indexed { index, inner: item })
     }
 
     fn inner(&self) -> &Self::Inner {
         &self.injector
+    }
+}
+
+static GLOBAL_COUNTER: AtomicU32 = AtomicU32::new(0);
+
+impl<T, I> IndexedInjector<T, I>
+where
+    I: Injector<InputItem = Indexed<T>>,
+{
+    pub fn new_globally_indexed(injector: <Self as Injector>::Inner) -> Self {
+        GLOBAL_COUNTER.store(0, Ordering::SeqCst);
+        Self::new(injector, &GLOBAL_COUNTER)
+    }
+
+    pub fn global_reset() {
+        GLOBAL_COUNTER.store(0, Ordering::SeqCst);
     }
 }
 
@@ -218,17 +235,9 @@ impl<T> Clone for WorkerInjector<T> {
     }
 }
 
-impl<T, I: Injector<InputItem = Indexed<T>>> Clone for IndexedInjector<T, I> {
-    fn clone(&self) -> Self {
-        Self {
-            injector: self.injector.clone(),
-            count: Arc::clone(&self.count),
-            input_type: PhantomData,
-        }
-    }
-}
-
-impl<T: SegmentableItem, I: Injector<InputItem = Segmented<T>>> Clone for SegmentedInjector<T, I> {
+impl<T: SegmentableItem, I: Injector<InputItem = Segmented<T>> + Clone> Clone
+    for SegmentedInjector<T, I>
+{
     fn clone(&self) -> Self {
         Self {
             injector: self.injector.clone(),

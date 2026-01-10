@@ -96,6 +96,7 @@ pub(super) fn push_impl<T>(injector: &nucleo::Injector<T>, columns: &[Column<T>]
 
 // ----- Injectors
 
+/// Wraps the injected item with an atomic index which is incremented on push.
 #[derive(Clone)]
 pub struct IndexedInjector<T, I: Injector<InputItem = Indexed<T>>> {
     injector: I,
@@ -136,7 +137,7 @@ where
     I: Injector<InputItem = Indexed<T>>,
 {
     pub fn new_globally_indexed(injector: <Self as Injector>::Inner) -> Self {
-        GLOBAL_COUNTER.store(0, Ordering::SeqCst);
+        Self::global_reset();
         Self::new(injector, &GLOBAL_COUNTER)
     }
 

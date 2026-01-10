@@ -140,7 +140,6 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     tui.redraw();
                 }
                 RenderCommand::Effect(e) => {
-                    #[allow(warnings)]
                     match e {
                         Effect::Reload => {
                             // its jank but the Reload effect triggers the reload handler in this unique case.
@@ -191,14 +190,18 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             selections.clear();
                         }
                         Action::Accept => {
-                            if selections.is_empty() {
-                                if let Some(item) = worker.get_nth(results.index()) {
-                                    selections.sel(item);
-                                } else if !exit_config.allow_empty {
+                            let ret = if selections.is_empty() {
+                                if let Some(item) = state.current {
+                                    vec![item.1]
+                                } else if exit_config.allow_empty {
+                                    vec![]
+                                } else {
                                     continue;
                                 }
-                            }
-                            return Ok(selections.output().collect::<Vec<S>>());
+                            } else {
+                                selections.output().collect::<Vec<S>>()
+                            };
+                            return Ok(ret);
                         }
                         Action::Quit(code) => {
                             return Err(MatchError::Abort(code.0));

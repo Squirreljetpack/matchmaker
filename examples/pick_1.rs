@@ -6,7 +6,7 @@ pub async fn mm_get<T: SSS + Render + Clone>(
 ) -> Result<T, MatchError> {
     let worker = Worker::new_single_column();
     worker.append(items);
-    let selector = Selector::new(Indexed::identifier);
+    let selector = Selector::new(Indexed::identifier).disabled();
     let mm = Matchmaker::new(worker, selector);
 
     mm.pick_default().await.first()

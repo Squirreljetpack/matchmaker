@@ -189,8 +189,7 @@ pub async fn pick(
         map_reader(stdin, move |line| injector.push(line), delimiter)
     } else if !default_command.is_empty() {
         if let Some(stdout) = Command::from_script(&default_command).spawn_piped()._ebog() {
-            map_reader(stdout, move |line| injector.push(line), delimiter);
-            exit(0)
+            map_reader(stdout, move |line| injector.push(line), delimiter)
         } else {
             exit(99)
         }

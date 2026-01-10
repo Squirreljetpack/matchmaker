@@ -5,9 +5,10 @@ use std::sync::Mutex;
 use std::{borrow::Borrow, hash::Hash, sync::Arc};
 
 pub type SelectionValidator<S> = fn(&S) -> bool;
+
 #[derive(Debug)]
 pub struct Selector<T, S> {
-    selections: SelectorImpl<u32, S>,
+    selections: Option<SelectorImpl<u32, S>>,
     pub identifier: Identifier<T, S>,
     pub validator: SelectionValidator<S>,
 }
@@ -26,54 +27,82 @@ impl<T, S: Selection> Selector<T, S> {
         validator: SelectionValidator<S>,
     ) -> Self {
         Self {
-            selections: SelectorImpl::new(),
+            selections: Some(SelectorImpl::new()),
             identifier,
             validator,
         }
     }
 
+    pub fn disabled(mut self) -> Self {
+        self.selections = None;
+        self
+    }
+
+    // --------------------------------------------
+
     pub fn sel(&mut self, item: &T) -> bool {
+        let Some(selections) = &mut self.selections else {
+            return false;
+        };
+
         let (k, v) = (self.identifier)(item);
-        self.selections.insert(k, v)
+        selections.insert(k, v)
     }
 
     pub fn desel(&mut self, item: &T) -> bool {
+        let Some(selections) = &mut self.selections else {
+            return false;
+        };
+
         let (k, _v) = (self.identifier)(item);
-        self.selections.remove(&k)
+        selections.remove(&k)
     }
 
     pub fn contains(&self, item: &T) -> bool {
+        let Some(selections) = &self.selections else {
+            return false;
+        };
+
         let (k, _v) = (self.identifier)(item);
-        self.selections.contains(&k)
+        selections.contains(&k)
     }
 
     pub fn toggle(&mut self, item: &T) {
+        let Some(selections) = &mut self.selections else {
+            return;
+        };
+
         let (k, v) = (self.identifier)(item);
-        if self.selections.contains(&k) {
-            self.selections.remove(&k);
+        if selections.contains(&k) {
+            selections.remove(&k);
         } else {
-            self.selections.insert(k, v);
+            selections.insert(k, v);
         }
     }
 
     pub fn clear(&mut self) {
-        self.selections.clear();
+        if let Some(selections) = &mut self.selections {
+            selections.clear();
+        }
     }
 
     pub fn len(&self) -> usize {
-        self.selections.len()
+        self.selections.as_ref().map_or(0, |s| s.len())
     }
+
+    // -----------------------------------------------------
 
     pub fn is_empty(&self) -> bool {
-        self.selections.is_empty()
+        self.selections.as_ref().is_none_or(|s| s.is_empty())
     }
 
-    pub fn output(&mut self) -> impl Iterator<Item = S>
-// indexmap::map::IntoValues<u32, S>
-    {
-        let mut set = self.selections.set.lock().unwrap();
-
-        std::mem::take(&mut *set).into_values()
+    pub fn output(&mut self) -> impl Iterator<Item = S> {
+        if let Some(selections) = &mut self.selections {
+            let mut set = selections.set.lock().unwrap();
+            std::mem::take(&mut *set).into_values()
+        } else {
+            IndexMap::with_capacity(0).into_values()
+        }
     }
 
     pub fn identify_to_vec<I>(&self, items: I) -> Vec<S>
@@ -81,11 +110,8 @@ impl<T, S: Selection> Selector<T, S> {
         I: IntoIterator,
         I::Item: std::borrow::Borrow<T> + Send,
     {
-        // let items_vec: Vec<I::Item> = items.into_iter().collect();
-
         items
             .into_iter()
-            // .into_par_iter()
             .map(|item| (self.identifier)(item.borrow()).1)
             .collect()
     }
@@ -94,12 +120,17 @@ impl<T, S: Selection> Selector<T, S> {
     where
         F: FnMut(&S) -> U,
     {
-        // let items_vec: Vec<I::Item> = items.into_iter().collect();
-        self.selections.map_to_vec(f)
+        self.selections
+            .as_ref()
+            .map_or_else(Vec::new, |s| s.map_to_vec(f))
     }
 
     pub fn revalidate(&mut self) {
-        let mut set = self.selections.set.lock().unwrap();
+        let Some(selections) = &mut self.selections else {
+            return;
+        };
+
+        let mut set = selections.set.lock().unwrap();
         let validator = &self.validator;
 
         set.retain(|_, v| validator(v));
@@ -110,20 +141,24 @@ impl<T, S: Selection> Selector<T, S> {
         I: IntoIterator,
         I::Item: std::borrow::Borrow<T> + Send,
     {
+        let Some(selections) = &self.selections else {
+            return;
+        };
+
         let results: Vec<_> = items
             .into_iter()
             .map(|item| (self.identifier)(item.borrow()))
             .collect();
 
-        let selections = self.selections.clone();
+        let selections = selections.clone();
 
         #[cfg(feature = "parallelism")]
         tokio::task::spawn_blocking(move || {
-            let mut all = true;
             let mut set_guard = selections.set.lock().unwrap();
 
+            let mut all = true;
             let mut seen = 0;
-            for (i, (k, _v)) in results.iter().enumerate() {
+            for (i, (k, _)) in results.iter().enumerate() {
                 if !set_guard.contains_key(k) {
                     all = false;
                     seen = i;
@@ -132,8 +167,8 @@ impl<T, S: Selection> Selector<T, S> {
             }
 
             if all {
-                for (k, _v) in results {
-                    set_guard.swap_remove(&k); // swap instead of shift for speed
+                for (k, _) in results {
+                    set_guard.swap_remove(&k);
                 }
             } else {
                 for (k, v) in results.into_iter().skip(seen) {
@@ -141,13 +176,14 @@ impl<T, S: Selection> Selector<T, S> {
                 }
             }
         });
+
         #[cfg(not(feature = "parallelism"))]
         {
-            let mut all = true;
             let mut set_guard = selections.set.lock().unwrap();
 
+            let mut all = true;
             let mut seen = 0;
-            for (i, (k, _v)) in results.iter().enumerate() {
+            for (i, (k, _)) in results.iter().enumerate() {
                 if !set_guard.contains_key(k) {
                     all = false;
                     seen = i;
@@ -156,15 +192,15 @@ impl<T, S: Selection> Selector<T, S> {
             }
 
             if all {
-                for (k, _v) in results {
-                    set_guard.swap_remove(&k); // swap instead of shift for speed
+                for (k, _) in results {
+                    set_guard.swap_remove(&k);
                 }
             } else {
                 for (k, v) in results.into_iter().skip(seen) {
                     set_guard.insert(k, v);
                 }
-            };
-        };
+            }
+        }
     }
 }
 

@@ -368,7 +368,10 @@ pub struct PreviewConfig {
 impl Default for PreviewConfig {
     fn default() -> Self {
         PreviewConfig {
-            border: Default::default(),
+            border: BorderSetting {
+                padding: Padding::left(2),
+                ..Default::default()
+            },
             // layout: vec![
             // PreviewSetting {
             //     layout: PreviewLayoutSetting::default(),
@@ -376,7 +379,7 @@ impl Default for PreviewConfig {
             // }
             // ],
             layout: Default::default(),
-            scroll_wrap: default_true(),
+            scroll_wrap: true,
             wrap: Default::default(),
             show: Default::default(),
         }

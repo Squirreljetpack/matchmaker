@@ -1,0 +1,72 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: mm
+            asset_name: matchmaker-linux.tar.gz
+          - os: macos-latest
+            artifact_name: mm
+            asset_name: matchmaker-mac.tar.gz
+          - os: windows-latest
+            artifact_name: mm.exe
+            asset_name: matchmaker-windows.zip
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Release
+        run: cargo build --release
+
+      - name: Archive Binary (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          tar -czf ${{ matrix.asset_name }} target/release/${{ matrix.artifact_name }}
+
+      - name: Archive Binary (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path target/release/${{ matrix.artifact_name }} -DestinationPath ./${{ matrix.asset_name }}
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ matrix.asset_name }}
+          name: Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+      name: Publish to crates.io
+      runs-on: ubuntu-latest
+      needs: build
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+        - name: Setup Rust
+          uses: dtolnay/rust-toolchain@stable
+        - name: Publish
+          env:
+            CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_API_KEY }}
+          run: cargo publish

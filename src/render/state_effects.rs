@@ -24,7 +24,7 @@ pub enum Effect {
     Prompt(Span<'static>),
     /// Set the input ui contents and cursor
     Input((String, u16)),
-    RestoreInputPromptMarker,
+    RestoreInputPrefix,
 
     DisableCursor(bool),
     SetIndex(u32),
@@ -83,7 +83,7 @@ impl<S: Selection> State<S> {
                 Effect::Prompt(prompt) => {
                     picker_ui.input.prompt = prompt;
                 }
-                Effect::RestoreInputPromptMarker => {
+                Effect::RestoreInputPrefix => {
                     picker_ui.input.prompt = Span::from(picker_ui.input.config.prompt.clone());
                 }
 

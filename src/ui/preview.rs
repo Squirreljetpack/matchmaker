@@ -14,6 +14,7 @@ pub struct PreviewUI {
     pub view: Preview,
     config: PreviewConfig,
     pub layout_idx: usize,
+    /// content area
     pub area: Rect,
     pub offset: u16,
 }

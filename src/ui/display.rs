@@ -74,8 +74,6 @@ impl DisplayUI {
     }
 
     pub fn make_display(&self, result_indentation: usize) -> Paragraph<'_> {
-        // debug!("{result_indentation}, {}, {text}", self.config.match_indent);
-
         let mut ret = Paragraph::new(self.text.clone())
             .style(Style::default().fg(self.config.fg))
             .add_modifier(self.config.modifier);

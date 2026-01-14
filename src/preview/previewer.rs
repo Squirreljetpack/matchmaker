@@ -113,6 +113,7 @@ impl Previewer {
                         .stdout(Stdio::piped())
                         .stdin(Stdio::null())
                         .stderr(Stdio::null())
+                        .detach()
                         ._spawn()
                     {
                         if let Some(stdout) = child.stdout.take() {

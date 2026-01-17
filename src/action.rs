@@ -32,8 +32,8 @@ pub enum Action<A: ActionExt = NullActionExt> {
     CyclePreview,
     Preview(String),           // if match: hide, else match
     Help(String),              // content is shown in preview, empty for default help display
-    SwitchPreview(Option<u8>), // n => ^ but with layout + layout_cmd, None => just toggle visibility
-    SetPreview(Option<u8>),    // n => set layout, None => set current layout cmd
+    SetPreview(Option<u8>),    // n => set layout, None => restore current layout cmd
+    SwitchPreview(Option<u8>), // n => set layout + layout_cmd, None => just toggle visibility
 
     ToggleWrap,
     ToggleWrapPreview,
@@ -408,7 +408,12 @@ impl_display_and_from_str_enum!(
 );
 
 impl_transparent_wrapper!(Exit, i32, 1);
-impl_transparent_wrapper!(Count, u16, 1; derive(Copy));
+impl_transparent_wrapper!(
+    #[derive(Copy)]
+    Count,
+    u16,
+    1
+);
 
 // --------------------------------------
 impl<A: ActionExt> IntoIterator for Actions<A> {

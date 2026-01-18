@@ -5,7 +5,7 @@ use log::{debug, error, warn};
 use ratatui::text::{Line, Text};
 use std::io::BufReader;
 use std::process::{Child, Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -29,14 +29,25 @@ pub enum PreviewMessage {
 
 #[derive(Debug)]
 pub struct Previewer {
+    /// The reciever for for [`PreviewMessage`]'s.
     rx: Receiver<PreviewMessage>,
-    lines: AppendOnly<Line<'static>>, // append-only buffer
+    /// storage for preview command output
+    lines: AppendOnly<Line<'static>>,
+    /// storage for preview string override
     string: Arc<Mutex<Option<Text<'static>>>>,
+    /// Flag which is set to true whenever the state changes
+    /// and which the viewer can toggle after receiving the current state
     changed: Arc<AtomicBool>,
 
+    /// Incremented on every new run / kill to invalidate old feeders
+    version: Arc<AtomicUsize>,
+    /// Maintain a queue of child processes to improve cleanup reliability
     procs: Vec<Child>,
+    /// The currently executing child process
     current: Option<(Child, JoinHandle<bool>)>,
     pub config: PreviewerConfig,
+    /// Event loop controller
+    // todo: lowpri: does this want to be a render loop controller instead
     event_controller_tx: Option<UnboundedSender<Event>>,
 }
 
@@ -49,6 +60,7 @@ impl Previewer {
             lines: AppendOnly::new(),
             string: Default::default(),
             changed: Default::default(),
+            version: Arc::new(AtomicUsize::new(0)),
 
             procs: Vec::new(),
             current: None,
@@ -118,14 +130,18 @@ impl Previewer {
                     {
                         if let Some(stdout) = child.stdout.take() {
                             self.changed.store(true, Ordering::Relaxed);
+
                             let lines = self.lines.clone();
                             let cmd = cmd.clone();
+                            let version = self.version.clone();
+                            let _version = version.load(Ordering::Acquire);
+
+                            // false => needs refresh (i.e. invalid utf-8)
                             let handle = tokio::spawn(async move {
                                 let mut reader = BufReader::new(stdout);
                                 let mut leftover = Vec::new();
                                 let mut buf = [0u8; 8192];
 
-                                // TODO: want to use buffer over lines (for efficiency?), but damaged utf-8 still leaks thu somehow
                                 while let Ok(n) = std::io::Read::read(&mut reader, &mut buf) {
                                     if n == 0 {
                                         break;
@@ -142,19 +158,26 @@ impl Previewer {
                                         .iter()
                                         .rposition(|&b| b == b'\n' || b == b'\r')
                                         .map(|pos| pos + 1)
-                                        .unwrap_or(valid_up_to); // todo: fix this artificial break if line exceeds
+                                        .unwrap_or(valid_up_to);
 
                                     let (valid_bytes, rest) = leftover.split_at(split_at);
 
                                     match valid_bytes.into_text() {
                                         Ok(text) => {
                                             for line in text {
+                                                // re-check before pushing
+                                                if version.load(Ordering::Acquire) != _version {
+                                                    return true;
+                                                }
                                                 lines.push(line);
                                             }
                                         }
                                         Err(e) => {
                                             if self.config.try_lossy {
                                                 for bytes in valid_bytes.split(|b| *b == b'\n') {
+                                                    if version.load(Ordering::Acquire) != _version {
+                                                        return true;
+                                                    }
                                                     let line =
                                                         String::from_utf8_lossy(bytes).into_owned();
                                                     lines.push(Line::from(line));
@@ -169,17 +192,24 @@ impl Previewer {
                                     leftover = rest.to_vec();
                                 }
 
-                                // handle any remaining bytes
-                                if !leftover.is_empty() {
+                                if !leftover.is_empty()
+                                    && version.load(Ordering::Acquire) == _version
+                                {
                                     match leftover.into_text() {
                                         Ok(text) => {
                                             for line in text {
+                                                if version.load(Ordering::Acquire) != _version {
+                                                    return true;
+                                                }
                                                 lines.push(line);
                                             }
                                         }
                                         Err(e) => {
                                             if self.config.try_lossy {
                                                 for bytes in leftover.split(|b| *b == b'\n') {
+                                                    if version.load(Ordering::Acquire) != _version {
+                                                        return true;
+                                                    }
                                                     let line =
                                                         String::from_utf8_lossy(bytes).into_owned();
                                                     lines.push(Line::from(line));
@@ -191,6 +221,7 @@ impl Previewer {
                                         }
                                     }
                                 }
+
                                 true
                             });
                             self.current = Some((child, handle))
@@ -212,6 +243,9 @@ impl Previewer {
 
     fn dispatch_kill(&mut self) {
         if let Some((mut child, old)) = self.current.take() {
+            // invalidate all existing feeders
+            self.version.fetch_add(1, Ordering::AcqRel);
+
             let _ = child.kill();
             self.procs.push(child);
             let mut old = Box::pin(old); // pin it to heap

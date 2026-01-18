@@ -164,17 +164,9 @@ pub async fn pick(
             && let Some(t) = state.current_raw()
         {
             let cmd = reload_formatter(t, template);
-            // let vars = vec![];
-            // let extra = env_vars!(
-            //     "FZF_PREVIEW_COMMAND" => preview_cmd,
-            // );
-            // vars.extend(extra);
+            let vars = state.make_env_vars();
             debug!("Reloading: {cmd}");
-            if let Some(stdout) = Command::from_script(&cmd)
-                // .envs(vars)
-                .spawn_piped()
-                ._elog()
-            {
+            if let Some(stdout) = Command::from_script(&cmd).envs(vars).spawn_piped()._elog() {
                 map_reader(stdout, move |line| injector.push(line), delimiter);
             }
         }

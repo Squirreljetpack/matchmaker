@@ -6,6 +6,7 @@ pub use view::Preview;
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 
+/// Append-only Vec supporting concurrent writes
 #[derive(Debug, Clone)]
 pub struct AppendOnly<T>(Arc<RwLock<boxcar::Vec<T>>>);
 

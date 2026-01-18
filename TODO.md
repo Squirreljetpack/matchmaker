@@ -23,6 +23,9 @@
 - benchmarks (what kinds of speed matter?)
 - Add support for nucleo::Pattern in the matcher config
 - Adaptable percentage (higher on smaller)
+- Fix race conditions:
+  - Too many execute will crash event loop
+
 ### Low priority
 
 - a scroll action could dispatch between preview and results

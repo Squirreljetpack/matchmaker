@@ -26,6 +26,8 @@ pub enum Event {
     Custom(usize),
 }
 
+// ---------------------------------------------------------------------
+
 #[derive(Default, Debug, Clone)]
 #[non_exhaustive]
 pub enum Interrupt {
@@ -43,8 +45,9 @@ impl PartialEq for Interrupt {
         std::mem::discriminant(self) == std::mem::discriminant(other)
     }
 }
-
 impl Eq for Interrupt {}
+
+// ---------------------------------------------------------------------
 
 #[non_exhaustive]
 #[derive(Debug, strum_macros::Display, Clone)]

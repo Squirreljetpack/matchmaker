@@ -26,6 +26,7 @@ pub enum Effect {
     Input((String, u16)),
     RestoreInputPrefix,
 
+    StashPreviewVisibility(Option<bool>),
     DisableCursor(bool),
     SetIndex(u32),
     TrySync,
@@ -50,7 +51,7 @@ impl<S: Selection> State<S> {
         effects: Effects,
         _ui: &mut UI,
         picker_ui: &mut PickerUI<T, S>,
-        _preview_ui: &mut Option<PreviewUI>,
+        preview_ui: &mut Option<PreviewUI>,
     ) {
         if !effects.is_empty() {
             log::debug!("{effects:?}");
@@ -90,6 +91,16 @@ impl<S: Selection> State<S> {
                 // ----- results -------
                 Effect::DisableCursor(disabled) => {
                     picker_ui.results.cursor_disabled = disabled;
+                }
+                Effect::StashPreviewVisibility(show) => {
+                    if let Some(p) = preview_ui {
+                        if let Some(s) = show {
+                            self.preview_show_stash = Some(p.is_show());
+                            p.show(s);
+                        } else if let Some(s) = self.preview_show_stash.take() {
+                            p.show(s);
+                        }
+                    }
                 }
                 Effect::SetIndex(index) => {
                     log::info!("{:?}", picker_ui.results);

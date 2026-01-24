@@ -1,4 +1,4 @@
-use crate::types::BINARY_FULL;
+use crate::clap::BINARY_FULL;
 use cli_boilerplate_automation::{
     bait::ResultExt,
     bog::{self, BogOkExt},

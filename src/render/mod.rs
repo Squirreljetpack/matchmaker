@@ -28,7 +28,7 @@ use crate::{MatchError, SSS, Selection};
 fn apply_aliases<T: SSS, S: Selection, A: ActionExt>(
     buffer: &mut Vec<RenderCommand<A>>,
     aliaser: ActionAliaser<T, S, A>,
-    state: &MMState<'_, T, S>,
+    state: &MMState<'_, '_, T, S>,
 ) {
     let mut out = Vec::new();
 
@@ -81,7 +81,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         let mut effects = Effects::new();
         // todo: why exactly can we not borrow the picker_ui mutably?
         if let Some(aliaser) = ext_aliaser {
-            let state = state.dispatcher(&ui, &picker_ui, preview_ui.as_ref());
+            let state = state.dispatcher(&mut ui, &mut picker_ui, preview_ui.as_mut());
             apply_aliases(&mut buffer, aliaser, &state)
             // effects could be moved out for efficiency, but it seems more logical to add them as they come so that we can trigger interrupts
         };
@@ -112,7 +112,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 RenderCommand::Paste(content) => {
                     if let Some(handler) = paste_handler {
                         let content = {
-                            let dispatcher = state.dispatcher(&ui, &picker_ui, preview_ui.as_ref());
+                            let dispatcher =
+                                state.dispatcher(&mut ui, &mut picker_ui, preview_ui.as_mut());
                             handler(content, &dispatcher)
                         };
                         if !content.is_empty() {
@@ -186,7 +187,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         Action::CycleAll => {
                             selections.cycle_all_bg(worker.raw_results());
                         }
-                        Action::ClearAll => {
+                        Action::ClearSelections => {
                             selections.clear();
                         }
                         Action::Accept => {
@@ -236,7 +237,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                 if !state.update_preview(context.as_str()) {
                                     p.toggle_show()
                                 } else {
-                                    p.show::<true>();
+                                    p.show(true);
                                 }
                             };
                         }
@@ -246,7 +247,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                 if !state.update_preview_set(context) {
                                     state.update_preview_unset()
                                 } else {
-                                    p.show::<true>();
+                                    p.show(true);
                                 }
                             };
                         }
@@ -366,7 +367,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         Action::Custom(e) => {
                             if let Some(handler) = ext_handler {
                                 let dispatcher =
-                                    state.dispatcher(&ui, &picker_ui, preview_ui.as_ref());
+                                    state.dispatcher(&mut ui, &mut picker_ui, preview_ui.as_mut());
                                 let effects = handler(e, &dispatcher);
                                 state.apply_effects(
                                     effects,
@@ -405,7 +406,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             // Apply interrupt effect
             {
                 let mut effects = Effects::new();
-                let mut dispatcher = state.dispatcher(&ui, &picker_ui, preview_ui.as_ref());
+                let mut dispatcher = state.dispatcher(&mut ui, &mut picker_ui, preview_ui.as_mut());
                 for h in dynamic_handlers.1.get(&interrupt) {
                     effects.append(h(&mut dispatcher, &interrupt))
                 }
@@ -446,7 +447,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     let ret = layout.split(area);
                     if state.iterations == 0 && ret[1].width <= 5 {
                         warn!("UI too narrow, hiding preview");
-                        preview_ui.show::<false>();
+                        preview_ui.show(false);
                         [Rect::default(), area]
                     } else {
                         ret
@@ -509,7 +510,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         let events = state.events();
 
         // ---- Invoke handlers -------
-        let mut dispatcher = state.dispatcher(&ui, &picker_ui, preview_ui.as_ref());
+        let mut dispatcher = state.dispatcher(&mut ui, &mut picker_ui, preview_ui.as_mut());
         // if let Some((signal, handler)) = signal_handler &&
         // let s = signal.load(std::sync::atomic::Ordering::Acquire) &&
         // s > 0
@@ -521,7 +522,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         // ping handlers with events
         for e in events.iter() {
             for h in dynamic_handlers.0.get(e) {
-                effects.append(h(&mut dispatcher, e))
+                effects.append(h(&mut dispatcher, &e))
             }
         }
 
@@ -530,7 +531,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
         // ------------------------------
         // send events into controller
-        for e in events {
+        for e in events.iter() {
             controller_tx
                 .send(e)
                 .unwrap_or_else(|err| eprintln!("send failed: {:?}", err));

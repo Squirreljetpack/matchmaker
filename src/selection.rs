@@ -38,6 +38,13 @@ impl<T, S: Selection> Selector<T, S> {
         self
     }
 
+    pub fn id(&self, item: &T) -> u32 {
+        (self.identifier)(item).0
+    }
+    pub fn eval(&self, item: &T) -> S {
+        (self.identifier)(item).1
+    }
+
     // --------------------------------------------
 
     pub fn sel(&mut self, item: &T) -> bool {
@@ -123,6 +130,15 @@ impl<T, S: Selection> Selector<T, S> {
         self.selections
             .as_ref()
             .map_or_else(Vec::new, |s| s.map_to_vec(f))
+    }
+
+    pub fn map_last<U, F>(&self, f: F) -> Option<U>
+    where
+        F: FnOnce(&S) -> U,
+    {
+        self.selections
+            .as_ref()
+            .and_then(|s| s.map_last(|(_, s)| f(s)))
     }
 
     pub fn revalidate(&mut self) {
@@ -262,5 +278,10 @@ where
     {
         let set = self.set.lock().unwrap();
         set.values().map(f).collect()
+    }
+
+    pub fn map_last<U>(&self, f: impl FnOnce((&K, &S)) -> U) -> Option<U> {
+        let set = self.set.lock().unwrap();
+        set.last().map(f)
     }
 }

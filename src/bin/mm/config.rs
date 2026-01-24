@@ -4,6 +4,8 @@ use matchmaker::action::{ActionExt, NullActionExt};
 use matchmaker::binds::BindMap;
 use matchmaker::config::{MatcherConfig, PreviewerConfig, RenderConfig, TerminalConfig};
 
+use crate::clap::Cli;
+
 /// Full config.
 /// Clients probably want to make their own type with RenderConfig + custom settings to instantiate their matchmaker.
 /// Used by the instantiation method [`crate::Matchmaker::new_from_config`]
@@ -24,6 +26,17 @@ pub struct Config<A: ActionExt + Default = NullActionExt> {
 
     // this is in a bit of a awkward place because the matcher, worker, picker and reader all want pieces of it.
     pub matcher: MatcherConfig,
+}
+
+// ----------------------- CONFIG
+impl Cli {
+    /// merge cli opts (not including config_path) into config
+    pub fn merge_config(&self, config: &mut Config) -> anyhow::Result<()> {
+        if self.fullscreen {
+            config.tui.layout = None;
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

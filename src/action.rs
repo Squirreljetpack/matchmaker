@@ -22,8 +22,10 @@ pub enum Action<A: ActionExt = NullActionExt> {
     Deselect,
     /// Toggle item in selections
     Toggle,
+    /// Toggle all selections
     CycleAll,
-    ClearAll,
+    /// Clear all selections
+    ClearSelections,
     Accept,
     // Returns MatchError::Abort
     Quit(Exit),
@@ -130,8 +132,8 @@ impl std::str::FromStr for NullActionExt {
 
 pub trait ActionExt: Debug + Clone + FromStr + Display + PartialEq + SSS {}
 
-pub type ActionExtHandler<T, S, A> = fn(A, &MMState<'_, T, S>) -> Effects;
-pub type ActionAliaser<T, S, A> = fn(Action<A>, &MMState<'_, T, S>) -> Actions<A>;
+pub type ActionExtHandler<T, S, A> = fn(A, &MMState<'_, '_, T, S>) -> Effects;
+pub type ActionAliaser<T, S, A> = fn(Action<A>, &MMState<'_, '_, T, S>) -> Actions<A>;
 pub use arrayvec::ArrayVec;
 /// # Example
 /// ```rust
@@ -176,7 +178,7 @@ macro_rules! bindmap {
         )*
         map
     }};
-}
+} // btw, Can't figure out if its possible to support optional meta over inserts
 // ----------- ACTIONS ---------------
 #[derive(Debug, Clone, PartialEq)]
 pub struct Actions<A: ActionExt = NullActionExt>(pub ArrayVec<Action<A>, MAX_ACTIONS>);
@@ -392,7 +394,7 @@ macro_rules! impl_display_and_from_str_enum {
 
 // call it like:
 impl_display_and_from_str_enum!(
-    Select, Deselect, Toggle, CycleAll, ClearAll, Accept, CyclePreview, CycleColumn,
+    Select, Deselect, Toggle, CycleAll, ClearSelections, Accept, CyclePreview, CycleColumn,
     PreviewHalfPageUp, PreviewHalfPageDown, HistoryUp, HistoryDown,
     ChangePrompt, ChangeQuery, ToggleWrap, ToggleWrapPreview, ForwardChar,
     BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord,

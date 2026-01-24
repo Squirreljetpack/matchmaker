@@ -76,10 +76,10 @@ impl PreviewUI {
         self.layout().is_some()
     }
     // cheap show toggle + change tracking
-    pub fn show<const SHOW: bool>(&mut self) -> bool {
+    pub fn show(&mut self, show: bool) -> bool {
         let previous = self.config.show;
-        self.config.show = SHOW;
-        previous != SHOW
+        self.config.show = show;
+        previous != show
     }
     pub fn toggle_show(&mut self) {
         self.config.show = !self.config.show;

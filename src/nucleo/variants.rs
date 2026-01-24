@@ -10,7 +10,7 @@ use super::{
 
 impl<T: SSS> Worker<T> {
     /// Returns a function which templates a string given an item using the column functions
-    pub fn make_format_fn<const QUOTE: bool>(
+    pub fn default_format_fn<const QUOTE: bool>(
         &self,
         blank_format: impl Fn(&T) -> Cow<'_, str> + SSS,
     ) -> RenderFn<T> {

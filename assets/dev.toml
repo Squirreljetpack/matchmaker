@@ -1,113 +1,113 @@
 # picker configuration file
 
 [tui]
-    percentage=60
-    min=10
-    max=120
+    percentage = 60
+    min        = 10
+    max        = 120
 
 [ui]
-    border={color="Blue"}
+    border = { color = "Blue" }
     # background = "#282828"
-    tick_rate=30
+    tick_rate = 30
 
 [input]
-    fg="White"
-    cursor="default"
-    prompt=">"
+    fg     = "White"
+    cursor = "default"
+    prompt = ">"
 
 [header]
-    content="test"
+    content = "test"
 
 [results]
-    scroll_padding=2
+    scroll_padding = 2
 
-    border={type="Rounded", sides="none", padding=0}
-    fg="White"
-    current_bg="Black"
-    current_modifier="bold"
-    match_fg="Green"
-    count_fg="Green"
-    count_modifier="italic"
+    border           = { type = "Rounded", sides = "none", padding = 0 }
+    fg               = "White"
+    current_bg       = "Black"
+    current_modifier = "bold"
+    match_fg         = "Green"
+    count_fg         = "Green"
+    count_modifier   = "italic"
     # reverse = auto
-    wrap=true
+    wrap = true
 
-    scroll_wrap=true
+    scroll_wrap = true
 
 [previewer]
-    try_lossy=false
+    try_lossy = false
 
 [preview]
-    border={type="Rounded", color="Blue"}
-    scroll_wrap=true
-    show=true
-    wrap=true
+    border      = { type = "Rounded", color = "Blue" }
+    scroll_wrap = true
+    show        = true
+    wrap        = true
 
 [[preview.layout]]
-    command="bat --color=always {} || eza --color=always --color=always -T -L 2 {}"
-    side="right"
-    percentage=40
-    min=30
-    max=120
+    command    = "bat --color=always {} || eza --color=always --color=always -T -L 2 {}"
+    side       = "right"
+    percentage = 40
+    min        = 30
+    max        = 120
 
 [[preview.layout]]
-    side="top"
-    percentage=40
-    min=30
-    max=120
+    side       = "top"
+    percentage = 40
+    min        = 30
+    max        = 120
 
 [binds]
     # UI
-    "ctrl-c"="Quit"
-    "esc"="Quit"
-    "enter"="Accept"
-    "ctrl-a"="CycleAll"
-    "tab"=["Select", "Down"]
-    "shift-backtab"=["Toggle", "Up"]
+    "ctrl-c"        = "Quit"
+    "esc"           = "Quit"
+    "enter"         = "Accept"
+    "ctrl-a"        = "CycleAll"
+    "tab"           = [ "Select", "Down" ]
+    "shift-backtab" = [ "Toggle", "Up" ]
 
     # Edit
-    "right"="ForwardChar"
-    "left"="BackwardChar"
-    "ctrl-right"="ForwardWord"
-    "ctrl-left"="BackwardWord"
-    "backspace"="DeleteChar"
-    "ctrl-h"="DeleteWord"
-    "ctrl-u"="Cancel"
+    "right"      = "ForwardChar"
+    "left"       = "BackwardChar"
+    "ctrl-right" = "ForwardWord"
+    "ctrl-left"  = "BackwardWord"
+    "backspace"  = "DeleteChar"
+    "ctrl-h"     = "DeleteWord"
+    "ctrl-u"     = "Cancel"
 
     # Navigation
-    "up"="Up"
-    "down"="Down"
-    "pageup"="Up(10)"
-    "pagedown"="Down(10)"
-    "ctrl-p"="Up(10)"
-    "ctrl-n"="Down(10)"
-    "shift-up"="PreviewUp"
-    "shift-down"="PreviewDown"
-    "ctrl-shift-up"="PreviewHalfPageUp"
-    "ctrl-shift-down"="PreviewHalfPageDown"
+    "up"              = "Up"
+    "down"            = "Down"
+    "pageup"          = "Up(10)"
+    "pagedown"        = "Down(10)"
+    "ctrl-p"          = "Up(10)"
+    "ctrl-n"          = "Down(10)"
+    "shift-up"        = "PreviewUp"
+    "shift-down"      = "PreviewDown"
+    "ctrl-shift-up"   = "PreviewHalfPageUp"
+    "ctrl-shift-down" = "PreviewHalfPageDown"
 
-    "scrollup"="Up"
-    "scrolldown"="Down"
-    "shift+scrollup"="PreviewUp"
-    "shift+scrolldown"="PreviewDown"
-    "alt-h"="Help"
-    "?"="SwitchPreview(0)"
-    "shift-?"="SwitchPreview(0)"
-    "ctrl-shift-/"="CyclePreview"    # ctrl-shift-/
+    "scrollup"         = "Up"
+    "scrolldown"       = "Down"
+    "shift+scrollup"   = "PreviewUp"
+    "shift+scrolldown" = "PreviewDown"
+    "alt-h"            = "Help"
+    "?"                = "SwitchPreview(0)"
+    "shift-?"          = "SwitchPreview(0)"
+    "ctrl-shift-/"     = "CyclePreview"     # ctrl-shift-/
 
-    "alt-1"="Column(0)"
+    "alt-1" = "Column(0)"
 
-    "ctrl-t"="Execute(echo ----; read v; echo $v; echo ----)"
-    "ctrl-l"="Execute(eval $FZF_PREVIEW_COMMAND | $PAGER)"
-    "ctrl-o"="Execute(micro {})"
-    "alt-o"="Become(micro {})"
-    "ctrl-r"="Reload(fd -u)"
-    "alt-enter"="Print({1})"
+    "ctrl-t"    = "Execute(echo ----; read v; echo $v; echo ----)"
+    "ctrl-l"    = "Execute(eval $FZF_PREVIEW_COMMAND | $PAGER)"
+    "ctrl-o"    = "Execute(micro {})"
+    "alt-o"     = "Become(micro {})"
+    "ctrl-r"    = "Reload(fd -u)"
+    "alt-enter" = "Print({1})"
 
 [matcher]
-    trim=true
-    columns.split='\s+'
-    columns.max_columns=5
-    select_1=false
-    format="{}"
-    default_command="fd"
+    trim                = true
+    columns.split       = '\s+'
+    columns.max_columns = 5
+    select_1            = false
+    format              = "{}"
+    default_command     = "fd"
     # sync = false

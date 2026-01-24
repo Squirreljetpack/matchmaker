@@ -66,11 +66,13 @@ pub type ConfigMatchmaker = Matchmaker<Indexed<Segmented<String>>, Segmented<Str
 impl ConfigMatchmaker {
     /// Creates a new Matchmaker from a config::BaseConfig.
     pub fn new_from_config(
-        render_config: RenderConfig,
+        mut render_config: RenderConfig,
         tui_config: TerminalConfig,
         worker_config: WorkerConfig,
     ) -> (Self, ConfigInjector, OddEnds) {
         let cc = worker_config.columns;
+        // "hack" because we cannot make the results stable in the worker as our current hack uses the identifier
+        render_config.results.stable = worker_config.stable;
 
         let worker: Worker<Indexed<Segmented<String>>> = match cc.split {
             Split::Delimiter(_) | Split::Regexes(_) => {
@@ -133,7 +135,7 @@ impl ConfigMatchmaker {
         let event_handlers = EventHandlers::new();
         let interrupt_handlers = InterruptHandlers::new();
         let formatter = Arc::new(
-            worker.make_format_fn::<true>(|item| std::borrow::Cow::Borrowed(&item.inner.inner)),
+            worker.default_format_fn::<true>(|item| std::borrow::Cow::Borrowed(&item.inner.inner)),
         );
 
         let new = Matchmaker {
@@ -205,29 +207,25 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
         self
     }
     /// Register a handler to listen on [`Event`]s
-    pub fn register_event_handler<F, I>(&mut self, events: I, handler: F)
+    pub fn register_event_handler<F>(&mut self, event: Event, handler: F)
     where
-        F: Fn(&mut MMState<'_, T, S>, &Event) -> Effects + SSS,
-        I: IntoIterator<Item = Event>,
+        F: Fn(&mut MMState<'_, '_, T, S>, &Event) -> Effects + SSS,
     {
         let boxed = Box::new(handler);
-        self.register_boxed_event_handler(events, boxed);
+        self.register_boxed_event_handler(event, boxed);
     }
     /// Register a boxed handler to listen on [`Event`]s
-    pub fn register_boxed_event_handler<I>(
+    pub fn register_boxed_event_handler(
         &mut self,
-        events: I,
+        event: Event,
         handler: DynamicMethod<T, S, Event>,
-    ) where
-        I: IntoIterator<Item = Event>,
-    {
-        let events_vec: Vec<_> = events.into_iter().collect();
-        self.event_handlers.set(events_vec, handler);
+    ) {
+        self.event_handlers.set(event, handler);
     }
     /// Register a handler to listen on [`Interrupt`]s
     pub fn register_interrupt_handler<F>(&mut self, interrupt: Interrupt, handler: F)
     where
-        F: Fn(&mut MMState<'_, T, S>, &Interrupt) -> Effects + SSS,
+        F: Fn(&mut MMState<'_, '_, T, S>, &Interrupt) -> Effects + SSS,
     {
         let boxed = Box::new(handler);
         self.register_boxed_interrupt_handler(interrupt, boxed);
@@ -393,7 +391,7 @@ impl<T> Result<T, MatchError> {
 // --------- BUILDER -------------
 
 /// Returns what should be pushed to input
-pub type PasteHandler<T, S> = fn(String, &MMState<'_, T, S>) -> String;
+pub type PasteHandler<T, S> = fn(String, &MMState<'_, '_, T, S>) -> String;
 /// Used to configure [`Matchmaker::pick`] with additional options.
 pub struct PickOptions<'a, T: SSS, S: Selection, A: ActionExt = NullActionExt> {
     matcher: Option<&'a mut nucleo::Matcher>,
@@ -625,7 +623,7 @@ pub fn make_previewer<T: SSS, S: Selection>(
     let preview_tx = tx.clone();
 
     // preview handler
-    mm.register_event_handler([Event::CursorChange, Event::PreviewChange], move |state, _| {
+    mm.register_event_handler(Event::CursorChange | Event::PreviewChange, move |state, _| {
             if state.preview_show &&
             let Some(t) = state.current_raw() &&
             let m = state.preview_payload() &&
@@ -647,11 +645,11 @@ pub fn make_previewer<T: SSS, S: Selection>(
             } else if preview_tx.send(PreviewMessage::Stop).is_err() {
                 warn!("Failed to send to preview: stop")
             }
-            
+
             efx![render::Effect::ClearPreviewSet] //
         });
 
-    mm.register_event_handler([Event::PreviewSet], move |state, _event| {
+    mm.register_event_handler(Event::PreviewSet, move |state, _event| {
         if state.preview_show {
             let msg = if let Some(m) = state.preview_set_payload() {
                 let m = if m.is_empty() && !help_str.lines.is_empty() {

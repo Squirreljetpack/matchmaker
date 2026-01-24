@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::parse::parse;
-use crate::{config::Config, types::default_config_path};
+use crate::{config::Config, paths::default_config_path};
 use cli_boilerplate_automation::{
     bait::{OptionExt, ResultExt},
     bo::{MapReaderError, map_chunks, map_reader_lines, read_to_chunks, write_str},
@@ -145,7 +145,7 @@ pub async fn pick(
     // print handler
     let print_formatter = std::sync::Arc::new(
         mm.worker
-            .make_format_fn::<false>(|item| std::borrow::Cow::Borrowed(&item.inner.inner)),
+            .default_format_fn::<false>(|item| std::borrow::Cow::Borrowed(&item.inner.inner)),
     );
     mm.register_print_handler(print_handle, print_formatter);
 

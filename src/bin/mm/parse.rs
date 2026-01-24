@@ -1,4 +1,4 @@
-use super::types::Cli;
+use super::clap::Cli;
 use clap::{Parser, error::ErrorKind};
 
 pub fn parse(args: Vec<String>) -> Cli {

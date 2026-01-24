@@ -3,27 +3,28 @@
 
 use std::{fmt, ops::Deref};
 
-use crate::MAX_SPLITS;
-use crate::{Result, action::Count, tui::IoStream};
+pub use crate::utils::Percentage;
+use crate::{
+    MAX_SPLITS, Result,
+    action::Count,
+    tui::IoStream,
+    utils::serde::{
+        StringOrVec, escaped_opt_char, escaped_opt_string, modifier, serde_duration_ms,
+    },
+};
 
-use ratatui::style::Style;
-use ratatui::text::Span;
 use ratatui::{
-    style::{Color, Modifier},
+    style::{Color, Modifier, Style},
+    text::Span,
     widgets::{BorderType, Borders, Padding},
 };
-use regex::Regex;
-use serde::de::IntoDeserializer;
-use serde::ser::SerializeSeq;
-use serde::{
-    Deserialize, Deserializer,
-    de::{self, Visitor},
-};
-use serde::{Serialize, Serializer};
 
-pub use crate::utils::{
-    Percentage,
-    serde::{StringOrVec, escaped_opt_char, escaped_opt_string, serde_duration_ms},
+use regex::Regex;
+
+use serde::{
+    Deserialize, Deserializer, Serialize,
+    de::{self, IntoDeserializer, Visitor},
+    ser::SerializeSeq,
 };
 
 /// Settings unrelated to event loop/picker_ui.
@@ -51,6 +52,7 @@ pub struct WorkerConfig {
     pub exit: ExitConfig,
     pub trim: bool,           // todo
     pub format: FormatString, // todo: implement
+    pub stable: bool,
 }
 
 /// Configures how input is fed to to the worker(s).
@@ -153,17 +155,11 @@ pub struct InputConfig {
 
     // text styles
     pub fg: Color,
-    #[serde(
-        deserialize_with = "deserialize_modifier",
-        serialize_with = "serialize_modifier"
-    )]
+    #[serde(with = "modifier")]
     pub modifier: Modifier,
 
     pub prompt_fg: Color,
-    #[serde(
-        deserialize_with = "deserialize_modifier",
-        serialize_with = "serialize_modifier"
-    )]
+    #[serde(with = "modifier")]
     pub prompt_modifier: Modifier,
 
     #[serde(deserialize_with = "deserialize_string_or_char_as_double_width")]
@@ -229,38 +225,24 @@ pub struct ResultsConfig {
 
     // text styles
     pub fg: Color,
-    #[serde(
-        deserialize_with = "deserialize_modifier",
-        serialize_with = "serialize_modifier"
-    )]
+    #[serde(with = "modifier")]
     pub modifier: Modifier,
 
     #[serde(default = "default_green")]
     pub match_fg: Color,
-    #[serde(
-        deserialize_with = "deserialize_modifier",
-        serialize_with = "serialize_modifier"
-    )]
+    #[serde(with = "modifier")]
     pub match_modifier: Modifier,
 
     pub current_fg: Color,
     #[serde(default = "default_black")]
     pub current_bg: Color,
-    #[serde(
-        deserialize_with = "deserialize_modifier",
-        serialize_with = "serialize_modifier",
-        default = "default_bold"
-    )]
+    #[serde(with = "modifier", default = "default_bold")]
     pub current_modifier: Modifier,
 
     // status
     #[serde(default = "default_green")]
     pub count_fg: Color,
-    #[serde(
-        deserialize_with = "deserialize_modifier",
-        serialize_with = "serialize_modifier",
-        default = "default_italic"
-    )]
+    #[serde(with = "modifier", default = "default_italic")]
     pub count_modifier: Modifier,
 
     // todo(?): lowpri
@@ -283,6 +265,8 @@ pub struct ResultsConfig {
     pub column_spacing: Count,
     pub current_prefix: String,
     pub right_align_last: bool,
+    #[serde(skip)]
+    pub stable: bool,
 }
 
 impl Default for ResultsConfig {
@@ -315,6 +299,7 @@ impl Default for ResultsConfig {
             column_spacing: Default::default(),
             current_prefix: Default::default(),
             right_align_last: true,
+            stable: false,
         }
     }
 }
@@ -326,11 +311,7 @@ pub struct DisplayConfig {
 
     #[serde(default = "default_green")]
     pub fg: Color,
-    #[serde(
-        deserialize_with = "deserialize_modifier",
-        serialize_with = "serialize_modifier",
-        default = "default_italic"
-    )]
+    #[serde(with = "modifier", default = "default_italic")]
     pub modifier: Modifier,
 
     #[serde(default = "default_true")]
@@ -452,10 +433,7 @@ pub struct BorderSetting {
     )]
     pub padding: Padding,
     pub title: String,
-    #[serde(
-        deserialize_with = "deserialize_modifier",
-        serialize_with = "serialize_modifier"
-    )]
+    #[serde(with = "modifier")]
     pub title_modifier: Modifier,
     pub bg: Color,
 }
@@ -757,92 +735,6 @@ where
             Ok(Some(borders))
         }
         None => Ok(None),
-    }
-}
-
-pub fn deserialize_modifier<'de, D>(deserializer: D) -> Result<Modifier, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let input = StringOrVec::deserialize(deserializer)?;
-    let mut modifier = Modifier::empty();
-
-    let add_modifier = |name: &str, m: &mut Modifier| -> Result<(), D::Error> {
-        match name.to_lowercase().as_str() {
-            "bold" => {
-                *m |= Modifier::BOLD;
-                Ok(())
-            }
-            "italic" => {
-                *m |= Modifier::ITALIC;
-                Ok(())
-            }
-            "underlined" => {
-                *m |= Modifier::UNDERLINED;
-                Ok(())
-            }
-            // "slow_blink" => {
-            //     *m |= Modifier::SLOW_BLINK;
-            //     Ok(())
-            // }
-            // "rapid_blink" => {
-            //     *m |= Modifier::RAPID_BLINK;
-            //     Ok(())
-            // }
-            // "reversed" => {
-            //     *m |= Modifier::REVERSED;
-            //     Ok(())
-            // }
-            // "dim" => {
-            //     *m |= Modifier::DIM;
-            //     Ok(())
-            // }
-            // "crossed_out" => {
-            //     *m |= Modifier::CROSSED_OUT;
-            //     Ok(())
-            // }
-            "none" => {
-                *m = Modifier::empty();
-                Ok(())
-            } // reset all modifiers
-            other => Err(de::Error::custom(format!("invalid modifier '{}'", other))),
-        }
-    };
-
-    match input {
-        StringOrVec::String(s) => add_modifier(&s, &mut modifier)?,
-        StringOrVec::Vec(list) => {
-            for item in list {
-                add_modifier(&item, &mut modifier)?;
-            }
-        }
-    }
-
-    Ok(modifier)
-}
-
-pub fn serialize_modifier<S>(modifier: &Modifier, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    let mut mods = Vec::new();
-
-    if modifier.contains(Modifier::BOLD) {
-        mods.push("bold");
-    }
-    if modifier.contains(Modifier::ITALIC) {
-        mods.push("italic");
-    }
-    if modifier.contains(Modifier::UNDERLINED) {
-        mods.push("underlined");
-    }
-    // add other flags if needed
-    // if modifier.contains(Modifier::DIM) { mods.push("dim"); }
-
-    match mods.len() {
-        0 => serializer.serialize_str("none"),
-        1 => serializer.serialize_str(mods[0]),
-        _ => mods.serialize(serializer),
     }
 }
 
@@ -1202,11 +1094,7 @@ impl<'de> Deserialize<'de> for BorderSetting {
             padding: Padding,
             #[serde(default)]
             title: String,
-            #[serde(
-                default,
-                deserialize_with = "deserialize_modifier",
-                serialize_with = "serialize_modifier"
-            )]
+            #[serde(default, with = "modifier")]
             title_modifier: Modifier,
             #[serde(default)]
             bg: Color,

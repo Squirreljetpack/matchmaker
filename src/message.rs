@@ -1,29 +1,28 @@
+use bitflags::bitflags;
 use crossterm::event::MouseEvent;
 use ratatui::layout::Rect;
-use strum_macros::{Display, EnumString};
 
 use crate::{
     action::{Action, ActionExt, Exit},
     render::Effect,
 };
 
-#[derive(Debug, Hash, PartialEq, Eq, EnumString, Clone, Display)]
-#[strum(serialize_all = "lowercase")]
-#[non_exhaustive]
-pub enum Event {
-    Start,
-    Complete,
-    QueryChange,
-    CursorChange,
-    PreviewChange,
-    OverlayChange,
-    PreviewSet,
-    Synced,
-    Resize,
-    Refresh,
-    Pause,
-    Resume,
-    Custom(usize),
+bitflags! {
+    #[derive(bitflags_derive::FlagsDisplay, bitflags_derive::FlagsFromStr, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default)]
+    pub struct Event: u32 {
+        const Start = 1 << 0;
+        const Complete = 1 << 1;
+        const QueryChange = 1 << 2;
+        const CursorChange = 1 << 3;
+        const PreviewChange = 1 << 4;
+        const OverlayChange = 1 << 5;
+        const PreviewSet = 1 << 6;
+        const Synced = 1 << 7;
+        const Resize = 1 << 8;
+        const Refresh = 1 << 9;
+        const Pause = 1 << 10;
+        const Resume = 1 << 11;
+    }
 }
 
 // ---------------------------------------------------------------------

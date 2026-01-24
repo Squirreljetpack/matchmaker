@@ -74,13 +74,7 @@ impl ResultsUI {
     }
     pub fn cycle_col(&mut self) {
         self.col = match self.col {
-            None => {
-                if !self.widths.is_empty() {
-                    Some(0)
-                } else {
-                    None
-                }
-            }
+            None => self.widths.is_empty().then_some(0),
             Some(c) => {
                 let next = c + 1;
                 if next < self.widths.len() {
@@ -229,7 +223,7 @@ impl ResultsUI {
     pub fn make_table<'a, T: SSS>(
         &'a mut self,
         worker: &'a mut Worker<T>,
-        selections: &mut Selector<T, impl Selection>,
+        selector: &mut Selector<T, impl Selection>,
         matcher: &mut nucleo::Matcher,
     ) -> Table<'a> {
         let offset = self.bottom as u32;
@@ -254,6 +248,9 @@ impl ResultsUI {
 
         if results.is_empty() {
             return Table::new(rows, widths);
+        }
+        if self.config.stable {
+            results.sort_by_key(|item| selector.id(item.1));
         }
 
         // debug!("sb: {}, {}, {}, {}, {}", self.bottom, self.cursor, total_height, self.height, results.len());
@@ -284,7 +281,7 @@ impl ResultsUI {
                     }
                     total_height += height;
 
-                    let prefix = if selections.contains(item) {
+                    let prefix = if selector.contains(item) {
                         self.config.multi_prefix.clone().to_string()
                     } else {
                         fit_width(
@@ -365,7 +362,7 @@ impl ResultsUI {
                 total_height += height;
             }
 
-            let prefix = if selections.contains(item) {
+            let prefix = if selector.contains(item) {
                 self.config.multi_prefix.clone().to_string()
             } else {
                 fit_width(
@@ -456,8 +453,10 @@ impl ResultsUI {
 
     pub fn make_status(&self) -> Paragraph<'_> {
         Paragraph::new(format!(
-            "  {}/{}",
-            &self.status.matched_count, &self.status.item_count
+            "{}{}/{}",
+            " ".repeat(self.indentation()),
+            &self.status.matched_count,
+            &self.status.item_count
         ))
         .style(self.config.count_fg)
         .add_modifier(self.config.count_modifier)

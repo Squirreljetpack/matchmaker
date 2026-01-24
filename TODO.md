@@ -23,8 +23,14 @@
 - benchmarks (what kinds of speed matter?)
 - Add support for nucleo::Pattern in the matcher config
 - Adaptable percentage (higher on smaller)
-- Fix race conditions:
-  - Too many execute will crash event loop
+
+- status template
+
+
+# Bugs
+- Too many execute will crash event loop
+- Preview sometimes disappears?
+- Indexing can break?
 
 ### Low priority
 
@@ -34,4 +40,4 @@
 - sometimes preview leaks, better autorefresh?
 - (automatic) horizontal scrolling of results
 - too many actions at once (execute/reload) can cause crash sometimes
-
+- input_rhs_prompt, 

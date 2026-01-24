@@ -1,16 +1,18 @@
 use std::process::exit;
 
+mod clap;
 mod config;
 mod crokey;
 mod parse;
+mod paths;
 mod setup;
-mod types;
 mod utils;
 
+use clap::*;
 use cli_boilerplate_automation::bog::BogOkExt;
 use matchmaker::{MatchError, preview::AppendOnly};
+use paths::*;
 use setup::*;
-use types::*;
 use utils::*;
 
 #[tokio::main(flavor = "multi_thread")]

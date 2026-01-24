@@ -9,12 +9,13 @@ use crate::{
 
 // note: beware that same handler could be called multiple times for the same event in one iteration
 // We choose not to return a Option<Result<S, E>> to simplify defining handlers, but will rather expose some mechanisms on state later on if a use case arises
-pub type DynamicMethod<T, S, E> = Box<dyn Fn(&mut MMState<'_, T, S>, &E) -> Effects + Send + Sync>;
+pub type DynamicMethod<T, S, E> =
+    Box<dyn Fn(&mut MMState<'_, '_, T, S>, &E) -> Effects + Send + Sync>;
 pub type DynamicHandlers<T, S> = (EventHandlers<T, S>, InterruptHandlers<T, S>);
 
 #[allow(clippy::type_complexity)]
 pub struct EventHandlers<T: SSS, S: Selection> {
-    handlers: Vec<(Vec<Event>, DynamicMethod<T, S, Event>)>,
+    handlers: Vec<(Event, DynamicMethod<T, S, Event>)>,
 }
 
 #[allow(clippy::type_complexity)]
@@ -33,14 +34,14 @@ impl<T: SSS, S: Selection> EventHandlers<T, S> {
         Self { handlers: vec![] }
     }
 
-    pub fn set(&mut self, events: Vec<Event>, handler: DynamicMethod<T, S, Event>) {
-        self.handlers.push((events, handler));
+    pub fn set(&mut self, event: Event, handler: DynamicMethod<T, S, Event>) {
+        self.handlers.push((event, handler));
     }
 
-    pub fn get(&self, event: &Event) -> impl Iterator<Item = &DynamicMethod<T, S, Event>> {
+    pub fn get(&self, event: Event) -> impl Iterator<Item = &DynamicMethod<T, S, Event>> {
         self.handlers
             .iter()
-            .filter(move |(events, _)| events.contains(event))
+            .filter(move |(mask, _)| mask.intersects(event))
             .map(|(_, handler)| handler)
     }
 }

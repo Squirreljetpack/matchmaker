@@ -1,5 +1,5 @@
 use cli_boilerplate_automation::{broc::EnvVars, env_vars};
-use std::{collections::HashSet, ops::Deref};
+use std::ops::Deref;
 
 use crate::{
     SSS, Selection, Selector,
@@ -22,24 +22,25 @@ pub struct State<S: Selection> {
     pub(crate) preview_set: Option<String>,
     pub iterations: u32,
     pub preview_show: bool,
+    pub preview_show_stash: Option<bool>,
     pub layout: [Rect; 4], //preview, input, status, results
     pub overlay_index: Option<usize>,
 
     pub(crate) matcher_running: bool,
-    pub(crate) events: HashSet<Event>,
+    pub(crate) events: Event,
 }
 
-pub struct MMState<'a, T: SSS, S: Selection> {
+pub struct MMState<'a, 'b: 'a, T: SSS, S: Selection> {
     pub(crate) state: &'a State<S>,
 
-    pub picker_ui: &'a PickerUI<'a, T, S>,
-    pub ui: &'a UI,
-    pub preview_ui: Option<&'a PreviewUI>,
+    pub picker_ui: &'a mut PickerUI<'b, T, S>,
+    pub ui: &'a mut UI,
+    pub preview_ui: Option<&'a mut PreviewUI>,
 }
 
-impl<'a, T: SSS, S: Selection> MMState<'a, T, S> {
+impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
     pub fn previewer_area(&self) -> Option<&Rect> {
-        self.preview_ui.map(|ui| &ui.area)
+        self.preview_ui.as_ref().map(|ui| &ui.area)
     }
 
     pub fn ui_area(&self) -> &Rect {
@@ -103,6 +104,7 @@ impl<S: Selection> State<S> {
             preview_run: String::new(),
             preview_set: None,
             preview_show: false,
+            preview_show_stash: None,
             layout: [Rect::default(); 4],
             overlay_index: None,
             col: None,
@@ -111,7 +113,7 @@ impl<S: Selection> State<S> {
             iterations: 0,
             matcher_running: true,
 
-            events: HashSet::new(),
+            events: Event::empty(),
         }
     }
     // ------ properties -----------
@@ -123,12 +125,12 @@ impl<S: Selection> State<S> {
         &self.preview_run
     }
 
-    pub fn contains(&self, event: &Event) -> bool {
+    pub fn contains(&self, event: Event) -> bool {
         self.events.contains(event)
     }
 
-    pub fn insert(&mut self, event: Event) -> bool {
-        self.events.insert(event)
+    pub fn insert(&mut self, event: Event) {
+        self.events.insert(event);
     }
 
     pub fn preview_set_payload(&self) -> &Option<String> {
@@ -193,14 +195,13 @@ impl<S: Selection> State<S> {
         changed
     }
 
-    /// Emit PreviewChange event on visibility change
+    /// Emit PreviewChange event on change to visible
     pub(crate) fn update_preview_ui(&mut self, preview_ui: &PreviewUI) -> bool {
-        let next = preview_ui.is_show();
-        let changed = self.preview_show != next;
-        self.preview_show = next;
-        // todo: cache to make up for this
-        if changed && next {
+        let changed = self.preview_show != preview_ui.is_show();
+        // todo: cache to make up for this?
+        if changed && preview_ui.is_show() {
             self.insert(Event::PreviewChange);
+            self.preview_show = true;
         };
         changed
     }
@@ -236,12 +237,12 @@ impl<S: Selection> State<S> {
     }
 
     // ---------- flush -----------
-    pub(crate) fn dispatcher<'a, T: SSS>(
+    pub(crate) fn dispatcher<'a, 'b: 'a, T: SSS>(
         &'a self,
-        ui: &'a UI,
-        picker_ui: &'a PickerUI<T, S>,
-        preview_ui: Option<&'a PreviewUI>,
-    ) -> MMState<'a, T, S> {
+        ui: &'a mut UI,
+        picker_ui: &'a mut PickerUI<'b, T, S>,
+        preview_ui: Option<&'a mut PreviewUI>,
+    ) -> MMState<'a, 'b, T, S> {
         MMState {
             state: self,
             picker_ui,
@@ -254,7 +255,7 @@ impl<S: Selection> State<S> {
         // nothing
     }
 
-    pub(crate) fn events(&mut self) -> HashSet<Event> {
+    pub(crate) fn events(&mut self) -> Event {
         self.reset();
         // this rules out persistent preview_set, todo: impl effects to trigger this instead
         std::mem::take(&mut self.events) // maybe copy is faster dunno
@@ -275,7 +276,7 @@ impl<S: Selection> std::fmt::Debug for State<S> {
     }
 }
 
-impl<'a, T: SSS, S: Selection> Deref for MMState<'a, T, S> {
+impl<'a, 'b: 'a, T: SSS, S: Selection> Deref for MMState<'a, 'b, T, S> {
     type Target = State<S>;
 
     fn deref(&self) -> &Self::Target {

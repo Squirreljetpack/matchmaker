@@ -6,13 +6,13 @@ use std::{fmt, ops::Deref};
 pub use crate::utils::Percentage;
 use crate::{
     MAX_SPLITS, Result,
-    action::Count,
     tui::IoStream,
     utils::serde::{
         StringOrVec, escaped_opt_char, escaped_opt_string, modifier, serde_duration_ms,
     },
 };
 
+use cli_boilerplate_automation::impl_transparent_wrapper;
 use ratatui::{
     style::{Color, Modifier, Style},
     text::Span,
@@ -267,6 +267,12 @@ pub struct ResultsConfig {
     pub current_prefix: String,
     pub right_align_last: bool,
 }
+impl_transparent_wrapper!(
+    #[derive(Copy)]
+    Count,
+    u16,
+    1
+);
 
 impl Default for ResultsConfig {
     fn default() -> Self {

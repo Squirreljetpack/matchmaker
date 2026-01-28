@@ -2,7 +2,7 @@ use bitflags::bitflags;
 use crossterm::event::MouseEvent;
 use ratatui::layout::Rect;
 
-use crate::action::{Action, ActionExt, Exit};
+use crate::action::{Action, ActionExt};
 
 bitflags! {
     #[derive(bitflags_derive::FlagsDisplay, bitflags_derive::FlagsFromStr, Debug, PartialEq, Eq, Hash, Clone, Copy, Default)]
@@ -69,6 +69,6 @@ impl<A: ActionExt> From<&Action<A>> for RenderCommand<A> {
 
 impl<A: ActionExt> RenderCommand<A> {
     pub fn quit() -> Self {
-        RenderCommand::Action(Action::Quit(Exit::default()))
+        RenderCommand::Action(Action::Quit(1))
     }
 }

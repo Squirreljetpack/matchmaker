@@ -207,7 +207,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             return Ok(ret);
                         }
                         Action::Quit(code) => {
-                            return Err(MatchError::Abort(code.0));
+                            return Err(MatchError::Abort(code));
                         }
 
                         // UI
@@ -329,12 +329,12 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         }
                         Action::PreviewUp(n) => {
                             if let Some(p) = preview_ui.as_mut() {
-                                p.up(n.into())
+                                p.up(n)
                             }
                         }
                         Action::PreviewDown(n) => {
                             if let Some(p) = preview_ui.as_mut() {
-                                p.down(n.into())
+                                p.down(n)
                             }
                         }
                         Action::PreviewHalfPageUp => todo!(),

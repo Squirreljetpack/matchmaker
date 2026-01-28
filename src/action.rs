@@ -4,7 +4,6 @@ use std::{
     str::FromStr,
 };
 
-use cli_boilerplate_automation::impl_transparent_wrapper;
 use serde::{Deserialize, Serialize, Serializer};
 
 use crate::{MAX_ACTIONS, SSS, render::MMState, utils::serde::StringOrVec};
@@ -27,7 +26,7 @@ pub enum Action<A: ActionExt = NullActionExt> {
     ClearSelections,
     Accept,
     // Returns MatchError::Abort
-    Quit(Exit),
+    Quit(i32),
 
     // UI
     CyclePreview,
@@ -78,10 +77,10 @@ pub enum Action<A: ActionExt = NullActionExt> {
     InputPos(i32),
 
     // Navigation
-    Up(Count),
-    Down(Count),
-    PreviewUp(Count),
-    PreviewDown(Count),
+    Up(u16),
+    Down(u16),
+    PreviewUp(u16),
+    PreviewDown(u16),
     PreviewHalfPageUp,
     PreviewHalfPageDown,
     Pos(i32),
@@ -282,9 +281,8 @@ macro_rules! impl_display_and_from_str_enum {
     (
         $($unit:ident),*;
         $($tuple:ident),*;
-        $($tuple_default:ident),*;
-        $($tuple_option:ident),*;
-        $($tuple_string_default:ident),*
+        $(($tuple_default:ident, $tuple_default_value:expr)),*;
+        $($tuple_option:ident),*
     ) => {
         impl<A: ActionExt> std::fmt::Display for Action<A> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -297,7 +295,7 @@ macro_rules! impl_display_and_from_str_enum {
 
                     // Tuple variants with generic default fallback
                     $( Self::$tuple_default(inner) => {
-                        if *inner == core::default::Default::default() {
+                        if *inner == $tuple_default_value {
                             write!(f, stringify!($tuple_default))
                         } else {
                             write!(f, concat!(stringify!($tuple_default), "({})"), inner)
@@ -310,14 +308,6 @@ macro_rules! impl_display_and_from_str_enum {
                             write!(f, concat!(stringify!($tuple_option), "({})"), inner)
                         } else {
                             write!(f, stringify!($tuple_option))
-                        }
-                    }, )*
-
-                    $( Self::$tuple_string_default(inner) => {
-                        if inner.is_empty() {
-                            write!(f, stringify!($tuple_string_default))
-                        } else {
-                            write!(f, concat!(stringify!($tuple_string_default), "({})"), inner)
                         }
                     }, )*
 
@@ -348,7 +338,7 @@ macro_rules! impl_display_and_from_str_enum {
                 if let Ok(x) = name.parse::<A>() {
                     return Ok(Self::Custom(x))
                 }
-                match name {
+                match name.to_lowercase().as_str() {
                     $( stringify!($unit) => {
                         if data.is_some() {
                             Err(format!("Unexpected data for unit variant {}", name))
@@ -370,7 +360,7 @@ macro_rules! impl_display_and_from_str_enum {
                         let d = match data {
                             Some(val) => val.parse()
                             .map_err(|_| format!("Invalid data for {}", stringify!($tuple_default)))?,
-                            None => Default::default(),
+                            None => $tuple_default_value,
                         };
                         Ok(Self::$tuple_default(d))
                     }, )*
@@ -383,14 +373,6 @@ macro_rules! impl_display_and_from_str_enum {
                             _ => None,
                         };
                         Ok(Self::$tuple_option(d))
-                    }, )*
-
-                    $( stringify!($tuple_string_default) => {
-                        let d = match data {
-                            Some(val) if !val.is_empty() => val.to_string(),
-                            _ => String::new(),
-                        };
-                        Ok(Self::$tuple_string_default(d))
                     }, )*
 
                     _ => Err(format!("Unknown variant {}", s))
@@ -410,19 +392,9 @@ impl_display_and_from_str_enum!(
     // tuple variants
     Execute, Become, Reload, Preview, SetInput, Column, Pos, InputPos;
     // tuple with default
-    Up, Down, PreviewUp, PreviewDown, Quit, Overlay;
+    (Up, 1), (Down, 1), (PreviewUp, 1), (PreviewDown, 1), (Quit, 1), (Overlay, 0), (Print, String::new()), (Help, String::new());
     // tuple with option
-    SwitchPreview, SetPreview, SetPrompt, SetHeader, SetFooter;
-    // tuple_string_default
-    Print, Help
-);
-
-impl_transparent_wrapper!(Exit, i32, 1);
-impl_transparent_wrapper!(
-    #[derive(Copy)]
-    Count,
-    u16,
-    1
+    SwitchPreview, SetPreview, SetPrompt, SetHeader, SetFooter
 );
 
 // --------------------------------------

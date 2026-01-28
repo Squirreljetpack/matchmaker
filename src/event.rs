@@ -1,5 +1,5 @@
 use crate::Result;
-use crate::action::{Action, ActionExt, Count};
+use crate::action::{Action, ActionExt};
 use crate::binds::BindMap;
 use crate::message::{Event, RenderCommand};
 use crokey::{Combiner, KeyCombination, KeyCombinationFormat, key};
@@ -194,8 +194,8 @@ impl<A: ActionExt> EventLoop<A> {
                                             // a basic set of keys to prevent confusion
                                             match key {
                                                 key!(ctrl-c) | key!(esc) => self.send(RenderCommand::quit()),
-                                                key!(up) => self.send_action(Action::Up(Count(1))),
-                                                key!(down) => self.send_action(Action::Down(Count(1))),
+                                                key!(up) => self.send_action(Action::Up(1)),
+                                                key!(down) => self.send_action(Action::Down(1)),
                                                 key!(enter) => self.send_action(Action::Accept),
                                                 key!(right) => self.send_action(Action::ForwardChar),
                                                 key!(left) => self.send_action(Action::BackwardChar),

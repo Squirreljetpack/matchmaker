@@ -2,13 +2,10 @@ use bitflags::bitflags;
 use crossterm::event::MouseEvent;
 use ratatui::layout::Rect;
 
-use crate::{
-    action::{Action, ActionExt, Exit},
-    render::Effect,
-};
+use crate::action::{Action, ActionExt, Exit};
 
 bitflags! {
-    #[derive(bitflags_derive::FlagsDisplay, bitflags_derive::FlagsFromStr, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default)]
+    #[derive(bitflags_derive::FlagsDisplay, bitflags_derive::FlagsFromStr, Debug, PartialEq, Eq, Hash, Clone, Copy, Default)]
     pub struct Event: u32 {
         const Start = 1 << 0;
         const Complete = 1 << 1;
@@ -28,7 +25,7 @@ bitflags! {
 // ---------------------------------------------------------------------
 
 #[derive(Default, Debug, Clone)]
-#[non_exhaustive]
+#[repr(u8)]
 pub enum Interrupt {
     #[default]
     None,
@@ -39,12 +36,14 @@ pub enum Interrupt {
     Custom(usize),
 }
 
-impl PartialEq for Interrupt {
-    fn eq(&self, other: &Self) -> bool {
-        std::mem::discriminant(self) == std::mem::discriminant(other)
+impl Interrupt {
+    pub fn discriminant(&self) -> u8 {
+        // SAFETY: Because `Self` is marked `repr(u8)`, its layout is a `repr(C)` `union`
+        // between `repr(C)` structs, each of which has the `u8` discriminant as its first
+        // field, so we can read the discriminant without offsetting the pointer.
+        unsafe { *<*const _>::from(self).cast::<u8>() }
     }
 }
-impl Eq for Interrupt {}
 
 // ---------------------------------------------------------------------
 
@@ -54,12 +53,12 @@ pub enum RenderCommand<A: ActionExt> {
     Action(Action<A>),
     Mouse(MouseEvent),
     Resize(Rect),
-    Effect(Effect),
     #[cfg(feature = "bracketed-paste")]
     Paste(String),
     Ack,
     Tick,
     Refresh,
+    QuitEmpty,
 }
 
 impl<A: ActionExt> From<&Action<A>> for RenderCommand<A> {

@@ -75,6 +75,22 @@ impl<T: SSS> Worker<T> {
     }
 }
 
+impl<T: SSS> Worker<Indexed<T>> {
+    /// A convenience method to initialize data. Note that it is clearly unsound to use this concurrently with other workers. And subsequent use of IndexedInjector requires starting from the returned count.
+    pub fn append(&self, items: impl IntoIterator<Item = T>) -> u32 {
+        let mut index = self.nucleo.snapshot().item_count();
+        for inner in items {
+            injector::push_impl(
+                &self.nucleo.injector(),
+                &self.columns,
+                Indexed { index, inner },
+            );
+            index += 1;
+        }
+        index
+    }
+}
+
 /// You must either impl as_str or as_text
 pub trait Render {
     fn as_str(&self) -> Cow<'_, str> {
@@ -98,31 +114,51 @@ impl<T: Render + SSS> Worker<Indexed<T>> {
             0,
         )
     }
-
-    /// A convenience method to initialize data. Note that it is clearly unsound to use this concurrently with other workers, or to subsequently push with an IndexedInjector.
-    pub fn append(&self, items: impl IntoIterator<Item = T>) -> u32 {
-        let mut index = self.nucleo.snapshot().item_count();
-        for inner in items {
-            injector::push_impl(
-                &self.nucleo.injector(),
-                &self.columns,
-                Indexed { index, inner },
-            );
-            index += 1;
-        }
-        index
-    }
 }
 
+/// You must either impl as_str or as_text
 pub trait ColumnIndexable {
-    fn index(&self, i: usize) -> &str;
+    fn as_str(&self, i: usize) -> Cow<'_, str> {
+        plain_text(&self.as_text(i)).into()
+    }
+    fn as_text(&self, i: usize) -> Text<'_> {
+        Text::from(self.as_str(i))
+    }
 }
 
 impl<T> Worker<T>
 where
     T: ColumnIndexable + SSS,
 {
-    /// Create a new worker over indexable items, whose columns as displayed in the picker correspond to indices according to the relative order of the column names given to this function.
+    /// Create a new worker over indexable items, whose columns correspond to indices according to the relative order of the column names given to this function.
+    /// # Example
+    /// ```rust
+    /// pub struct RunAction {
+    ///     name,
+    ///     alias,
+    ///     desc
+    /// };
+    /// impl ColumnIndexable for RunAction {
+    ///     fn index(&self, i: usize) -> &str {
+    ///         if i == 0 {
+    ///             self.name
+    ///         } else if i == 1 {
+    ///             self.alias
+    ///         } else {
+    ///             self.desc
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// pub fn make_mm(
+    ///     items: impl Iterator<Item = RunAction>,
+    /// ) -> Matchmaker<Indexed<RunAction>, RunAction> {
+    ///     let worker = Worker::new_indexable(["name", "alias", "desc"]);
+    ///     worker.append(items);
+    ///     let selector = Selector::new(Indexed::identifier);
+    ///     Matchmaker::new(worker, selector)
+    /// }
+    /// ```
     pub fn new_indexable<I, S>(column_names: I) -> Self
     where
         I: IntoIterator<Item = S>,
@@ -131,10 +167,7 @@ where
         let columns = column_names.into_iter().enumerate().map(|(i, name)| {
             let name = name.into();
 
-            Column::new(name, move |item: &T| {
-                let text = item.index(i);
-                Text::from(text)
-            })
+            Column::new(name, move |item: &T| item.as_text(i))
         });
 
         Self::new(columns, 0)

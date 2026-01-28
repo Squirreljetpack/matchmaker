@@ -4,13 +4,11 @@ use super::MMState;
 use crate::{
     SSS, Selection,
     message::{Event, Interrupt},
-    render::Effects,
 };
 
 // note: beware that same handler could be called multiple times for the same event in one iteration
 // We choose not to return a Option<Result<S, E>> to simplify defining handlers, but will rather expose some mechanisms on state later on if a use case arises
-pub type DynamicMethod<T, S, E> =
-    Box<dyn Fn(&mut MMState<'_, '_, T, S>, &E) -> Effects + Send + Sync>;
+pub type DynamicMethod<T, S, E> = Box<dyn Fn(&mut MMState<'_, '_, T, S>, &E) + Send + Sync>;
 pub type DynamicHandlers<T, S> = (EventHandlers<T, S>, InterruptHandlers<T, S>);
 
 #[allow(clippy::type_complexity)]
@@ -20,7 +18,7 @@ pub struct EventHandlers<T: SSS, S: Selection> {
 
 #[allow(clippy::type_complexity)]
 pub struct InterruptHandlers<T: SSS, S: Selection> {
-    handlers: Vec<(Interrupt, Vec<DynamicMethod<T, S, Interrupt>>)>,
+    handlers: Vec<(u8, Vec<DynamicMethod<T, S, Interrupt>>)>,
 }
 
 impl<T: SSS, S: Selection> Default for EventHandlers<T, S> {
@@ -58,10 +56,14 @@ impl<T: SSS, S: Selection> InterruptHandlers<T, S> {
     }
 
     pub fn set(&mut self, variant: Interrupt, handler: DynamicMethod<T, S, Interrupt>) {
-        if let Some((_, handlers)) = self.handlers.iter_mut().find(|(v, _)| *v == variant) {
+        if let Some((_, handlers)) = self
+            .handlers
+            .iter_mut()
+            .find(|(v, _)| *v == variant.discriminant())
+        {
             handlers.push(handler);
         } else {
-            self.handlers.push((variant, vec![handler]));
+            self.handlers.push((variant.discriminant(), vec![handler]));
         }
     }
 
@@ -71,7 +73,7 @@ impl<T: SSS, S: Selection> InterruptHandlers<T, S> {
     ) -> impl Iterator<Item = &DynamicMethod<T, S, Interrupt>> {
         self.handlers
             .iter()
-            .filter_map(move |(v, h)| (v == variant).then_some(h))
+            .filter_map(move |(v, h)| (*v == variant.discriminant()).then_some(h))
             .flatten()
     }
 }

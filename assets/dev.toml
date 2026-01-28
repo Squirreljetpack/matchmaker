@@ -111,3 +111,4 @@
     format              = "{}"
     default_command     = "fd"
     # sync = false
+    stable = true

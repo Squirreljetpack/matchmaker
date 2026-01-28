@@ -39,6 +39,8 @@ pub struct MatcherConfig {
     // only nit is that we would really prefer this config sit at top level since its irrelevant to [`crate::Matchmaker::new_from_config`] but it makes more sense under matcher in the config file
     #[serde(flatten)]
     pub start: StartConfig,
+    #[serde(flatten)]
+    pub exit: ExitConfig,
 }
 
 /// "Input/output specific". Configures the matchmaker worker.
@@ -48,8 +50,6 @@ pub struct MatcherConfig {
 #[serde(default)]
 pub struct WorkerConfig {
     pub columns: ColumnsConfig,
-    #[serde(flatten)]
-    pub exit: ExitConfig,
     pub trim: bool,           // todo
     pub format: FormatString, // todo: implement
     pub stable: bool,
@@ -77,6 +77,7 @@ pub struct StartConfig {
 pub struct ExitConfig {
     pub select_1: bool,
     pub allow_empty: bool,
+    pub abort_empty: bool,
 }
 
 /// The ui config.
@@ -265,8 +266,6 @@ pub struct ResultsConfig {
     pub column_spacing: Count,
     pub current_prefix: String,
     pub right_align_last: bool,
-    #[serde(skip)]
-    pub stable: bool,
 }
 
 impl Default for ResultsConfig {
@@ -299,7 +298,6 @@ impl Default for ResultsConfig {
             column_spacing: Default::default(),
             current_prefix: Default::default(),
             right_align_last: true,
-            stable: false,
         }
     }
 }

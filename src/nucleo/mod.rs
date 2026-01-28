@@ -4,6 +4,7 @@ pub mod variants;
 mod worker;
 
 use std::{
+    borrow::Cow,
     fmt::{self, Display, Formatter},
     hash::{Hash, Hasher},
 };
@@ -13,10 +14,7 @@ pub use variants::*;
 pub use worker::*;
 
 pub use nucleo;
-pub use ratatui::{
-    style::{Color, Modifier, Style, Stylize},
-    text::{Line, Span, Text},
-};
+pub use ratatui::prelude::*;
 
 use crate::{MAX_SPLITS, SegmentableItem};
 
@@ -30,12 +28,13 @@ pub struct Segmented<T: SegmentableItem> {
 }
 
 impl<T: SegmentableItem> ColumnIndexable for Segmented<T> {
-    fn index(&self, index: usize) -> &str {
+    fn as_str(&self, index: usize) -> Cow<'_, str> {
         if let Some((start, end)) = self.ranges.get(index) {
             &self.inner[*start..*end]
         } else {
             ""
         }
+        .into()
     }
 }
 
@@ -53,8 +52,8 @@ impl<T: Clone> Indexed<T> {
 }
 
 impl<T: ColumnIndexable> ColumnIndexable for Indexed<T> {
-    fn index(&self, index: usize) -> &str {
-        self.inner.index(index)
+    fn as_str(&self, index: usize) -> Cow<'_, str> {
+        self.inner.as_str(index)
     }
 }
 

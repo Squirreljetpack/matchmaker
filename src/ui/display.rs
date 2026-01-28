@@ -15,7 +15,7 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct DisplayUI {
     height: u16,
     width: u16,
@@ -71,6 +71,10 @@ impl DisplayUI {
         };
         self.text = text;
         self.show = true;
+    }
+
+    pub fn clear(&mut self) {
+        self.show = false;
     }
 
     pub fn make_display(&self, result_indentation: usize) -> Paragraph<'_> {

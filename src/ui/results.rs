@@ -16,7 +16,7 @@ use crate::{
 };
 
 // todo: possible to store rows in here?
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ResultsUI {
     cursor: u16,
     bottom: u16,
@@ -93,6 +93,10 @@ impl ResultsUI {
     pub fn end(&self) -> u32 {
         self.status.matched_count.saturating_sub(1)
     }
+
+    /// Index in worker snapshot of current item.
+    /// Use with worker.get_nth().
+    //  Equivalently, the cursor progress in the match list
     pub fn index(&self) -> u32 {
         if self.cursor_disabled {
             u32::MAX
@@ -249,12 +253,10 @@ impl ResultsUI {
         if results.is_empty() {
             return Table::new(rows, widths);
         }
-        if self.config.stable {
-            results.sort_by_key(|item| selector.id(item.1));
-        }
 
         // debug!("sb: {}, {}, {}, {}, {}", self.bottom, self.cursor, total_height, self.height, results.len());
         let cursor_result_h = results[self.cursor as usize].2;
+        // index of first element
         let mut start_index = 0;
 
         let cursor_should_above = self.height - self.scroll_padding();
@@ -263,7 +265,9 @@ impl ResultsUI {
             start_index = self.cursor;
             self.bottom += self.cursor;
             self.cursor = 0;
-        } else if let cursor_cum_h = results[0..=self.cursor as usize]
+        } else
+        // increase the bottom index so that cursor_should_above is maintained
+        if let cursor_cum_h = results[0..=self.cursor as usize]
             .iter()
             .map(|(_, _, height)| height)
             .sum::<u16>()
@@ -288,8 +292,8 @@ impl ResultsUI {
                             &substitute_escaped(
                                 &self.config.default_prefix,
                                 &[
-                                    ('d', &(start_index - 1).to_string()),
-                                    ('r', &self.index().to_string()),
+                                    ('d', ""), // no indices
+                                    ('r', ""),
                                 ],
                             ),
                             self.indentation(),
@@ -368,7 +372,10 @@ impl ResultsUI {
                 fit_width(
                     &substitute_escaped(
                         &self.config.default_prefix,
-                        &[('d', &i.to_string()), ('r', &self.index().to_string())],
+                        &[
+                            ('d', &(i + 1).to_string()),               // cursor index of item
+                            ('r', &(i + 1 + self.bottom).to_string()), // actual index
+                        ],
                     ),
                     self.indentation(),
                 )

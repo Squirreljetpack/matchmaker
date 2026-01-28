@@ -155,6 +155,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitflags-derive"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09648aa9dde04191fe237a510379c9eca42a97733b2065cc337922fba2bd378a"
+dependencies = [
+ "bitflags 2.10.0",
+ "bitflags-derive-macros",
+]
+
+[[package]]
+name = "bitflags-derive-macros"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d242ebf64d65693821c7e73a26d87757e83f795918fd42334da3dafaafddbd64"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
+]
+
+[[package]]
 name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1012,6 +1033,7 @@ dependencies = [
  "arrayvec",
  "atty",
  "bitflags 2.10.0",
+ "bitflags-derive",
  "boxcar",
  "clap",
  "clap_complete",
@@ -1128,8 +1150,7 @@ dependencies = [
 [[package]]
 name = "nucleo"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5262af4c94921c2646c5ac6ff7900c2af9cbb08dc26a797e18130a7019c039d4"
+source = "git+https://github.com/Squirreljetpack/nucleo?branch=mm#4253de9faabb4e5c6d81d946a5e35a90f87347ee"
 dependencies = [
  "nucleo-matcher",
  "parking_lot",
@@ -1139,8 +1160,7 @@ dependencies = [
 [[package]]
 name = "nucleo-matcher"
 version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf33f538733d1a5a3494b836ba913207f14d9d4a1d3cd67030c5061bdd2cac85"
+source = "git+https://github.com/Squirreljetpack/nucleo?branch=mm#4253de9faabb4e5c6d81d946a5e35a90f87347ee"
 dependencies = [
  "memchr",
  "unicode-segmentation",

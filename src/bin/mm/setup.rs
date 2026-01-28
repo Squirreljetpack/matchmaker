@@ -16,10 +16,10 @@ use cli_boilerplate_automation::{bo::load_type, broc::CommandExt};
 use log::debug;
 use matchmaker::{
     MatchError, Matchmaker, OddEnds, PickOptions, SSS,
+    action::NullActionExt,
     binds::display_binds,
     config::{MatcherConfig, StartConfig},
-    efx,
-    event::EventLoop,
+    event::{EventLoop, RenderSender},
     make_previewer,
     message::Interrupt,
     nucleo::{
@@ -96,12 +96,22 @@ pub fn map_reader<E: SSS>(
     reader: impl Read + SSS,
     f: impl FnMut(String) -> Result<(), E> + SSS,
     input_separator: Option<char>,
-) -> tokio::task::JoinHandle<Result<(), MapReaderError<E>>> {
-    if let Some(delim) = input_separator {
-        tokio::task::spawn_blocking(move || map_chunks::<true, E>(read_to_chunks(reader, delim), f))
-    } else {
-        tokio::task::spawn_blocking(move || map_reader_lines::<true, E>(reader, f))
-    }
+    abort_empty: Option<RenderSender<NullActionExt>>,
+) -> tokio::task::JoinHandle<Result<usize, MapReaderError<E>>> {
+    tokio::task::spawn_blocking(move || {
+        let ret = if let Some(delim) = input_separator {
+            map_chunks::<true, E>(read_to_chunks(reader, delim), f)
+        } else {
+            map_reader_lines::<true, E>(reader, f)
+        };
+
+        if let Some(render_tx) = abort_empty
+            && matches!(ret, Ok(0))
+        {
+            let _ = render_tx.send(matchmaker::message::RenderCommand::QuitEmpty);
+        }
+        ret
+    })
 }
 
 pub async fn pick(
@@ -116,6 +126,7 @@ pub async fn pick(
             MatcherConfig {
                 matcher,
                 worker,
+                exit,
                 start:
                     StartConfig {
                         input_separator: delimiter,
@@ -127,6 +138,8 @@ pub async fn pick(
         binds,
     } = config;
 
+    let abort_empty = exit.abort_empty;
+
     let event_loop = EventLoop::with_binds(binds).with_tick_rate(render.tick_rate());
     // make matcher and matchmaker with matchmaker-and-matcher-maker
     let (
@@ -136,7 +149,7 @@ pub async fn pick(
             formatter,
             splitter,
         },
-    ) = Matchmaker::new_from_config(render, tui, worker);
+    ) = Matchmaker::new_from_config(render, tui, worker, exit);
     // make previewer
     let help_str = display_binds(&event_loop.binds, Some(&previewer.help_colors));
     let previewer = make_previewer(&mut mm, previewer, formatter.clone(), help_str);
@@ -167,38 +180,48 @@ pub async fn pick(
             let vars = state.make_env_vars();
             debug!("Reloading: {cmd}");
             if let Some(stdout) = Command::from_script(&cmd).envs(vars).spawn_piped()._elog() {
-                map_reader(stdout, move |line| injector.push(line), delimiter);
+                map_reader(stdout, move |line| injector.push(line), delimiter, None);
             }
         }
-        efx![]
     });
 
     debug!("{mm:?}");
 
+    let mut options = PickOptions::new()
+        .event_loop(event_loop)
+        .matcher(matcher.0)
+        .previewer(previewer);
+
+    let render_tx = options.render_tx();
+
     // ----------- read -----------------------
     let handle = if !atty::is(atty::Stream::Stdin) {
         let stdin = std::io::stdin();
-        map_reader(stdin, move |line| injector.push(line), delimiter)
+        map_reader(
+            stdin,
+            move |line| injector.push(line),
+            delimiter,
+            abort_empty.then_some(render_tx),
+        )
     } else if !default_command.is_empty() {
         if let Some(stdout) = Command::from_script(&default_command).spawn_piped()._ebog() {
-            map_reader(stdout, move |line| injector.push(line), delimiter)
+            map_reader(
+                stdout,
+                move |line| injector.push(line),
+                delimiter,
+                abort_empty.then_some(render_tx),
+            )
         } else {
-            exit(99)
+            std::process::exit(99)
         }
     } else {
         eprintln!("error: no input detected.");
-        exit(99)
+        std::process::exit(99)
     };
 
     if sync {
         let _ = handle.await;
     }
 
-    mm.pick(
-        PickOptions::new()
-            .event_loop(event_loop)
-            .matcher(matcher.0)
-            .previewer(previewer),
-    )
-    .await
+    mm.pick(options).await
 }

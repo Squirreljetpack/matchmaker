@@ -23,7 +23,9 @@
 - benchmarks (what kinds of speed matter?)
 - Add support for nucleo::Pattern in the matcher config
 - Adaptable percentage (higher on smaller)
-
+- stable sort:
+  - look deeper in nucleo to see if we can extract scoring + filter seperately from get_matches
+  - custom solution is algorithmically infeasible: we'd need to filter by checking belonging in the full match list
 - status template
 
 

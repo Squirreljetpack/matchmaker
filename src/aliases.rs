@@ -34,4 +34,3 @@ pub type SplitterFn<T> =
     std::sync::Arc<dyn for<'a> Fn(&'a T) -> ArrayVec<(usize, usize), MAX_SPLITS> + Send + Sync>;
 
 pub const MAX_ACTIONS: usize = 6;
-pub const MAX_EFFECTS: usize = 12; // number of effect discriminants

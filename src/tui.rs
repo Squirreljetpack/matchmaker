@@ -43,10 +43,7 @@ where
 
         let (width, height) = Self::full_size().unwrap_or_default();
         let area = if let Some(ref layout) = config.layout {
-            let request = layout
-                .percentage
-                .compute_with_max(height, layout.max)
-                .min(height);
+            let request = layout.percentage.compute_clamped(height, 0, layout.max);
 
             let cursor_y = Self::get_cursor_y(config.sleep_ms).unwrap_or_else(|e| {
                 error!("Failed to read cursor: {e}");
@@ -182,6 +179,8 @@ where
         let backend = self.terminal.backend_mut();
 
         // if !fullscreen {
+
+        #[cfg(not(debug_assertions))]
         execute!(
             backend,
             crossterm::cursor::MoveTo(0, self.area.y),

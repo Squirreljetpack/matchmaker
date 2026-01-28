@@ -7,12 +7,11 @@ use std::{
 use cli_boilerplate_automation::impl_transparent_wrapper;
 use serde::{Deserialize, Serialize, Serializer};
 
-use crate::{
-    MAX_ACTIONS, SSS,
-    render::{Effects, MMState},
-    utils::serde::StringOrVec,
-};
+use crate::{MAX_ACTIONS, SSS, render::MMState, utils::serde::StringOrVec};
 
+/// Bindable actions
+/// # Additional
+/// See [crate::render::render_loop] for the source code definitions.
 #[derive(Debug, Clone, Default)]
 pub enum Action<A: ActionExt = NullActionExt> {
     #[default] // used to satisfy enumstring
@@ -130,10 +129,19 @@ impl std::str::FromStr for NullActionExt {
     }
 }
 
+impl<T> From<T> for Action<T>
+where
+    T: ActionExt,
+{
+    fn from(value: T) -> Self {
+        Self::Custom(value)
+    }
+}
+
 pub trait ActionExt: Debug + Clone + FromStr + Display + PartialEq + SSS {}
 
-pub type ActionExtHandler<T, S, A> = fn(A, &MMState<'_, '_, T, S>) -> Effects;
-pub type ActionAliaser<T, S, A> = fn(Action<A>, &MMState<'_, '_, T, S>) -> Actions<A>;
+pub type ActionExtHandler<T, S, A> = fn(A, &mut MMState<'_, '_, T, S>);
+pub type ActionAliaser<T, S, A> = fn(Action<A>, &mut MMState<'_, '_, T, S>) -> Actions<A>;
 pub use arrayvec::ArrayVec;
 /// # Example
 /// ```rust

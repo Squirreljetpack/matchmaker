@@ -212,11 +212,10 @@ pub fn default_area(
 ) -> Rect {
     // compute preferred size from percentage then clamp to min/max
     if w == 0 {
-        w = layout.percentage[0].compute_with_max(ui_area.width, 0);
-        w = w.clamp(layout.min[0], layout.max[0]);
+        w = layout.percentage[0].compute_clamped(ui_area.width, layout.min[0], layout.max[0]);
     }
     if h == 0 {
-        h = layout.percentage[1].compute_with_max(ui_area.height, 0);
+        h = layout.percentage[1].compute_clamped(ui_area.height, layout.min[1], layout.max[1]);
         h = h.clamp(layout.min[1], layout.max[1]);
     }
 

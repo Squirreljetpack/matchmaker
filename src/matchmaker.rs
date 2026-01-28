@@ -15,7 +15,6 @@ use crate::{
     action::{ActionAliaser, ActionExt, ActionExtHandler, NullActionExt},
     binds::BindMap,
     config::{ExitConfig, PreviewerConfig, RenderConfig, Split, TerminalConfig, WorkerConfig},
-    efx,
     event::{EventLoop, RenderSender},
     message::{Event, Interrupt},
     nucleo::{
@@ -26,7 +25,7 @@ use crate::{
         AppendOnly, Preview,
         previewer::{PreviewMessage, Previewer},
     },
-    render::{self, DynamicMethod, Effects, EventHandlers, InterruptHandlers, MMState},
+    render::{self, DynamicMethod, EventHandlers, InterruptHandlers, MMState},
     tui,
     ui::{Overlay, OverlayUI, UI},
 };
@@ -66,15 +65,14 @@ pub type ConfigMatchmaker = Matchmaker<Indexed<Segmented<String>>, Segmented<Str
 impl ConfigMatchmaker {
     /// Creates a new Matchmaker from a config::BaseConfig.
     pub fn new_from_config(
-        mut render_config: RenderConfig,
+        render_config: RenderConfig,
         tui_config: TerminalConfig,
         worker_config: WorkerConfig,
+        exit_config: ExitConfig,
     ) -> (Self, ConfigInjector, OddEnds) {
         let cc = worker_config.columns;
         // "hack" because we cannot make the results stable in the worker as our current hack uses the identifier
-        render_config.results.stable = worker_config.stable;
-
-        let worker: Worker<Indexed<Segmented<String>>> = match cc.split {
+        let mut worker: Worker<Indexed<Segmented<String>>> = match cc.split {
             Split::Delimiter(_) | Split::Regexes(_) => {
                 let names: Vec<Arc<str>> = if cc.names.is_empty() {
                     (0..cc.max_cols())
@@ -90,6 +88,7 @@ impl ConfigMatchmaker {
             }
             Split::None => Worker::new_indexable([""]),
         };
+        worker.sort_results(!worker_config.stable);
 
         let injector = worker.injector();
 
@@ -142,7 +141,7 @@ impl ConfigMatchmaker {
             worker,
             render_config,
             tui_config,
-            exit_config: worker_config.exit,
+            exit_config,
             selector: selection_set,
             event_handlers,
             interrupt_handlers,
@@ -209,7 +208,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
     /// Register a handler to listen on [`Event`]s
     pub fn register_event_handler<F>(&mut self, event: Event, handler: F)
     where
-        F: Fn(&mut MMState<'_, '_, T, S>, &Event) -> Effects + SSS,
+        F: Fn(&mut MMState<'_, '_, T, S>, &Event) + SSS,
     {
         let boxed = Box::new(handler);
         self.register_boxed_event_handler(event, boxed);
@@ -225,7 +224,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
     /// Register a handler to listen on [`Interrupt`]s
     pub fn register_interrupt_handler<F>(&mut self, interrupt: Interrupt, handler: F)
     where
-        F: Fn(&mut MMState<'_, '_, T, S>, &Interrupt) -> Effects + SSS,
+        F: Fn(&mut MMState<'_, '_, T, S>, &Interrupt) + SSS,
     {
         let boxed = Box::new(handler);
         self.register_boxed_interrupt_handler(interrupt, boxed);
@@ -411,7 +410,7 @@ pub struct PickOptions<'a, T: SSS, S: Selection, A: ActionExt = NullActionExt> {
     /// # Experimental
     // pub signal_handler: Option<(&'static std::sync::atomic::AtomicUsize, SignalHandler<T, S>)>,
     /// Initializing code, i.e. to setup context in the running thread. Since render_loop runs on the same thread this isn't actually necessary
-    /// but it seems a good idea to provide a standard way.
+    /// but maybe its a good idea to provide a channel for it anyway?
     // initializer: Option<Box<dyn FnOnce()>>,
     pub channel: Option<(
         RenderSender<A>,
@@ -494,7 +493,7 @@ impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
         self
     }
 
-    pub fn get_tx(&mut self) -> RenderSender<A> {
+    pub fn render_tx(&mut self) -> RenderSender<A> {
         if let Some((s, _)) = &self.channel {
             s.clone()
         } else {
@@ -548,7 +547,6 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
                     prints!(s);
                 }
             };
-            efx![]
         });
     }
 
@@ -582,7 +580,6 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
                     }
                 }
             };
-            efx![]
         });
     }
 
@@ -606,7 +603,6 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
 
                 Command::from_script(&cmd).envs(vars)._exec()
             }
-            efx![]
         });
     }
 }
@@ -624,7 +620,7 @@ pub fn make_previewer<T: SSS, S: Selection>(
 
     // preview handler
     mm.register_event_handler(Event::CursorChange | Event::PreviewChange, move |state, _| {
-            if state.preview_show &&
+            if state.preview_visible &&
             let Some(t) = state.current_raw() &&
             let m = state.preview_payload() &&
             !m.is_empty()
@@ -646,18 +642,18 @@ pub fn make_previewer<T: SSS, S: Selection>(
                 warn!("Failed to send to preview: stop")
             }
 
-            efx![render::Effect::ClearPreviewSet] //
+            state.preview_set_payload = None;
         });
 
     mm.register_event_handler(Event::PreviewSet, move |state, _event| {
-        if state.preview_show {
+        if state.preview_visible {
             let msg = if let Some(m) = state.preview_set_payload() {
                 let m = if m.is_empty() && !help_str.lines.is_empty() {
                     help_str.clone()
                 } else {
-                    Text::from(m.clone())
+                    Text::from(m)
                 };
-                PreviewMessage::Set(m.clone())
+                PreviewMessage::Set(m.to_string().into())
             } else {
                 PreviewMessage::Unset
             };
@@ -666,7 +662,6 @@ pub fn make_previewer<T: SSS, S: Selection>(
                 warn!("Failed to send: {}", msg)
             }
         }
-        efx![]
     });
 
     previewer

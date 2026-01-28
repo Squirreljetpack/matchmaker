@@ -1,10 +1,8 @@
 mod dynamic;
 mod state;
-mod state_effects;
 
 pub use dynamic::*;
 pub use state::*;
-pub use state_effects::*;
 // ------------------------------
 
 use std::io::Write;
@@ -28,15 +26,18 @@ use crate::{MatchError, SSS, Selection};
 fn apply_aliases<T: SSS, S: Selection, A: ActionExt>(
     buffer: &mut Vec<RenderCommand<A>>,
     aliaser: ActionAliaser<T, S, A>,
-    state: &MMState<'_, '_, T, S>,
+    dispatcher: &mut MMState<'_, '_, T, S>,
 ) {
     let mut out = Vec::new();
 
     for cmd in buffer.drain(..) {
         match cmd {
-            RenderCommand::Action(a) => {
-                out.extend(aliaser(a, state).0.into_iter().map(RenderCommand::Action))
-            }
+            RenderCommand::Action(a) => out.extend(
+                aliaser(a, dispatcher)
+                    .0
+                    .into_iter()
+                    .map(RenderCommand::Action),
+            ),
             other => out.push(other),
         }
     }
@@ -78,13 +79,23 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         let mut did_exit = false;
         let mut did_resize = false;
 
-        let mut effects = Effects::new();
         // todo: why exactly can we not borrow the picker_ui mutably?
         if let Some(aliaser) = ext_aliaser {
-            let state = state.dispatcher(&mut ui, &mut picker_ui, preview_ui.as_mut());
-            apply_aliases(&mut buffer, aliaser, &state)
+            apply_aliases(
+                &mut buffer,
+                aliaser,
+                &mut state.dispatcher(&mut ui, &mut picker_ui, &mut preview_ui),
+            )
             // effects could be moved out for efficiency, but it seems more logical to add them as they come so that we can trigger interrupts
         };
+
+        if state.should_quit {
+            let ret = picker_ui.selections.output().collect::<Vec<S>>();
+            if ret.is_empty() {
+                return Err(MatchError::Abort(0));
+            }
+            return Ok(ret);
+        }
 
         // todo: benchmark vs drain
         for event in buffer.drain(..) {
@@ -112,9 +123,10 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 RenderCommand::Paste(content) => {
                     if let Some(handler) = paste_handler {
                         let content = {
-                            let dispatcher =
-                                state.dispatcher(&mut ui, &mut picker_ui, preview_ui.as_mut());
-                            handler(content, &dispatcher)
+                            handler(
+                                content,
+                                &state.dispatcher(&mut ui, &mut picker_ui, &mut preview_ui),
+                            )
                         };
                         if !content.is_empty() {
                             use unicode_segmentation::UnicodeSegmentation;
@@ -140,17 +152,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 RenderCommand::Refresh => {
                     tui.redraw();
                 }
-                RenderCommand::Effect(e) => {
-                    match e {
-                        Effect::Reload => {
-                            // its jank but the Reload effect triggers the reload handler in this unique case.
-                            // Its useful for when the reload action can't be used when overlay is in effect.
-                            interrupt = Interrupt::Reload("".into());
-                        }
-                        _ => {
-                            effects.insert(e);
-                        }
-                    }
+                RenderCommand::QuitEmpty => {
+                    return Ok(vec![]);
                 }
                 RenderCommand::Action(action) => {
                     if let Some(x) = overlay_ui.as_mut()
@@ -167,7 +170,6 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         footer,
                         ..
                     } = &mut picker_ui;
-                    // note: its possible to give dispatcher mutable ref if we don't move out like this, but effects api more controlled anyways
                     match action {
                         Action::Select => {
                             if let Some(item) = worker.get_nth(results.index()) {
@@ -366,14 +368,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         }
                         Action::Custom(e) => {
                             if let Some(handler) = ext_handler {
-                                let dispatcher =
-                                    state.dispatcher(&mut ui, &mut picker_ui, preview_ui.as_mut());
-                                let effects = handler(e, &dispatcher);
-                                state.apply_effects(
-                                    effects,
-                                    &mut ui,
-                                    &mut picker_ui,
-                                    &mut preview_ui,
+                                handler(
+                                    e,
+                                    &mut state.dispatcher(&mut ui, &mut picker_ui, &mut preview_ui),
                                 );
                             }
                         }
@@ -405,16 +402,22 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             state.update_current(&picker_ui);
             // Apply interrupt effect
             {
-                let mut effects = Effects::new();
-                let mut dispatcher = state.dispatcher(&mut ui, &mut picker_ui, preview_ui.as_mut());
+                let mut dispatcher = state.dispatcher(&mut ui, &mut picker_ui, &mut preview_ui);
                 for h in dynamic_handlers.1.get(&interrupt) {
-                    effects.append(h(&mut dispatcher, &interrupt))
+                    h(&mut dispatcher, &interrupt);
                 }
 
                 if let Interrupt::Become(context) = interrupt {
                     return Err(MatchError::Become(context));
                 }
-                state.apply_effects(effects, &mut ui, &mut picker_ui, &mut preview_ui);
+            }
+            if state.should_quit {
+                // this ignores exit.allow_empty
+                let ret = picker_ui.selections.output().collect::<Vec<S>>();
+                if ret.is_empty() {
+                    return Err(MatchError::Abort(0));
+                }
+                return Ok(ret);
             }
         }
 
@@ -510,7 +513,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         let events = state.events();
 
         // ---- Invoke handlers -------
-        let mut dispatcher = state.dispatcher(&mut ui, &mut picker_ui, preview_ui.as_mut());
+        let mut dispatcher = state.dispatcher(&mut ui, &mut picker_ui, &mut preview_ui);
         // if let Some((signal, handler)) = signal_handler &&
         // let s = signal.load(std::sync::atomic::Ordering::Acquire) &&
         // s > 0
@@ -522,12 +525,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         // ping handlers with events
         for e in events.iter() {
             for h in dynamic_handlers.0.get(e) {
-                effects.append(h(&mut dispatcher, &e))
+                h(&mut dispatcher, &e)
             }
         }
-
-        // apply effects
-        state.apply_effects(effects, &mut ui, &mut picker_ui, &mut preview_ui);
 
         // ------------------------------
         // send events into controller

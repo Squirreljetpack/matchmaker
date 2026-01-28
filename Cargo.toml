@@ -32,7 +32,7 @@
     mio        = "1.1.1"
     nix        = { version = "0.30.1", features = [ "poll" ] }
     # nix = { version = "0.30.1", features = ["term"] }
-    nucleo = "0.5.0"
+    nucleo = { git = "https://github.com/Squirreljetpack/nucleo", branch = "mm" }
     paste  = "1.0.15"
     phf    = { version = "0.13.1", features = [ "macros", "phf_macros" ] }
     # rayon = "1.11.0"

@@ -1,5 +1,4 @@
 use cli_boilerplate_automation::{broc::EnvVars, env_vars};
-use std::ops::Deref;
 
 use crate::{
     SSS, Selection, Selector,
@@ -10,89 +9,31 @@ use crate::{
 };
 
 // --------------------------------------------------------------------
-// todo: use bitflag for more efficient hashmap
-
 #[derive(Default)]
 pub struct State<S: Selection> {
+    /// The current item
     pub current: Option<(u32, S)>,
-    pub input: String,
-    pub col: Option<usize>,
 
-    pub(crate) preview_run: String,
-    pub(crate) preview_set: Option<String>,
-    pub iterations: u32,
-    pub preview_show: bool,
-    pub preview_show_stash: Option<bool>,
-    pub layout: [Rect; 4], //preview, input, status, results
-    pub overlay_index: Option<usize>,
-
+    // Stores "last" state to emit events on change
+    pub(crate) input: String,
+    pub(crate) col: Option<usize>,
+    pub(crate) iterations: u32,
+    pub(crate) preview_visible: bool,
+    pub(crate) layout: [Rect; 4], //preview, input, status, results
+    pub(crate) overlay_index: Option<usize>,
     pub(crate) matcher_running: bool,
+
     pub(crate) events: Event,
-}
 
-pub struct MMState<'a, 'b: 'a, T: SSS, S: Selection> {
-    pub(crate) state: &'a State<S>,
-
-    pub picker_ui: &'a mut PickerUI<'b, T, S>,
-    pub ui: &'a mut UI,
-    pub preview_ui: Option<&'a mut PreviewUI>,
-}
-
-impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
-    pub fn previewer_area(&self) -> Option<&Rect> {
-        self.preview_ui.as_ref().map(|ui| &ui.area)
-    }
-
-    pub fn ui_area(&self) -> &Rect {
-        &self.ui.area
-    }
-
-    pub fn current_raw(&self) -> Option<&T> {
-        self.picker_ui
-            .worker
-            .get_nth(self.picker_ui.results.index())
-    }
-    /// Runs f on selections if nonempty, otherwise, the current item
-    pub fn map_selected_to_vec<U>(&self, mut f: impl FnMut(&S) -> U) -> Vec<U> {
-        if !self.picker_ui.selections.is_empty() {
-            self.picker_ui.selections.map_to_vec(f)
-        } else {
-            self.current.iter().map(|s| f(&s.1)).collect()
-        }
-    }
-
-    pub fn injector(&self) -> WorkerInjector<T> {
-        self.picker_ui.worker.injector()
-    }
-
-    pub fn widths(&self) -> &Vec<u16> {
-        self.picker_ui.results.widths()
-    }
-
-    pub fn status(&self) -> &Status {
-        // replace StatusType with the actual type
-        &self.picker_ui.results.status
-    }
-
-    pub fn selections(&self) -> &Selector<T, S> {
-        &self.picker_ui.selections
-    }
-
-    pub fn make_env_vars(&self) -> EnvVars {
-        env_vars! {
-            "FZF_LINES" => self.ui_area().height.to_string(),
-            "FZF_COLUMNS" => self.ui_area().width.to_string(),
-            "FZF_TOTAL_COUNT" => self.status().item_count.to_string(),
-            "FZF_MATCH_COUNT" => self.status().matched_count.to_string(),
-            "FZF_SELECT_COUNT" => self.selections().len().to_string(),
-            "FZF_POS" => self.current.as_ref().map_or("".to_string(), |x| format!("{}", x.0)),
-            "FZF_QUERY" => self.input.clone(),
-        }
-    }
-
-    // pub fn dispatch<E>(&mut self, handler: &DynamicMethod<T, S, E>, event: &E) {
-    //     (handler)(self, event);
-    // }
+    /// The String passed to SetPreview
+    pub preview_set_payload: Option<String>,
+    /// The payload left by [`crate::action::Action::Preview`]
+    pub preview_payload: String,
+    /// A place to stash the preview visibility when overriding it
+    stashed_preview_visibility: Option<bool>,
+    /// Setting this to empty finishes the picker with the contents of [`Selector`].
+    /// If [`Selector`] is empty, the picker finishes with [`crate::errors::MatchError::Abort`]\(0).
+    pub should_quit: bool,
 }
 
 impl<S: Selection> State<S> {
@@ -101,10 +42,10 @@ impl<S: Selection> State<S> {
         Self {
             current: None,
 
-            preview_run: String::new(),
-            preview_set: None,
-            preview_show: false,
-            preview_show_stash: None,
+            preview_payload: String::new(),
+            preview_set_payload: None,
+            preview_visible: false,
+            stashed_preview_visibility: None,
             layout: [Rect::default(); 4],
             overlay_index: None,
             col: None,
@@ -114,15 +55,12 @@ impl<S: Selection> State<S> {
             matcher_running: true,
 
             events: Event::empty(),
+            should_quit: false,
         }
     }
     // ------ properties -----------
     pub(crate) fn take_current(&mut self) -> Option<S> {
         self.current.take().map(|x| x.1)
-    }
-
-    pub fn preview_payload(&self) -> &String {
-        &self.preview_run
     }
 
     pub fn contains(&self, event: Event) -> bool {
@@ -133,8 +71,17 @@ impl<S: Selection> State<S> {
         self.events.insert(event);
     }
 
-    pub fn preview_set_payload(&self) -> &Option<String> {
-        &self.preview_set
+    pub fn overlay_index(&self) -> Option<usize> {
+        self.overlay_index
+    }
+    pub fn preview_set_payload(&self) -> Option<String> {
+        self.preview_set_payload.clone()
+    }
+    pub fn preview_payload(&self) -> &str {
+        &self.preview_payload
+    }
+    pub fn stashed_preview_visibility(&self) -> Option<bool> {
+        self.stashed_preview_visibility
     }
 
     // ------- updates --------------
@@ -163,9 +110,9 @@ impl<S: Selection> State<S> {
     }
 
     pub(crate) fn update_preview(&mut self, context: &str) -> bool {
-        let changed = self.preview_run != context;
+        let changed = self.preview_payload != context;
         if changed {
-            self.preview_run = context.into();
+            self.preview_payload = context.into();
             self.insert(Event::PreviewChange);
         }
         changed
@@ -173,16 +120,16 @@ impl<S: Selection> State<S> {
 
     pub(crate) fn update_preview_set(&mut self, context: String) -> bool {
         let next = Some(context);
-        let changed = self.preview_set != next;
+        let changed = self.preview_set_payload != next;
         if changed {
-            self.preview_set = next;
+            self.preview_set_payload = next;
             self.insert(Event::PreviewSet);
         }
         changed
     }
 
     pub(crate) fn update_preview_unset(&mut self) {
-        self.preview_set = None;
+        self.preview_set_payload = None;
         self.insert(Event::PreviewSet);
     }
 
@@ -197,11 +144,11 @@ impl<S: Selection> State<S> {
 
     /// Emit PreviewChange event on change to visible
     pub(crate) fn update_preview_ui(&mut self, preview_ui: &PreviewUI) -> bool {
-        let changed = self.preview_show != preview_ui.is_show();
+        let changed = self.preview_visible != preview_ui.is_show();
         // todo: cache to make up for this?
         if changed && preview_ui.is_show() {
             self.insert(Event::PreviewChange);
-            self.preview_show = true;
+            self.preview_visible = true;
         };
         changed
     }
@@ -238,10 +185,10 @@ impl<S: Selection> State<S> {
 
     // ---------- flush -----------
     pub(crate) fn dispatcher<'a, 'b: 'a, T: SSS>(
-        &'a self,
+        &'a mut self,
         ui: &'a mut UI,
         picker_ui: &'a mut PickerUI<'b, T, S>,
-        preview_ui: Option<&'a mut PreviewUI>,
+        preview_ui: &'a mut Option<PreviewUI>,
     ) -> MMState<'a, 'b, T, S> {
         MMState {
             state: self,
@@ -262,24 +209,116 @@ impl<S: Selection> State<S> {
     }
 }
 
+// ----------------------------------------------------------------------
+pub struct MMState<'a, 'b: 'a, T: SSS, S: Selection> {
+    // access through deref/mut
+    pub(crate) state: &'a mut State<S>,
+
+    pub picker_ui: &'a mut PickerUI<'b, T, S>,
+    pub ui: &'a mut UI,
+    pub preview_ui: &'a mut Option<PreviewUI>,
+}
+
+impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
+    pub fn previewer_area(&self) -> Option<&Rect> {
+        self.preview_ui.as_ref().map(|ui| &ui.area)
+    }
+
+    pub fn ui_area(&self) -> &Rect {
+        &self.ui.area
+    }
+
+    pub fn current(&self) -> Option<&S> {
+        self.current.as_ref().map(|s| &s.1)
+    }
+
+    pub fn current_raw(&self) -> Option<&T> {
+        self.picker_ui
+            .worker
+            .get_nth(self.picker_ui.results.index())
+    }
+    /// Runs f on selections if nonempty, otherwise, the current item
+    pub fn map_selected_to_vec<U>(&self, mut f: impl FnMut(&S) -> U) -> Vec<U> {
+        if !self.picker_ui.selections.is_empty() {
+            self.picker_ui.selections.map_to_vec(f)
+        } else {
+            self.current.iter().map(|s| f(&s.1)).collect()
+        }
+    }
+
+    pub fn injector(&self) -> WorkerInjector<T> {
+        self.picker_ui.worker.injector()
+    }
+
+    pub fn widths(&self) -> &Vec<u16> {
+        self.picker_ui.results.widths()
+    }
+
+    pub fn status(&self) -> &Status {
+        // replace StatusType with the actual type
+        &self.picker_ui.results.status
+    }
+
+    pub fn selections(&self) -> &Selector<T, S> {
+        &self.picker_ui.selections
+    }
+
+    pub fn get_content_and_index(&self) -> (String, u32) {
+        (
+            self.picker_ui.input.input.clone(),
+            self.picker_ui.results.index(),
+        )
+    }
+
+    pub fn make_env_vars(&self) -> EnvVars {
+        env_vars! {
+            "FZF_LINES" => self.ui_area().height.to_string(),
+            "FZF_COLUMNS" => self.ui_area().width.to_string(),
+            "FZF_TOTAL_COUNT" => self.status().item_count.to_string(),
+            "FZF_MATCH_COUNT" => self.status().matched_count.to_string(),
+            "FZF_SELECT_COUNT" => self.selections().len().to_string(),
+            "FZF_POS" => self.current.as_ref().map_or("".to_string(), |x| format!("{}", x.0)),
+            "FZF_QUERY" => self.input.clone(),
+        }
+    }
+
+    // -------- other
+    pub fn stash_preview_visibility(&mut self, show: Option<bool>) {
+        if let Some(p) = self.preview_ui {
+            if let Some(s) = show {
+                self.state.stashed_preview_visibility = Some(p.is_show());
+                p.show(s);
+            } else if let Some(s) = self.state.stashed_preview_visibility.take() {
+                p.show(s);
+            }
+        }
+    }
+}
+
 // ----- BOILERPLATE -----------
 impl<S: Selection> std::fmt::Debug for State<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("State")
             .field("input", &self.input)
-            .field("preview_payload", &self.preview_run)
+            .field("preview_payload", &self.preview_payload)
             .field("iterations", &self.iterations)
-            .field("preview_show", &self.preview_show)
+            .field("preview_show", &self.preview_visible)
             .field("layout", &self.layout)
             .field("events", &self.events)
             .finish_non_exhaustive()
     }
 }
 
-impl<'a, 'b: 'a, T: SSS, S: Selection> Deref for MMState<'a, 'b, T, S> {
+impl<'a, 'b: 'a, T: SSS, S: Selection> std::ops::Deref for MMState<'a, 'b, T, S> {
     type Target = State<S>;
 
     fn deref(&self) -> &Self::Target {
+        self.state
+    }
+}
+
+impl<'a, 'b: 'a, T: SSS, S: Selection> std::ops::DerefMut for MMState<'a, 'b, T, S> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
         self.state
     }
 }

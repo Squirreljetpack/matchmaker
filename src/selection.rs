@@ -218,6 +218,15 @@ impl<T, S: Selection> Selector<T, S> {
             }
         }
     }
+
+    // ---------- wrappers (?) -----------
+
+    // pub fn insert(&mut self, (k, v): (u32, S)) -> bool {
+    //     let Some(selections) = &mut self.selections else {
+    //         return false;
+    //     };
+    //     selections.insert(k, v)
+    // }
 }
 
 // ---------- Selection Set ---------------

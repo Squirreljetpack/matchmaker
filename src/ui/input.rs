@@ -9,7 +9,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{config::InputConfig, utils::text::grapheme_index_to_byte_index};
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct InputUI {
     pub cursor: u16, // grapheme index
     pub input: String,
@@ -53,6 +53,9 @@ impl InputUI {
     pub fn cancel(&mut self) {
         self.input.clear();
         self.cursor = 0;
+    }
+    pub fn reset_prompt(&mut self) {
+        self.prompt = Span::from(self.config.prompt.clone());
     }
 
     // ---------- EDITING -------------

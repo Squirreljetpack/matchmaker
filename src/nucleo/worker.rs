@@ -82,7 +82,13 @@ where
 
     // Background tasks which push to the injector check their version matches this or exit
     pub(super) version: Arc<AtomicU32>,
+    // pub settings: WorkerSettings,
 }
+
+// #[derive(Debug, Default)]
+// pub struct WorkerSettings {
+//     pub stable: bool,
+// }
 
 impl<T> Worker<T>
 where
@@ -154,15 +160,6 @@ where
         }
     }
 
-    // anything need be done?
-    pub fn shutdown(&mut self) {
-        todo!()
-    }
-
-    pub fn restart(&mut self, clear_snapshot: bool) {
-        self.nucleo.restart(clear_snapshot);
-    }
-
     // --------- UTILS
     pub fn get_nth(&self, n: u32) -> Option<&T> {
         self.nucleo
@@ -180,7 +177,6 @@ where
                 item_count: snapshot.item_count(),
                 matched_count: snapshot.matched_item_count(),
                 running,
-                changed,
             },
         )
     }
@@ -195,16 +191,21 @@ where
         let snapshot = self.nucleo.snapshot();
         (snapshot.matched_item_count(), snapshot.item_count())
     }
-}
 
-pub type WorkerResults<'a, T> = Vec<(Vec<Text<'a>>, &'a T, u16)>;
+    pub fn sort_results(&mut self, sort_results: bool) {
+        self.nucleo.sort_results(sort_results);
+    }
+
+    pub fn restart(&mut self, clear_snapshot: bool) {
+        self.nucleo.restart(clear_snapshot);
+    }
+}
 
 #[derive(Debug, Default, Clone)]
 pub struct Status {
     pub item_count: u32,
     pub matched_count: u32,
     pub running: bool,
-    pub changed: bool,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -214,6 +215,8 @@ pub enum WorkerError {
     #[error("{0}")]
     Custom(&'static str),
 }
+
+pub type WorkerResults<'a, T> = Vec<(Vec<Text<'a>>, &'a T, u16)>;
 
 impl<T: SSS> Worker<T> {
     pub fn results(

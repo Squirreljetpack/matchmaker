@@ -171,21 +171,8 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
         }
     }
 
-    // pub fn new_raw(worker: Worker<T>, identifier: Identifier<T, S>) -> Self {
-    //     Matchmaker {
-    //         worker,
-    //         render_config: RenderConfig::default(),
-    //         overlay_config: Default::default(),
-    //         tui_config: TerminalConfig::default(),
-    //         exit_config: ExitConfig::default(),
-    //         selection_set: SelectionSet::new(identifier),
-    //         event_handlers: EventHandlers::new(),
-    //         interrupt_handlers: InterruptHandlers::new(),
-    //         preview: None
-    //     }
-    // }
-
     /// The contents of the preview are displayed in a pane when picking.
+    /// See []
     pub fn connect_preview(&mut self, preview: Preview) {
         self.preview = Some(preview);
     }
@@ -267,15 +254,18 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
         };
 
         // note: this part is "crate-specific" since clients likely use their own previewer
-        if let Some(mut previewer) = previewer {
-            if self.preview.is_none() {
-                self.preview = Some(previewer.view());
+        let preview = match previewer {
+            Some(Err(mut previewer)) => {
+                let view = previewer.view();
+                previewer.connect_controller(event_loop.get_controller());
+                tokio::spawn(async move {
+                    let _ = previewer.run().await;
+                });
+                Some(view)
             }
-            previewer.connect_controller(event_loop.get_controller());
-            tokio::spawn(async move {
-                let _ = previewer.run().await;
-            });
-        }
+            Some(Ok(view)) => Some(view),
+            _ => None,
+        };
 
         let (render_tx, render_rx) = builder
             .channel
@@ -312,7 +302,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
                 matcher,
                 self.worker,
                 self.selector,
-                self.preview,
+                preview,
                 &mut tui,
             );
             render::render_loop(
@@ -338,7 +328,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
                 &mut matcher,
                 self.worker,
                 self.selector,
-                self.preview,
+                preview,
                 &mut tui,
             );
             render::render_loop(
@@ -405,7 +395,7 @@ pub struct PickOptions<'a, T: SSS, S: Selection, A: ActionExt = NullActionExt> {
     paste_handler: Option<PasteHandler<T, S>>,
 
     overlays: Vec<Box<dyn Overlay<A = A>>>,
-    previewer: Option<Previewer>,
+    previewer: Option<Result<Preview, Previewer>>,
 
     /// # Experimental
     // pub signal_handler: Option<(&'static std::sync::atomic::AtomicUsize, SignalHandler<T, S>)>,
@@ -458,9 +448,18 @@ impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
         self
     }
 
-    /// Set a [`Previewer`]
+    /// Use the given [`Previewer`] to provide a [`Preview`].
+    /// # Example
+    /// See [`make_previewer`] for how to create one.
     pub fn previewer(mut self, previewer: Previewer) -> Self {
-        self.previewer = Some(previewer);
+        self.previewer = Some(Err(previewer));
+        self
+    }
+
+    /// Set a [`Preview`].
+    /// Overrides [`Matchmaker::connect_preview`].
+    pub fn preview(mut self, preview: Preview) -> Self {
+        self.previewer = Some(Ok(preview));
         self
     }
 
@@ -607,6 +606,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
     }
 }
 
+/// The Previewer can be connected to [`Matchmaker`] using [`PickOptions::previewer`]
 pub fn make_previewer<T: SSS, S: Selection>(
     mm: &mut Matchmaker<T, S>,
     previewer_config: PreviewerConfig, // help_str is provided seperately so help_colors is ignored
@@ -615,35 +615,34 @@ pub fn make_previewer<T: SSS, S: Selection>(
 ) -> Previewer {
     // initialize previewer
     let (previewer, tx) = Previewer::new(previewer_config);
-    mm.connect_preview(previewer.view());
     let preview_tx = tx.clone();
 
     // preview handler
     mm.register_event_handler(Event::CursorChange | Event::PreviewChange, move |state, _| {
-            if state.preview_visible &&
-            let Some(t) = state.current_raw() &&
-            let m = state.preview_payload() &&
-            !m.is_empty()
-            {
-                let cmd = formatter(t, m);
-                let mut envs = state.make_env_vars();
-                let extra = env_vars!(
-                    "COLUMNS" => state.previewer_area().map_or("0".to_string(), |r| r.width.to_string()),
-                    "LINES" => state.previewer_area().map_or("0".to_string(), |r| r.height.to_string()),
-                );
-                envs.extend(extra);
+        if state.preview_visible &&
+        let Some(t) = state.current_raw() &&
+        let m = state.preview_payload() &&
+        !m.is_empty()
+        {
+            let cmd = formatter(t, m);
+            let mut envs = state.make_env_vars();
+            let extra = env_vars!(
+                "COLUMNS" => state.previewer_area().map_or("0".to_string(), |r| r.width.to_string()),
+                "LINES" => state.previewer_area().map_or("0".to_string(), |r| r.height.to_string()),
+            );
+            envs.extend(extra);
 
-                let msg = PreviewMessage::Run(cmd.clone(), envs);
-                _log!("{cmd:?}");
-                if preview_tx.send(msg.clone()).is_err() {
-                    warn!("Failed to send to preview: {}", msg)
-                }
-            } else if preview_tx.send(PreviewMessage::Stop).is_err() {
-                warn!("Failed to send to preview: stop")
+            let msg = PreviewMessage::Run(cmd.clone(), envs);
+            _log!("{cmd:?}");
+            if preview_tx.send(msg.clone()).is_err() {
+                warn!("Failed to send to preview: {}", msg)
             }
+        } else if preview_tx.send(PreviewMessage::Stop).is_err() {
+            warn!("Failed to send to preview: stop")
+        }
 
-            state.preview_set_payload = None;
-        });
+        state.preview_set_payload = None;
+    });
 
     mm.register_event_handler(Event::PreviewSet, move |state, _event| {
         if state.preview_visible {

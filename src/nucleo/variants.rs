@@ -106,13 +106,10 @@ impl<T: AsRef<str>> Render for T {
     }
 }
 
-impl<T: Render + SSS> Worker<Indexed<T>> {
+impl<T: Render + SSS> Worker<T> {
     /// Create a new worker over items which are displayed in the picker as exactly their as_str representation.
     pub fn new_single_column() -> Self {
-        Self::new(
-            [Column::new("_", |item: &Indexed<T>| item.inner.as_text())],
-            0,
-        )
+        Self::new([Column::new("_", |item: &T| item.as_text())], 0)
     }
 }
 

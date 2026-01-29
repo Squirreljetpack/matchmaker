@@ -289,6 +289,7 @@ dependencies = [
  "libc",
  "log",
  "thiserror 2.0.17",
+ "unicode-width 0.1.14",
  "which",
 ]
 
@@ -1061,7 +1062,7 @@ dependencies = [
  "tokio",
  "toml",
  "unicode-segmentation",
- "unicode-width",
+ "unicode-width 0.2.2",
 ]
 
 [[package]]
@@ -1150,7 +1151,7 @@ dependencies = [
 [[package]]
 name = "nucleo"
 version = "0.5.0"
-source = "git+https://github.com/Squirreljetpack/nucleo?branch=mm#bfb751b17c5a3c6ac83a21fb7ac0113dedc55bc4"
+source = "git+https://github.com/Squirreljetpack/nucleo?branch=mm#4253de9faabb4e5c6d81d946a5e35a90f87347ee"
 dependencies = [
  "nucleo-matcher",
  "parking_lot",
@@ -1160,7 +1161,7 @@ dependencies = [
 [[package]]
 name = "nucleo-matcher"
 version = "0.3.1"
-source = "git+https://github.com/Squirreljetpack/nucleo?branch=mm#bfb751b17c5a3c6ac83a21fb7ac0113dedc55bc4"
+source = "git+https://github.com/Squirreljetpack/nucleo?branch=mm#4253de9faabb4e5c6d81d946a5e35a90f87347ee"
 dependencies = [
  "memchr",
  "unicode-segmentation",
@@ -1507,7 +1508,7 @@ dependencies = [
  "thiserror 2.0.17",
  "unicode-segmentation",
  "unicode-truncate",
- "unicode-width",
+ "unicode-width 0.2.2",
 ]
 
 [[package]]
@@ -1571,7 +1572,7 @@ dependencies = [
  "strum",
  "time",
  "unicode-segmentation",
- "unicode-width",
+ "unicode-width 0.2.2",
 ]
 
 [[package]]
@@ -2119,8 +2120,14 @@ checksum = "16b380a1238663e5f8a691f9039c73e1cdae598a30e9855f541d29b08b53e9a5"
 dependencies = [
  "itertools",
  "unicode-segmentation",
- "unicode-width",
+ "unicode-width 0.2.2",
 ]
+
+[[package]]
+name = "unicode-width"
+version = "0.1.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7dd6e30e90baa6f72411720665d41d89b9a3d039dc45b8faea1ddd07f617f6af"
 
 [[package]]
 name = "unicode-width"

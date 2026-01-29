@@ -7,7 +7,7 @@ use serde::{
 };
 
 use crate::{
-    action::{ActionExt, Actions, NullActionExt},
+    action::{Action, ActionExt, Actions, NullActionExt},
     config::TomlColorConfig,
     message::Event,
 };
@@ -18,6 +18,29 @@ pub use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
 
 #[allow(type_alias_bounds)]
 pub type BindMap<A: ActionExt = NullActionExt> = BTreeMap<Trigger, Actions<A>>;
+
+#[easy_ext::ext(BindMapExt)]
+impl<A: ActionExt> BindMap<A> {
+    pub fn default_binds() -> Self {
+        bindmap!(
+            key!(ctrl-c) => Action::Quit(1),
+            key!(esc) => Action::Quit(1),
+            key!(up) => Action::Up(1),
+            key!(down) => Action::Down(1),
+            key!(enter) => Action::Accept,
+            key!(right) => Action::ForwardChar,
+            key!(left) => Action::BackwardChar,
+            key!(ctrl-right) => Action::ForwardWord,
+            key!(ctrl-left) => Action::BackwardWord,
+            key!(backspace) => Action::DeleteChar,
+            key!(ctrl-h) => Action::DeleteWord,
+            key!(ctrl-u) => Action::Cancel,
+            key!(alt-h) => Action::Help("".to_string()),
+            key!(ctrl-'[') => Action::ToggleWrap,
+            key!(ctrl-']') => Action::ToggleWrapPreview,
+        )
+    }
+}
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum Trigger {

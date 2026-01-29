@@ -88,7 +88,11 @@ impl<T: SSS> Injector for WorkerInjector<T> {
 
 pub(super) fn push_impl<T>(injector: &nucleo::Injector<T>, columns: &[Column<T>], item: T) {
     injector.push(item, |item, dst| {
-        for (column, text) in columns.iter().filter(|column| column.filter).zip(dst) {
+        for (column, text) in columns
+            .iter()
+            .filter(|column| column.no_filter.is_none())
+            .zip(dst)
+        {
             *text = column.format_text(item).into()
         }
     });
@@ -104,6 +108,7 @@ pub struct IndexedInjector<T, I: Injector<InputItem = Indexed<T>>> {
     input_type: PhantomData<T>,
 }
 
+// note that invalidation can be handled
 impl<T, I: Injector<InputItem = Indexed<T>>> Injector for IndexedInjector<T, I> {
     type InputItem = T;
     type Inner = I;

@@ -1,7 +1,10 @@
 use std::borrow::Cow;
 
 use log::error;
-use ratatui::text::{Line, Span, Text};
+use ratatui::{
+    style::Style,
+    text::{Line, Span, Text},
+};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
@@ -11,6 +14,64 @@ pub fn plain_text(text: &Text) -> String {
         .map(|line| line.iter().map(|s| s.content.as_ref()).collect::<String>())
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+use std::cmp::{max, min};
+pub fn apply_style_at(mut text: Text<'_>, start: usize, len: usize, style: Style) -> Text<'_> {
+    let mut global_pos = 0;
+    let end = start + len;
+
+    for line in text.lines.iter_mut() {
+        let mut new_spans = Vec::new();
+        // Take the spans to avoid borrow checker issues while rebuilding the Vec
+        let old_spans = std::mem::take(&mut line.spans);
+
+        for span in old_spans {
+            let content = span.content.as_ref();
+            let span_chars: Vec<char> = content.chars().collect();
+            let span_len = span_chars.len();
+            let span_end = global_pos + span_len;
+
+            // Check if the current span overlaps with the [start, end) range
+            if global_pos < end && span_end > start {
+                // Calculate local overlap boundaries relative to this span
+                let local_start = max(0, start as isize - global_pos as isize) as usize;
+                let local_end = min(span_len, end - global_pos);
+
+                // 1. Part before the styled range
+                if local_start > 0 {
+                    new_spans.push(Span::styled(
+                        span_chars[0..local_start].iter().collect::<String>(),
+                        span.style,
+                    ));
+                }
+
+                // 2. The styled part (patch the existing style with the new one)
+                let styled_part: String = span_chars[local_start..local_end].iter().collect();
+                new_spans.push(Span::styled(styled_part, span.style.patch(style)));
+
+                // 3. Part after the styled range
+                if local_end < span_len {
+                    new_spans.push(Span::styled(
+                        span_chars[local_end..span_len].iter().collect::<String>(),
+                        span.style,
+                    ));
+                }
+            } else {
+                // No overlap, keep the span as is
+                new_spans.push(span);
+            }
+
+            global_pos += span_len;
+        }
+        line.spans = new_spans;
+
+        // Ratatui Lines are usually separated by a newline in the buffer.
+        // If you treat Text as a continuous string, increment for the '\n'.
+        global_pos += 1;
+    }
+
+    text
 }
 
 pub fn prefix_text<'a, 'b: 'a>(
@@ -279,5 +340,64 @@ mod tests {
         let (wrapped_text, wrapped) = wrap_text(text, 4); // each emoji width=2
         assert!(wrapped);
         assert!(wrapped_text.lines.len() > 1);
+    }
+
+    use ratatui::style::{Color, Style};
+    use ratatui::text::{Line, Span, Text};
+
+    #[test]
+    fn test_apply_style_multiline_partial_spans() {
+        // Construct a Text with 3 lines, each with multiple spans
+        let text = Text::from_iter([
+            // 12
+            Line::from(vec![
+                Span::raw("Hello".to_string()),
+                Span::styled(", ".to_string(), Style::default().fg(Color::Green)),
+                Span::raw("world".to_string()),
+            ]),
+            // 14
+            Line::from(vec![
+                Span::raw("This ".to_string()),
+                Span::styled("is ".to_string(), Style::default().bg(Color::Yellow)),
+                Span::raw("line 2".to_string()),
+            ]),
+            Line::from(vec![
+                Span::raw("Line ".to_string()),
+                Span::styled("three".to_string(), Style::default().fg(Color::Cyan)),
+                Span::raw(" ends here".to_string()),
+            ]),
+        ]);
+
+        // Apply a red style from line 1 to 27 + 2 the first 2 (30 - (26 + 2)) chars of line 3.
+        let styled_text = apply_style_at(text, 3, 30, Style::default().fg(Color::Red));
+
+        // Build the expected spans manually
+        let expected_spans = [
+            // Line 1
+            vec![
+                Span::raw("Hel".to_string()),
+                Span::styled("lo".to_string(), Style::default().fg(Color::Red)),
+                Span::styled(", ".to_string(), Style::default().fg(Color::Red)),
+                Span::styled("world".to_string(), Style::default().fg(Color::Red)), // continues styled into next span
+            ],
+            // Line 2
+            vec![
+                Span::styled("This ".to_string(), Style::default().fg(Color::Red)),
+                Span::styled(
+                    "is ".to_string(),
+                    Style::default().bg(Color::Yellow).fg(Color::Red), //merge
+                ),
+                Span::styled("line 2".to_string(), Style::default().fg(Color::Red)),
+            ],
+            // Line 3
+            vec![
+                Span::styled("Li".to_string(), Style::default().fg(Color::Red)),
+                Span::styled("ne ".to_string(), Style::default()),
+                Span::styled("three".to_string(), Style::default().fg(Color::Cyan)),
+                Span::raw(" ends here".to_string()),
+            ],
+        ];
+
+        assert_eq!(styled_text, Text::from_iter(expected_spans));
     }
 }

@@ -15,19 +15,20 @@ use std::{
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
+use super::{injector::WorkerInjector, query::PickerQuery};
 use crate::{
     SSS,
-    utils::text::{plain_text, wrap_text},
+    utils::text::{apply_style_at, plain_text, wrap_text},
 };
-
-use super::{injector::WorkerInjector, query::PickerQuery};
+use cli_boilerplate_automation::text::StrExt;
 
 type ColumnFormatFn<T> = Box<dyn for<'a> Fn(&'a T) -> Text<'a> + Send + Sync>;
 pub struct Column<T> {
     pub name: Arc<str>,
     pub(super) format: ColumnFormatFn<T>,
     /// Whether the column should be passed to nucleo for matching and filtering.
-    pub(super) filter: bool,
+    /// Filtering will be performed when this is None, see [`Column::without_filtering`].
+    pub(super) no_filter: Option<bool>,
 }
 
 impl<T> Column<T> {
@@ -35,7 +36,7 @@ impl<T> Column<T> {
         Self {
             name: name.into(),
             format,
-            filter: true,
+            no_filter: None,
         }
     }
 
@@ -46,12 +47,14 @@ impl<T> Column<T> {
         Self {
             name: name.into(),
             format: Box::new(f),
-            filter: true,
+            no_filter: None,
         }
     }
 
-    pub fn without_filtering(mut self) -> Self {
-        self.filter = false;
+    /// Disable filtering.
+    /// If `highlight`, substring matches of the default column query will be highlighted when rendering with [`Worker::results`].
+    pub fn without_filtering(mut self, highlight: bool) -> Self {
+        self.no_filter = Some(highlight);
         self
     }
 
@@ -59,6 +62,7 @@ impl<T> Column<T> {
         (self.format)(item)
     }
 
+    // Note: the characters should match the output of [`Self::format`]
     pub(super) fn format_text<'a>(&self, item: &'a T) -> Cow<'a, str> {
         Cow::Owned(plain_text(&(self.format)(item)))
     }
@@ -97,7 +101,7 @@ where
     /// Column names must be distinct!
     pub fn new(columns: impl IntoIterator<Item = Column<T>>, default_column: usize) -> Self {
         let columns: Arc<[_]> = columns.into_iter().collect();
-        let matcher_columns = columns.iter().filter(|col| col.filter).count() as u32;
+        let matcher_columns = columns.iter().filter(|col| col.no_filter.is_none()).count() as u32;
 
         let inner = nucleo::Nucleo::new(
             nucleo::Config::DEFAULT,
@@ -132,7 +136,7 @@ where
         for (i, column) in self
             .columns
             .iter()
-            .filter(|column| column.filter)
+            .filter(|column| column.no_filter.is_none())
             .enumerate()
         {
             let pattern = self
@@ -140,11 +144,11 @@ where
                 .get(&column.name)
                 .map(|f| &**f)
                 .unwrap_or_default();
-
             let old_pattern = old_query
                 .get(&column.name)
                 .map(|f| &**f)
                 .unwrap_or_default();
+
             // Fastlane: most columns will remain unchanged after each edit.
             if pattern == old_pattern {
                 continue;
@@ -253,7 +257,8 @@ impl<T: SSS> Worker<T> {
                             return Text::from("");
                         }
 
-                        let (cell, width) = if column.filter && width_limit == u16::MAX {
+                        let (cell, width) = if column.no_filter.is_none() && width_limit == u16::MAX
+                        {
                             let mut cell_width = 0;
 
                             // get indices
@@ -313,7 +318,7 @@ impl<T: SSS> Worker<T> {
 
                             col_idx += 1;
                             (Text::from(lines), cell_width)
-                        } else if column.filter {
+                        } else if column.no_filter.is_none() {
                             let mut cell_width = 0;
                             let mut wrapped = false;
 
@@ -400,7 +405,24 @@ impl<T: SSS> Worker<T> {
                                 },
                             )
                         } else if width_limit != u16::MAX {
+                            let cell = if column.no_filter.unwrap()
+                            && // highlight any substring match
+                                let mut substrings = self
+                                    .query
+                                    .primary_column_query()
+                                    .map(|s| &**s)
+                                    .unwrap_or_default()
+                                    .split_escaped_by(char::is_whitespace) &&
+                                    let Some(query) = substrings.next() &&
+                                    let text = plain_text(&cell) &&
+                                    let Some(start) = text.find(&query)
+                            {
+                                apply_style_at(cell, start, query.len(), highlight_style)
+                            } else {
+                                cell
+                            };
                             let (cell, wrapped) = wrap_text(cell, width_limit - 1);
+
                             let width = if wrapped {
                                 width_limit as usize
                             } else {
@@ -409,6 +431,22 @@ impl<T: SSS> Worker<T> {
                             (cell, width)
                         } else {
                             let width = cell.width();
+                            let cell = if column.no_filter.unwrap()
+                            && // highlight any substring match
+                                let mut substrings = self
+                                    .query
+                                    .primary_column_query()
+                                    .map(|s| &**s)
+                                    .unwrap_or_default()
+                                    .split_escaped_by(char::is_whitespace) &&
+                                    let Some(query) = substrings.next() &&
+                                    let text = plain_text(&cell) &&
+                                    let Some(start) = text.find(&query)
+                            {
+                                apply_style_at(cell, start, query.len(), highlight_style)
+                            } else {
+                                cell
+                            };
                             (cell, width)
                         };
 

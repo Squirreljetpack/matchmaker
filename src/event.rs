@@ -205,6 +205,8 @@ impl<A: ActionExt> EventLoop<A> {
                                                 key!(ctrl-h) => self.send_action(Action::DeleteWord),
                                                 key!(ctrl-u) => self.send_action(Action::Cancel),
                                                 key!(alt-h) => self.send_action(Action::Help("".to_string())),
+                                                key!(ctrl-'[') => self.send_action(Action::ToggleWrap),
+                                                key!(ctrl-']') => self.send_action(Action::ToggleWrapPreview),
                                                 _ => {}
                                             }
                                         }

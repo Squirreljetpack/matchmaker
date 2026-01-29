@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use matchmaker::action::{ActionExt, NullActionExt};
-use matchmaker::binds::BindMap;
+use matchmaker::binds::{BindMap, BindMapExt};
 use matchmaker::config::{MatcherConfig, PreviewerConfig, RenderConfig, TerminalConfig};
 
 use crate::clap::Cli;
@@ -10,21 +10,25 @@ use crate::clap::Cli;
 /// Clients probably want to make their own type with RenderConfig + custom settings to instantiate their matchmaker.
 /// Used by the instantiation method [`crate::Matchmaker::new_from_config`]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields, bound(serialize = "", deserialize = "",))]
-pub struct Config<A: ActionExt + Default = NullActionExt> {
+#[serde(deny_unknown_fields, bound(serialize = "", deserialize = "",))]
+pub struct Config<A: ActionExt = NullActionExt> {
     // Default bound on A, see https://github.com/serde-rs/serde/issues/1541
     // configure the ui
-    #[serde(flatten)]
+    #[serde(default, flatten)]
     pub render: RenderConfig,
 
     // binds
+    #[serde(default = "BindMap::default_binds")]
     pub binds: BindMap<A>,
 
+    #[serde(default)]
     pub tui: TerminalConfig,
 
+    #[serde(default)]
     pub previewer: PreviewerConfig,
 
     // this is in a bit of a awkward place because the matcher, worker, picker and reader all want pieces of it.
+    #[serde(default)]
     pub matcher: MatcherConfig,
 }
 

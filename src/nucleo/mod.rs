@@ -57,6 +57,15 @@ impl<T: ColumnIndexable> ColumnIndexable for Indexed<T> {
     }
 }
 
+impl<T: Render> Render for Indexed<T> {
+    fn as_str(&self) -> Cow<'_, str> {
+        self.inner.as_str()
+    }
+    fn as_text(&self) -> Text<'_> {
+        self.inner.as_text()
+    }
+}
+
 // ------------------------------------------
 impl<T: Display + SegmentableItem> Display for Segmented<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

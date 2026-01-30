@@ -3,7 +3,7 @@ use cli_boilerplate_automation::{broc::EnvVars, env_vars};
 use crate::{
     SSS, Selection, Selector,
     action::ActionExt,
-    message::Event,
+    message::{Event, Interrupt},
     nucleo::{Status, injector::WorkerInjector},
     ui::{OverlayUI, PickerUI, PreviewUI, Rect, UI},
 };
@@ -13,6 +13,8 @@ use crate::{
 pub struct State<S: Selection> {
     /// The current item
     pub current: Option<(u32, S)>,
+    interrupt: Interrupt,
+    interrupt_payload: String,
 
     // Stores "last" state to emit events on change
     pub(crate) input: String,
@@ -41,6 +43,8 @@ impl<S: Selection> State<S> {
         // this is the same as default
         Self {
             current: None,
+            interrupt: Interrupt::None,
+            interrupt_payload: String::new(),
 
             preview_payload: String::new(),
             preview_set_payload: None,
@@ -67,6 +71,24 @@ impl<S: Selection> State<S> {
         self.events.contains(event)
     }
 
+    pub fn payload(&self) -> &String {
+        &self.interrupt_payload
+    }
+
+    pub fn interrupt(&self) -> Interrupt {
+        self.interrupt
+    }
+
+    pub fn set_interrupt(&mut self, interrupt: Interrupt, payload: String) {
+        self.interrupt = interrupt;
+        self.interrupt_payload = payload;
+    }
+
+    pub fn clear_interrupt(&mut self) {
+        self.interrupt = Interrupt::None;
+        self.interrupt_payload.clear();
+    }
+
     pub fn insert(&mut self, event: Event) {
         self.events.insert(event);
     }
@@ -77,7 +99,7 @@ impl<S: Selection> State<S> {
     pub fn preview_set_payload(&self) -> Option<String> {
         self.preview_set_payload.clone()
     }
-    pub fn preview_payload(&self) -> &str {
+    pub fn preview_payload(&self) -> &String {
         &self.preview_payload
     }
     pub fn stashed_preview_visibility(&self) -> Option<bool> {

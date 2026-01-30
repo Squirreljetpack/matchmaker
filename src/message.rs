@@ -24,25 +24,16 @@ bitflags! {
 
 // ---------------------------------------------------------------------
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Interrupt {
     #[default]
     None,
-    Become(String),
-    Execute(String),
-    Print(String),
-    Reload(String),
-    Custom(usize),
-}
-
-impl Interrupt {
-    pub fn discriminant(&self) -> u8 {
-        // SAFETY: Because `Self` is marked `repr(u8)`, its layout is a `repr(C)` `union`
-        // between `repr(C)` structs, each of which has the `u8` discriminant as its first
-        // field, so we can read the discriminant without offsetting the pointer.
-        unsafe { *<*const _>::from(self).cast::<u8>() }
-    }
+    Become,
+    Execute,
+    Print,
+    Reload,
+    Custom,
 }
 
 // ---------------------------------------------------------------------

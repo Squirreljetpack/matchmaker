@@ -12,7 +12,7 @@ use ratatui::text::Text;
 
 use crate::{
     MatchError, RenderFn, Result, SSS, Selection, Selector, SplitterFn,
-    action::{ActionAliaser, ActionExt, ActionExtHandler, NullActionExt},
+    action::{Action, ActionExt, Actions, NullActionExt},
     binds::BindMap,
     config::{ExitConfig, PreviewerConfig, RenderConfig, Split, TerminalConfig, WorkerConfig},
     event::{EventLoop, RenderSender},
@@ -25,7 +25,7 @@ use crate::{
         AppendOnly, Preview,
         previewer::{PreviewMessage, Previewer},
     },
-    render::{self, DynamicMethod, EventHandlers, InterruptHandlers, MMState},
+    render::{self, BoxedHandler, DynamicMethod, EventHandlers, InterruptHandlers, MMState},
     tui,
     ui::{Overlay, OverlayUI, UI},
 };
@@ -195,7 +195,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
     /// Register a handler to listen on [`Event`]s
     pub fn register_event_handler<F>(&mut self, event: Event, handler: F)
     where
-        F: Fn(&mut MMState<'_, '_, T, S>, &Event) + SSS,
+        F: Fn(&mut MMState<'_, '_, T, S>, &Event) + 'static,
     {
         let boxed = Box::new(handler);
         self.register_boxed_event_handler(event, boxed);
@@ -211,7 +211,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
     /// Register a handler to listen on [`Interrupt`]s
     pub fn register_interrupt_handler<F>(&mut self, interrupt: Interrupt, handler: F)
     where
-        F: Fn(&mut MMState<'_, '_, T, S>, &Interrupt) + SSS,
+        F: Fn(&mut MMState<'_, '_, T, S>) + 'static,
     {
         let boxed = Box::new(handler);
         self.register_boxed_interrupt_handler(interrupt, boxed);
@@ -220,7 +220,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
     pub fn register_boxed_interrupt_handler(
         &mut self,
         variant: Interrupt,
-        handler: DynamicMethod<T, S, Interrupt>,
+        handler: BoxedHandler<T, S>,
     ) {
         self.interrupt_handlers.set(variant, handler);
     }
@@ -381,6 +381,10 @@ impl<T> Result<T, MatchError> {
 
 /// Returns what should be pushed to input
 pub type PasteHandler<T, S> = fn(String, &MMState<'_, '_, T, S>) -> String;
+
+pub type ActionExtHandler<T, S, A> = fn(A, &mut MMState<'_, '_, T, S>);
+pub type ActionAliaser<T, S, A> = fn(Action<A>, &mut MMState<'_, '_, T, S>) -> Actions<A>;
+
 /// Used to configure [`Matchmaker::pick`] with additional options.
 pub struct PickOptions<'a, T: SSS, S: Selection, A: ActionExt = NullActionExt> {
     matcher: Option<&'a mut nucleo::Matcher>,
@@ -530,16 +534,15 @@ impl<'a, T: SSS, S: Selection, A: ActionExt> Default for PickOptions<'a, T, S, A
 // ----------- ATTACHMENTS ------------------
 
 impl<T: SSS, S: Selection> Matchmaker<T, S> {
+    /// Causes [`Action::Print`] to print to stdout.
     pub fn register_print_handler(
         &mut self,
         print_handle: AppendOnly<String>,
         formatter: Arc<RenderFn<T>>,
     ) {
-        self.register_interrupt_handler(Interrupt::Print("".into()), move |state, i| {
-            if let Interrupt::Print(template) = i
-                && let Some(t) = state.current_raw()
-            {
-                let s = formatter(t, template);
+        self.register_interrupt_handler(Interrupt::Print, move |state| {
+            if let Some(t) = state.current_raw() {
+                let s = formatter(t, state.payload());
                 if atty::is(atty::Stream::Stdout) {
                     print_handle.push(s);
                 } else {
@@ -549,21 +552,25 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
         });
     }
 
+    /// Causes [`Action::Execute`] to cause the program to execute the program specified by its payload.
+    /// Note:
+    /// - not intended for direct use.
+    /// - Assumes preview and cmd formatter are the same.
     pub fn register_execute_handler(&mut self, formatter: Arc<RenderFn<T>>) {
-        let preview_formatter = formatter.clone();
-
-        self.register_interrupt_handler(Interrupt::Execute("".into()), move |state, interrupt| {
-            if let Interrupt::Execute(template) = interrupt
-                && !template.is_empty()
+        self.register_interrupt_handler(Interrupt::Execute, move |state| {
+            let template = state.payload();
+            if !template.is_empty()
                 && let Some(t) = state.current_raw()
             {
                 let cmd = formatter(t, template);
                 let mut vars = state.make_env_vars();
-                let preview_cmd = preview_formatter(t, state.preview_payload());
+
+                let preview_cmd = formatter(t, state.preview_payload());
                 let extra = env_vars!(
                     "FZF_PREVIEW_COMMAND" => preview_cmd,
                 );
                 vars.extend(extra);
+
                 if let Some(mut child) = Command::from_script(&cmd)
                     .envs(vars)
                     .stdin(maybe_tty())
@@ -582,18 +589,20 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
         });
     }
 
+    /// Causes [`Action::Become`] to cause the program to become the program specified by its payload.
+    /// Note:
+    /// - not intended for direct use.
+    /// - Assumes preview and cmd formatter are the same.
     pub fn register_become_handler(&mut self, formatter: Arc<RenderFn<T>>) {
-        let preview_formatter = formatter.clone();
-
-        self.register_interrupt_handler(Interrupt::Become("".into()), move |state, interrupt| {
-            if let Interrupt::Become(template) = interrupt
-                && !template.is_empty()
+        self.register_interrupt_handler(Interrupt::Become, move |state| {
+            let template = state.payload();
+            if !template.is_empty()
                 && let Some(t) = state.current_raw()
             {
                 let cmd = formatter(t, template);
                 let mut vars = state.make_env_vars();
 
-                let preview_cmd = preview_formatter(t, state.preview_payload());
+                let preview_cmd = formatter(t, state.preview_payload());
                 let extra = env_vars!(
                     "FZF_PREVIEW_COMMAND" => preview_cmd,
                 );
@@ -606,6 +615,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
     }
 }
 
+/// Causes the program to display a preview of the active result.
 /// The Previewer can be connected to [`Matchmaker`] using [`PickOptions::previewer`]
 pub fn make_previewer<T: SSS, S: Selection>(
     mm: &mut Matchmaker<T, S>,

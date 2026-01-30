@@ -168,15 +168,13 @@ pub async fn pick(
 
     // reload handler
     let reload_formatter = formatter.clone();
-    mm.register_interrupt_handler(Interrupt::Reload("".into()), move |state, interrupt| {
+    mm.register_interrupt_handler(Interrupt::Reload, move |state| {
         let injector = state.injector();
         let injector = IndexedInjector::new_globally_indexed(injector);
         let injector = SegmentedInjector::new(injector, splitter.clone());
 
-        if let Interrupt::Reload(template) = interrupt
-            && let Some(t) = state.current_raw()
-        {
-            let cmd = reload_formatter(t, template);
+        if let Some(t) = state.current_raw() {
+            let cmd = reload_formatter(t, state.payload());
             let vars = state.make_env_vars();
             debug!("Reloading: {cmd}");
             if let Some(stdout) = Command::from_script(&cmd).envs(vars).spawn_piped()._elog() {

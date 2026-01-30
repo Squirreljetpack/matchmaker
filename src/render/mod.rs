@@ -15,12 +15,12 @@ use tokio::sync::mpsc;
 
 #[cfg(feature = "bracketed-paste")]
 use crate::PasteHandler;
-use crate::action::{Action, ActionAliaser, ActionExt, ActionExtHandler};
+use crate::action::{Action, ActionExt};
 use crate::config::{CursorSetting, ExitConfig};
 use crate::message::{Event, Interrupt, RenderCommand};
 use crate::tui::Tui;
 use crate::ui::{DisplayUI, InputUI, OverlayUI, PickerUI, PreviewUI, ResultsUI, UI};
-use crate::{MatchError, SSS, Selection};
+use crate::{ActionAliaser, ActionExtHandler, MatchError, SSS, Selection};
 
 // todo: we can make it return a stack allocated smallvec ig
 fn apply_aliases<T: SSS, S: Selection, A: ActionExt>(
@@ -99,7 +99,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
         // todo: benchmark vs drain
         for event in buffer.drain(..) {
-            let mut interrupt = Interrupt::None;
+            state.clear_interrupt();
 
             if !matches!(event, RenderCommand::Tick) {
                 info!("Recieved {event:?}");
@@ -283,17 +283,17 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         }
 
                         // Programmable
-                        Action::Execute(context) => {
-                            interrupt = Interrupt::Execute(context);
+                        Action::Execute(payload) => {
+                            state.set_interrupt(Interrupt::Execute, payload);
                         }
-                        Action::Become(context) => {
-                            interrupt = Interrupt::Become(context);
+                        Action::Become(payload) => {
+                            state.set_interrupt(Interrupt::Become, payload);
                         }
-                        Action::Reload(context) => {
-                            interrupt = Interrupt::Reload(context);
+                        Action::Reload(payload) => {
+                            state.set_interrupt(Interrupt::Reload, payload);
                         }
-                        Action::Print(context) => {
-                            interrupt = Interrupt::Print(context);
+                        Action::Print(payload) => {
+                            state.set_interrupt(Interrupt::Print, payload);
                         }
 
                         Action::SetInput(context) => {
@@ -380,20 +380,22 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 _ => {}
             }
 
+            let interrupt = state.interrupt();
+
             match interrupt {
                 Interrupt::None => continue,
-                Interrupt::Execute(_) => {
+                Interrupt::Execute => {
                     if controller_tx.send(Event::Pause).is_err() {
                         break;
                     }
-                    did_exit = true;
                     tui.enter_execute();
+                    did_exit = true;
                     did_pause = true;
                 }
-                Interrupt::Reload(_) => {
+                Interrupt::Reload => {
                     picker_ui.worker.restart(false);
                 }
-                Interrupt::Become(_) => {
+                Interrupt::Become => {
                     tui.exit();
                 }
                 _ => {}
@@ -403,12 +405,12 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             // Apply interrupt effect
             {
                 let mut dispatcher = state.dispatcher(&mut ui, &mut picker_ui, &mut preview_ui);
-                for h in dynamic_handlers.1.get(&interrupt) {
-                    h(&mut dispatcher, &interrupt);
+                for h in dynamic_handlers.1.get(interrupt) {
+                    h(&mut dispatcher);
                 }
 
-                if let Interrupt::Become(context) = interrupt {
-                    return Err(MatchError::Become(context));
+                if matches!(interrupt, Interrupt::Become) {
+                    return Err(MatchError::Become(state.payload().clone()));
                 }
             }
             if state.should_quit {

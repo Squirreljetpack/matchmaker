@@ -6,7 +6,7 @@ use std::{
 
 use serde::{Deserialize, Serialize, Serializer};
 
-use crate::{MAX_ACTIONS, SSS, render::MMState, utils::serde::StringOrVec};
+use crate::{MAX_ACTIONS, SSS, utils::serde::StringOrVec};
 
 /// Bindable actions
 /// # Additional
@@ -139,8 +139,6 @@ where
 
 pub trait ActionExt: Debug + Clone + FromStr + Display + PartialEq + SSS {}
 
-pub type ActionExtHandler<T, S, A> = fn(A, &mut MMState<'_, '_, T, S>);
-pub type ActionAliaser<T, S, A> = fn(Action<A>, &mut MMState<'_, '_, T, S>) -> Actions<A>;
 pub use arrayvec::ArrayVec;
 /// # Example
 /// ```rust

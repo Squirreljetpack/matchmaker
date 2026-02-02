@@ -65,7 +65,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 ) -> Result<Vec<S>, MatchError> {
     let mut buffer = Vec::with_capacity(256);
 
-    let mut state: State<S> = State::new();
+    let mut state = State::new();
 
     // place the initial command in the state where the preview listener can access
     if let Some(ref preview_ui) = preview_ui
@@ -92,7 +92,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         if state.should_quit {
             let ret = picker_ui.selector.output().collect::<Vec<S>>();
             return if picker_ui.selector.is_disabled()
-                && let Some((_, item)) = state.current
+                && let Some((_, item)) = get_current(&picker_ui)
             {
                 Ok(vec![item])
             } else if ret.is_empty() {
@@ -201,7 +201,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         }
                         Action::Accept => {
                             let ret = if selections.is_empty() {
-                                if let Some(item) = state.current {
+                                if let Some(item) = get_current(&picker_ui) {
                                     vec![item.1]
                                 } else if exit_config.allow_empty {
                                     vec![]
@@ -407,8 +407,6 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 }
                 _ => {}
             }
-
-            state.update_current(&picker_ui);
             // Apply interrupt effect
             {
                 let mut dispatcher = state.dispatcher(&mut ui, &mut picker_ui, &mut preview_ui);
@@ -424,7 +422,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             if state.should_quit {
                 let ret = picker_ui.selector.output().collect::<Vec<S>>();
                 return if picker_ui.selector.is_disabled()
-                    && let Some((_, item)) = state.current
+                    && let Some((_, item)) = get_current(&picker_ui)
                 {
                     Ok(vec![item])
                 } else if ret.is_empty() {
@@ -442,8 +440,11 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         // ------------- update state + render ------------------------
         picker_ui.update();
         // process exit conditions
-        if exit_config.select_1 && picker_ui.results.status.matched_count == 1 {
-            return Ok(state.take_current().into_iter().collect());
+        if exit_config.select_1
+            && picker_ui.results.status.matched_count == 1
+            && let Some((_, item)) = get_current(&picker_ui)
+        {
+            return Ok(vec![item]);
         }
 
         // resume tui

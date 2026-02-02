@@ -1,3 +1,4 @@
+use crate::nucleo::Indexed;
 use crate::{Identifier, Selection};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
@@ -15,6 +16,17 @@ pub struct Selector<T, S> {
 
 pub fn truthy_validator<S>(_: &S) -> bool {
     true
+}
+
+impl<T> Selector<Indexed<T>, ()> {
+    /// See [`Indexed::dummy_identifier`].
+    pub fn new_disabled() -> Self {
+        Self {
+            selections: None,
+            identifier: Indexed::dummy_identifier,
+            validator: truthy_validator,
+        }
+    }
 }
 
 impl<T, S: Selection> Selector<T, S> {

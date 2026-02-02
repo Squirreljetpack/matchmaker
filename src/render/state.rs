@@ -10,9 +10,8 @@ use crate::{
 
 // --------------------------------------------------------------------
 #[derive(Default)]
-pub struct State<S: Selection> {
-    /// The current item
-    pub current: Option<(u32, S)>,
+pub struct State {
+    last_id: Option<u32>,
     interrupt: Interrupt,
     interrupt_payload: String,
 
@@ -39,11 +38,11 @@ pub struct State<S: Selection> {
     pub should_quit_nomatch: bool,
 }
 
-impl<S: Selection> State<S> {
+impl State {
     pub fn new() -> Self {
         // this is the same as default
         Self {
-            current: None,
+            last_id: None,
             interrupt: Interrupt::None,
             interrupt_payload: String::new(),
 
@@ -65,9 +64,6 @@ impl<S: Selection> State<S> {
         }
     }
     // ------ properties -----------
-    pub(crate) fn take_current(&mut self) -> Option<S> {
-        self.current.take().map(|x| x.1)
-    }
 
     pub fn contains(&self, event: Event) -> bool {
         self.events.contains(event)
@@ -109,21 +105,6 @@ impl<S: Selection> State<S> {
     }
 
     // ------- updates --------------
-    pub(crate) fn update_current<T: SSS>(
-        &mut self,
-        picker_ui: &PickerUI<T, S>,
-        // new_current: Option<(u32, S)>
-    ) {
-        let current_raw = picker_ui.worker.get_nth(picker_ui.results.index());
-        let new_current = current_raw.map(picker_ui.selector.identifier);
-
-        let changed = self.current.as_ref().map(|x| x.0) != new_current.as_ref().map(|x| x.0);
-        if changed {
-            self.current = new_current;
-            self.insert(Event::CursorChange);
-        }
-    }
-
     pub(crate) fn update_input(&mut self, new_input: &str) -> bool {
         let changed = self.input != new_input;
         if changed {
@@ -177,7 +158,7 @@ impl<S: Selection> State<S> {
         changed
     }
 
-    pub(crate) fn update<'a, T: SSS, A: ActionExt>(
+    pub(crate) fn update<'a, T: SSS, S: Selection, A: ActionExt>(
         &'a mut self,
         picker_ui: &'a PickerUI<T, S>,
         overlay_ui: &'a Option<OverlayUI<A>>,
@@ -204,11 +185,17 @@ impl<S: Selection> State<S> {
             }
             self.overlay_index = o.index()
         }
-        self.update_current(picker_ui);
+
+        let new_id = get_current(picker_ui).map(|x| x.0);
+        let changed = self.last_id != get_current(picker_ui).map(|x| x.0);
+        if changed {
+            self.last_id = new_id;
+            self.insert(Event::CursorChange);
+        }
     }
 
     // ---------- flush -----------
-    pub(crate) fn dispatcher<'a, 'b: 'a, T: SSS>(
+    pub(crate) fn dispatcher<'a, 'b: 'a, T: SSS, S: Selection>(
         &'a mut self,
         ui: &'a mut UI,
         picker_ui: &'a mut PickerUI<'b, T, S>,
@@ -236,7 +223,7 @@ impl<S: Selection> State<S> {
 // ----------------------------------------------------------------------
 pub struct MMState<'a, 'b: 'a, T: SSS, S: Selection> {
     // access through deref/mut
-    pub(crate) state: &'a mut State<S>,
+    pub(crate) state: &'a mut State,
 
     pub picker_ui: &'a mut PickerUI<'b, T, S>,
     pub ui: &'a mut UI,
@@ -252,10 +239,11 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
         &self.ui.area
     }
 
-    pub fn current_item(&self) -> Option<&S> {
-        self.current.as_ref().map(|s| &s.1)
+    pub fn current_item(&self) -> Option<S> {
+        get_current(self.picker_ui).map(|s| s.1)
     }
 
+    /// Same as current_item, but without applying the identifier.
     pub fn current_raw(&self) -> Option<&T> {
         self.picker_ui
             .worker
@@ -266,7 +254,10 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
         if !self.picker_ui.selector.is_empty() {
             self.picker_ui.selector.map_to_vec(f)
         } else {
-            self.current.iter().map(|s| f(&s.1)).collect()
+            get_current(self.picker_ui)
+                .iter()
+                .map(|s| f(&s.1))
+                .collect()
         }
     }
 
@@ -301,7 +292,7 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
             "FZF_TOTAL_COUNT" => self.status().item_count.to_string(),
             "FZF_MATCH_COUNT" => self.status().matched_count.to_string(),
             "FZF_SELECT_COUNT" => self.selections().len().to_string(),
-            "FZF_POS" => self.current.as_ref().map_or("".to_string(), |x| format!("{}", x.0)),
+            "FZF_POS" => get_current(self.picker_ui).map_or("".to_string(), |x| format!("{}", x.0)),
             "FZF_QUERY" => self.input.clone(),
         }
     }
@@ -319,8 +310,13 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
     }
 }
 
+pub(crate) fn get_current<T: SSS, S: Selection>(picker_ui: &PickerUI<T, S>) -> Option<(u32, S)> {
+    let current_raw = picker_ui.worker.get_nth(picker_ui.results.index());
+    current_raw.map(picker_ui.selector.identifier)
+}
+
 // ----- BOILERPLATE -----------
-impl<S: Selection> std::fmt::Debug for State<S> {
+impl std::fmt::Debug for State {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("State")
             .field("input", &self.input)
@@ -334,7 +330,7 @@ impl<S: Selection> std::fmt::Debug for State<S> {
 }
 
 impl<'a, 'b: 'a, T: SSS, S: Selection> std::ops::Deref for MMState<'a, 'b, T, S> {
-    type Target = State<S>;
+    type Target = State;
 
     fn deref(&self) -> &Self::Target {
         self.state

@@ -368,8 +368,8 @@ mod tests {
             ]),
         ]);
 
-        // Apply a red style from line 1 to 27 + 2 the first 2 (30 - (26 + 2)) chars of line 3.
-        let styled_text = apply_style_at(text, 3, 30, Style::default().fg(Color::Red));
+        // Apply a red style from line 1 to the first 2 (3 + 27 - (26 + 2)) chars of line 3.
+        let styled_text = apply_style_at(text, 3, 27, Style::default().fg(Color::Red));
 
         // Build the expected spans manually
         let expected_spans = [

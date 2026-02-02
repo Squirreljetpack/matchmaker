@@ -51,6 +51,13 @@ impl<T: Clone> Indexed<T> {
     }
 }
 
+impl<T> Indexed<T> {
+    /// Matchmaker requires a way to identify and store selected items from their references in the nucleo matcher. This method simply identifies them by their insertion index and is intended when the output type is not needed (i.e. externally managed).
+    pub fn dummy_identifier(&self) -> (u32, ()) {
+        (self.index, ())
+    }
+}
+
 impl<T: ColumnIndexable> ColumnIndexable for Indexed<T> {
     fn as_str(&self, index: usize) -> Cow<'_, str> {
         self.inner.as_str(index)
@@ -63,6 +70,14 @@ impl<T: Render> Render for Indexed<T> {
     }
     fn as_text(&self) -> Text<'_> {
         self.inner.as_text()
+    }
+}
+
+impl<T> std::ops::Deref for Indexed<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
     }
 }
 

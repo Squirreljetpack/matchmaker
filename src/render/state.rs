@@ -33,9 +33,10 @@ pub struct State<S: Selection> {
     pub preview_payload: String,
     /// A place to stash the preview visibility when overriding it
     stashed_preview_visibility: Option<bool>,
-    /// Setting this to empty finishes the picker with the contents of [`Selector`].
+    /// Setting this to true finishes the picker with the contents of [`Selector`].
     /// If [`Selector`] is empty, the picker finishes with [`crate::errors::MatchError::Abort`]\(0).
     pub should_quit: bool,
+    pub should_quit_nomatch: bool,
 }
 
 impl<S: Selection> State<S> {
@@ -60,6 +61,7 @@ impl<S: Selection> State<S> {
 
             events: Event::empty(),
             should_quit: false,
+            should_quit_nomatch: false,
         }
     }
     // ------ properties -----------
@@ -250,7 +252,7 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
         &self.ui.area
     }
 
-    pub fn current(&self) -> Option<&S> {
+    pub fn current_item(&self) -> Option<&S> {
         self.current.as_ref().map(|s| &s.1)
     }
 

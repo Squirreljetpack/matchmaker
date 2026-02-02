@@ -45,7 +45,7 @@ pub fn enter() -> anyhow::Result<Config> {
             (
                 p,
                 if p.is_file() || p.to_str().is_none() {
-                    load_type(p, |s| toml::from_str(s)).or_exit()
+                    load_type(p, |s| toml::from_str(s))._elog().or_exit()
                 } else {
                     toml::from_str(cfg.to_str().unwrap())?
                 },
@@ -60,7 +60,7 @@ pub fn enter() -> anyhow::Result<Config> {
             (
                 p,
                 if p.is_file() {
-                    load_type(p, |s| toml::from_str(s)).or_exit()
+                    load_type(p, |s| toml::from_str(s))._elog().or_exit()
                 } else {
                     toml::from_str(include_str!("../../../assets/config.toml"))?
                 },
@@ -92,7 +92,7 @@ pub fn enter() -> anyhow::Result<Config> {
 
 /// Spawns a tokio task mapping f to reader segments.
 /// Read aborts on error. Read errors are logged.
-pub fn map_reader<E: SSS>(
+pub fn map_reader<E: SSS + std::fmt::Display>(
     reader: impl Read + SSS,
     f: impl FnMut(String) -> Result<(), E> + SSS,
     input_separator: Option<char>,
@@ -103,7 +103,8 @@ pub fn map_reader<E: SSS>(
             map_chunks::<true, E>(read_to_chunks(reader, delim), f)
         } else {
             map_reader_lines::<true, E>(reader, f)
-        };
+        }
+        .elog();
 
         if let Some(render_tx) = abort_empty
             && matches!(ret, Ok(0))

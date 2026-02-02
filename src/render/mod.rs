@@ -95,6 +95,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 return Err(MatchError::Abort(0));
             }
             return Ok(ret);
+        } else if state.should_quit_nomatch {
+            return Err(MatchError::NoMatch);
         }
 
         // todo: benchmark vs drain
@@ -420,6 +422,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     return Err(MatchError::Abort(0));
                 }
                 return Ok(ret);
+            } else if state.should_quit_nomatch {
+                return Err(MatchError::NoMatch);
             }
         }
 

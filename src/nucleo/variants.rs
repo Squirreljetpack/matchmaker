@@ -76,7 +76,10 @@ impl<T: SSS> Worker<T> {
 }
 
 impl<T: SSS> Worker<Indexed<T>> {
-    /// A convenience method to initialize data. Note that it is clearly unsound to use this concurrently with other workers. And subsequent use of IndexedInjector requires starting from the returned count.
+    /// A convenience method to initialize data. Items are indexed starting from the current nucleo item count.
+    /// # Notes
+    /// -  Not concurrent.
+    /// - Subsequent use of IndexedInjector should start from the returned count.
     pub fn append(&self, items: impl IntoIterator<Item = T>) -> u32 {
         let mut index = self.nucleo.snapshot().item_count();
         for inner in items {

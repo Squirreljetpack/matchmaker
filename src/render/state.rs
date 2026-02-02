@@ -33,8 +33,10 @@ pub struct State {
     /// A place to stash the preview visibility when overriding it
     stashed_preview_visibility: Option<bool>,
     /// Setting this to true finishes the picker with the contents of [`Selector`].
-    /// If [`Selector`] is empty, the picker finishes with [`crate::errors::MatchError::Abort`]\(0).
+    /// If [`Selector`] is disabled, the picker finishes with the current item.
+    /// If there are no items to finish with, the picker finishes with [`crate::errors::MatchError::Abort`]\(0).
     pub should_quit: bool,
+    /// Setting this to true finishes the picker with [`crate::MatchError::NoMatch`].
     pub should_quit_nomatch: bool,
 }
 

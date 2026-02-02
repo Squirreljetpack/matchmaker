@@ -9,7 +9,10 @@ use crate::parse::parse;
 use crate::{config::Config, paths::default_config_path};
 use cli_boilerplate_automation::{
     bait::{OptionExt, ResultExt},
-    bo::{MapReaderError, map_chunks, map_reader_lines, read_to_chunks, write_str},
+    bo::{
+        MapReaderError, load_type_or_default, map_chunks, map_reader_lines, read_to_chunks,
+        write_str,
+    },
     bog::BogOkExt,
 };
 use cli_boilerplate_automation::{bo::load_type, broc::CommandExt};
@@ -45,7 +48,7 @@ pub fn enter() -> anyhow::Result<Config> {
             (
                 p,
                 if p.is_file() || p.to_str().is_none() {
-                    load_type(p, |s| toml::from_str(s))._elog().or_exit()
+                    load_type(p, |s| toml::from_str(s))._ebog().or_exit()
                 } else {
                     toml::from_str(cfg.to_str().unwrap())?
                 },
@@ -53,18 +56,9 @@ pub fn enter() -> anyhow::Result<Config> {
         } else {
             // get config from default location or default config
             let p = default_config_path();
-
-            // always update dev config in standard location of latest debug build
             #[cfg(debug_assertions)]
             write_str(p, include_str!("../../../assets/dev.toml")).unwrap();
-            (
-                p,
-                if p.is_file() {
-                    load_type(p, |s| toml::from_str(s))._elog().or_exit()
-                } else {
-                    toml::from_str(include_str!("../../../assets/config.toml"))?
-                },
-            )
+            (p, load_type_or_default(p, |s| toml::from_str(s)))
         }
     };
 

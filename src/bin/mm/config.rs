@@ -9,7 +9,7 @@ use crate::clap::Cli;
 /// Full config.
 /// Clients probably want to make their own type with RenderConfig + custom settings to instantiate their matchmaker.
 /// Used by the instantiation method [`crate::Matchmaker::new_from_config`]
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, bound(serialize = "", deserialize = "",))]
 pub struct Config<A: ActionExt = NullActionExt> {
     // Default bound on A, see https://github.com/serde-rs/serde/issues/1541
@@ -40,6 +40,12 @@ impl Cli {
             config.tui.layout = None;
         }
         Ok(())
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        toml::from_str(include_str!("../../../assets/config.toml")).unwrap()
     }
 }
 

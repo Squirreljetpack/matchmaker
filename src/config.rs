@@ -61,9 +61,9 @@ pub struct WorkerConfig {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct StartConfig {
-    #[serde(default, deserialize_with = "escaped_opt_char")]
+    #[serde(deserialize_with = "escaped_opt_char")]
     pub input_separator: Option<char>,
-    #[serde(default, deserialize_with = "escaped_opt_string")]
+    #[serde(deserialize_with = "escaped_opt_string")]
     pub output_separator: Option<String>,
     pub default_command: String,
     pub sync: bool,
@@ -229,22 +229,20 @@ pub struct ResultsConfig {
     #[serde(with = "modifier")]
     pub modifier: Modifier,
 
-    #[serde(default = "default_green")]
     pub match_fg: Color,
     #[serde(with = "modifier")]
     pub match_modifier: Modifier,
 
     pub current_fg: Color,
-    #[serde(default = "default_black")]
     pub current_bg: Color,
-    #[serde(with = "modifier", default = "default_bold")]
+    #[serde(with = "modifier")]
     pub current_modifier: Modifier,
 
     // status
-    #[serde(default = "default_green")]
-    pub count_fg: Color,
-    #[serde(with = "modifier", default = "default_italic")]
-    pub count_modifier: Modifier,
+    pub status_fg: Color,
+    #[serde(with = "modifier")]
+    pub status_modifier: Modifier,
+    pub status_show: bool,
 
     // todo(?): lowpri
     // pub selected_fg: Color,
@@ -252,7 +250,6 @@ pub struct ResultsConfig {
     // pub selected_modifier: Color,
 
     // scroll
-    #[serde(default = "default_true")]
     pub scroll_wrap: bool,
     pub scroll_padding: u16,
     #[serde(deserialize_with = "deserialize_option_auto")]
@@ -284,17 +281,18 @@ impl Default for ResultsConfig {
 
             fg: Default::default(),
             modifier: Default::default(), // or whatever your deserialize_modifier default function returns
-            match_fg: default_green(),
-            match_modifier: default_italic(),
+            match_fg: Color::Green,
+            match_modifier: Modifier::ITALIC,
 
             current_fg: Default::default(),
-            current_bg: default_black(),
-            current_modifier: default_bold(),
+            current_bg: Color::Black,
+            current_modifier: Modifier::BOLD,
 
-            count_fg: default_green(),
-            count_modifier: default_italic(),
+            status_fg: Color::Green,
+            status_modifier: Modifier::ITALIC,
+            status_show: true,
 
-            scroll_wrap: default_true(),
+            scroll_wrap: true,
             scroll_padding: 2,
             reverse: None,
 
@@ -313,12 +311,10 @@ impl Default for ResultsConfig {
 pub struct DisplayConfig {
     pub border: BorderSetting,
 
-    #[serde(default = "default_green")]
     pub fg: Color,
-    #[serde(with = "modifier", default = "default_italic")]
+    #[serde(with = "modifier")]
     pub modifier: Modifier,
 
-    #[serde(default = "default_true")]
     pub match_indent: bool,
     pub wrap: bool,
     #[serde(deserialize_with = "deserialize_option_auto")]
@@ -330,9 +326,9 @@ impl Default for DisplayConfig {
         DisplayConfig {
             border: Default::default(),
             match_indent: true,
-            fg: default_green(),
+            fg: Color::Green,
             wrap: false,
-            modifier: default_italic(), // whatever your `deserialize_modifier` default uses
+            modifier: Modifier::ITALIC, // whatever your `deserialize_modifier` default uses
             content: None,
         }
     }
@@ -344,7 +340,6 @@ pub struct PreviewConfig {
     pub border: BorderSetting,
 
     pub layout: Vec<PreviewSetting>,
-    #[serde(default = "default_true")]
     pub scroll_wrap: bool,
     pub wrap: bool,
     pub show: bool,
@@ -379,7 +374,6 @@ pub struct PreviewerConfig {
     // todo
     pub cache: u8,
 
-    #[serde(default)]
     pub help_colors: TomlColorConfig,
 }
 
@@ -1131,26 +1125,4 @@ impl<'de> Deserialize<'de> for BorderSetting {
             bg: h.bg,
         })
     }
-}
-
-// --------------------------- DEFAULTS
-
-fn default_true() -> bool {
-    true
-}
-
-fn default_black() -> Color {
-    Color::Black
-}
-
-fn default_green() -> Color {
-    Color::Green
-}
-
-fn default_bold() -> Modifier {
-    Modifier::BOLD
-}
-
-fn default_italic() -> Modifier {
-    Modifier::ITALIC
 }

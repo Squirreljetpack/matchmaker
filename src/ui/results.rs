@@ -465,7 +465,7 @@ impl ResultsUI {
             &self.status.matched_count,
             &self.status.item_count
         ))
-        .style(self.config.count_fg)
-        .add_modifier(self.config.count_modifier)
+        .style(self.config.status_fg)
+        .add_modifier(self.config.status_modifier)
     }
 }

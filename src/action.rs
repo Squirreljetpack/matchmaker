@@ -336,7 +336,7 @@ macro_rules! impl_display_and_from_str_enum {
                 if let Ok(x) = name.parse::<A>() {
                     return Ok(Self::Custom(x))
                 }
-                match name.to_lowercase().as_str() {
+                match name {
                     $( stringify!($unit) => {
                         if data.is_some() {
                             Err(format!("Unexpected data for unit variant {}", name))

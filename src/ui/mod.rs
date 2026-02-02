@@ -126,12 +126,13 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
             input,
             header,
             footer,
+            results,
             ..
         } = self;
 
         let mut constraints = [
             Constraint::Length(1 + input.config.border.height()), // input
-            Constraint::Length(1),                                // status
+            Constraint::Length(results.config.status_show as u16), // status
             Constraint::Length(header.height()),
             Constraint::Fill(1), // results
             Constraint::Length(footer.height()),

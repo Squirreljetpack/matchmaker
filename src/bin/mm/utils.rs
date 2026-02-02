@@ -30,7 +30,7 @@ pub fn init_logger(log_path: &Path) {
                 .format_target(false)
                 .format_timestamp(None);
 
-            let level = cli_boilerplate_automation::bother::level_filter_from_env();
+            let level = cli_boilerplate_automation::bother::level_filter::from_env();
 
             builder.filter(Some(BINARY_FULL), level);
         }

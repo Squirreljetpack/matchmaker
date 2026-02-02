@@ -602,9 +602,10 @@ fn render_input(frame: &mut Frame, area: Rect, ui: &InputUI) {
 }
 
 fn render_status(frame: &mut Frame, area: Rect, ui: &ResultsUI) {
-    let widget = ui.make_status();
-
-    frame.render_widget(widget, area);
+    if ui.config.status_show {
+        let widget = ui.make_status();
+        frame.render_widget(widget, area);
+    }
 }
 
 fn render_display(frame: &mut Frame, area: Rect, ui: &DisplayUI, result_indentation: usize) {

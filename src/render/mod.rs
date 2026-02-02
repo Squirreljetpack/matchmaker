@@ -90,11 +90,16 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         };
 
         if state.should_quit {
-            let ret = picker_ui.selections.output().collect::<Vec<S>>();
-            if ret.is_empty() {
-                return Err(MatchError::Abort(0));
-            }
-            return Ok(ret);
+            let ret = picker_ui.selector.output().collect::<Vec<S>>();
+            return if picker_ui.selector.is_disabled()
+                && let Some((_, item)) = state.current
+            {
+                Ok(vec![item])
+            } else if ret.is_empty() {
+                Err(MatchError::Abort(0))
+            } else {
+                Ok(ret)
+            };
         } else if state.should_quit_nomatch {
             return Err(MatchError::NoMatch);
         }
@@ -167,7 +172,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         input,
                         results,
                         worker,
-                        selections,
+                        selector: selections,
                         header,
                         footer,
                         ..
@@ -415,13 +420,18 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     return Err(MatchError::Become(state.payload().clone()));
                 }
             }
+
             if state.should_quit {
-                // this ignores exit.allow_empty
-                let ret = picker_ui.selections.output().collect::<Vec<S>>();
-                if ret.is_empty() {
-                    return Err(MatchError::Abort(0));
-                }
-                return Ok(ret);
+                let ret = picker_ui.selector.output().collect::<Vec<S>>();
+                return if picker_ui.selector.is_disabled()
+                    && let Some((_, item)) = state.current
+                {
+                    Ok(vec![item])
+                } else if ret.is_empty() {
+                    Err(MatchError::Abort(0))
+                } else {
+                    Ok(ret)
+                };
             } else if state.should_quit_nomatch {
                 return Err(MatchError::NoMatch);
             }

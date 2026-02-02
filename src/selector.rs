@@ -19,23 +19,25 @@ pub fn truthy_validator<S>(_: &S) -> bool {
 
 impl<T, S: Selection> Selector<T, S> {
     pub fn new(identifier: Identifier<T, S>) -> Self {
-        Self::new_with_validator(identifier, truthy_validator)
-    }
-
-    pub fn new_with_validator(
-        identifier: Identifier<T, S>,
-        validator: SelectionValidator<S>,
-    ) -> Self {
         Self {
             selections: Some(SelectorImpl::new()),
             identifier,
-            validator,
+            validator: truthy_validator,
         }
+    }
+
+    pub fn with_validator(mut self, validator: SelectionValidator<S>) -> Self {
+        self.validator = validator;
+        self
     }
 
     pub fn disabled(mut self) -> Self {
         self.selections = None;
         self
+    }
+
+    pub fn is_disabled(&self) -> bool {
+        self.selections.is_none()
     }
 
     pub fn id(&self, item: &T) -> u32 {

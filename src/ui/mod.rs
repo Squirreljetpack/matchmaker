@@ -96,7 +96,7 @@ pub struct PickerUI<'a, T: SSS, S: Selection> {
     pub header: DisplayUI,
     pub footer: DisplayUI,
     pub matcher: &'a mut nucleo::Matcher,
-    pub selections: Selector<T, S>,
+    pub selector: Selector<T, S>,
     pub worker: Worker<T>,
 }
 
@@ -116,7 +116,7 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
             header: DisplayUI::new(header_config),
             footer: DisplayUI::new(footer_config),
             matcher,
-            selections,
+            selector: selections,
             worker,
         }
     }
@@ -157,7 +157,7 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
 impl<'a, T: SSS, O: Selection> PickerUI<'a, T, O> {
     pub fn make_table(&mut self) -> Table<'_> {
         self.results
-            .make_table(&mut self.worker, &mut self.selections, self.matcher)
+            .make_table(&mut self.worker, &mut self.selector, self.matcher)
     }
 
     pub fn update(&mut self) {

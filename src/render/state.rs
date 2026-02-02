@@ -115,7 +115,7 @@ impl<S: Selection> State<S> {
         // new_current: Option<(u32, S)>
     ) {
         let current_raw = picker_ui.worker.get_nth(picker_ui.results.index());
-        let new_current = current_raw.map(picker_ui.selections.identifier);
+        let new_current = current_raw.map(picker_ui.selector.identifier);
 
         let changed = self.current.as_ref().map(|x| x.0) != new_current.as_ref().map(|x| x.0);
         if changed {
@@ -263,8 +263,8 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
     }
     /// Runs f on selections if nonempty, otherwise, the current item
     pub fn map_selected_to_vec<U>(&self, mut f: impl FnMut(&S) -> U) -> Vec<U> {
-        if !self.picker_ui.selections.is_empty() {
-            self.picker_ui.selections.map_to_vec(f)
+        if !self.picker_ui.selector.is_empty() {
+            self.picker_ui.selector.map_to_vec(f)
         } else {
             self.current.iter().map(|s| f(&s.1)).collect()
         }
@@ -284,7 +284,7 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
     }
 
     pub fn selections(&self) -> &Selector<T, S> {
-        &self.picker_ui.selections
+        &self.picker_ui.selector
     }
 
     pub fn get_content_and_index(&self) -> (String, u32) {

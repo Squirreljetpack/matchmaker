@@ -10,8 +10,8 @@ pub mod ui;
 // picker
 pub mod nucleo;
 pub mod preview;
-mod selection;
-pub use selection::Selector;
+mod selector;
+pub use selector::Selector;
 mod matchmaker;
 pub use matchmaker::*;
 pub mod tui;

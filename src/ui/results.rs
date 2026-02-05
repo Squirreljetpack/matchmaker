@@ -10,7 +10,7 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::{
     SSS, Selection, Selector,
-    config::ResultsConfig,
+    config::{ResultsConfig, RowConnectionStyle},
     nucleo::{Status, Worker},
     utils::text::{clip_text_lines, fit_width, prefix_text, substitute_escaped},
 };
@@ -49,6 +49,12 @@ impl ResultsUI {
         let [bw, bh] = [self.config.border.height(), self.config.border.width()];
         self.width = area.width.saturating_sub(bw);
         self.height = area.height.saturating_sub(bh);
+    }
+
+    pub fn table_width(&self) -> u16 {
+        self.config.column_spacing.0 * self.widths().len().saturating_sub(1) as u16
+            + self.widths.iter().sum::<u16>()
+            + self.config.border.width()
     }
 
     // ------ config -------
@@ -111,22 +117,16 @@ impl ResultsUI {
     //         Some(self.cursor)
     //     }
     // }
-    pub fn cursor_prev(&mut self) -> bool {
-        if self.cursor_disabled {
-            return false;
-        }
-
+    pub fn cursor_prev(&mut self) {
         if self.cursor <= self.scroll_padding() && self.bottom > 0 {
             self.bottom -= 1;
         } else if self.cursor > 0 {
             self.cursor -= 1;
-            return self.cursor == 1;
         } else if self.config.scroll_wrap {
             self.cursor_jump(self.end());
         }
-        false
     }
-    pub fn cursor_next(&mut self) -> bool {
+    pub fn cursor_next(&mut self) {
         if self.cursor_disabled {
             self.cursor_disabled = false
         }
@@ -137,13 +137,9 @@ impl ResultsUI {
             self.bottom += 1;
         } else if self.index() < self.end() {
             self.cursor += 1;
-            if self.index() == self.end() {
-                return true;
-            }
         } else if self.config.scroll_wrap {
             self.cursor_jump(0)
         }
-        false
     }
 
     pub fn cursor_jump(&mut self, index: u32) {
@@ -197,7 +193,7 @@ impl ResultsUI {
         let mut scalable_indices = Vec::new();
 
         for (i, &w) in self.widths.iter().enumerate() {
-            if w <= 5 {
+            if w <= self.config.wrap_scaling_min_width {
                 available = available.saturating_sub(w);
             } else {
                 scale_total += w;
@@ -208,7 +204,7 @@ impl ResultsUI {
         for &i in &scalable_indices {
             let old = self.widths[i];
             let new_w = old * available / scale_total;
-            widths[i] = new_w.max(5);
+            widths[i] = new_w.max(self.config.wrap_scaling_min_width);
         }
 
         // give remainder to the last scalable column
@@ -225,7 +221,7 @@ impl ResultsUI {
     // this updates the internal status, so be sure to call make_status afterward
     // some janky wrapping is implemented, dunno whats causing flickering, padding is fixed going down only
     pub fn make_table<'a, T: SSS>(
-        &'a mut self,
+        &mut self,
         worker: &'a mut Worker<T>,
         selector: &mut Selector<T, impl Selection>,
         matcher: &mut nucleo::Matcher,
@@ -237,8 +233,8 @@ impl ResultsUI {
             worker.results(offset, end, &self.max_widths(), self.match_style(), matcher);
 
         let match_count = status.matched_count;
-
         self.status = status;
+
         if match_count < (self.bottom + self.cursor) as u32 && !self.cursor_disabled {
             self.cursor_jump(match_count);
         } else {
@@ -259,9 +255,14 @@ impl ResultsUI {
         // index of first element
         let mut start_index = 0;
 
-        let cursor_should_above = self.height - self.scroll_padding();
+        let after_cursor_h = results[(self.cursor as usize + 1).min(results.len())..]
+            .iter()
+            .map(|(_, _, height)| height)
+            .sum::<u16>();
 
-        if cursor_result_h >= cursor_should_above {
+        let cursor_should_lt = self.height - self.scroll_padding().min(after_cursor_h);
+
+        if cursor_result_h >= cursor_should_lt {
             start_index = self.cursor;
             self.bottom += self.cursor;
             self.cursor = 0;
@@ -271,11 +272,11 @@ impl ResultsUI {
             .iter()
             .map(|(_, _, height)| height)
             .sum::<u16>()
-            && cursor_cum_h > cursor_should_above
-            && self.bottom + self.height < self.status.matched_count as u16
+            && cursor_cum_h > cursor_should_lt
         {
             start_index = 1;
-            let mut height = cursor_cum_h - cursor_should_above;
+            let mut height = cursor_cum_h - cursor_should_lt;
+
             for (row, item, h) in results[..self.cursor as usize].iter_mut() {
                 let h = *h;
 
@@ -302,35 +303,22 @@ impl ResultsUI {
 
                     prefix_text(&mut row[0], prefix);
 
-                    // we don't want to align the first column
-                    let last_visible = self
-                        .config
-                        .right_align_last
-                        .then(|| {
-                            widths
-                                .iter()
-                                .enumerate()
-                                .rev()
-                                .find(|(_, w)| **w != 0)
-                                .map(|(i, _)| if i == 0 { None } else { Some(i) })
-                        })
-                        .flatten()
-                        .flatten();
+                    let last_visible = widths
+                        .iter()
+                        .enumerate()
+                        .rev()
+                        .find_map(|(i, w)| (*w != 0).then_some(i));
 
-                    let row =
-                        Row::new(row.iter().cloned().enumerate().filter_map(|(i, mut text)| {
-                            (widths[i] != 0).then(|| {
-                                if Some(i) == last_visible
-                                    && let Some(last_line) = text.lines.last_mut()
-                                {
-                                    last_line.alignment = Some(Alignment::Right);
-                                }
-                                text
-                            })
-                        }))
-                        .height(height);
-                    // debug!("1: {} {:?} {}", start_index, row, h_exceedance);
+                    let mut row_texts: Vec<_> = row
+                        .iter()
+                        .take(last_visible.map(|x| x + 1).unwrap_or(0))
+                        .cloned()
+                        .collect();
+                    if self.config.right_align_last && row_texts.len() > 1 {
+                        row_texts.last_mut().unwrap().alignment = Some(Alignment::Right)
+                    }
 
+                    let row = Row::new(row_texts).height(height);
                     rows.push(row);
 
                     self.bottom += start_index - 1;
@@ -388,7 +376,13 @@ impl ResultsUI {
                     .into_iter()
                     .enumerate()
                     .map(|(i, t)| {
-                        if self.col.is_none_or(|a| i == a) {
+                        if self.col == Some(i)
+                            || (self.col.is_none()
+                                && matches!(
+                                    self.config.row_connection_style,
+                                    RowConnectionStyle::Disjoint
+                                ))
+                        {
                             t.style(self.config.current_fg)
                                 .bg(self.config.current_bg)
                                 .add_modifier(self.config.current_modifier)
@@ -400,32 +394,35 @@ impl ResultsUI {
             }
 
             // same as above
-            let last_visible = self
-                .config
-                .right_align_last
-                .then(|| {
-                    widths
-                        .iter()
-                        .enumerate()
-                        .rev()
-                        .find(|(_, w)| **w != 0)
-                        .map(|(i, _)| if i == 0 { None } else { Some(i) })
-                })
-                .flatten()
-                .flatten();
+            let last_visible = widths
+                .iter()
+                .enumerate()
+                .rev()
+                .find_map(|(i, w)| (*w != 0).then_some(i));
 
-            // filter out zero width cells, altho it is a bit fragile
-            let row = Row::new(row.iter().cloned().enumerate().filter_map(|(i, mut text)| {
-                (widths[i] != 0).then(|| {
-                    if Some(i) == last_visible
-                        && let Some(last_line) = text.lines.last_mut()
-                    {
-                        last_line.alignment = Some(Alignment::Right);
-                    }
-                    text
-                })
-            }))
-            .height(height);
+            let mut row_texts: Vec<_> = row
+                .iter()
+                .take(last_visible.map(|x| x + 1).unwrap_or(0))
+                .cloned()
+                .collect();
+            if self.config.right_align_last && row_texts.len() > 1 {
+                row_texts.last_mut().unwrap().alignment = Some(Alignment::Right)
+            }
+
+            let mut row = Row::new(row_texts).height(height);
+
+            if i == self.cursor
+                && self.col.is_none()
+                && !matches!(
+                    self.config.row_connection_style,
+                    RowConnectionStyle::Disjoint
+                )
+            {
+                row = row
+                    .style(self.config.current_fg)
+                    .bg(self.config.current_bg)
+                    .add_modifier(self.config.current_modifier)
+            }
 
             rows.push(row);
         }
@@ -449,12 +446,13 @@ impl ResultsUI {
             widths
         };
 
+        // why does the row highlight apply beyond the table width?
         let mut table = Table::new(rows, self.widths.clone())
             .column_spacing(self.config.column_spacing.0)
             .style(self.config.fg)
             .add_modifier(self.config.modifier);
 
-        table = table.block(self.config.border.as_block());
+        table = table.block(self.config.border.as_static_block());
         table
     }
 

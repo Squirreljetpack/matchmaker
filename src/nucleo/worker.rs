@@ -223,6 +223,8 @@ pub enum WorkerError {
 pub type WorkerResults<'a, T> = Vec<(Vec<Text<'a>>, &'a T, u16)>;
 
 impl<T: SSS> Worker<T> {
+    /// # Notes
+    /// - width is at least header width
     pub fn results(
         &mut self,
         start: u32,

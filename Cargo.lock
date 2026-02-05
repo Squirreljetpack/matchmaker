@@ -1151,7 +1151,7 @@ dependencies = [
 [[package]]
 name = "nucleo"
 version = "0.5.0"
-source = "git+https://github.com/Squirreljetpack/nucleo?branch=mm#4253de9faabb4e5c6d81d946a5e35a90f87347ee"
+source = "git+https://github.com/Squirreljetpack/nucleo?branch=mm#bfb751b17c5a3c6ac83a21fb7ac0113dedc55bc4"
 dependencies = [
  "nucleo-matcher",
  "parking_lot",
@@ -1161,7 +1161,7 @@ dependencies = [
 [[package]]
 name = "nucleo-matcher"
 version = "0.3.1"
-source = "git+https://github.com/Squirreljetpack/nucleo?branch=mm#4253de9faabb4e5c6d81d946a5e35a90f87347ee"
+source = "git+https://github.com/Squirreljetpack/nucleo?branch=mm#bfb751b17c5a3c6ac83a21fb7ac0113dedc55bc4"
 dependencies = [
  "memchr",
  "unicode-segmentation",

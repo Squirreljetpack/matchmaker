@@ -3,13 +3,11 @@
 
 use std::{fmt, ops::Deref};
 
-pub use crate::utils::Percentage;
+pub use crate::utils::{Percentage, serde::StringOrVec};
 use crate::{
     MAX_SPLITS, Result,
     tui::IoStream,
-    utils::serde::{
-        StringOrVec, escaped_opt_char, escaped_opt_string, modifier, serde_duration_ms,
-    },
+    utils::serde::{escaped_opt_char, escaped_opt_string, modifier, serde_duration_ms},
 };
 
 use cli_boilerplate_automation::impl_transparent_wrapper;
@@ -84,19 +82,34 @@ pub struct ExitConfig {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RenderConfig {
+    /// The default overlay style
     pub ui: UiConfig,
+    /// The input bar style
     pub input: InputConfig,
+    /// The results table style
     pub results: ResultsConfig,
+    /// The preview panel style
     pub preview: PreviewConfig,
     pub footer: DisplayConfig,
     pub header: DisplayConfig,
-    pub overlay: Option<OverlayConfig>, // pub overlay: OverlayConfig // overlay_config is seperate due to specificity
+    /// The default overlay style
+    pub overlay: Option<OverlayConfig>,
 }
 
 impl RenderConfig {
     pub fn tick_rate(&self) -> u8 {
         self.ui.tick_rate
     }
+}
+
+/// The ui config.
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct DisplaysConfig {
+    pub preview: PreviewConfig,
+    pub footer: DisplayConfig,
+    pub header: DisplayConfig,
+    pub overlay: Option<OverlayConfig>, // the default overlay style
 }
 
 /// Terminal settings.
@@ -212,6 +225,14 @@ impl Default for OverlayLayoutSettings {
     }
 }
 
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+pub enum RowConnectionStyle {
+    #[default]
+    Disjoint,
+    Capped,
+    Full,
+}
+
 // pub struct OverlaySize
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -237,6 +258,7 @@ pub struct ResultsConfig {
     pub current_bg: Color,
     #[serde(with = "modifier")]
     pub current_modifier: Modifier,
+    pub row_connection_style: RowConnectionStyle,
 
     // status
     pub status_fg: Color,
@@ -257,7 +279,7 @@ pub struct ResultsConfig {
 
     // wrap
     pub wrap: bool,
-    pub wrap_scaling_min_width: u8,
+    pub wrap_scaling_min_width: u16,
 
     // experimental
     pub column_spacing: Count,
@@ -287,6 +309,7 @@ impl Default for ResultsConfig {
             current_fg: Default::default(),
             current_bg: Color::Black,
             current_modifier: Modifier::BOLD,
+            row_connection_style: RowConnectionStyle::default(),
 
             status_fg: Color::Green,
             status_modifier: Modifier::ITALIC,
@@ -301,7 +324,7 @@ impl Default for ResultsConfig {
 
             column_spacing: Default::default(),
             current_prefix: Default::default(),
-            right_align_last: true,
+            right_align_last: false,
         }
     }
 }

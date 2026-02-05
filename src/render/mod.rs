@@ -16,7 +16,7 @@ use tokio::sync::mpsc;
 #[cfg(feature = "bracketed-paste")]
 use crate::PasteHandler;
 use crate::action::{Action, ActionExt};
-use crate::config::{CursorSetting, ExitConfig};
+use crate::config::{CursorSetting, ExitConfig, RowConnectionStyle};
 use crate::message::{Event, Interrupt, RenderCommand};
 use crate::tui::Tui;
 use crate::ui::{DisplayUI, InputUI, OverlayUI, PickerUI, PreviewUI, ResultsUI, UI};
@@ -498,12 +498,14 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     header,
                     &picker_ui.header,
                     picker_ui.results.indentation(),
+                    picker_ui.results.widths(),
                 );
                 render_display(
                     frame,
                     footer,
                     &picker_ui.footer,
                     picker_ui.results.indentation(),
+                    picker_ui.results.widths(),
                 );
                 if let Some(preview_ui) = preview_ui.as_mut() {
                     state.update_preview_ui(preview_ui);
@@ -586,8 +588,20 @@ fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {
     frame.render_widget(widget, area);
 }
 
-fn render_results<T: SSS, S: Selection>(frame: &mut Frame, area: Rect, ui: &mut PickerUI<T, S>) {
-    let widget = ui.make_table();
+fn render_results<T: SSS, S: Selection>(
+    frame: &mut Frame,
+    mut area: Rect,
+    ui: &mut PickerUI<T, S>,
+) {
+    let cap = matches!(
+        ui.results.config.row_connection_style,
+        RowConnectionStyle::Capped
+    );
+    let (widget, table_width) = ui.make_table();
+
+    if cap {
+        area.width = area.width.min(table_width);
+    }
 
     frame.render_widget(widget, area);
 }
@@ -608,8 +622,14 @@ fn render_status(frame: &mut Frame, area: Rect, ui: &ResultsUI) {
     }
 }
 
-fn render_display(frame: &mut Frame, area: Rect, ui: &DisplayUI, result_indentation: usize) {
-    let widget = ui.make_display(result_indentation);
+fn render_display(
+    frame: &mut Frame,
+    area: Rect,
+    ui: &DisplayUI,
+    result_indentation: usize,
+    widths: &[u16],
+) {
+    let widget = ui.make_display(result_indentation, widths);
 
     frame.render_widget(widget, area);
 }

@@ -176,10 +176,13 @@ pub use crate::acs;
 /// ```
 #[macro_export]
 macro_rules! bindmap {
-    ( $( $k:expr => $v1:expr ),* $(,)? ) => {{
+    ( $( $( $k:expr ),+ => $v:expr ),* $(,)? ) => {{
         let mut map = $crate::binds::BindMap::new();
         $(
-            map.insert($k.into(), $crate::action::Actions::from($v1));
+            let action = $crate::action::Actions::from($v);
+            $(
+                map.insert($k.into(), action.clone());
+            )+
         )*
         map
     }};

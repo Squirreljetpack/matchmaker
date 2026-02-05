@@ -14,7 +14,7 @@ use crate::{
     MatchError, RenderFn, Result, SSS, Selection, Selector, SplitterFn,
     action::{Action, ActionExt, Actions, NullActionExt},
     binds::BindMap,
-    config::{ExitConfig, PreviewerConfig, RenderConfig, Split, TerminalConfig, WorkerConfig},
+    config::{ExitConfig, RenderConfig, PreviewerConfig, Split, TerminalConfig, WorkerConfig},
     event::{EventLoop, RenderSender},
     message::{Event, Interrupt},
     nucleo::{
@@ -677,8 +677,8 @@ pub fn make_previewer<T: SSS, S: Selection>(
 }
 
 fn maybe_tty() -> Stdio {
-    if let Ok(mut tty) = std::fs::File::open("/dev/tty") {
-        let _ = std::io::Write::flush(&mut tty); // does nothing but seems logical
+    if let Ok(tty) = std::fs::File::open("/dev/tty") {
+        // let _ = std::io::Write::flush(&mut tty); // does nothing but seems logical
         Stdio::from(tty)
     } else {
         log::error!("Failed to open /dev/tty");

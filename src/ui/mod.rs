@@ -40,7 +40,7 @@ impl UI {
         selection_set: Selector<T, S>,
         view: Option<Preview>,
         tui: &mut Tui<W>,
-    ) -> (Self, PickerUI<'a, T, S>, Option<PreviewUI>) {
+    ) -> (Self, PickerUI<'a, T, S>, DisplayUI, Option<PreviewUI>) {
         if config.results.reverse.is_none() {
             config.results.reverse = Some(
                 tui.is_fullscreen() && tui.area.y < tui.area.height / 2, // reverse if fullscreen + cursor is in lower half of the screen
@@ -57,7 +57,6 @@ impl UI {
             config.results,
             config.input,
             config.header,
-            config.footer,
             matcher,
             worker,
             selection_set,
@@ -69,7 +68,9 @@ impl UI {
             None
         };
 
-        (ui, picker, preview)
+        let footer = DisplayUI::new(config.footer);
+
+        (ui, picker, footer, preview)
     }
 
     pub fn update_dimensions(&mut self, area: Rect) {
@@ -94,7 +95,6 @@ pub struct PickerUI<'a, T: SSS, S: Selection> {
     pub results: ResultsUI,
     pub input: InputUI,
     pub header: DisplayUI,
-    pub footer: DisplayUI,
     pub matcher: &'a mut nucleo::Matcher,
     pub selector: Selector<T, S>,
     pub worker: Worker<T>,
@@ -105,7 +105,6 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
         results_config: ResultsConfig,
         input_config: InputConfig,
         header_config: DisplayConfig,
-        footer_config: DisplayConfig,
         matcher: &'a mut nucleo::Matcher,
         worker: Worker<T>,
         selections: Selector<T, S>,
@@ -114,18 +113,16 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
             results: ResultsUI::new(results_config),
             input: InputUI::new(input_config),
             header: DisplayUI::new(header_config),
-            footer: DisplayUI::new(footer_config),
             matcher,
             selector: selections,
             worker,
         }
     }
 
-    pub fn layout(&self, area: Rect) -> [Rect; 5] {
+    pub fn layout(&self, area: Rect) -> [Rect; 4] {
         let PickerUI {
             input,
             header,
-            footer,
             results,
             ..
         } = self;
@@ -135,7 +132,6 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
             Constraint::Length(results.config.status_show as u16), // status
             Constraint::Length(header.height()),
             Constraint::Fill(1), // results
-            Constraint::Length(footer.height()),
         ];
 
         if self.reverse() {
@@ -147,11 +143,13 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
             .constraints(constraints)
             .split(area);
 
-        if self.reverse() {
-            [chunks[4], chunks[3], chunks[2], chunks[1], chunks[0]]
-        } else {
-            [chunks[0], chunks[1], chunks[2], chunks[3], chunks[4]]
-        }
+        std::array::from_fn(|i| {
+            chunks[if self.reverse() {
+                chunks.len() - i - 1
+            } else {
+                i
+            }]
+        })
     }
 }
 

@@ -254,10 +254,14 @@ pub struct ResultsConfig {
     #[serde(with = "modifier")]
     pub match_modifier: Modifier,
 
+    /// foreground of the current item.
     pub current_fg: Color,
+    /// background of the current item.
     pub current_bg: Color,
     #[serde(with = "modifier")]
+    /// modifier of the current item.
     pub current_modifier: Modifier,
+    /// How the current_* styles are applied across the row.
     pub row_connection_style: RowConnectionStyle,
 
     // status
@@ -340,6 +344,15 @@ pub struct DisplayConfig {
 
     pub match_indent: bool,
     pub wrap: bool,
+    /// This setting controls the effective width of the displayed content.
+    /// - Full: Effective width is the full ui width.
+    /// - Capped: Effective width is the full ui width, but
+    ///   any width exceeding the width of the Results UI is occluded by the preview pane.
+    /// - Disjoint: Effective width is same as the Results UI.
+    ///
+    /// # Note
+    /// The width effect only applies on the footer, when the content is singular.
+    pub row_connection_style: RowConnectionStyle,
     #[serde(deserialize_with = "deserialize_option_auto")]
     pub content: Option<StringOrVec>,
 }
@@ -351,6 +364,7 @@ impl Default for DisplayConfig {
             match_indent: true,
             fg: Color::Green,
             wrap: false,
+            row_connection_style: Default::default(),
             modifier: Modifier::ITALIC, // whatever your `deserialize_modifier` default uses
             content: None,
         }

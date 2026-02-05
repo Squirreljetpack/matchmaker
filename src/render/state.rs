@@ -5,7 +5,7 @@ use crate::{
     action::ActionExt,
     message::{Event, Interrupt},
     nucleo::{Status, injector::WorkerInjector},
-    ui::{OverlayUI, PickerUI, PreviewUI, Rect, UI},
+    ui::{DisplayUI, OverlayUI, PickerUI, PreviewUI, Rect, UI},
 };
 
 // --------------------------------------------------------------------
@@ -201,12 +201,14 @@ impl State {
         &'a mut self,
         ui: &'a mut UI,
         picker_ui: &'a mut PickerUI<'b, T, S>,
+        footer_ui: &'a mut DisplayUI,
         preview_ui: &'a mut Option<PreviewUI>,
     ) -> MMState<'a, 'b, T, S> {
         MMState {
             state: self,
-            picker_ui,
             ui,
+            picker_ui,
+            footer_ui,
             preview_ui,
         }
     }
@@ -227,8 +229,9 @@ pub struct MMState<'a, 'b: 'a, T: SSS, S: Selection> {
     // access through deref/mut
     pub(crate) state: &'a mut State,
 
-    pub picker_ui: &'a mut PickerUI<'b, T, S>,
     pub ui: &'a mut UI,
+    pub picker_ui: &'a mut PickerUI<'b, T, S>,
+    pub footer_ui: &'a mut DisplayUI,
     pub preview_ui: &'a mut Option<PreviewUI>,
 }
 

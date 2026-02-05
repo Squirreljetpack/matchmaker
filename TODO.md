@@ -27,9 +27,10 @@
   - look deeper in nucleo to see if we can extract scoring + filter seperately from get_matches
   - custom solution is algorithmically infeasible: we'd need to filter by checking belonging in the full match list
 - status template
-
+- header extraction option in cli
 
 # Bugs
+
 - Too many execute will crash event loop
 - Preview sometimes disappears?
 - Indexing can break?
@@ -42,4 +43,4 @@
 - sometimes preview leaks, better autorefresh?
 - (automatic) horizontal scrolling of results
 - too many actions at once (execute/reload) can cause crash sometimes
-- input_rhs_prompt, 
+- input_rhs_prompt,

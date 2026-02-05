@@ -1,4 +1,5 @@
 #![allow(unused)]
+use cli_boilerplate_automation::bait::BoolExt;
 use log::debug;
 use ratatui::{
     layout::{Constraint, Rect},
@@ -8,10 +9,10 @@ use ratatui::{
 };
 
 use crate::{
-    config::DisplayConfig,
+    config::{DisplayConfig, RowConnectionStyle},
     utils::{
         serde::StringOrVec,
-        text::{left_pad, wrapped_height},
+        text::{left_pad, wrap_text, wrapped_height},
     },
 };
 
@@ -37,7 +38,6 @@ impl DisplayUI {
                 let height = text.iter().map(|t| t.height()).max().unwrap_or_default() as u16;
                 (text, height)
             }
-            // todo
             _ => (vec![], 0),
         };
 
@@ -51,17 +51,17 @@ impl DisplayUI {
     }
 
     // not update_dimensions to remind that we only want to call this on tui resize, not layout resize
+    // todo: this doesn't update the line contents
     pub fn update_width(&mut self, width: u16) {
-        let border = self.config.border.width();
-        self.width = width.saturating_sub(border);
-        if self.config.wrap {
-            self.height = self
-                .text
-                .iter()
-                .map(|t| wrapped_height(t, self.width))
-                .max()
-                .unwrap_or_default();
-        };
+        let border_w = self.config.border.width();
+        let new_w = width.saturating_sub(border_w);
+        if new_w != self.width {
+            self.width = new_w;
+            if self.config.wrap && self.text.len() == 1 {
+                let text = wrap_text(self.text.remove(0), self.width).0;
+                self.text.push(text);
+            }
+        }
     }
 
     pub fn height(&self) -> u16 {
@@ -76,12 +76,8 @@ impl DisplayUI {
 
     /// Set text and visibility. Compute wrapped height.
     pub fn set(&mut self, text: impl Into<Text<'static>>) {
-        let text = text.into();
-        self.height = if self.config.wrap {
-            wrapped_height(&text, self.width)
-        } else {
-            text.lines.len() as u16
-        };
+        let (text, _) = wrap_text(text.into(), self.config.wrap as u16 * self.width);
+        self.height = text.height() as u16;
         self.text = vec![text];
         self.show = true;
     }
@@ -91,13 +87,21 @@ impl DisplayUI {
         self.text.clear();
     }
 
-    pub fn make_display(&self, result_indentation: usize, widths: &[u16]) -> Table<'_> {
-        // Handle Case 0: Empty Text
+    pub fn single(&self) -> bool {
+        self.text.len() == 1
+    }
+
+    // todo: lowpri: cache texts to not have to always rewrap?
+    pub fn make_display(
+        &self,
+        result_indentation: usize,
+        widths: &[u16],
+        col_spacing: u16,
+    ) -> Table<'_> {
         if self.text.is_empty() {
             return Table::default();
         }
 
-        // Configure the Block (Border and Indentation logic)
         let block = {
             let b = self.config.border.as_block();
             if self.config.match_indent {
@@ -114,20 +118,39 @@ impl DisplayUI {
             .add_modifier(self.config.modifier);
 
         if self.text.len() == 1 {
-            // Case 1: Single Cell (Full Width)
+            // Single Cell (Full Width)
             let row = Row::new(vec![Cell::from(self.text[0].clone())]);
             Table::new(vec![row], [Constraint::Percentage(100)])
                 .block(block)
                 .style(style)
         } else {
+            let cells = self.text[..widths.len()]
+                .iter()
+                .cloned()
+                .enumerate()
+                .map(|(i, text)| {
+                    let mut ret = wrap_text(text, widths[i]).0;
+
+                    matches!(
+                        self.config.row_connection_style,
+                        RowConnectionStyle::Disjoint
+                    )
+                    .then_modify(ret, |r| r.style(style))
+                });
+
             let row = Row::new(self.text[..widths.len()].to_vec());
             let mut constraints: Vec<_> = widths.iter().cloned().map(Constraint::Length).collect();
-            // constraints.resize(self.text.len(), Constraint::Fill(1));
+            // we omit header columns after the last result column, an alternative could be supported when ::Full, something like : constraints.resize(self.text.len(), Constraint::Fill(1));
 
-            Table::new(vec![row], constraints)
+            let mut ret = Table::new(vec![row], constraints)
                 .block(block)
-                .style(style)
-                .column_spacing(1)
+                .column_spacing(col_spacing);
+
+            (!matches!(
+                self.config.row_connection_style,
+                RowConnectionStyle::Disjoint
+            ))
+            .then_modify(ret, |r| r.style(style))
         }
     }
 }

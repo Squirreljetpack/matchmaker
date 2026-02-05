@@ -14,7 +14,7 @@ use crate::{
     MatchError, RenderFn, Result, SSS, Selection, Selector, SplitterFn,
     action::{Action, ActionExt, Actions, NullActionExt},
     binds::BindMap,
-    config::{ExitConfig, RenderConfig, PreviewerConfig, Split, TerminalConfig, WorkerConfig},
+    config::{ExitConfig, PreviewerConfig, RenderConfig, Split, TerminalConfig, WorkerConfig},
     event::{EventLoop, RenderSender},
     message::{Event, Interrupt},
     nucleo::{
@@ -297,7 +297,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
         tui.redraw();
 
         if let Some(matcher) = builder.matcher {
-            let (ui, picker, preview) = UI::new(
+            let (ui, picker, footer, preview) = UI::new(
                 self.render_config,
                 matcher,
                 self.worker,
@@ -308,6 +308,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
             render::render_loop(
                 ui,
                 picker,
+                footer,
                 preview,
                 tui,
                 overlay_ui,
@@ -323,7 +324,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
             .await
         } else {
             let mut matcher = nucleo::Matcher::new(nucleo::Config::DEFAULT);
-            let (ui, picker, preview) = UI::new(
+            let (ui, picker, footer, preview) = UI::new(
                 self.render_config,
                 &mut matcher,
                 self.worker,
@@ -334,6 +335,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
             render::render_loop(
                 ui,
                 picker,
+                footer,
                 preview,
                 tui,
                 overlay_ui,

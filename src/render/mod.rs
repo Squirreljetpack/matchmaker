@@ -49,6 +49,7 @@ fn apply_aliases<T: SSS, S: Selection, A: ActionExt>(
 pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt>(
     mut ui: UI,
     mut picker_ui: PickerUI<'a, T, S>,
+    mut footer_ui: DisplayUI,
     mut preview_ui: Option<PreviewUI>,
     mut tui: Tui<W>,
 
@@ -84,7 +85,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             apply_aliases(
                 &mut buffer,
                 aliaser,
-                &mut state.dispatcher(&mut ui, &mut picker_ui, &mut preview_ui),
+                &mut state.dispatcher(&mut ui, &mut picker_ui, &mut footer_ui, &mut preview_ui),
             )
             // effects could be moved out for efficiency, but it seems more logical to add them as they come so that we can trigger interrupts
         };
@@ -132,7 +133,12 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         let content = {
                             handler(
                                 content,
-                                &state.dispatcher(&mut ui, &mut picker_ui, &mut preview_ui),
+                                &state.dispatcher(
+                                    &mut ui,
+                                    &mut picker_ui,
+                                    &mut footer_ui,
+                                    &mut preview_ui,
+                                ),
                             )
                         };
                         if !content.is_empty() {
@@ -151,8 +157,6 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     }
                 }
                 RenderCommand::Resize(area) => {
-                    picker_ui.footer.update_width(area.width);
-                    picker_ui.header.update_width(area.width);
                     tui.resize(area);
                     ui.area = area;
                 }
@@ -174,7 +178,6 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         worker,
                         selector: selections,
                         header,
-                        footer,
                         ..
                     } = &mut picker_ui;
                     match action {
@@ -227,7 +230,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         }
                         Action::SetFooter(context) => {
                             if let Some(s) = context {
-                                footer.set(s);
+                                footer_ui.set(s);
                             } else {
                                 todo!()
                             }
@@ -377,7 +380,12 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             if let Some(handler) = ext_handler {
                                 handler(
                                     e,
-                                    &mut state.dispatcher(&mut ui, &mut picker_ui, &mut preview_ui),
+                                    &mut state.dispatcher(
+                                        &mut ui,
+                                        &mut picker_ui,
+                                        &mut footer_ui,
+                                        &mut preview_ui,
+                                    ),
                                 );
                             }
                         }
@@ -409,7 +417,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             }
             // Apply interrupt effect
             {
-                let mut dispatcher = state.dispatcher(&mut ui, &mut picker_ui, &mut preview_ui);
+                let mut dispatcher =
+                    state.dispatcher(&mut ui, &mut picker_ui, &mut footer_ui, &mut preview_ui);
                 for h in dynamic_handlers.1.get(interrupt) {
                     h(&mut dispatcher);
                 }
@@ -461,28 +470,53 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
                 render_ui(frame, &mut area, &ui);
 
-                let [preview, picker_area] = if let Some(preview_ui) = preview_ui.as_mut()
+                let mut _area = area;
+                let full_width_footer = footer_ui.single()
+                    && footer_ui.config.row_connection_style == RowConnectionStyle::Full;
+                let mut footer =
+                    if full_width_footer || preview_ui.as_ref().is_none_or(|p| !p.is_show()) {
+                        split(&mut _area, footer_ui.height(), picker_ui.reverse())
+                    } else {
+                        Rect::default()
+                    };
+
+                let [preview, picker_area, footer] = if let Some(preview_ui) = preview_ui.as_mut()
                     && let Some(layout) = preview_ui.layout()
                 {
-                    let ret = layout.split(area);
-                    if state.iterations == 0 && ret[1].width <= 5 {
+                    let [preview, mut picker_area] = layout.split(_area);
+
+                    if state.iterations == 0 && picker_area.width <= 5 {
                         warn!("UI too narrow, hiding preview");
                         preview_ui.show(false);
-                        [Rect::default(), area]
+
+                        [Rect::default(), _area, footer]
                     } else {
-                        ret
+                        if !full_width_footer {
+                            footer =
+                                split(&mut picker_area, footer_ui.height(), picker_ui.reverse());
+                        }
+
+                        [preview, picker_area, footer]
                     }
                 } else {
-                    [Rect::default(), area]
+                    [Rect::default(), _area, footer]
                 };
 
-                let [input, status, header, results, footer] = picker_ui.layout(picker_area);
+                let [input, status, header, results] = picker_ui.layout(picker_area);
 
                 // compare and save dimensions
                 did_resize = state.update_layout([preview, input, status, results]);
 
                 if did_resize {
                     picker_ui.results.update_dimensions(&results);
+                    footer_ui.update_width(
+                        if footer_ui.config.row_connection_style == RowConnectionStyle::Capped {
+                            area.width
+                        } else {
+                            footer.width
+                        },
+                    );
+                    picker_ui.header.update_width(header.width);
                     // although these only want update when the whole ui change
                     ui.update_dimensions(area);
                     if let Some(x) = overlay_ui_ref.as_deref_mut() {
@@ -493,20 +527,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 render_input(frame, input, &picker_ui.input);
                 render_status(frame, status, &picker_ui.results);
                 render_results(frame, results, &mut picker_ui);
-                render_display(
-                    frame,
-                    header,
-                    &picker_ui.header,
-                    picker_ui.results.indentation(),
-                    picker_ui.results.widths(),
-                );
-                render_display(
-                    frame,
-                    footer,
-                    &picker_ui.footer,
-                    picker_ui.results.indentation(),
-                    picker_ui.results.widths(),
-                );
+                render_display(frame, header, &picker_ui.header, &picker_ui.results);
+                render_display(frame, footer, &footer_ui, &picker_ui.results);
                 if let Some(preview_ui) = preview_ui.as_mut() {
                     state.update_preview_ui(preview_ui);
                     if did_resize {
@@ -532,7 +554,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         let events = state.events();
 
         // ---- Invoke handlers -------
-        let mut dispatcher = state.dispatcher(&mut ui, &mut picker_ui, &mut preview_ui);
+        let mut dispatcher =
+            state.dispatcher(&mut ui, &mut picker_ui, &mut footer_ui, &mut preview_ui);
         // if let Some((signal, handler)) = signal_handler &&
         // let s = signal.load(std::sync::atomic::Ordering::Acquire) &&
         // s > 0
@@ -622,14 +645,15 @@ fn render_status(frame: &mut Frame, area: Rect, ui: &ResultsUI) {
     }
 }
 
-fn render_display(
-    frame: &mut Frame,
-    area: Rect,
-    ui: &DisplayUI,
-    result_indentation: usize,
-    widths: &[u16],
-) {
-    let widget = ui.make_display(result_indentation, widths);
+fn render_display(frame: &mut Frame, area: Rect, ui: &DisplayUI, results_ui: &ResultsUI) {
+    if !ui.show {
+        return;
+    }
+    let widget = ui.make_display(
+        results_ui.indentation(),
+        results_ui.widths(),
+        results_ui.config.column_spacing.0,
+    );
 
     frame.render_widget(widget, area);
 }
@@ -638,6 +662,35 @@ fn render_ui(frame: &mut Frame, area: &mut Rect, ui: &UI) {
     let widget = ui.make_ui();
     frame.render_widget(widget, *area);
     *area = ui.inner_area(area);
+}
+
+fn split(rect: &mut Rect, height: u16, cut_top: bool) -> Rect {
+    let h = height.min(rect.height);
+
+    if cut_top {
+        let offshoot = Rect {
+            x: rect.x,
+            y: rect.y,
+            width: rect.width,
+            height: h,
+        };
+
+        rect.y += h;
+        rect.height -= h;
+
+        offshoot
+    } else {
+        let offshoot = Rect {
+            x: rect.x,
+            y: rect.y + rect.height - h,
+            width: rect.width,
+            height: h,
+        };
+
+        rect.height -= h;
+
+        offshoot
+    }
 }
 
 // -----------------------------------------------------------------------------------

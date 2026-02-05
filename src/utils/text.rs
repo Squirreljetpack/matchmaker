@@ -122,7 +122,7 @@ pub fn grapheme_index_to_byte_index(input: &str, grapheme_index: u16) -> usize {
 
 pub fn wrapped_height(text: &Text<'_>, width: u16) -> u16 {
     if width == 0 {
-        return text.lines.len() as u16;
+        return text.height() as u16;
     }
 
     let width = width as usize;
@@ -225,6 +225,9 @@ pub fn parse_escapes(s: &str) -> String {
 }
 
 pub fn wrap_text<'a>(text: Text<'a>, max_width: u16) -> (Text<'a>, bool) {
+    if max_width == 0 {
+        return (text, false);
+    }
     if max_width <= 1 {
         error!("Invalid width for text: {text:?}");
         return (text, false);

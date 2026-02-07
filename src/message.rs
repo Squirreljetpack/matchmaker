@@ -14,11 +14,14 @@ bitflags! {
         const PreviewChange = 1 << 4;
         const OverlayChange = 1 << 5;
         const PreviewSet = 1 << 6;
+        /// First occurrence of matcher completion.
         const Synced = 1 << 7;
-        const Resize = 1 << 8;
-        const Refresh = 1 << 9;
-        const Pause = 1 << 10;
-        const Resume = 1 << 11;
+        // Matcher finished processing.
+        const Resynced = 1 << 8;
+        const Resize = 1 << 9;
+        const Refresh = 1 << 10;
+        const Pause = 1 << 11;
+        const Resume = 1 << 12;
     }
 }
 

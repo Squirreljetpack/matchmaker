@@ -12,7 +12,7 @@ use crate::{
     config::{DisplayConfig, RowConnectionStyle},
     utils::{
         serde::StringOrVec,
-        text::{left_pad, wrap_text, wrapped_height},
+        text::{left_pad, prefix_text, wrap_text, wrapped_height},
     },
 };
 
@@ -104,9 +104,11 @@ impl DisplayUI {
 
         let block = {
             let b = self.config.border.as_block();
-            if self.config.match_indent {
+            if self.config.match_indent && self.text.len() == 1 {
                 let mut padding = self.config.border.padding;
-                padding.left += result_indentation as u16;
+
+                padding.left =
+                    (result_indentation as u16).saturating_sub(self.config.border.left());
                 b.padding(padding)
             } else {
                 b
@@ -130,6 +132,15 @@ impl DisplayUI {
                 .enumerate()
                 .map(|(i, text)| {
                     let mut ret = wrap_text(text, widths[i]).0;
+                    if i == 0 && self.config.match_indent {
+                        prefix_text(
+                            &mut ret,
+                            " ".repeat(
+                                result_indentation
+                                    .saturating_sub(self.config.border.left() as usize),
+                            ),
+                        );
+                    }
 
                     matches!(
                         self.config.row_connection_style,
@@ -138,11 +149,11 @@ impl DisplayUI {
                     .then_modify(ret, |r| r.style(style))
                 });
 
-            let row = Row::new(self.text[..widths.len()].to_vec());
-            let mut constraints: Vec<_> = widths.iter().cloned().map(Constraint::Length).collect();
+            let row = Row::new(cells);
+            // let mut constraints: Vec<_> = widths.iter().cloned().map(Constraint::Length).collect();
             // we omit header columns after the last result column, an alternative could be supported when ::Full, something like : constraints.resize(self.text.len(), Constraint::Fill(1));
 
-            let mut ret = Table::new(vec![row], constraints)
+            let mut ret = Table::new(vec![row], widths.to_vec())
                 .block(block)
                 .column_spacing(col_spacing);
 

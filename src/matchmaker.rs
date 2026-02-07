@@ -72,7 +72,7 @@ impl ConfigMatchmaker {
     ) -> (Self, ConfigInjector, OddEnds) {
         let cc = worker_config.columns;
         // "hack" because we cannot make the results stable in the worker as our current hack uses the identifier
-        let mut worker: Worker<Indexed<Segmented<String>>> = match cc.split {
+        let worker: Worker<Indexed<Segmented<String>>> = match cc.split {
             Split::Delimiter(_) | Split::Regexes(_) => {
                 let names: Vec<Arc<str>> = if cc.names.is_empty() {
                     (0..cc.max_cols())
@@ -88,7 +88,6 @@ impl ConfigMatchmaker {
             }
             Split::None => Worker::new_indexable([""]),
         };
-        worker.sort_results(!worker_config.stable);
 
         let injector = worker.injector();
 

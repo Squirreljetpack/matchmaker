@@ -26,8 +26,8 @@
     current_bg       = "Black"
     current_modifier = "bold"
     match_fg         = "Green"
-    count_fg         = "Green"
-    count_modifier   = "italic"
+    status_fg        = "Green"
+    status_modifier  = "italic"
     # reverse = auto
     wrap = true
 

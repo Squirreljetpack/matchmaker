@@ -288,6 +288,7 @@ dependencies = [
  "easy-ext",
  "libc",
  "log",
+ "serde",
  "thiserror 2.0.17",
  "unicode-width 0.1.14",
  "which",
@@ -1151,8 +1152,8 @@ dependencies = [
 [[package]]
 name = "nucleo"
 version = "0.5.0"
-source = "git+https://github.com/Squirreljetpack/nucleo?branch=mm#bfb751b17c5a3c6ac83a21fb7ac0113dedc55bc4"
 dependencies = [
+ "log",
  "nucleo-matcher",
  "parking_lot",
  "rayon",
@@ -1161,7 +1162,6 @@ dependencies = [
 [[package]]
 name = "nucleo-matcher"
 version = "0.3.1"
-source = "git+https://github.com/Squirreljetpack/nucleo?branch=mm#bfb751b17c5a3c6ac83a21fb7ac0113dedc55bc4"
 dependencies = [
  "memchr",
  "unicode-segmentation",

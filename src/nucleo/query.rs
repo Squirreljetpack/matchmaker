@@ -47,9 +47,13 @@ impl PickerQuery {
         self.inner.get(column)
     }
 
-    pub fn primary_column_query(&self) -> Option<&Arc<str>> {
+    pub fn primary_column_query(&self) -> Option<&str> {
         let name = self.column_names.get(self.primary_column)?;
-        self.inner.get(name)
+        self.inner.get(name).map(|s| &**s)
+    }
+
+    pub fn primary_column_name(&self) -> Option<&str> {
+        self.column_names.get(self.primary_column).map(|s| &**s)
     }
 
     pub fn parse(&mut self, input: &str) -> HashMap<Arc<str>, Arc<str>> {

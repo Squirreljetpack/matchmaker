@@ -9,6 +9,7 @@ use crate::{
     tui::IoStream,
     utils::serde::{escaped_opt_char, escaped_opt_string, modifier, serde_duration_ms},
 };
+pub use cli_boilerplate_automation::bother::enums::When;
 
 use cli_boilerplate_automation::impl_transparent_wrapper;
 use ratatui::{
@@ -50,7 +51,7 @@ pub struct WorkerConfig {
     pub columns: ColumnsConfig,
     pub trim: bool,           // todo
     pub format: FormatString, // todo: implement
-    pub stable: bool,
+    pub sort_threshold: u32,
 }
 
 /// Configures how input is fed to to the worker(s).
@@ -126,6 +127,7 @@ pub struct TerminalConfig {
     // todo: lowpri: will need a value which can deserialize to none when implementing cli parsing
     #[serde(flatten)]
     pub layout: Option<TerminalLayoutSettings>, // None for fullscreen
+    pub clear_on_exit: bool,
 }
 
 impl Default for TerminalConfig {
@@ -137,6 +139,7 @@ impl Default for TerminalConfig {
             sleep_ms: std::time::Duration::default(),
             layout: Option::default(),
             extended_keys: true,
+            clear_on_exit: true,
         }
     }
 }
@@ -278,8 +281,7 @@ pub struct ResultsConfig {
     // scroll
     pub scroll_wrap: bool,
     pub scroll_padding: u16,
-    #[serde(deserialize_with = "deserialize_option_auto")]
-    pub reverse: Option<bool>,
+    pub reverse: When,
 
     // wrap
     pub wrap: bool,
@@ -321,7 +323,7 @@ impl Default for ResultsConfig {
 
             scroll_wrap: true,
             scroll_padding: 2,
-            reverse: None,
+            reverse: Default::default(),
 
             wrap: Default::default(),
             wrap_scaling_min_width: 5,
@@ -351,7 +353,7 @@ pub struct DisplayConfig {
     /// - Disjoint: Effective width is same as the Results UI.
     ///
     /// # Note
-    /// The width effect only applies on the footer, when the content is singular.
+    /// The width effect only applies on the footer, and when the content is singular.
     pub row_connection_style: RowConnectionStyle,
     #[serde(deserialize_with = "deserialize_option_auto")]
     pub content: Option<StringOrVec>,
@@ -371,6 +373,20 @@ impl Default for DisplayConfig {
     }
 }
 
+/// # Example
+/// ```rust
+/// use matchmaker::config::{PreviewConfig, PreviewSetting, PreviewLayoutSetting};
+///
+/// let _ = PreviewConfig {
+///     layout: vec![
+///         PreviewSetting {
+///             layout: PreviewLayoutSetting::default(),
+///             command: String::new()
+///         }
+///     ],
+///     ..Default::default()
+/// };
+/// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PreviewConfig {
@@ -389,12 +405,6 @@ impl Default for PreviewConfig {
                 padding: Padding::left(2),
                 ..Default::default()
             },
-            // layout: vec![
-            // PreviewSetting {
-            //     layout: PreviewLayoutSetting::default(),
-            //     command: String::new()
-            // }
-            // ],
             layout: Default::default(),
             scroll_wrap: true,
             wrap: Default::default(),

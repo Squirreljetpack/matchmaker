@@ -59,7 +59,7 @@ impl ResultsUI {
 
     // ------ config -------
     pub fn reverse(&self) -> bool {
-        self.config.reverse.unwrap()
+        self.config.reverse.is_always()
     }
     pub fn is_wrap(&self) -> bool {
         self.config.wrap

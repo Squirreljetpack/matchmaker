@@ -4,6 +4,8 @@
 #![allow(unused)]
 
 use super::{Line, Span, Style, Text};
+use bitflags::bitflags;
+use nucleo::pattern::Variant;
 use ratatui::style::Modifier;
 use std::{
     borrow::Cow,
@@ -18,6 +20,7 @@ use unicode_width::UnicodeWidthStr;
 use super::{injector::WorkerInjector, query::PickerQuery};
 use crate::{
     SSS,
+    nucleo::Render,
     utils::text::{apply_style_at, plain_text, wrap_text},
 };
 use cli_boilerplate_automation::text::StrExt;
@@ -27,8 +30,7 @@ pub struct Column<T> {
     pub name: Arc<str>,
     pub(super) format: ColumnFormatFn<T>,
     /// Whether the column should be passed to nucleo for matching and filtering.
-    /// Filtering will be performed when this is None, see [`Column::without_filtering`].
-    pub(super) no_filter: Option<bool>,
+    pub(super) filter: bool,
 }
 
 impl<T> Column<T> {
@@ -36,7 +38,7 @@ impl<T> Column<T> {
         Self {
             name: name.into(),
             format,
-            no_filter: None,
+            filter: true,
         }
     }
 
@@ -47,14 +49,13 @@ impl<T> Column<T> {
         Self {
             name: name.into(),
             format: Box::new(f),
-            no_filter: None,
+            filter: true,
         }
     }
 
     /// Disable filtering.
-    /// If `highlight`, substring matches of the default column query will be highlighted when rendering with [`Worker::results`].
-    pub fn without_filtering(mut self, highlight: bool) -> Self {
-        self.no_filter = Some(highlight);
+    pub fn without_filtering(mut self) -> Self {
+        self.filter = false;
         self
     }
 
@@ -87,12 +88,21 @@ where
     // Background tasks which push to the injector check their version matches this or exit
     pub(super) version: Arc<AtomicU32>,
     // pub settings: WorkerSettings,
+    column_options: Vec<ColumnOptions>,
 }
 
 // #[derive(Debug, Default)]
 // pub struct WorkerSettings {
 //     pub stable: bool,
 // }
+
+bitflags! {
+    #[derive(Default, Clone, Debug)]
+    pub struct ColumnOptions: u8 {
+        const Optional = 1 << 0;
+        const OrUseDefault = 1 << 2;
+    }
+}
 
 impl<T> Worker<T>
 where
@@ -101,7 +111,7 @@ where
     /// Column names must be distinct!
     pub fn new(columns: impl IntoIterator<Item = Column<T>>, default_column: usize) -> Self {
         let columns: Arc<[_]> = columns.into_iter().collect();
-        let matcher_columns = columns.iter().filter(|col| col.no_filter.is_none()).count() as u32;
+        let matcher_columns = columns.iter().filter(|col| col.filter).count() as u32;
 
         let inner = nucleo::Nucleo::new(
             nucleo::Config::DEFAULT,
@@ -114,9 +124,20 @@ where
             nucleo: inner,
             col_indices_buffer: Vec::with_capacity(128),
             query: PickerQuery::new(columns.iter().map(|col| &col.name).cloned(), default_column),
+            column_options: vec![ColumnOptions::default(); columns.len()],
             columns,
             version: Arc::new(AtomicU32::new(0)),
         }
+    }
+
+    pub fn set_column_options(&mut self, index: usize, options: ColumnOptions) {
+        if options.contains(ColumnOptions::Optional) {
+            self.nucleo
+                .pattern
+                .configure_column(index, Variant::Optional)
+        }
+
+        self.column_options[index] = options
     }
 
     pub fn injector(&self) -> WorkerInjector<T> {
@@ -136,24 +157,41 @@ where
         for (i, column) in self
             .columns
             .iter()
-            .filter(|column| column.no_filter.is_none())
+            .filter(|column| column.filter)
             .enumerate()
         {
             let pattern = self
                 .query
                 .get(&column.name)
-                .map(|f| &**f)
-                .unwrap_or_default();
+                .map(|s| &**s)
+                .unwrap_or_else(|| {
+                    self.column_options[i]
+                        .contains(ColumnOptions::OrUseDefault)
+                        .then(|| self.query.primary_column_query())
+                        .flatten()
+                        .unwrap_or_default()
+                });
+
             let old_pattern = old_query
                 .get(&column.name)
-                .map(|f| &**f)
-                .unwrap_or_default();
+                .map(|s| &**s)
+                .unwrap_or_else(|| {
+                    self.column_options[i]
+                        .contains(ColumnOptions::OrUseDefault)
+                        .then(|| {
+                            let name = self.query.primary_column_name()?;
+                            old_query.get(name).map(|s| &**s)
+                        })
+                        .flatten()
+                        .unwrap_or_default()
+                });
 
             // Fastlane: most columns will remain unchanged after each edit.
             if pattern == old_pattern {
                 continue;
             }
             let is_append = pattern.starts_with(old_pattern);
+
             self.nucleo.pattern.reparse(
                 i,
                 pattern,
@@ -181,6 +219,7 @@ where
                 item_count: snapshot.item_count(),
                 matched_count: snapshot.matched_item_count(),
                 running,
+                changed,
             },
         )
     }
@@ -196,8 +235,8 @@ where
         (snapshot.matched_item_count(), snapshot.item_count())
     }
 
-    pub fn sort_results(&mut self, sort_results: bool) {
-        self.nucleo.sort_results(sort_results);
+    pub fn set_stability(&mut self, threshold: u32) {
+        self.nucleo.set_stability(threshold);
     }
 
     pub fn restart(&mut self, clear_snapshot: bool) {
@@ -210,6 +249,7 @@ pub struct Status {
     pub item_count: u32,
     pub matched_count: u32,
     pub running: bool,
+    pub changed: bool,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -259,8 +299,7 @@ impl<T: SSS> Worker<T> {
                             return Text::from("");
                         }
 
-                        let (cell, width) = if column.no_filter.is_none() && width_limit == u16::MAX
-                        {
+                        let (cell, width) = if column.filter && width_limit == u16::MAX {
                             let mut cell_width = 0;
 
                             // get indices
@@ -320,7 +359,7 @@ impl<T: SSS> Worker<T> {
 
                             col_idx += 1;
                             (Text::from(lines), cell_width)
-                        } else if column.no_filter.is_none() {
+                        } else if column.filter {
                             let mut cell_width = 0;
                             let mut wrapped = false;
 
@@ -407,22 +446,6 @@ impl<T: SSS> Worker<T> {
                                 },
                             )
                         } else if width_limit != u16::MAX {
-                            let cell = if column.no_filter.unwrap()
-                            && // highlight any substring match
-                                let mut substrings = self
-                                    .query
-                                    .primary_column_query()
-                                    .map(|s| &**s)
-                                    .unwrap_or_default()
-                                    .split_escaped_by(char::is_whitespace) &&
-                                    let Some(query) = substrings.next() &&
-                                    let text = plain_text(&cell) &&
-                                    let Some(start) = text.find(&query)
-                            {
-                                apply_style_at(cell, start, query.len(), highlight_style)
-                            } else {
-                                cell
-                            };
                             let (cell, wrapped) = wrap_text(cell, width_limit - 1);
 
                             let width = if wrapped {
@@ -433,22 +456,6 @@ impl<T: SSS> Worker<T> {
                             (cell, width)
                         } else {
                             let width = cell.width();
-                            let cell = if column.no_filter.unwrap()
-                            && // highlight any substring match
-                                let mut substrings = self
-                                    .query
-                                    .primary_column_query()
-                                    .map(|s| &**s)
-                                    .unwrap_or_default()
-                                    .split_escaped_by(char::is_whitespace) &&
-                                    let Some(query) = substrings.next() &&
-                                    let text = plain_text(&cell) &&
-                                    let Some(start) = text.find(&query)
-                            {
-                                apply_style_at(cell, start, query.len(), highlight_style)
-                            } else {
-                                cell
-                            };
                             (cell, width)
                         };
 
@@ -477,5 +484,30 @@ impl<T: SSS> Worker<T> {
         }
 
         (table, widths, status)
+    }
+
+    pub fn exact_column_match(&mut self, column: &str) -> Option<&T> {
+        let (i, col) = self
+            .columns
+            .iter()
+            .enumerate()
+            .find(|(_, c)| column == &*c.name)?;
+
+        let query = self.query.get(column).map(|s| &**s).or_else(|| {
+            self.column_options[i]
+                .contains(ColumnOptions::OrUseDefault)
+                .then(|| self.query.primary_column_query())
+                .flatten()
+        })?;
+
+        let snapshot = self.nucleo.snapshot();
+        snapshot.matched_items(..).find_map(|item| {
+            let content = col.format_text(item.data);
+            if content.as_str() == query {
+                Some(item.data)
+            } else {
+                None
+            }
+        })
     }
 }

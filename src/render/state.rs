@@ -22,7 +22,7 @@ pub struct State {
     pub(crate) preview_visible: bool,
     pub(crate) layout: [Rect; 4], //preview, input, status, results
     pub(crate) overlay_index: Option<usize>,
-    pub(crate) matcher_running: bool,
+    pub(crate) synced: bool,
 
     pub(crate) events: Event,
 
@@ -58,7 +58,7 @@ impl State {
 
             input: String::new(),
             iterations: 0,
-            matcher_running: true,
+            synced: true,
 
             events: Event::empty(),
             should_quit: false,
@@ -173,12 +173,18 @@ impl State {
         self.update_input(&picker_ui.input.input);
         self.col = picker_ui.results.col();
 
-        if self.matcher_running != picker_ui.results.status.running {
+        let status = &picker_ui.results.status;
+        if status.changed {
+            // add a synced event
             if !picker_ui.results.status.running {
-                self.insert(Event::Synced);
+                if !self.synced {
+                    self.insert(Event::Synced);
+                    self.synced = true;
+                } else {
+                    self.insert(Event::Resynced);
+                }
             }
-            self.matcher_running = picker_ui.results.status.running;
-        };
+        }
 
         if let Some(o) = overlay_ui {
             if self.overlay_index != o.index() {

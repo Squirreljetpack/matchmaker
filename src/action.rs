@@ -145,7 +145,7 @@ pub use arrayvec::ArrayVec;
 ///     use matchmaker::{action::{Action, Actions, acs}, render::MMState};
 ///     pub fn fsaction_aliaser(
 ///         a: Action,
-///         state: &MMState<'_, String, String>,
+///         state: &MMState<'_, '_, String, String>,
 ///     ) -> Actions {
 ///         match a {
 ///             Action::Custom(_) => {

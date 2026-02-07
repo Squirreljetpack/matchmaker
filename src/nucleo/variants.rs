@@ -96,7 +96,7 @@ impl<T: SSS> Worker<Indexed<T>> {
 
 /// You must either impl as_str or as_text
 pub trait Render {
-    fn as_str(&self) -> Cow<'_, str> {
+    fn as_str(&self) -> std::borrow::Cow<'_, str> {
         plain_text(&self.as_text()).into()
     }
     fn as_text(&self) -> Text<'_> {
@@ -104,7 +104,7 @@ pub trait Render {
     }
 }
 impl<T: AsRef<str>> Render for T {
-    fn as_str(&self) -> Cow<'_, str> {
+    fn as_str(&self) -> std::borrow::Cow<'_, str> {
         self.as_ref().into()
     }
 }
@@ -118,7 +118,7 @@ impl<T: Render + SSS> Worker<T> {
 
 /// You must either impl as_str or as_text
 pub trait ColumnIndexable {
-    fn as_str(&self, i: usize) -> Cow<'_, str> {
+    fn as_str(&self, i: usize) -> std::borrow::Cow<'_, str> {
         plain_text(&self.as_text(i)).into()
     }
     fn as_text(&self, i: usize) -> Text<'_> {
@@ -133,20 +133,25 @@ where
     /// Create a new worker over indexable items, whose columns correspond to indices according to the relative order of the column names given to this function.
     /// # Example
     /// ```rust
+    /// #[derive(Clone)]
     /// pub struct RunAction {
-    ///     name,
-    ///     alias,
-    ///     desc
+    ///     name: String,
+    ///     alias: String,
+    ///     desc: String
     /// };
+    ///
+    /// use matchmaker::{Matchmaker, Selector};
+    /// use matchmaker::nucleo::{Indexed, Worker, ColumnIndexable};
+    ///
     /// impl ColumnIndexable for RunAction {
-    ///     fn index(&self, i: usize) -> &str {
+    ///     fn as_str(&self, i: usize) -> std::borrow::Cow<'_, str> {
     ///         if i == 0 {
-    ///             self.name
+    ///             &self.name
     ///         } else if i == 1 {
-    ///             self.alias
+    ///             &self.alias
     ///         } else {
-    ///             self.desc
-    ///         }
+    ///             &self.desc
+    ///         }.into()
     ///     }
     /// }
     ///

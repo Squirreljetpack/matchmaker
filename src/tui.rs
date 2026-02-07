@@ -179,14 +179,14 @@ where
         let backend = self.terminal.backend_mut();
 
         // if !fullscreen {
-
-        #[cfg(not(debug_assertions))]
-        execute!(
-            backend,
-            crossterm::cursor::MoveTo(0, self.area.y),
-            crossterm::terminal::Clear(ClearType::FromCursorDown)
-        )
-        ._elog();
+        if self.config.clear_on_exit && !cfg!(debug_assertions) {
+            execute!(
+                backend,
+                crossterm::cursor::MoveTo(0, self.area.y),
+                crossterm::terminal::Clear(ClearType::FromCursorDown)
+            )
+            ._elog();
+        }
 
         if self.config.extended_keys {
             execute!(backend, PopKeyboardEnhancementFlags)._elog();

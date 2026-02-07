@@ -7,7 +7,7 @@
     description  = "A fuzzy finder for the terminal, powered by nucleo"
 
 [dependencies]
-    cli_boilerplate_automation = { version = "0", features = [ "text" ] }
+    cli_boilerplate_automation = { version = "0", features = [ "text", "serde" ] }
 
     ansi-to-tui = "8.0.0"
     ratatui     = { version = "0.30", features = [ "serde" ] }

@@ -41,10 +41,12 @@ impl UI {
         view: Option<Preview>,
         tui: &mut Tui<W>,
     ) -> (Self, PickerUI<'a, T, S>, DisplayUI, Option<PreviewUI>) {
-        if config.results.reverse.is_none() {
-            config.results.reverse = Some(
-                tui.is_fullscreen() && tui.area.y < tui.area.height / 2, // reverse if fullscreen + cursor is in lower half of the screen
-            );
+        if config.results.reverse.is_default() {
+            config.results.reverse = (
+                tui.is_fullscreen() && tui.area.y < tui.area.height / 2
+                // reverse if fullscreen + cursor is in lower half of the screen
+            )
+            .into()
         }
 
         let ui = Self {

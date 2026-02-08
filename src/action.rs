@@ -74,6 +74,7 @@ pub enum Action<A: ActionExt = NullActionExt> {
     DeleteLineStart,
     DeleteLineEnd,
     Cancel, // clear input
+    // set input cursor position
     InputPos(i32),
 
     // Navigation
@@ -277,6 +278,19 @@ impl<A: ActionExt> Serialize for Actions<A> {
 }
 
 // ----- action serde
+impl_display_and_from_str_enum!(
+    Select, Deselect, Toggle, CycleAll, ClearSelections, Accept, CyclePreview, CycleColumn,
+    PreviewHalfPageUp, PreviewHalfPageDown, HistoryUp, HistoryDown,
+    ChangePrompt, ChangeQuery, ToggleWrap, ToggleWrapPreview, ForwardChar,
+    BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord,
+    DeleteLineStart, DeleteLineEnd, Cancel, Redraw;
+    // tuple variants
+    Execute, Become, Reload, Preview, SetInput, Column, Pos, InputPos;
+    // tuple with default
+    (Up, 1), (Down, 1), (PreviewUp, 1), (PreviewDown, 1), (Quit, 1), (Overlay, 0), (Print, String::new()), (Help, String::new());
+    // tuple with option
+    SwitchPreview, SetPreview, SetPrompt, SetHeader, SetFooter
+);
 
 macro_rules! impl_display_and_from_str_enum {
     (
@@ -382,23 +396,8 @@ macro_rules! impl_display_and_from_str_enum {
         }
     };
 }
+use impl_display_and_from_str_enum;
 
-// call it like:
-impl_display_and_from_str_enum!(
-    Select, Deselect, Toggle, CycleAll, ClearSelections, Accept, CyclePreview, CycleColumn,
-    PreviewHalfPageUp, PreviewHalfPageDown, HistoryUp, HistoryDown,
-    ChangePrompt, ChangeQuery, ToggleWrap, ToggleWrapPreview, ForwardChar,
-    BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord,
-    DeleteLineStart, DeleteLineEnd, Cancel, Redraw;
-    // tuple variants
-    Execute, Become, Reload, Preview, SetInput, Column, Pos, InputPos;
-    // tuple with default
-    (Up, 1), (Down, 1), (PreviewUp, 1), (PreviewDown, 1), (Quit, 1), (Overlay, 0), (Print, String::new()), (Help, String::new());
-    // tuple with option
-    SwitchPreview, SetPreview, SetPrompt, SetHeader, SetFooter
-);
-
-// --------------------------------------
 impl<A: ActionExt> IntoIterator for Actions<A> {
     type Item = Action<A>;
     type IntoIter = <ArrayVec<Action<A>, MAX_ACTIONS> as IntoIterator>::IntoIter;

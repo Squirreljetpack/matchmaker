@@ -9,7 +9,7 @@ use crate::{
     tui::IoStream,
     utils::serde::{escaped_opt_char, escaped_opt_string, modifier, serde_duration_ms},
 };
-pub use cli_boilerplate_automation::bother::enums::When;
+pub use cli_boilerplate_automation::bother::types::When;
 
 use cli_boilerplate_automation::impl_transparent_wrapper;
 use ratatui::{

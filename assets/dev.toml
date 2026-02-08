@@ -85,8 +85,6 @@
     "ctrl-shift-up"   = "PreviewHalfPageUp"
     "ctrl-shift-down" = "PreviewHalfPageDown"
 
-    "scrollup"         = "Up"
-    "scrolldown"       = "Down"
     "shift+scrollup"   = "PreviewUp"
     "shift+scrolldown" = "PreviewDown"
     "alt-h"            = "Help"

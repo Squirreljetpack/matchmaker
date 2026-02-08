@@ -23,6 +23,7 @@ use crate::{
     },
     nucleo::Worker,
     preview::Preview,
+    render::Click,
     tui::Tui,
 };
 // UI
@@ -156,10 +157,10 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
 }
 
 impl<'a, T: SSS, O: Selection> PickerUI<'a, T, O> {
-    pub fn make_table(&mut self) -> (Table<'_>, u16) {
+    pub fn make_table(&mut self, click: &mut Click) -> (Table<'_>, u16) {
         let table = self
             .results
-            .make_table(&mut self.worker, &mut self.selector, self.matcher);
+            .make_table(&mut self.worker, &mut self.selector, self.matcher, click);
         let width = self.results.table_width();
         (table, width)
     }

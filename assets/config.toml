@@ -1,87 +1,85 @@
 [tui]
-percentage = 60
-min = 10
-max = 120
+    percentage = 60
+    min        = 10
+    max        = 120
 
 [ui]
 
 [input]
 
 [results]
-wrap = true
+    wrap = true
 
 [previewer]
-try_lossy = false
+    try_lossy = false
 
 [preview]
-show = true
-wrap = true
+    show = true
+    wrap = true
 
 [[preview.layout]]
-command = "bat --binary no-printing --color=always {} || eza --color=always --color=always -T -L 2 {}"
-side = "right"
-percentage = 40
-min = 30
-max = 120
+    command    = "bat --binary no-printing --color=always {} || eza --color=always --color=always -T -L 2 {}"
+    side       = "right"
+    percentage = 40
+    min        = 30
+    max        = 120
 
 [[preview.layout]]
-side = "top"
-percentage = 50
-min = 5
-max = 50
+    side       = "top"
+    percentage = 50
+    min        = 5
+    max        = 50
 
 [[preview.layout]]
-side = "right"
-percentage = 75
-min = 5
-max = 240
+    side       = "right"
+    percentage = 75
+    min        = 5
+    max        = 240
 
 [binds]
-# UI
-"ctrl-c" = "Quit"
-"esc" = "Quit"
-"enter" = "Accept"
-"ctrl-a" = "CycleAll"
-"tab" = ["Toggle", "Down"]
-"shift-backtab" = ["Toggle", "Up"]
+    # UI
+    "ctrl-c"        = "Quit"
+    "esc"           = "Quit"
+    "enter"         = "Accept"
+    "ctrl-a"        = "CycleAll"
+    "tab"           = [ "Toggle", "Down" ]
+    "shift-backtab" = [ "Toggle", "Up" ]
 
-# Edit
-"right" = "ForwardChar"
-"left" = "BackwardChar"
-"ctrl-right" = "ForwardWord"
-"ctrl-left" = "BackwardWord"
-"backspace" = "DeleteChar"
-"ctrl-h" = "DeleteWord"
-"ctrl-u" = "Cancel"
-"alt-a" = "InputPos(0)"
+    # Edit
+    "right"      = "ForwardChar"
+    "left"       = "BackwardChar"
+    "ctrl-right" = "ForwardWord"
+    "ctrl-left"  = "BackwardWord"
+    "backspace"  = "DeleteChar"
+    "ctrl-h"     = "DeleteWord"
+    "ctrl-u"     = "Cancel"
+    "alt-a"      = "InputPos(0)"
 
-# Navigation
-"up" = "Up"
-"down" = "Down"
-"pageup" = "Up(10)"
-"pagedown" = "Down(10)"
-"shift-up" = "PreviewUp"
-"shift-down" = "PreviewDown"
-"ctrl-shift-up" = "PreviewHalfPageUp"
-"ctrl-shift-down" = "PreviewHalfPageDown"
+    # Navigation
+    "up"              = "Up"
+    "down"            = "Down"
+    "pageup"          = "Up(10)"
+    "pagedown"        = "Down(10)"
+    "shift-up"        = "PreviewUp"
+    "shift-down"      = "PreviewDown"
+    "ctrl-shift-up"   = "PreviewHalfPageUp"
+    "ctrl-shift-down" = "PreviewHalfPageDown"
 
-# Preview
-"scrollup" = "Up"
-"scrolldown" = "Down"
-"shift+scrollup" = "PreviewUp"
-"shift+scrolldown" = "PreviewDown"
-"?" = "SwitchPreview"
-"shift-?" = "SwitchPreview"
-"ctrl-shift-/" = "CyclePreview" # ctrl-shift-/
-"alt-h" = "Help"
-"alt-1" = "Pos(0)"
-# todo: changing between preview presets, widths
+    # Preview
+    "shift+scrollup"   = "PreviewUp"
+    "shift+scrolldown" = "PreviewDown"
+    "?"                = "SwitchPreview"
+    "shift-?"          = "SwitchPreview"
+    "ctrl-shift-/"     = "CyclePreview"  # ctrl-shift-/
+    "alt-h"            = "Help"
+    "alt-1"            = "Pos(0)"
+    # todo: changing between preview presets, widths
 
-# Programmable
-"ctrl-l" = "Execute(eval $FZF_PREVIEW_COMMAND | $PAGER)"
-"ctrl-o" = "Execute($EDITOR {})"
-"alt-o" = "Become($EDITOR {})"
-"ctrl-r" = "Reload(find . -type f)"
+    # Programmable
+    "ctrl-l" = "Execute(eval $FZF_PREVIEW_COMMAND | $PAGER)"
+    "ctrl-o" = "Execute($EDITOR {})"
+    "alt-o"  = "Become($EDITOR {})"
+    "ctrl-r" = "Reload(find . -type f)"
 
 [matcher]
-default_command = "fd --strip-cwd-prefix"
+    default_command = "fd --strip-cwd-prefix"

@@ -12,6 +12,7 @@ use crate::{
     SSS, Selection, Selector,
     config::{ResultsConfig, RowConnectionStyle},
     nucleo::{Status, Worker},
+    render::Click,
     utils::text::{clip_text_lines, fit_width, prefix_text, substitute_escaped},
 };
 
@@ -225,6 +226,7 @@ impl ResultsUI {
         worker: &'a mut Worker<T>,
         selector: &mut Selector<T, impl Selection>,
         matcher: &mut nucleo::Matcher,
+        click: &mut Click,
     ) -> Table<'a> {
         let offset = self.bottom as u32;
         let end = (self.bottom + self.height) as u32;
@@ -252,15 +254,15 @@ impl ResultsUI {
 
         // debug!("sb: {}, {}, {}, {}, {}", self.bottom, self.cursor, total_height, self.height, results.len());
         let cursor_result_h = results[self.cursor as usize].2;
-        // index of first element
+        // the index in results of the first complete item
         let mut start_index = 0;
 
-        let after_cursor_h = results[(self.cursor as usize + 1).min(results.len())..]
+        let cum_h_after_cursor = results[(self.cursor as usize + 1).min(results.len())..]
             .iter()
             .map(|(_, _, height)| height)
             .sum::<u16>();
 
-        let cursor_should_lt = self.height - self.scroll_padding().min(after_cursor_h);
+        let cursor_should_lt = self.height - self.scroll_padding().min(cum_h_after_cursor);
 
         if cursor_result_h >= cursor_should_lt {
             start_index = self.cursor;
@@ -268,23 +270,23 @@ impl ResultsUI {
             self.cursor = 0;
         } else
         // increase the bottom index so that cursor_should_above is maintained
-        if let cursor_cum_h = results[0..=self.cursor as usize]
+        if let cum_h_to_cursor = results[0..=self.cursor as usize]
             .iter()
             .map(|(_, _, height)| height)
             .sum::<u16>()
-            && cursor_cum_h > cursor_should_lt
+            && cum_h_to_cursor > cursor_should_lt
         {
             start_index = 1;
-            let mut height = cursor_cum_h - cursor_should_lt;
+            let mut remaining_height = cum_h_to_cursor.saturating_sub(cursor_should_lt);
 
             for (row, item, h) in results[..self.cursor as usize].iter_mut() {
-                let h = *h;
+                let h = *h; // item height
 
-                if height < h {
+                if remaining_height < h {
                     for (_, t) in row.iter_mut().enumerate().filter(|(i, _)| widths[*i] != 0) {
-                        clip_text_lines(t, height, !self.reverse());
+                        clip_text_lines(t, remaining_height, !self.reverse());
                     }
-                    total_height += height;
+                    total_height = remaining_height;
 
                     let prefix = if selector.contains(item) {
                         self.config.multi_prefix.clone().to_string()
@@ -318,13 +320,13 @@ impl ResultsUI {
                         row_texts.last_mut().unwrap().alignment = Some(Alignment::Right)
                     }
 
-                    let row = Row::new(row_texts).height(height);
+                    let row = Row::new(row_texts).height(remaining_height);
                     rows.push(row);
 
                     self.bottom += start_index - 1;
                     self.cursor -= start_index - 1;
                     break;
-                } else if height == h {
+                } else if remaining_height == h {
                     self.bottom += start_index;
                     self.cursor -= start_index;
                     // debug!("2: {} {}", start_index, h);
@@ -332,7 +334,7 @@ impl ResultsUI {
                 }
 
                 start_index += 1;
-                height -= h;
+                remaining_height -= h;
             }
         }
 
@@ -341,6 +343,14 @@ impl ResultsUI {
         for (i, (mut row, item, mut height)) in
             (start_index..).zip(results.drain(start_index as usize..))
         {
+            if let Click::ResultPos(c) = click
+                && total_height > *c
+            {
+                let idx = offset + i as u32 - 1;
+                log::debug!("Mapped click position to index: {c} -> {idx}",);
+                *click = Click::ResultIdx(idx);
+            }
+
             if self.height - total_height == 0 {
                 break;
             } else if self.height - total_height < height {

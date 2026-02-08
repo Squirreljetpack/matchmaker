@@ -11,7 +11,7 @@ use crate::{config::InputConfig, utils::text::grapheme_index_to_byte_index};
 
 #[derive(Debug)]
 pub struct InputUI {
-    pub cursor: u16, // grapheme index
+    cursor: u16, // grapheme index
     pub input: String,
     pub config: InputConfig,
     pub prompt: Span<'static>,
@@ -35,21 +35,40 @@ impl InputUI {
         self.input.is_empty()
     }
 
+    /// grapheme index
+    pub fn cursor(&self) -> u16 {
+        self.cursor
+    }
+
     pub fn cursor_offset(&self, rect: &Rect) -> Position {
         let left = self.config.border.left();
         let top = self.config.border.top();
         Position::new(
-            rect.x + self.cursor + self.prompt.width() as u16 + left,
+            rect.x + self.prompt.width() as u16 + left + self.cursor,
             rect.y + top,
         )
     }
 
+    pub fn push_char(&mut self, c: char) {
+        self.input.insert(self.cursor as usize, c);
+        self.cursor += 1;
+    }
+
+    pub fn push_str(&mut self, content: &str) {
+        let byte_idx = grapheme_index_to_byte_index(&self.input, self.cursor);
+
+        self.input.insert_str(byte_idx, content);
+        self.cursor += content.graphemes(true).count() as u16;
+    }
+
     // ------------ SETTERS ---------------
-    pub fn set(&mut self, input: String, cursor: u16) {
+    pub fn set(&mut self, input: impl Into<Option<String>>, cursor: u16) {
+        let input = input.into().unwrap_or(self.input.clone());
         let grapheme_count = input.graphemes(true).count() as u16;
         self.input = input;
         self.cursor = cursor.min(grapheme_count);
     }
+
     pub fn cancel(&mut self) {
         self.input.clear();
         self.cursor = 0;

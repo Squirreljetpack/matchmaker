@@ -3,7 +3,9 @@ use crate::action::{Action, ActionExt};
 use crate::binds::BindMap;
 use crate::message::{Event, RenderCommand};
 use crokey::{Combiner, KeyCombination, KeyCombinationFormat, key};
-use crossterm::event::{Event as CrosstermEvent, EventStream, KeyModifiers, MouseEvent};
+use crossterm::event::{
+    Event as CrosstermEvent, EventStream, KeyModifiers, MouseEvent, MouseEventKind,
+};
 use futures::stream::StreamExt;
 use log::{debug, error, info, warn};
 use ratatui::layout::Rect;
@@ -119,7 +121,7 @@ impl<A: ActionExt> EventLoop<A> {
             while self.paused {
                 if let Some(event) = self.controller_rx.recv().await {
                     if matches!(event, Event::Resume) {
-                        log::debug!("Resumed from pause");
+                        debug!("Resumed from pause");
                         self.paused = false;
                         self.send(RenderCommand::Ack);
                         self.event_stream = Some(EventStream::new());
@@ -215,6 +217,10 @@ impl<A: ActionExt> EventLoop<A> {
                                 CrosstermEvent::Mouse(mouse) => {
                                     if let Some(actions) = self.binds.get(&mouse.into()) {
                                         self.send_actions(actions);
+                                    } else if !matches!(mouse.kind, MouseEventKind::Moved) {
+                                        // mouse binds can be disabled by overriding with empty action
+                                        // preview scroll can be disabled by overriding scroll event with scroll action
+                                        self.send(RenderCommand::Mouse(mouse));
                                     }
                                 }
                                 CrosstermEvent::Resize(width, height) => {

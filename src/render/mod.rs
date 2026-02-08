@@ -1,6 +1,7 @@
 mod dynamic;
 mod state;
 
+use crossterm::event::{MouseButton, MouseEventKind};
 pub use dynamic::*;
 pub use state::*;
 // ------------------------------
@@ -10,7 +11,7 @@ use std::io::Write;
 use anyhow::Result;
 use log::{info, warn};
 use ratatui::Frame;
-use ratatui::layout::Rect;
+use ratatui::layout::{Position, Rect};
 use tokio::sync::mpsc;
 
 #[cfg(feature = "bracketed-paste")]
@@ -67,6 +68,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
     let mut buffer = Vec::with_capacity(256);
 
     let mut state = State::new();
+    let mut click = Click::None;
 
     // place the initial command in the state where the preview listener can access
     if let Some(ref preview_ui) = preview_ui
@@ -121,11 +123,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     {
                         continue;
                     }
-                    picker_ui
-                        .input
-                        .input
-                        .insert(picker_ui.input.cursor as usize, c);
-                    picker_ui.input.cursor += 1;
+                    picker_ui.input.push_char(c);
                 }
                 #[cfg(feature = "bracketed-paste")]
                 RenderCommand::Paste(content) => {
@@ -142,17 +140,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             )
                         };
                         if !content.is_empty() {
-                            use unicode_segmentation::UnicodeSegmentation;
-
-                            use crate::utils::text::grapheme_index_to_byte_index;
-
-                            let byte_idx = grapheme_index_to_byte_index(
-                                &picker_ui.input.input,
-                                picker_ui.input.cursor,
-                            );
-
-                            picker_ui.input.input.insert_str(byte_idx, &content);
-                            picker_ui.input.cursor += content.graphemes(true).count() as u16;
+                            picker_ui.input.push_str(&content);
                         }
                     }
                 }
@@ -162,6 +150,54 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 }
                 RenderCommand::Refresh => {
                     tui.redraw();
+                }
+                RenderCommand::Mouse(mouse) => {
+                    // we could also impl this in the aliasing step
+                    let pos = Position::from((mouse.column, mouse.row));
+                    let [preview, input, status, result] = state.layout;
+
+                    match mouse.kind {
+                        MouseEventKind::Down(MouseButton::Left) => {
+                            // todo: clickable column headers, clickable results, also, grouping?
+                            if result.contains(pos) {
+                                click = Click::ResultPos(mouse.row - result.top());
+                            } else if input.contains(pos) {
+                                let mut cursor_start_offset = picker_ui.input.cursor_offset(&input);
+                                cursor_start_offset.x -= picker_ui.input.cursor();
+                                let rel_pos = pos - cursor_start_offset.into();
+
+                                picker_ui.input.set(None, rel_pos.x);
+                            } else if status.contains(pos) {
+                                // todo
+                            }
+                        }
+                        MouseEventKind::ScrollDown => {
+                            if preview.contains(pos) {
+                                if let Some(p) = preview_ui.as_mut() {
+                                    p.down(1)
+                                }
+                            } else {
+                                picker_ui.results.cursor_next()
+                            }
+                        }
+                        MouseEventKind::ScrollUp => {
+                            if preview.contains(pos) {
+                                if let Some(p) = preview_ui.as_mut() {
+                                    p.up(1)
+                                }
+                            } else {
+                                picker_ui.results.cursor_prev()
+                            }
+                        }
+                        MouseEventKind::ScrollLeft => {
+                            // todo
+                        }
+                        MouseEventKind::ScrollRight => {
+                            // todo
+                        }
+                        // Drag tracking: todo
+                        _ => {}
+                    }
                 }
                 RenderCommand::QuitEmpty => {
                     return Ok(vec![]);
@@ -363,7 +399,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             } else {
                                 (input.len() as u16).saturating_sub((-pos) as u16)
                             };
-                            input.cursor = pos;
+                            input.set(None, pos);
                         }
 
                         // Experimental/Debugging
@@ -526,7 +562,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
                 render_input(frame, input, &picker_ui.input);
                 render_status(frame, status, &picker_ui.results);
-                render_results(frame, results, &mut picker_ui);
+                render_results(frame, results, &mut picker_ui, &mut click);
                 render_display(frame, header, &picker_ui.header, &picker_ui.results);
                 render_display(frame, footer, &footer_ui, &picker_ui.results);
                 if let Some(preview_ui) = preview_ui.as_mut() {
@@ -593,12 +629,35 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 }
             }
         }
+
+        click.process(&mut buffer);
     }
 
     Err(MatchError::EventLoopClosed)
 }
 
 // ------------------------- HELPERS ----------------------------
+
+pub enum Click {
+    None,
+    ResultPos(u16),
+    ResultIdx(u32),
+}
+
+impl Click {
+    fn process<A: ActionExt>(&mut self, buffer: &mut Vec<RenderCommand<A>>) {
+        match self {
+            Self::ResultIdx(u) => {
+                buffer.push(RenderCommand::Action(Action::Pos(*u as i32)));
+            }
+            _ => {
+                // todo
+            }
+        }
+        *self = Click::None
+    }
+}
+
 fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {
     // if ui.view.changed() {
     // doesn't work, use resize
@@ -615,12 +674,13 @@ fn render_results<T: SSS, S: Selection>(
     frame: &mut Frame,
     mut area: Rect,
     ui: &mut PickerUI<T, S>,
+    click: &mut Click,
 ) {
     let cap = matches!(
         ui.results.config.row_connection_style,
         RowConnectionStyle::Capped
     );
-    let (widget, table_width) = ui.make_table();
+    let (widget, table_width) = ui.make_table(click);
 
     if cap {
         area.width = area.width.min(table_width);

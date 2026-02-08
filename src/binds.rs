@@ -55,10 +55,8 @@ impl Ord for Trigger {
 
         match (self, other) {
             (Key(a), Key(b)) => a.to_string().cmp(&b.to_string()),
-            (Mouse(a), Mouse(b)) => {
-                mouse_event_kind_as_str(a.kind).cmp(mouse_event_kind_as_str(b.kind))
-            }
-            (Event(a), Event(b)) => a.to_string().cmp(&b.to_string()),
+            (Mouse(a), Mouse(b)) => a.cmp(b),
+            (Event(a), Event(b)) => a.cmp(b),
 
             // define variant order
             (Key(_), _) => Ordering::Less,
@@ -76,10 +74,25 @@ impl PartialOrd for Trigger {
 }
 
 /// Crossterm mouse event without location
-#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct SimpleMouseEvent {
     pub kind: MouseEventKind,
     pub modifiers: KeyModifiers,
+}
+
+impl Ord for SimpleMouseEvent {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self.kind.partial_cmp(&other.kind) {
+            Some(Ordering::Equal) | None => self.modifiers.bits().cmp(&other.modifiers.bits()),
+            Some(o) => o,
+        }
+    }
+}
+
+impl PartialOrd for SimpleMouseEvent {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 // ---------- BOILERPLATE
@@ -307,4 +320,41 @@ pub fn display_binds<A: ActionExt>(
     }
 
     text
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crossterm::event::MouseEvent;
+
+    #[test]
+    fn test_bindmap_trigger() {
+        let mut bind_map: BindMap = BindMap::new();
+
+        // Insert trigger with default actions
+        let trigger0 = Trigger::Mouse(SimpleMouseEvent {
+            kind: MouseEventKind::ScrollDown,
+            modifiers: KeyModifiers::empty(),
+        });
+        bind_map.insert(trigger0.clone(), Actions::default());
+
+        // Construct via From<MouseEvent>
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::ScrollDown,
+            column: 0,
+            row: 0,
+            modifiers: KeyModifiers::empty(),
+        };
+        let from_event: Trigger = mouse_event.into();
+
+        // Should be retrievable
+        assert!(bind_map.contains_key(&from_event));
+
+        // Shift-modified trigger should NOT be found
+        let shift_trigger = Trigger::Mouse(SimpleMouseEvent {
+            kind: MouseEventKind::ScrollDown,
+            modifiers: KeyModifiers::SHIFT,
+        });
+        assert!(!bind_map.contains_key(&shift_trigger));
+    }
 }

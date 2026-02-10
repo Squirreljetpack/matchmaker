@@ -1,9 +1,9 @@
 use std::fmt;
 
-use cli_boilerplate_automation::impl_restricted_wrapper;
+use cli_boilerplate_automation::define_restricted_wrapper;
 use serde::{Deserialize, Deserializer};
 
-impl_restricted_wrapper!(Percentage, u16, 100);
+define_restricted_wrapper!(Percentage: u16 = 100);
 impl Percentage {
     pub fn new(value: u16) -> Self {
         if value <= 100 { Self(value) } else { Self(100) }

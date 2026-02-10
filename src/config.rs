@@ -11,7 +11,7 @@ use crate::{
 };
 pub use cli_boilerplate_automation::bother::types::When;
 
-use cli_boilerplate_automation::impl_transparent_wrapper;
+use cli_boilerplate_automation::define_transparent_wrapper;
 use ratatui::{
     style::{Color, Modifier, Style},
     text::Span,
@@ -292,11 +292,9 @@ pub struct ResultsConfig {
     pub current_prefix: String,
     pub right_align_last: bool,
 }
-impl_transparent_wrapper!(
+define_transparent_wrapper!(
     #[derive(Copy)]
-    Count,
-    u16,
-    1
+    Count: u16 = 1
 );
 
 impl Default for ResultsConfig {

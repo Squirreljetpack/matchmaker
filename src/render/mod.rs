@@ -35,7 +35,6 @@ fn apply_aliases<T: SSS, S: Selection, A: ActionExt>(
         match cmd {
             RenderCommand::Action(a) => out.extend(
                 aliaser(a, dispatcher)
-                    .0
                     .into_iter()
                     .map(RenderCommand::Action),
             ),

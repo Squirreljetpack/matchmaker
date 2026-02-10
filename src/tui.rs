@@ -282,8 +282,7 @@ impl IoStream {
 // ------------------------------------------------------------
 
 mod utils {
-    use anyhow::{Result, bail};
-    use cli_boilerplate_automation::bait::{OptionExt, ResultExt};
+    use anyhow::{Context, Result, bail};
     use std::{
         fs::OpenOptions,
         io::{Read, Write},

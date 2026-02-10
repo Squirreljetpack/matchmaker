@@ -1,6 +1,5 @@
 use std::{
     fmt::{self, Debug, Display},
-    mem::discriminant,
     str::FromStr,
 };
 
@@ -11,9 +10,8 @@ use crate::{MAX_ACTIONS, SSS, utils::serde::StringOrVec};
 /// Bindable actions
 /// # Additional
 /// See [crate::render::render_loop] for the source code definitions.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Action<A: ActionExt = NullActionExt> {
-    #[default] // used to satisfy enumstring
     /// Add item to selections
     Select,
     /// Remove item from selections
@@ -24,123 +22,115 @@ pub enum Action<A: ActionExt = NullActionExt> {
     CycleAll,
     /// Clear all selections
     ClearSelections,
+    /// Accept current selection
     Accept,
-    // Returns MatchError::Abort
+    /// Quit with code
     Quit(i32),
 
     // UI
+    /// Cycle preview layouts
     CyclePreview,
-    Preview(String),           // if match: hide, else match
-    Help(String),              // content is shown in preview, empty for default help display
-    SetPreview(Option<u8>),    // n => set layout, None => restore current layout cmd
-    SwitchPreview(Option<u8>), // n => set layout + layout_cmd, None => just toggle visibility
-
+    /// Show/hide preview for selection
+    Preview(String),
+    /// Show help in preview
+    Help(String),
+    /// Set preview layout;
+    /// None restores the command of the current layout.
+    SetPreview(Option<u8>),
+    /// Switch or toggle preview;
+    SwitchPreview(Option<u8>),
+    /// Toggle wrap in main view
     ToggleWrap,
+    /// Toggle wrap in preview
     ToggleWrapPreview,
 
-    // Programmable
-    /// Pauses the tui display and the event loop, and invokes the handler for [`crate::message::Interrupt::Execute`]
-    /// The remaining actions in the buffer are still processed
-    Execute(String),
-    /// Exits the tui and invokes the handler for [`crate::message::Interrupt::Become`]
-    Become(String),
-    /// Restarts the matcher-worker and invokes the handler for [`crate::message::Interrupt::Reload`]
-    Reload(String),
-
-    /// Invokes the handler for [`crate::message::Interrupt::Print`]
-    /// See also: [`crate::Matchmaker::register_print_handler`]
-    Print(String),
-
+    // Set
+    /// Set input query
     SetInput(String),
+    /// Set header
     SetHeader(Option<String>),
+    /// Set footer
     SetFooter(Option<String>),
+    /// Set prompt
     SetPrompt(Option<String>),
+
+    // Columns
+    /// Set column
     Column(usize),
+    /// Cycle columns
     CycleColumn,
 
+    // Programmable
+    /// Execute command and continue
+    Execute(String),
+    /// Exit and become
+    Become(String),
+    /// Reload matcher/worker
+    Reload(String),
+    /// Print via handler
+    Print(String),
+
     // Unimplemented
+    /// History up (TODO)
     HistoryUp,
+    /// History down (TODO)
     HistoryDown,
+    /// Change prompt (TODO)
     ChangePrompt,
+    /// Change query (TODO)
     ChangeQuery,
 
-    // Edit
+    // Edit (Input)
+    /// Move cursor forward char
     ForwardChar,
+    /// Move cursor backward char
     BackwardChar,
+    /// Move cursor forward word
     ForwardWord,
+    /// Move cursor backward word
     BackwardWord,
+    /// Delete char
     DeleteChar,
+    /// Delete word
     DeleteWord,
+    /// Delete to start of line
     DeleteLineStart,
+    /// Delete to end of line
     DeleteLineEnd,
-    Cancel, // clear input
-    // set input cursor position
+    /// Clear input
+    Cancel,
+    /// Set input cursor pos
     InputPos(i32),
 
     // Navigation
+    /// Move selection index up
     Up(u16),
+    /// Move selection index down
     Down(u16),
+    /// Scroll preview up
     PreviewUp(u16),
+    /// Scroll preview down
     PreviewDown(u16),
+    /// Scroll preview half page up
     PreviewHalfPageUp,
+    /// Scroll preview half page down
     PreviewHalfPageDown,
+    /// Jump to absolute position
     Pos(i32),
 
     // Other/Experimental/Debugging
+    /// Insert char into input
     Input(char),
+    /// Force redraw
     Redraw,
+    /// Custom action
     Custom(A),
+    /// Activate the nth overlay
     Overlay(usize),
 }
 
-impl<A: ActionExt> serde::Serialize for Action<A> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(&self.to_string())
-    }
-}
+// --------------- MACROS ---------------
 
-impl<A: ActionExt> PartialEq for Action<A> {
-    fn eq(&self, other: &Self) -> bool {
-        discriminant(self) == discriminant(other)
-    }
-}
-impl<A: ActionExt> Eq for Action<A> {}
-
-// --------- ACTION_EXT ------------------
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct NullActionExt {}
-
-impl ActionExt for NullActionExt {}
-
-impl fmt::Display for NullActionExt {
-    fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Ok(())
-    }
-}
-
-impl std::str::FromStr for NullActionExt {
-    type Err = ();
-
-    fn from_str(_: &str) -> Result<Self, Self::Err> {
-        Err(())
-    }
-}
-
-impl<T> From<T> for Action<T>
-where
-    T: ActionExt,
-{
-    fn from(value: T) -> Self {
-        Self::Custom(value)
-    }
-}
-
-pub trait ActionExt: Debug + Clone + FromStr + Display + PartialEq + SSS {}
-
-pub use arrayvec::ArrayVec;
 /// # Example
 /// ```rust
 ///     use matchmaker::{action::{Action, Actions, acs}, render::MMState};
@@ -188,14 +178,42 @@ macro_rules! bindmap {
         map
     }};
 } // btw, Can't figure out if its possible to support optional meta over inserts
-// ----------- ACTIONS ---------------
-#[derive(Debug, Clone, PartialEq)]
-pub struct Actions<A: ActionExt = NullActionExt>(pub ArrayVec<Action<A>, MAX_ACTIONS>);
-impl<A: ActionExt> Default for Actions<A> {
-    fn default() -> Self {
-        Self(ArrayVec::new())
+
+// --------------- ACTION_EXT ---------------
+pub trait ActionExt: Debug + Clone + FromStr + Display + PartialEq + SSS {}
+
+impl<T> From<T> for Action<T>
+where
+    T: ActionExt,
+{
+    fn from(value: T) -> Self {
+        Self::Custom(value)
     }
 }
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct NullActionExt {}
+
+impl ActionExt for NullActionExt {}
+
+impl fmt::Display for NullActionExt {
+    fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Ok(())
+    }
+}
+
+impl std::str::FromStr for NullActionExt {
+    type Err = ();
+
+    fn from_str(_: &str) -> Result<Self, Self::Err> {
+        Err(())
+    }
+}
+
+// --------------- ACTIONS ---------------
+pub use arrayvec::ArrayVec;
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct Actions<A: ActionExt = NullActionExt>(ArrayVec<Action<A>, MAX_ACTIONS>);
 
 macro_rules! repeat_impl {
     ($($len:expr),*) => {
@@ -234,6 +252,15 @@ impl<A: ActionExt> From<A> for Actions<A> {
 }
 
 // ---------- SERDE ----------------
+
+impl<A: ActionExt> serde::Serialize for Action<A> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
 
 impl<'de, A: ActionExt> Deserialize<'de> for Actions<A> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -278,51 +305,51 @@ impl<A: ActionExt> Serialize for Actions<A> {
 }
 
 // ----- action serde
-impl_display_and_from_str_enum!(
+enum_from_str_display!(
+    units:
     Select, Deselect, Toggle, CycleAll, ClearSelections, Accept, CyclePreview, CycleColumn,
     PreviewHalfPageUp, PreviewHalfPageDown, HistoryUp, HistoryDown,
     ChangePrompt, ChangeQuery, ToggleWrap, ToggleWrapPreview, ForwardChar,
     BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord,
     DeleteLineStart, DeleteLineEnd, Cancel, Redraw;
-    // tuple variants
+
+    tuples:
     Execute, Become, Reload, Preview, SetInput, Column, Pos, InputPos;
-    // tuple with default
+
+    defaults:
     (Up, 1), (Down, 1), (PreviewUp, 1), (PreviewDown, 1), (Quit, 1), (Overlay, 0), (Print, String::new()), (Help, String::new());
-    // tuple with option
+
+    options:
     SwitchPreview, SetPreview, SetPrompt, SetHeader, SetFooter
 );
 
-macro_rules! impl_display_and_from_str_enum {
+macro_rules! enum_from_str_display {
     (
-        $($unit:ident),*;
-        $($tuple:ident),*;
-        $(($tuple_default:ident, $tuple_default_value:expr)),*;
-        $($tuple_option:ident),*
+        units: $($unit:ident),*;
+        tuples: $($tuple:ident),*;
+        defaults: $(($default:ident, $default_value:expr)),*;
+        options: $($optional:ident),*
     ) => {
         impl<A: ActionExt> std::fmt::Display for Action<A> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 match self {
-                    // Unit variants
                     $( Self::$unit => write!(f, stringify!($unit)), )*
 
-                    // Tuple variants (always show inner)
                     $( Self::$tuple(inner) => write!(f, concat!(stringify!($tuple), "({})"), inner), )*
 
-                    // Tuple variants with generic default fallback
-                    $( Self::$tuple_default(inner) => {
-                        if *inner == $tuple_default_value {
-                            write!(f, stringify!($tuple_default))
+                    $( Self::$default(inner) => {
+                        if *inner == $default_value {
+                            write!(f, stringify!($default))
                         } else {
-                            write!(f, concat!(stringify!($tuple_default), "({})"), inner)
+                            write!(f, concat!(stringify!($default), "({})"), inner)
                         }
                     }, )*
 
-                    // Tuple variants with Option<T>
-                    $( Self::$tuple_option(opt) => {
+                    $( Self::$optional(opt) => {
                         if let Some(inner) = opt {
-                            write!(f, concat!(stringify!($tuple_option), "({})"), inner)
+                            write!(f, concat!(stringify!($optional), "({})"), inner)
                         } else {
-                            write!(f, stringify!($tuple_option))
+                            write!(f, stringify!($optional))
                         }
                     }, )*
 
@@ -371,23 +398,23 @@ macro_rules! impl_display_and_from_str_enum {
                         Ok(Self::$tuple(d))
                     }, )*
 
-                    $( stringify!($tuple_default) => {
+                    $( stringify!($default) => {
                         let d = match data {
                             Some(val) => val.parse()
-                            .map_err(|_| format!("Invalid data for {}", stringify!($tuple_default)))?,
-                            None => $tuple_default_value,
+                            .map_err(|_| format!("Invalid data for {}", stringify!($default)))?,
+                            None => $default_value,
                         };
-                        Ok(Self::$tuple_default(d))
+                        Ok(Self::$default(d))
                     }, )*
 
-                    $( stringify!($tuple_option) => {
+                    $( stringify!($optional) => {
                         let d = match data {
                             Some(val) if !val.is_empty() => {
-                                Some(val.parse().map_err(|_| format!("Invalid data for {}", stringify!($tuple_option)))?)
+                                Some(val.parse().map_err(|_| format!("Invalid data for {}", stringify!($optional)))?)
                             }
                             _ => None,
                         };
-                        Ok(Self::$tuple_option(d))
+                        Ok(Self::$optional(d))
                     }, )*
 
                     _ => Err(format!("Unknown variant {}", s))
@@ -396,7 +423,7 @@ macro_rules! impl_display_and_from_str_enum {
         }
     };
 }
-use impl_display_and_from_str_enum;
+use enum_from_str_display;
 
 impl<A: ActionExt> IntoIterator for Actions<A> {
     type Item = Action<A>;

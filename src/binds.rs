@@ -1,4 +1,9 @@
-use std::{cmp::Ordering, collections::BTreeMap, fmt, str::FromStr};
+use std::{
+    cmp::Ordering,
+    collections::BTreeMap,
+    fmt::{self, Display},
+    str::FromStr,
+};
 
 use serde::{
     Deserializer, Serialize,
@@ -239,7 +244,7 @@ impl<'de> serde::Deserialize<'de> for Trigger {
 
 #[derive(Serialize)]
 #[serde(bound(serialize = "",))]
-struct BindFmtWrapper<'a, A: ActionExt> {
+struct BindFmtWrapper<'a, A: ActionExt + Display> {
     binds: &'a BindMap<A>,
 }
 use ratatui::style::Style;
@@ -247,7 +252,7 @@ use ratatui::text::{Line, Span, Text};
 use regex::Regex;
 
 // random ai toml coloring cuz i dont wanna use bat just for this
-pub fn display_binds<A: ActionExt>(
+pub fn display_binds<A: ActionExt + Display>(
     binds: &BindMap<A>,
     cfg: Option<&TomlColorConfig>,
 ) -> Text<'static> {

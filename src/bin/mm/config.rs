@@ -6,12 +6,16 @@ use matchmaker::config::{MatcherConfig, PreviewerConfig, RenderConfig, TerminalC
 
 use crate::clap::Cli;
 
+trait ActionExt_: ActionExt + std::fmt::Display + std::str::FromStr {}
+impl<T: ActionExt + std::fmt::Display + std::str::FromStr> ActionExt_ for T {}
+
+#[allow(private_bounds)] // serde bound workaround
 /// Full config.
 /// Clients probably want to make their own type with RenderConfig + custom settings to instantiate their matchmaker.
 /// Used by the instantiation method [`crate::Matchmaker::new_from_config`]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, bound(serialize = "", deserialize = "",))]
-pub struct Config<A: ActionExt = NullActionExt> {
+pub struct Config<A: ActionExt_ = NullActionExt> {
     // Default bound on A, see https://github.com/serde-rs/serde/issues/1541
     // configure the ui
     #[serde(default, flatten)]

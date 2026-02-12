@@ -293,7 +293,7 @@ pub struct ResultsConfig {
     pub right_align_last: bool,
 }
 define_transparent_wrapper!(
-    #[derive(Copy)]
+    #[derive(Copy, Clone)]
     Count: u16 = 1
 );
 

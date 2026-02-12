@@ -159,11 +159,16 @@ pub use crate::acs;
 
 /// # Example
 /// ```rust
-///     use matchmaker::{binds::{BindMap, bindmap, key}, action::Action};
-///     let default_config: BindMap = bindmap!(
-///        key!(alt-enter) => Action::Print("".into())
-///        // custom actions can be specified directly: key!(ctrl-c) => FsAction::Enter
-///    );
+/// #[derive(Debug, Clone, PartialEq)]
+/// pub enum FsAction {
+///    Filters
+/// }
+///
+/// use matchmaker::{binds::{BindMap, bindmap, key}, action::Action};
+/// let default_config: BindMap<FsAction> = bindmap!(
+///    key!(alt-enter) => Action::Print("".into()),
+///    key!(alt-f), key!(ctrl-shift-f) => FsAction::Filters, // custom actions can be specified directly
+/// );
 /// ```
 #[macro_export]
 macro_rules! bindmap {
@@ -180,7 +185,9 @@ macro_rules! bindmap {
 } // btw, Can't figure out if its possible to support optional meta over inserts
 
 // --------------- ACTION_EXT ---------------
-pub trait ActionExt: Debug + Clone + FromStr + Display + PartialEq + SSS {}
+
+pub trait ActionExt: Debug + Clone + PartialEq + SSS {}
+impl<T: Debug + Clone + PartialEq + SSS> ActionExt for T {}
 
 impl<T> From<T> for Action<T>
 where
@@ -192,8 +199,6 @@ where
 }
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct NullActionExt {}
-
-impl ActionExt for NullActionExt {}
 
 impl fmt::Display for NullActionExt {
     fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -253,7 +258,7 @@ impl<A: ActionExt> From<A> for Actions<A> {
 
 // ---------- SERDE ----------------
 
-impl<A: ActionExt> serde::Serialize for Action<A> {
+impl<A: ActionExt + Display> serde::Serialize for Action<A> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -262,7 +267,7 @@ impl<A: ActionExt> serde::Serialize for Action<A> {
     }
 }
 
-impl<'de, A: ActionExt> Deserialize<'de> for Actions<A> {
+impl<'de, A: ActionExt + FromStr> Deserialize<'de> for Actions<A> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -289,7 +294,7 @@ impl<'de, A: ActionExt> Deserialize<'de> for Actions<A> {
     }
 }
 
-impl<A: ActionExt> Serialize for Actions<A> {
+impl<A: ActionExt + Display> Serialize for Actions<A> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -330,7 +335,7 @@ macro_rules! enum_from_str_display {
         defaults: $(($default:ident, $default_value:expr)),*;
         options: $($optional:ident),*
     ) => {
-        impl<A: ActionExt> std::fmt::Display for Action<A> {
+        impl<A: ActionExt + Display> std::fmt::Display for Action<A> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 match self {
                     $( Self::$unit => write!(f, stringify!($unit)), )*
@@ -363,7 +368,7 @@ macro_rules! enum_from_str_display {
             }
         }
 
-        impl<A: ActionExt>  std::str::FromStr for Action<A> {
+        impl<A: ActionExt + FromStr> std::str::FromStr for Action<A> {
             type Err = String;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {

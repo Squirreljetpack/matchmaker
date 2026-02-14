@@ -245,7 +245,7 @@ fn inject_line(
                             .iter()
                             .flat_map(|seg| {
                                 // Get the i-th segment
-                                let s = seg.get(i);
+                                let s = seg.get_str(i);
                                 s.as_bytes().into_text().ok().map(|t| t.lines)
                             })
                             .flatten();

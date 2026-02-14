@@ -18,7 +18,7 @@ pub use ratatui::{
 use crate::{
     SSS, Selection, Selector,
     config::{
-        DisplayConfig, InputConfig, PreviewLayoutSetting, RenderConfig, ResultsConfig,
+        DisplayConfig, InputConfig, PreviewLayout, RenderConfig, ResultsConfig,
         TerminalLayoutSettings, UiConfig,
     },
     nucleo::Worker,
@@ -178,7 +178,7 @@ impl<'a, T: SSS, O: Selection> PickerUI<'a, T, O> {
     }
 }
 
-impl PreviewLayoutSetting {
+impl PreviewLayout {
     pub fn split(&self, area: Rect) -> [Rect; 2] {
         use crate::config::Side;
         use ratatui::layout::{Constraint, Direction, Layout};

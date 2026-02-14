@@ -5,7 +5,7 @@ use ratatui::{
 };
 
 use crate::{
-    config::{PreviewConfig, PreviewLayoutSetting},
+    config::{PreviewConfig, PreviewLayout},
     preview::Preview,
 };
 
@@ -41,7 +41,7 @@ impl PreviewUI {
 
     // -------- Layout -----------
     // None if not show
-    pub fn layout(&self) -> Option<&PreviewLayoutSetting> {
+    pub fn layout(&self) -> Option<&PreviewLayout> {
         if !self.config.show || self.config.layout.is_empty() {
             None
         } else {

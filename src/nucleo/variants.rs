@@ -118,11 +118,11 @@ impl<T: Render + SSS> Worker<T> {
 
 /// You must either impl as_str or as_text
 pub trait ColumnIndexable {
-    fn get(&self, i: usize) -> std::borrow::Cow<'_, str> {
-        plain_text(&self.as_text(i)).into()
+    fn get_str(&self, i: usize) -> std::borrow::Cow<'_, str> {
+        plain_text(&self.get_text(i)).into()
     }
-    fn as_text(&self, i: usize) -> Text<'_> {
-        Text::from(self.get(i))
+    fn get_text(&self, i: usize) -> Text<'_> {
+        Text::from(self.get_str(i))
     }
 }
 
@@ -144,7 +144,7 @@ where
     /// use matchmaker::nucleo::{Indexed, Worker, ColumnIndexable};
     ///
     /// impl ColumnIndexable for RunAction {
-    ///     fn as_str(&self, i: usize) -> std::borrow::Cow<'_, str> {
+    ///     fn get_str(&self, i: usize) -> std::borrow::Cow<'_, str> {
     ///         if i == 0 {
     ///             &self.name
     ///         } else if i == 1 {
@@ -172,7 +172,7 @@ where
         let columns = column_names.into_iter().enumerate().map(|(i, name)| {
             let name = name.into();
 
-            Column::new(name, move |item: &T| item.as_text(i))
+            Column::new(name, move |item: &T| item.get_text(i))
         });
 
         Self::new(columns, 0)

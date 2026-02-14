@@ -7,11 +7,14 @@ pub use crate::utils::{Percentage, serde::StringOrVec};
 use crate::{
     MAX_SPLITS, Result,
     tui::IoStream,
-    utils::serde::{escaped_opt_char, escaped_opt_string, modifier, serde_duration_ms},
+    utils::serde::{escaped_opt_char, escaped_opt_string, serde_duration_ms},
 };
 pub use cli_boilerplate_automation::bother::types::When;
-
 use cli_boilerplate_automation::define_transparent_wrapper;
+use cli_boilerplate_automation::serde::{
+    one_or_many, through_string, transform::camelcase_normalized,
+    transform::camelcase_normalized_option,
+};
 use ratatui::{
     style::{Color, Modifier, Style},
     text::Span,
@@ -171,12 +174,14 @@ pub struct InputConfig {
     pub border: BorderSetting,
 
     // text styles
+    #[serde(deserialize_with = "camelcase_normalized")]
     pub fg: Color,
-    #[serde(with = "modifier")]
+    // #[serde(deserialize_with = "transform_uppercase")]
     pub modifier: Modifier,
 
+    #[serde(deserialize_with = "camelcase_normalized")]
     pub prompt_fg: Color,
-    #[serde(with = "modifier")]
+    // #[serde(deserialize_with = "transform_uppercase")]
     pub prompt_modifier: Modifier,
 
     #[serde(deserialize_with = "deserialize_string_or_char_as_double_width")]
@@ -249,27 +254,33 @@ pub struct ResultsConfig {
     pub default_prefix: String,
 
     // text styles
+    #[serde(deserialize_with = "camelcase_normalized")]
     pub fg: Color,
-    #[serde(with = "modifier")]
+    // #[serde(deserialize_with = "transform_uppercase")]
     pub modifier: Modifier,
 
+    #[serde(deserialize_with = "camelcase_normalized")]
     pub match_fg: Color,
-    #[serde(with = "modifier")]
+    // #[serde(deserialize_with = "transform_uppercase")]
     pub match_modifier: Modifier,
 
     /// foreground of the current item.
+    #[serde(deserialize_with = "camelcase_normalized")]
     pub current_fg: Color,
     /// background of the current item.
+    #[serde(deserialize_with = "camelcase_normalized")]
     pub current_bg: Color,
-    #[serde(with = "modifier")]
     /// modifier of the current item.
+    // #[serde(deserialize_with = "transform_uppercase")]
     pub current_modifier: Modifier,
     /// How the current_* styles are applied across the row.
+    #[serde(deserialize_with = "camelcase_normalized")]
     pub row_connection_style: RowConnectionStyle,
 
     // status
+    #[serde(deserialize_with = "camelcase_normalized")]
     pub status_fg: Color,
-    #[serde(with = "modifier")]
+    // #[serde(deserialize_with = "transform_uppercase")]
     pub status_modifier: Modifier,
     pub status_show: bool,
 
@@ -338,8 +349,9 @@ impl Default for ResultsConfig {
 pub struct DisplayConfig {
     pub border: BorderSetting,
 
+    #[serde(deserialize_with = "camelcase_normalized")]
     pub fg: Color,
-    #[serde(with = "modifier")]
+    // #[serde(deserialize_with = "transform_uppercase")]
     pub modifier: Modifier,
 
     pub match_indent: bool,
@@ -356,6 +368,7 @@ pub struct DisplayConfig {
     ///
     /// # Note
     /// The width effect only applies on the footer, and when the content is singular.
+    #[serde(deserialize_with = "camelcase_normalized")]
     pub row_connection_style: RowConnectionStyle,
 
     /// This setting controls how many lines are read from the input for display with the header.
@@ -382,12 +395,12 @@ impl Default for DisplayConfig {
 
 /// # Example
 /// ```rust
-/// use matchmaker::config::{PreviewConfig, PreviewSetting, PreviewLayoutSetting};
+/// use matchmaker::config::{PreviewConfig, PreviewSetting, PreviewLayout};
 ///
 /// let _ = PreviewConfig {
 ///     layout: vec![
 ///         PreviewSetting {
-///             layout: PreviewLayoutSetting::default(),
+///             layout: PreviewLayout::default(),
 ///             command: String::new()
 ///         }
 ///     ],
@@ -399,6 +412,7 @@ impl Default for DisplayConfig {
 pub struct PreviewConfig {
     pub border: BorderSetting,
 
+    #[serde(with = "one_or_many")]
     pub layout: Vec<PreviewSetting>,
     pub scroll_wrap: bool,
     pub wrap: bool,
@@ -434,9 +448,13 @@ pub struct PreviewerConfig {
 /// Help coloring
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TomlColorConfig {
+    #[serde(deserialize_with = "camelcase_normalized")]
     pub section: Color,
+    #[serde(deserialize_with = "camelcase_normalized")]
     pub key: Color,
+    #[serde(deserialize_with = "camelcase_normalized")]
     pub string: Color,
+    #[serde(deserialize_with = "camelcase_normalized")]
     pub number: Color,
     pub section_bold: bool,
 }
@@ -471,22 +489,29 @@ impl Deref for FormatString {
 #[derive(Default, Debug, Clone, PartialEq, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct BorderSetting {
-    #[serde(with = "crate::utils::serde::fromstr")]
+    #[serde(with = "through_string")]
     pub r#type: BorderType,
+    #[serde(deserialize_with = "camelcase_normalized")]
     pub color: Color,
-    #[serde(
-        serialize_with = "serialize_borders",
-        deserialize_with = "deserialize_borders"
-    )]
+    /// Supply as sides joined by `|`. i.e.:
+    /// `sides = "TOP | BOTTOM"``
+    ///
+    /// An empty string enforces no sides:
+    /// `sides = ""`
     pub sides: Borders,
-    #[serde(
-        serialize_with = "serialize_padding",
-        deserialize_with = "deserialize_padding"
-    )]
+    /// Supply as either 1, 2, or 4 numbers for:
+    ///
+    /// - Same padding on all sides
+    /// - Vertical and horizontal padding values
+    /// - Top, Right, Bottom, Left padding values
+    ///
+    /// respectively.
+    #[serde(with = "padding")]
     pub padding: Padding,
     pub title: String,
-    #[serde(with = "modifier")]
+    // #[serde(deserialize_with = "transform_uppercase")]
     pub title_modifier: Modifier,
+    #[serde(deserialize_with = "camelcase_normalized")]
     pub bg: Color,
 }
 
@@ -605,20 +630,20 @@ pub enum Side {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PreviewSetting {
     #[serde(flatten)]
-    pub layout: PreviewLayoutSetting,
+    pub layout: PreviewLayout,
     #[serde(default)]
     pub command: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct PreviewLayoutSetting {
+pub struct PreviewLayout {
     pub side: Side,
     pub percentage: Percentage,
     pub min: i16,
     pub max: i16,
 }
 
-impl Default for PreviewLayoutSetting {
+impl Default for PreviewLayout {
     fn default() -> Self {
         Self {
             side: Side::Right,
@@ -707,87 +732,6 @@ where
         seq.serialize_element("right")?;
     }
     seq.end()
-}
-
-pub fn deserialize_borders<'de, D>(deserializer: D) -> Result<Borders, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let input = StringOrVec::deserialize(deserializer)?;
-    let mut borders = Borders::NONE;
-
-    let borders = match input {
-        StringOrVec::String(s) => match s.as_str() {
-            "none" => Borders::NONE,
-            "all" => Borders::ALL,
-            other => {
-                return Err(de::Error::custom(format!(
-                    "invalid border value '{}'",
-                    other
-                )));
-            }
-        },
-        StringOrVec::Vec(list) => {
-            for item in list {
-                match item.as_str() {
-                    "top" => borders |= Borders::TOP,
-                    "bottom" => borders |= Borders::BOTTOM,
-                    "left" => borders |= Borders::LEFT,
-                    "right" => borders |= Borders::RIGHT,
-                    "all" => borders |= Borders::ALL,
-                    "none" => borders = Borders::NONE,
-                    other => return Err(de::Error::custom(format!("invalid side '{}'", other))),
-                }
-            }
-            borders
-        }
-    };
-
-    Ok(borders)
-}
-
-pub fn deserialize_borders_option<'de, D>(deserializer: D) -> Result<Option<Borders>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let input = Option::<StringOrVec>::deserialize(deserializer)?;
-    match input {
-        Some(input) => {
-            let mut borders = Borders::NONE;
-
-            let borders = match input {
-                StringOrVec::String(s) => match s.as_str() {
-                    "none" => Borders::NONE,
-                    "all" => Borders::ALL,
-                    other => {
-                        return Err(de::Error::custom(format!(
-                            "invalid border value '{}'",
-                            other
-                        )));
-                    }
-                },
-                StringOrVec::Vec(list) => {
-                    for item in list {
-                        match item.as_str() {
-                            "top" => borders |= Borders::TOP,
-                            "bottom" => borders |= Borders::BOTTOM,
-                            "left" => borders |= Borders::LEFT,
-                            "right" => borders |= Borders::RIGHT,
-                            "all" => borders |= Borders::ALL,
-                            "none" => borders = Borders::NONE,
-                            other => {
-                                return Err(de::Error::custom(format!("invalid side '{}'", other)));
-                            }
-                        }
-                    }
-                    borders
-                }
-            };
-
-            Ok(Some(borders))
-        }
-        None => Ok(None),
-    }
 }
 
 pub fn deserialize_string_or_char_as_double_width<'de, D, T>(deserializer: D) -> Result<T, D::Error>
@@ -1008,112 +952,118 @@ impl<'de> Deserialize<'de> for ColumnSetting {
     }
 }
 
-pub fn serialize_padding<S>(padding: &Padding, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    use serde::ser::SerializeSeq;
-    if padding.top == padding.bottom && padding.left == padding.right && padding.top == padding.left
+mod padding {
+    use super::*;
+
+    pub fn serialize<S>(padding: &Padding, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
     {
-        serializer.serialize_u16(padding.top)
-    } else if padding.top == padding.bottom && padding.left == padding.right {
-        let mut seq = serializer.serialize_seq(Some(2))?;
-        seq.serialize_element(&padding.left)?;
-        seq.serialize_element(&padding.top)?;
-        seq.end()
-    } else {
-        let mut seq = serializer.serialize_seq(Some(4))?;
-        seq.serialize_element(&padding.top)?;
-        seq.serialize_element(&padding.right)?;
-        seq.serialize_element(&padding.bottom)?;
-        seq.serialize_element(&padding.left)?;
-        seq.end()
+        use serde::ser::SerializeSeq;
+        if padding.top == padding.bottom
+            && padding.left == padding.right
+            && padding.top == padding.left
+        {
+            serializer.serialize_u16(padding.top)
+        } else if padding.top == padding.bottom && padding.left == padding.right {
+            let mut seq = serializer.serialize_seq(Some(2))?;
+            seq.serialize_element(&padding.left)?;
+            seq.serialize_element(&padding.top)?;
+            seq.end()
+        } else {
+            let mut seq = serializer.serialize_seq(Some(4))?;
+            seq.serialize_element(&padding.top)?;
+            seq.serialize_element(&padding.right)?;
+            seq.serialize_element(&padding.bottom)?;
+            seq.serialize_element(&padding.left)?;
+            seq.end()
+        }
     }
-}
 
-pub fn deserialize_padding<'de, D>(deserializer: D) -> Result<Padding, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    struct PaddingVisitor;
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Padding, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct PaddingVisitor;
 
-    impl<'de> Visitor<'de> for PaddingVisitor {
-        type Value = Padding;
+        impl<'de> Visitor<'de> for PaddingVisitor {
+            type Value = Padding;
 
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("a number or an array of 1, 2, or 4 numbers")
-        }
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a number or an array of 1, 2, or 4 numbers")
+            }
 
-        fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            let v = u16::try_from(value).map_err(|_| {
-                E::custom(format!("padding value {} is out of range for u16", value))
-            })?;
+            fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                let v = u16::try_from(value).map_err(|_| {
+                    E::custom(format!("padding value {} is out of range for u16", value))
+                })?;
 
-            Ok(Padding {
-                top: v,
-                right: v,
-                bottom: v,
-                left: v,
-            })
-        }
+                Ok(Padding {
+                    top: v,
+                    right: v,
+                    bottom: v,
+                    left: v,
+                })
+            }
 
-        fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            let v = u16::try_from(value).map_err(|_| {
-                E::custom(format!("padding value {} is out of range for u16", value))
-            })?;
+            fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                let v = u16::try_from(value).map_err(|_| {
+                    E::custom(format!("padding value {} is out of range for u16", value))
+                })?;
 
-            Ok(Padding {
-                top: v,
-                right: v,
-                bottom: v,
-                left: v,
-            })
-        }
+                Ok(Padding {
+                    top: v,
+                    right: v,
+                    bottom: v,
+                    left: v,
+                })
+            }
 
-        // 3. Handle Sequences (Arrays)
-        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-        where
-            A: de::SeqAccess<'de>,
-        {
-            let first: u16 = seq
-                .next_element()?
-                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+            // 3. Handle Sequences (Arrays)
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: de::SeqAccess<'de>,
+            {
+                let first: u16 = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
 
-            let second: Option<u16> = seq.next_element()?;
-            let third: Option<u16> = seq.next_element()?;
-            let fourth: Option<u16> = seq.next_element()?;
+                let second: Option<u16> = seq.next_element()?;
+                let third: Option<u16> = seq.next_element()?;
+                let fourth: Option<u16> = seq.next_element()?;
 
-            match (second, third, fourth) {
-                (None, None, None) => Ok(Padding {
-                    top: first,
-                    right: first,
-                    bottom: first,
-                    left: first,
-                }),
-                (Some(v2), None, None) => Ok(Padding {
-                    top: first,
-                    bottom: first,
-                    left: v2,
-                    right: v2,
-                }),
-                (Some(v2), Some(v3), Some(v4)) => Ok(Padding {
-                    top: first,
-                    right: v2,
-                    bottom: v3,
-                    left: v4,
-                }),
-                _ => Err(de::Error::invalid_length(3, &self)),
+                match (second, third, fourth) {
+                    (None, None, None) => Ok(Padding {
+                        top: first,
+                        right: first,
+                        bottom: first,
+                        left: first,
+                    }),
+                    (Some(v2), None, None) => Ok(Padding {
+                        top: first,
+                        bottom: first,
+                        left: v2,
+                        right: v2,
+                    }),
+                    (Some(v2), Some(v3), Some(v4)) => Ok(Padding {
+                        top: first,
+                        right: v2,
+                        bottom: v3,
+                        left: v4,
+                    }),
+                    _ => Err(de::Error::invalid_length(3, &self)),
+                }
             }
         }
-    }
 
-    deserializer.deserialize_any(PaddingVisitor)
+        deserializer.deserialize_any(PaddingVisitor)
+    }
 }
 
 pub fn deserialize_option_auto<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
@@ -1139,16 +1089,19 @@ impl<'de> Deserialize<'de> for BorderSetting {
             #[serde(default)]
             r#type: Option<String>,
             #[serde(default)]
+            #[serde(deserialize_with = "camelcase_normalized_option")]
             color: Option<Color>,
-            #[serde(default, deserialize_with = "deserialize_borders_option")]
-            sides: Option<Borders>, // <-- raw string first
-            #[serde(default, deserialize_with = "deserialize_padding")]
+            // #[serde(deserialize_with = "transform_uppercase_option")]
+            sides: Option<Borders>,
+            #[serde(default, with = "padding")]
             padding: Padding,
             #[serde(default)]
             title: String,
-            #[serde(default, with = "modifier")]
+            #[serde(default)]
+            // #[serde(deserialize_with = "transform_uppercase")]
             title_modifier: Modifier,
             #[serde(default)]
+            #[serde(deserialize_with = "camelcase_normalized")]
             bg: Color,
         }
 

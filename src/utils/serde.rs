@@ -4,30 +4,6 @@ use serde::{Deserialize, Deserializer, Serialize, de};
 
 use crate::utils::text::parse_escapes;
 
-pub mod fromstr {
-    use serde::{Deserialize, Deserializer, Serializer, de};
-    use std::fmt::Display;
-    use std::str::FromStr;
-
-    pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        T: Display,
-        S: Serializer,
-    {
-        serializer.serialize_str(&value.to_string())
-    }
-
-    pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
-    where
-        T: FromStr,
-        T::Err: Display,
-        D: Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        T::from_str(&s).map_err(de::Error::custom)
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum StringOrVec {
@@ -50,7 +26,6 @@ where
         Ok(MAX)
     } else {
         Ok(v)
-        // return Err(serde::de::Error::custom(format!"{} exceeds the maximum of {MAX}"));
     }
 }
 
@@ -106,99 +81,6 @@ pub mod serde_duration_ms {
     }
 }
 
-pub mod modifier {
-    use ratatui::style::Modifier;
-
-    use serde::{
-        Deserialize, Deserializer, Serialize, Serializer,
-        de::{self},
-    };
-
-    use crate::utils::serde::StringOrVec;
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Modifier, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let input = StringOrVec::deserialize(deserializer)?;
-        let mut modifier = Modifier::empty();
-
-        let add_modifier = |name: &str, m: &mut Modifier| -> Result<(), D::Error> {
-            match name.to_lowercase().as_str() {
-                "bold" => {
-                    *m |= Modifier::BOLD;
-                    Ok(())
-                }
-                "italic" => {
-                    *m |= Modifier::ITALIC;
-                    Ok(())
-                }
-                "underlined" => {
-                    *m |= Modifier::UNDERLINED;
-                    Ok(())
-                }
-                // "slow_blink" => {
-                //     *m |= Modifier::SLOW_BLINK;
-                //     Ok(())
-                // }
-                // "rapid_blink" => {
-                //     *m |= Modifier::RAPID_BLINK;
-                //     Ok(())
-                // }
-                // "reversed" => {
-                //     *m |= Modifier::REVERSED;
-                //     Ok(())
-                // }
-                // "dim" => {
-                //     *m |= Modifier::DIM;
-                //     Ok(())
-                // }
-                // "crossed_out" => {
-                //     *m |= Modifier::CROSSED_OUT;
-                //     Ok(())
-                // }
-                "none" => {
-                    *m = Modifier::empty();
-                    Ok(())
-                } // reset all modifiers
-                other => Err(de::Error::custom(format!("invalid modifier '{}'", other))),
-            }
-        };
-
-        match input {
-            StringOrVec::String(s) => add_modifier(&s, &mut modifier)?,
-            StringOrVec::Vec(list) => {
-                for item in list {
-                    add_modifier(&item, &mut modifier)?;
-                }
-            }
-        }
-
-        Ok(modifier)
-    }
-
-    pub fn serialize<S>(modifier: &Modifier, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut mods = Vec::new();
-
-        if modifier.contains(Modifier::BOLD) {
-            mods.push("bold");
-        }
-        if modifier.contains(Modifier::ITALIC) {
-            mods.push("italic");
-        }
-        if modifier.contains(Modifier::UNDERLINED) {
-            mods.push("underlined");
-        }
-        // add other flags if needed
-        // if modifier.contains(Modifier::DIM) { mods.push("dim"); }
-
-        match mods.len() {
-            0 => serializer.serialize_str("none"),
-            1 => serializer.serialize_str(mods[0]),
-            _ => mods.serialize(serializer),
-        }
-    }
+pub fn uppercase(s: &str) -> String {
+    s.to_uppercase()
 }

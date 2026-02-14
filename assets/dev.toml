@@ -6,8 +6,7 @@
     max        = 120
 
 [ui]
-    border = { color = "Blue" }
-    # background = "#282828"
+    border = { color = "blue", bg = "#282828" }
     tick_rate = 30
 
 [input]
@@ -23,13 +22,13 @@
 [results]
     scroll_padding = 2
 
-    border           = { type = "Rounded", sides = "none", padding = 0 }
+    border           = { type = "Rounded", sides = "", padding = 0 }
     fg               = "White"
     current_bg       = "Black"
-    current_modifier = "bold"
+    current_modifier = "BOLD"
     match_fg         = "Green"
     status_fg        = "Green"
-    status_modifier  = "italic"
+    status_modifier  = "ITALIC"
     # reverse = auto
     wrap = true
 

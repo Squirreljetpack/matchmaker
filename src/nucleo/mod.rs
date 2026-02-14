@@ -28,7 +28,7 @@ pub struct Segmented<T: SegmentableItem> {
 }
 
 impl<T: SegmentableItem> ColumnIndexable for Segmented<T> {
-    fn get(&self, index: usize) -> Cow<'_, str> {
+    fn get_str(&self, index: usize) -> Cow<'_, str> {
         if let Some((start, end)) = self.ranges.get(index) {
             &self.inner[*start..*end]
         } else {
@@ -84,8 +84,8 @@ impl<T> Indexed<T> {
 }
 
 impl<T: ColumnIndexable> ColumnIndexable for Indexed<T> {
-    fn get(&self, index: usize) -> Cow<'_, str> {
-        self.inner.get(index)
+    fn get_str(&self, index: usize) -> Cow<'_, str> {
+        self.inner.get_str(index)
     }
 }
 

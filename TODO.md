@@ -21,6 +21,7 @@
 - Adaptable percentage (higher on smaller)
 - status template
 - header extraction option in cli
+- case insensitive bitflags deserialization?
 
 # Bugs
 

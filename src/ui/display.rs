@@ -1,5 +1,5 @@
 #![allow(unused)]
-use cli_boilerplate_automation::bait::BoolExt;
+use cli_boilerplate_automation::bait::{BoolExt, TransformExt};
 use log::debug;
 use ratatui::{
     layout::{Constraint, Rect},
@@ -18,9 +18,10 @@ use crate::{
 
 #[derive(Debug)]
 pub struct DisplayUI {
-    height: u16,
     width: u16,
+    height: u16,
     text: Vec<Text<'static>>,
+    text_split_index: usize,
     pub show: bool,
     pub config: DisplayConfig,
 }
@@ -44,22 +45,21 @@ impl DisplayUI {
         Self {
             height,
             width: 0,
-            show: config.content.is_some(),
+            show: config.content.is_some() || config.header_lines > 0,
+            text_split_index: text.len(),
             text,
             config,
         }
     }
 
-    // not update_dimensions to remind that we only want to call this on tui resize, not layout resize
-    // todo: this doesn't update the line contents
     pub fn update_width(&mut self, width: u16) {
         let border_w = self.config.border.width();
         let new_w = width.saturating_sub(border_w);
         if new_w != self.width {
             self.width = new_w;
-            if self.config.wrap && self.text.len() == 1 {
+            if self.config.wrap && self.text_split_index == 1 {
                 let text = wrap_text(self.text.remove(0), self.width).0;
-                self.text.push(text);
+                self.text[0] = text;
             }
         }
     }
@@ -77,38 +77,44 @@ impl DisplayUI {
     /// Set text and visibility. Compute wrapped height.
     pub fn set(&mut self, text: impl Into<Text<'static>>) {
         let (text, _) = wrap_text(text.into(), self.config.wrap as u16 * self.width);
-        self.height = text.height() as u16;
         self.text = vec![text];
+        self.text_split_index = 1;
         self.show = true;
     }
 
     pub fn clear(&mut self) {
         self.show = false;
         self.text.clear();
+        self.text_split_index = 0;
     }
 
     pub fn single(&self) -> bool {
-        self.text.len() == 1
+        self.text_split_index == 1
+    }
+
+    pub fn header_columns(&mut self, columns: Vec<Text<'static>>) {
+        self.text.truncate(self.text_split_index);
+        self.text.extend(columns);
     }
 
     // todo: lowpri: cache texts to not have to always rewrap?
     pub fn make_display(
-        &self,
-        result_indentation: usize,
-        widths: &[u16],
+        &mut self,
+        result_indentation: u16,
+        mut widths: Vec<u16>,
         col_spacing: u16,
     ) -> Table<'_> {
-        if self.text.is_empty() {
+        if self.text.is_empty() || widths.is_empty() {
             return Table::default();
         }
 
         let block = {
             let b = self.config.border.as_block();
-            if self.config.match_indent && self.text.len() == 1 {
+            if self.config.match_indent {
                 let mut padding = self.config.border.padding;
 
-                padding.left =
-                    (result_indentation as u16).saturating_sub(self.config.border.left());
+                padding.left = result_indentation.saturating_sub(self.config.border.left());
+                widths[0] -= result_indentation;
                 b.padding(padding)
             } else {
                 b
@@ -119,49 +125,96 @@ impl DisplayUI {
             .fg(self.config.fg)
             .add_modifier(self.config.modifier);
 
-        if self.text.len() == 1 {
+        let (cells, height) = if self.text_split_index == 1 {
             // Single Cell (Full Width)
-            let row = Row::new(vec![Cell::from(self.text[0].clone())]);
-            Table::new(vec![row], [Constraint::Percentage(100)])
-                .block(block)
-                .style(style)
+            // reflow is handled in update_width
+            let cells = if self.text_split_index < self.text.len() {
+                vec![]
+            } else {
+                vec![Cell::from(self.text[0].clone())]
+            };
+            let height = self.text[0].height() as u16;
+
+            (cells, height)
         } else {
-            let cells = self.text[..widths.len()]
+            let mut height = 0;
+            // todo: for header, instead of reflowing on every render, the widths should be dynamically proportionate to the available width similar to results. Then results should take the max_widths from here instead of computing them.
+            let cells = self.text[..self.text_split_index]
                 .iter()
                 .cloned()
                 .enumerate()
                 .map(|(i, text)| {
                     let mut ret = wrap_text(text, widths[i]).0;
-                    if i == 0 && self.config.match_indent {
-                        prefix_text(
-                            &mut ret,
-                            " ".repeat(
-                                result_indentation
-                                    .saturating_sub(self.config.border.left() as usize),
-                            ),
-                        );
-                    }
+                    height = height.max(ret.height() as u16);
 
-                    matches!(
-                        self.config.row_connection_style,
-                        RowConnectionStyle::Disjoint
-                    )
-                    .then_modify(ret, |r| r.style(style))
-                });
+                    Cell::from(ret.transform_if(
+                        matches!(
+                            self.config.row_connection_style,
+                            RowConnectionStyle::Disjoint
+                        ),
+                        |r| r.style(style),
+                    ))
+                })
+                .collect();
 
-            let row = Row::new(cells);
-            // let mut constraints: Vec<_> = widths.iter().cloned().map(Constraint::Length).collect();
-            // we omit header columns after the last result column, an alternative could be supported when ::Full, something like : constraints.resize(self.text.len(), Constraint::Fill(1));
+            (cells, height)
+        };
 
-            let mut ret = Table::new(vec![row], widths.to_vec())
-                .block(block)
-                .column_spacing(col_spacing);
+        let row = Row::new(cells).style(style).height(height);
+        let mut rows = vec![row];
 
-            (!matches!(
-                self.config.row_connection_style,
-                RowConnectionStyle::Disjoint
-            ))
-            .then_modify(ret, |r| r.style(style))
+        if self.text_split_index < self.text.len() {
+            self.height = height;
+            let mut height = 0;
+
+            let cells = self.text[self.text_split_index..].iter().map(|x| {
+                height = height.max(x.height() as u16);
+                Cell::from(x.clone())
+            });
+
+            rows.push(Row::new(cells).style(style).height(height));
+
+            self.height += height;
         }
+
+        Table::new(rows, widths.to_vec())
+            .block(block)
+            .column_spacing(col_spacing)
+            .transform_if(
+                !matches!(
+                    self.config.row_connection_style,
+                    RowConnectionStyle::Disjoint
+                ),
+                |t| t.style(style),
+            )
+    }
+
+    /// Draw in the same area as display when self.single() to produce a full width row over the table area
+    pub fn make_full_width_row(&self, result_indentation: u16) -> Paragraph<'_> {
+        let style = Style::default()
+            .fg(self.config.fg)
+            .add_modifier(self.config.modifier);
+
+        // Compute padding
+        let left = if self.config.match_indent {
+            result_indentation.saturating_sub(self.config.border.left())
+        } else {
+            self.config.border.left()
+        };
+        let top = self.config.border.top();
+        let right = self.config.border.width().saturating_sub(left);
+        let bottom = self.config.border.height() - top;
+
+        let block = ratatui::widgets::Block::default().padding(ratatui::widgets::Padding {
+            left,
+            top,
+            right,
+            bottom,
+        });
+
+        // Paragraph with the first text element and correct padding
+        Paragraph::new(self.text[0].clone())
+            .block(block)
+            .style(style)
     }
 }

@@ -1,5 +1,5 @@
 use crate::Result;
-use crate::action::{Action, ActionExt};
+use crate::action::{Action, ActionExt, NullActionExt};
 use crate::binds::BindMap;
 use crate::message::{Event, RenderCommand};
 use crokey::{Combiner, KeyCombination, KeyCombinationFormat, key};
@@ -12,7 +12,7 @@ use ratatui::layout::Rect;
 use tokio::sync::mpsc;
 use tokio::time::{self};
 
-pub type RenderSender<A> = mpsc::UnboundedSender<RenderCommand<A>>;
+pub type RenderSender<A = NullActionExt> = mpsc::UnboundedSender<RenderCommand<A>>;
 #[derive(Debug)]
 pub struct EventLoop<A: ActionExt> {
     txs: Vec<mpsc::UnboundedSender<RenderCommand<A>>>,

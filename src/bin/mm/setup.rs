@@ -1,11 +1,10 @@
 use std::{
-    env,
     io::Read,
     path::Path,
     process::{Command, exit},
 };
 
-use crate::parse::parse;
+use crate::clap::Cli;
 use crate::{config::Config, paths::default_config_path};
 use cli_boilerplate_automation::{
     bait::{OptionExt, ResultExt},
@@ -26,16 +25,13 @@ use matchmaker::{
     make_previewer,
     message::Interrupt,
     nucleo::{
-        Segmented,
+        ColumnIndexable, Segmented,
         injector::{IndexedInjector, Injector, SegmentedInjector},
     },
     preview::AppendOnly,
 };
 
-pub fn enter() -> anyhow::Result<Config> {
-    let args = env::args();
-    let cli = parse(args.collect());
-    log::debug!("{cli:?}");
+pub fn enter(cli: Cli) -> anyhow::Result<Config> {
     if cli.test_keys {
         super::crokey::main();
         exit(0);
@@ -109,7 +105,7 @@ pub fn map_reader<E: SSS + std::fmt::Display>(
     })
 }
 
-pub async fn pick(
+pub async fn start(
     config: Config,
     print_handle: AppendOnly<String>,
 ) -> Result<Vec<Segmented<String>>, MatchError> {
@@ -134,6 +130,7 @@ pub async fn pick(
     } = config;
 
     let abort_empty = exit.abort_empty;
+    let header_lines = render.header.header_lines;
 
     let event_loop = EventLoop::with_binds(binds).with_tick_rate(render.tick_rate());
     // make matcher and matchmaker with matchmaker-and-matcher-maker
@@ -188,22 +185,13 @@ pub async fn pick(
     let render_tx = options.render_tx();
 
     // ----------- read -----------------------
+    let push_fn = inject_line(header_lines, render_tx.clone(), injector);
     let handle = if !atty::is(atty::Stream::Stdin) {
         let stdin = std::io::stdin();
-        map_reader(
-            stdin,
-            move |line| injector.push(line),
-            delimiter,
-            abort_empty.then_some(render_tx),
-        )
+        map_reader(stdin, push_fn, delimiter, abort_empty.then_some(render_tx))
     } else if !default_command.is_empty() {
         if let Some(stdout) = Command::from_script(&default_command).spawn_piped()._ebog() {
-            map_reader(
-                stdout,
-                move |line| injector.push(line),
-                delimiter,
-                abort_empty.then_some(render_tx),
-            )
+            map_reader(stdout, push_fn, delimiter, abort_empty.then_some(render_tx))
         } else {
             std::process::exit(99)
         }
@@ -217,4 +205,62 @@ pub async fn pick(
     }
 
     mm.pick(options).await
+}
+
+type InjectorType = SegmentedInjector<
+    String,
+    IndexedInjector<
+        Segmented<String>,
+        matchmaker::nucleo::injector::WorkerInjector<
+            matchmaker::nucleo::Indexed<Segmented<String>>,
+        >,
+    >,
+>;
+
+use ansi_to_tui::IntoText;
+
+fn inject_line(
+    header_lines: usize,
+    render_tx: RenderSender,
+    injector: InjectorType,
+) -> impl FnMut(String) -> Result<(), matchmaker::nucleo::WorkerError> + Send {
+    let mut header_buf = Vec::with_capacity(header_lines);
+    let mut remaining = header_lines;
+    let injector = injector;
+
+    move |line: String| {
+        if remaining > 0 {
+            let item = injector.wrap(line).unwrap();
+            header_buf.push(item);
+            remaining -= 1;
+
+            if remaining == 0 {
+                // # cols = max segments (across all items)
+                let max_len = header_buf.iter().map(|seg| seg.len()).max().unwrap_or(0);
+
+                let columns: Vec<_> = (0..max_len)
+                    .map(|i| {
+                        // For each row, get its lines from the i-th segment of each header item
+                        let lines = header_buf
+                            .iter()
+                            .flat_map(|seg| {
+                                // Get the i-th segment
+                                let s = seg.get(i);
+                                s.as_bytes().into_text().ok().map(|t| t.lines)
+                            })
+                            .flatten();
+
+                        // Collect all lines into a Text column
+                        ratatui::text::Text::from_iter(lines)
+                    })
+                    .collect();
+
+                let _ = render_tx.send(matchmaker::message::RenderCommand::HeaderColumns(columns));
+            }
+
+            Ok(())
+        } else {
+            injector.push(line)
+        }
+    }
 }

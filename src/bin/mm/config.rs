@@ -1,3 +1,4 @@
+use cli_boilerplate_automation::bait::MaybeExt;
 use serde::{Deserialize, Serialize};
 
 use matchmaker::action::{ActionExt, NullActionExt};
@@ -43,6 +44,11 @@ impl Cli {
         if self.fullscreen {
             config.tui.layout = None;
         }
+        config
+            .render
+            .header
+            .header_lines
+            .take_from(self.header_lines);
         Ok(())
     }
 }

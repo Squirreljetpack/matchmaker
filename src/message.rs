@@ -51,6 +51,7 @@ pub enum RenderCommand<A: ActionExt> {
     Resize(Rect),
     #[cfg(feature = "bracketed-paste")]
     Paste(String),
+    HeaderColumns(Vec<ratatui::text::Text<'static>>),
     Ack,
     Tick,
     Refresh,

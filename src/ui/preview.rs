@@ -122,8 +122,7 @@ impl PreviewUI {
         let height = self.area.height as usize;
         let offset = self.offset as usize;
 
-        // todo: can we avoid cloning?
-        let visible_lines: Vec<_> = results.iter().skip(offset).take(height).cloned().collect();
+        let visible_lines: Vec<_> = results.into_iter().skip(offset).take(height).collect();
 
         let mut preview = Paragraph::new(visible_lines);
         preview = preview.block(self.config.border.as_block());

@@ -5,12 +5,9 @@ use cli_boilerplate_automation::{
 };
 use std::{fs::OpenOptions, path::Path};
 
-pub fn init_logger(log_path: &Path) {
+pub fn init_logger(verbosity: u8, log_path: &Path) {
     bog::init_bogger(true, false);
-    #[cfg(debug_assertions)]
-    bog::init_filter(5);
-    #[cfg(not(debug_assertions))]
-    bog::init_filter(2);
+    bog::init_filter(verbosity);
 
     let rust_log = std::env::var("RUST_LOG").ok().map(|val| val.to_lowercase());
 

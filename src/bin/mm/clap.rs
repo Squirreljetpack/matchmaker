@@ -15,4 +15,8 @@ pub struct Cli {
     pub fullscreen: bool,
     #[arg(long)]
     pub test_keys: bool,
+    #[arg(long)]
+    pub header_lines: Option<usize>,
+    #[arg(long, default_value_t = 3)]
+    pub verbosity: u8, // todo: implement
 }

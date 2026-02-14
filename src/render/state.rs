@@ -225,8 +225,7 @@ impl State {
 
     pub(crate) fn events(&mut self) -> Event {
         self.reset();
-        // this rules out persistent preview_set, todo: impl effects to trigger this instead
-        std::mem::take(&mut self.events) // maybe copy is faster dunno
+        std::mem::take(&mut self.events)
     }
 }
 

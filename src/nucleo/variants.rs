@@ -118,11 +118,11 @@ impl<T: Render + SSS> Worker<T> {
 
 /// You must either impl as_str or as_text
 pub trait ColumnIndexable {
-    fn as_str(&self, i: usize) -> std::borrow::Cow<'_, str> {
+    fn get(&self, i: usize) -> std::borrow::Cow<'_, str> {
         plain_text(&self.as_text(i)).into()
     }
     fn as_text(&self, i: usize) -> Text<'_> {
-        Text::from(self.as_str(i))
+        Text::from(self.get(i))
     }
 }
 

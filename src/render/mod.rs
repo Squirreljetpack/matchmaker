@@ -23,7 +23,6 @@ use crate::tui::Tui;
 use crate::ui::{DisplayUI, InputUI, OverlayUI, PickerUI, PreviewUI, ResultsUI, UI};
 use crate::{ActionAliaser, ActionExtHandler, MatchError, SSS, Selection};
 
-// todo: we can make it return a stack allocated smallvec ig
 fn apply_aliases<T: SSS, S: Selection, A: ActionExt>(
     buffer: &mut Vec<RenderCommand<A>>,
     aliaser: ActionAliaser<T, S, A>,
@@ -106,7 +105,6 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             return Err(MatchError::NoMatch);
         }
 
-        // todo: benchmark vs drain
         for event in buffer.drain(..) {
             state.clear_interrupt();
 
@@ -149,6 +147,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 }
                 RenderCommand::Refresh => {
                     tui.redraw();
+                }
+                RenderCommand::HeaderColumns(columns) => {
+                    picker_ui.header.header_columns(columns);
                 }
                 RenderCommand::Mouse(mouse) => {
                     // we could also impl this in the aliasing step
@@ -506,6 +507,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 render_ui(frame, &mut area, &ui);
 
                 let mut _area = area;
+
                 let full_width_footer = footer_ui.single()
                     && footer_ui.config.row_connection_style == RowConnectionStyle::Full;
                 let mut footer =
@@ -562,8 +564,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 render_input(frame, input, &picker_ui.input);
                 render_status(frame, status, &picker_ui.results);
                 render_results(frame, results, &mut picker_ui, &mut click);
-                render_display(frame, header, &picker_ui.header, &picker_ui.results);
-                render_display(frame, footer, &footer_ui, &picker_ui.results);
+                render_display(frame, header, &mut picker_ui.header, &picker_ui.results);
+                render_header_lines(frame, header, &picker_ui.header, &picker_ui.results);
+                render_display(frame, footer, &mut footer_ui, &picker_ui.results);
                 if let Some(preview_ui) = preview_ui.as_mut() {
                     state.update_preview_ui(preview_ui);
                     if did_resize {
@@ -704,15 +707,25 @@ fn render_status(frame: &mut Frame, area: Rect, ui: &ResultsUI) {
     }
 }
 
-fn render_display(frame: &mut Frame, area: Rect, ui: &DisplayUI, results_ui: &ResultsUI) {
+fn render_display(frame: &mut Frame, area: Rect, ui: &mut DisplayUI, results_ui: &ResultsUI) {
     if !ui.show {
         return;
     }
     let widget = ui.make_display(
-        results_ui.indentation(),
-        results_ui.widths(),
+        results_ui.indentation() as u16,
+        results_ui.widths().to_vec(),
         results_ui.config.column_spacing.0,
     );
+
+    log::debug!("{widget:?}");
+    frame.render_widget(widget, area);
+}
+
+fn render_header_lines(frame: &mut Frame, area: Rect, ui: &DisplayUI, results_ui: &ResultsUI) {
+    if !ui.show || !ui.single() {
+        return;
+    }
+    let widget = ui.make_full_width_row(results_ui.indentation() as u16);
 
     frame.render_widget(widget, area);
 }

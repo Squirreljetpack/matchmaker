@@ -16,14 +16,15 @@ use crate::{
     utils::text::{clip_text_lines, fit_width, prefix_text, substitute_escaped},
 };
 
-// todo: possible to store rows in here?
 #[derive(Debug)]
 pub struct ResultsUI {
     cursor: u16,
     bottom: u16,
     height: u16, // actual height
     width: u16,
-    widths: Vec<u16>, // not sure how to support it yet
+    // column widths.
+    // Note that the first width includes the indentation.
+    widths: Vec<u16>,
     col: Option<usize>,
     pub status: Status,
     pub config: ResultsConfig,
@@ -132,6 +133,13 @@ impl ResultsUI {
             self.cursor_disabled = false
         }
 
+        log::trace!(
+            "Cursor {} @ index {}. Status: {:?}.",
+            self.cursor,
+            self.index(),
+            self.status
+        );
+
         if self.cursor + 1 + self.scroll_padding() >= self.height
             && self.bottom + self.height < self.status.matched_count as u16
         {
@@ -164,6 +172,9 @@ impl ResultsUI {
     pub fn col(&self) -> Option<usize> {
         self.col
     }
+
+    /// Column widths.
+    /// Note that the first width includes the indentation.
     pub fn widths(&self) -> &Vec<u16> {
         &self.widths
     }

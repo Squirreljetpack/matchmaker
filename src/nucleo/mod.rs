@@ -28,13 +28,38 @@ pub struct Segmented<T: SegmentableItem> {
 }
 
 impl<T: SegmentableItem> ColumnIndexable for Segmented<T> {
-    fn as_str(&self, index: usize) -> Cow<'_, str> {
+    fn get(&self, index: usize) -> Cow<'_, str> {
         if let Some((start, end)) = self.ranges.get(index) {
             &self.inner[*start..*end]
         } else {
             ""
         }
         .into()
+    }
+}
+
+impl<T: SegmentableItem> Segmented<T> {
+    pub fn len(&self) -> usize {
+        // Find the last range that is nonempty (start != end)
+        self.ranges
+            .iter()
+            .rposition(|&(start, end)| start != end)
+            .map_or(0, |idx| idx + 1)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn map_to_vec<U, F>(&self, f: F) -> ArrayVec<U, MAX_SPLITS>
+    where
+        F: Fn(&T, usize, usize) -> U,
+    {
+        self.ranges
+            .iter()
+            .take(self.len()) // only map the "active" ranges
+            .map(|&(start, end)| f(&self.inner, start, end))
+            .collect()
     }
 }
 
@@ -59,8 +84,8 @@ impl<T> Indexed<T> {
 }
 
 impl<T: ColumnIndexable> ColumnIndexable for Indexed<T> {
-    fn as_str(&self, index: usize) -> Cow<'_, str> {
-        self.inner.as_str(index)
+    fn get(&self, index: usize) -> Cow<'_, str> {
+        self.inner.get(index)
     }
 }
 

@@ -16,7 +16,9 @@
     prompt = ">"
 
 [header]
-    content = "test"
+    content      = "test"
+    header_lines = 2
+
 
 [results]
     scroll_padding = 2

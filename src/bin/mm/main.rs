@@ -8,6 +8,7 @@ mod paths;
 mod setup;
 mod utils;
 
+use ::clap::Parser;
 use clap::*;
 use cli_boilerplate_automation::bog::BogOkExt;
 use matchmaker::{MatchError, preview::AppendOnly};
@@ -17,15 +18,23 @@ use utils::*;
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
-    init_logger(&logs_dir().join(format!("{BINARY_SHORT}.log")));
+    #[cfg(debug_assertions)]
+    let verbosity = 6;
+    #[cfg(not(debug_assertions))]
+    let verbosity = 3;
+
+    init_logger(verbosity, &logs_dir().join(format!("{BINARY_SHORT}.log")));
+
+    let cli = Cli::parse();
+    log::debug!("{cli:?}");
 
     // get config
-    let config = enter().__ebog();
+    let config = enter(cli).__ebog();
     let delimiter = config.matcher.start.output_separator.clone();
     let print = AppendOnly::new();
 
     // begin
-    match pick(config, print.clone()).await {
+    match start(config, print.clone()).await {
         Ok(iter) => {
             print.map_to_vec(|s| println!("{s}"));
 

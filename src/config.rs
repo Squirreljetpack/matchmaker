@@ -313,7 +313,7 @@ impl Default for ResultsConfig {
             current_fg: Default::default(),
             current_bg: Color::Black,
             current_modifier: Modifier::BOLD,
-            row_connection_style: RowConnectionStyle::default(),
+            row_connection_style: RowConnectionStyle::Disjoint,
 
             status_fg: Color::Green,
             status_modifier: Modifier::ITALIC,
@@ -344,6 +344,10 @@ pub struct DisplayConfig {
 
     pub match_indent: bool,
     pub wrap: bool,
+
+    #[serde(deserialize_with = "deserialize_option_auto")]
+    pub content: Option<StringOrVec>,
+
     /// This setting controls the effective width of the displayed content.
     /// - Full: Effective width is the full ui width.
     /// - Capped: Effective width is the full ui width, but
@@ -353,8 +357,12 @@ pub struct DisplayConfig {
     /// # Note
     /// The width effect only applies on the footer, and when the content is singular.
     pub row_connection_style: RowConnectionStyle,
-    #[serde(deserialize_with = "deserialize_option_auto")]
-    pub content: Option<StringOrVec>,
+
+    /// This setting controls how many lines are read from the input for display with the header.
+    ///
+    /// # Note
+    /// This only affects the header and is only implemented in the binary.
+    pub header_lines: usize,
 }
 
 impl Default for DisplayConfig {
@@ -367,6 +375,7 @@ impl Default for DisplayConfig {
             row_connection_style: Default::default(),
             modifier: Modifier::ITALIC, // whatever your `deserialize_modifier` default uses
             content: None,
+            header_lines: 0,
         }
     }
 }

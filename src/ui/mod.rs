@@ -33,6 +33,7 @@ pub struct UI {
     pub config: UiConfig,
 }
 
+// requires columns > 1
 impl UI {
     pub fn new<'a, T: SSS, S: Selection, W: std::io::Write>(
         mut config: RenderConfig,
@@ -42,6 +43,8 @@ impl UI {
         view: Option<Preview>,
         tui: &mut Tui<W>,
     ) -> (Self, PickerUI<'a, T, S>, DisplayUI, Option<PreviewUI>) {
+        assert!(!worker.columns.is_empty());
+
         if config.results.reverse.is_default() {
             config.results.reverse = (
                 tui.is_fullscreen() && tui.area.y < tui.area.height / 2
@@ -158,9 +161,9 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
 
 impl<'a, T: SSS, O: Selection> PickerUI<'a, T, O> {
     pub fn make_table(&mut self, click: &mut Click) -> (Table<'_>, u16) {
-        let table = self
-            .results
-            .make_table(&mut self.worker, &mut self.selector, self.matcher, click);
+        let table =
+            self.results
+                .make_table(&mut self.worker, &mut self.selector, self.matcher, click);
         let width = self.results.table_width();
         (table, width)
     }

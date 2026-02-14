@@ -45,7 +45,6 @@ pub struct Matchmaker<T: SSS, S: Selection = T> {
     pub selector: Selector<T, S>,
     pub event_handlers: EventHandlers<T, S>,
     pub interrupt_handlers: InterruptHandlers<T, S>,
-    pub preview: Option<Preview>,
 }
 
 // ----------- MAIN -----------------------
@@ -144,7 +143,6 @@ impl ConfigMatchmaker {
             selector: selection_set,
             event_handlers,
             interrupt_handlers,
-            preview: None,
         };
 
         let misc = OddEnds {
@@ -166,14 +164,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
             selector,
             event_handlers: EventHandlers::new(),
             interrupt_handlers: InterruptHandlers::new(),
-            preview: None,
         }
-    }
-
-    /// The contents of the preview are displayed in a pane when picking.
-    /// See []
-    pub fn connect_preview(&mut self, preview: Preview) {
-        self.preview = Some(preview);
     }
 
     /// Configure the UI
@@ -257,9 +248,11 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
             Some(Err(mut previewer)) => {
                 let view = previewer.view();
                 previewer.connect_controller(event_loop.get_controller());
+
                 tokio::spawn(async move {
                     let _ = previewer.run().await;
                 });
+
                 Some(view)
             }
             Some(Ok(view)) => Some(view),
@@ -413,7 +406,6 @@ pub struct PickOptions<'a, T: SSS, S: Selection, A: ActionExt = NullActionExt> {
     )>,
 }
 
-// todo: support initializing render loop from (tx, event_loop, elcfg, nothing)
 impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
     pub const fn new() -> Self {
         Self {
@@ -507,23 +499,6 @@ impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
             ret
         }
     }
-
-    // pub fn signal_handler(
-    //     mut self,
-    //     signal: &'static std::sync::atomic::AtomicUsize,
-    //     handler: SignalHandler<T, S>,
-    // ) -> Self {
-    //     self.signal_handler = Some((signal, handler));
-    //     self
-    // }
-
-    // pub fn initializer(
-    //     mut self,
-    //     initializer: impl FnOnce() + 'static,
-    // ) -> Self {
-    //     self.initializer = Some(Box::new(initializer));
-    //     self
-    // }
 }
 
 impl<'a, T: SSS, S: Selection, A: ActionExt> Default for PickOptions<'a, T, S, A> {
@@ -630,30 +605,30 @@ pub fn make_previewer<T: SSS, S: Selection>(
 
     // preview handler
     mm.register_event_handler(Event::CursorChange | Event::PreviewChange, move |state, _| {
-        if state.preview_visible &&
-        let Some(t) = state.current_raw() &&
-        let m = state.preview_payload() &&
-        !m.is_empty()
-        {
-            let cmd = formatter(t, m);
-            let mut envs = state.make_env_vars();
-            let extra = env_vars!(
-                "COLUMNS" => state.previewer_area().map_or("0".to_string(), |r| r.width.to_string()),
-                "LINES" => state.previewer_area().map_or("0".to_string(), |r| r.height.to_string()),
-            );
-            envs.extend(extra);
+            if state.preview_visible &&
+            let Some(t) = state.current_raw() &&
+            let m = state.preview_payload() &&
+            !m.is_empty()
+            {
+                let cmd = formatter(t, m);
+                let mut envs = state.make_env_vars();
+                let extra = env_vars!(
+                    "COLUMNS" => state.previewer_area().map_or("0".to_string(), |r| r.width.to_string()),
+                    "LINES" => state.previewer_area().map_or("0".to_string(), |r| r.height.to_string()),
+                );
+                envs.extend(extra);
 
-            let msg = PreviewMessage::Run(cmd.clone(), envs);
-            _log!("{cmd:?}");
-            if preview_tx.send(msg.clone()).is_err() {
-                warn!("Failed to send to preview: {}", msg)
+                let msg = PreviewMessage::Run(cmd.clone(), envs);
+                _log!("{cmd:?}");
+                if preview_tx.send(msg.clone()).is_err() {
+                    warn!("Failed to send to preview: {}", msg)
+                }
+            } else if preview_tx.send(PreviewMessage::Stop).is_err() {
+                warn!("Failed to send to preview: stop")
             }
-        } else if preview_tx.send(PreviewMessage::Stop).is_err() {
-            warn!("Failed to send to preview: stop")
-        }
 
-        state.preview_set_payload = None;
-    });
+            state.preview_set_payload = None;
+        });
 
     mm.register_event_handler(Event::PreviewSet, move |state, _event| {
         if state.preview_visible {
@@ -698,7 +673,6 @@ impl<T: SSS + Debug, S: Selection + Debug> Debug for Matchmaker<T, S> {
             .field("selection_set", &self.selector)
             .field("event_handlers", &self.event_handlers)
             .field("interrupt_handlers", &self.interrupt_handlers)
-            .field("previewer", &self.preview)
             .finish()
     }
 }

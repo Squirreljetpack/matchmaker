@@ -9,7 +9,6 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
-use strum_macros::Display;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::watch::{Receiver, Sender, channel};
 use tokio::task::JoinHandle;
@@ -19,7 +18,7 @@ use crate::config::PreviewerConfig;
 use crate::message::Event;
 use crate::preview::Preview;
 
-#[derive(Debug, Display, Clone)]
+#[derive(Debug, strum_macros::Display, Clone)]
 pub enum PreviewMessage {
     Run(String, EnvVars),
     Set(Text<'static>),

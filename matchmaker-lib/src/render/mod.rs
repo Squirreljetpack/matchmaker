@@ -8,7 +8,6 @@ pub use state::*;
 
 use std::io::Write;
 
-use anyhow::Result;
 use log::{info, warn};
 use ratatui::Frame;
 use ratatui::layout::{Position, Rect};
@@ -261,14 +260,14 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             if let Some(s) = context {
                                 header.set(s);
                             } else {
-                                todo!()
+                                header.clear();
                             }
                         }
                         Action::SetFooter(context) => {
                             if let Some(s) = context {
                                 footer_ui.set(s);
                             } else {
-                                todo!()
+                                footer_ui.clear();
                             }
                         }
                         // this sometimes aborts the viewer on some files, why?

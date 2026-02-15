@@ -3,10 +3,16 @@ name = "matchmaker-partial"
 version = "0.1.0"
 edition = "2024"
 
-[lib]
-proc-macro = true
-
 [dependencies]
-proc-macro2 = "1.0.106"
-quote = "1.0.44"
-syn = { version = "2.0.115", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+
+[dev-dependencies]
+cli_boilerplate_automation = { version = "0", features = [ "text", "serde" ] }
+matchmaker-partial-macros = { workspace = true }
+toml = "0.9.8"
+
+[[test]]
+name = "derive_macro_test"
+path = "tests/macro_test.rs"
+

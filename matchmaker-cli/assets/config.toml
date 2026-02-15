@@ -82,4 +82,4 @@
     "ctrl-r" = "Reload(find . -type f)"
 
 [matcher]
-    default_command = "fd --strip-cwd-prefix"
+    command = "fd --strip-cwd-prefix"

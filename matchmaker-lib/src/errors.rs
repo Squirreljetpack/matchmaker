@@ -1,4 +1,3 @@
-pub use anyhow::Result;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -24,3 +23,5 @@ pub enum MatchError {
     #[error("no match")]
     NoMatch,
 }
+
+pub type Result<T> = std::result::Result<T, MatchError>;

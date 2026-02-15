@@ -2,6 +2,16 @@
 resolver = "3"
 members = [
     "matchmaker-lib",
-    "matchmaker-partial",
-    "matchmaker-cli",
+    "matchmaker-partial-macros",
+    "matchmaker-cli", "matchmaker-partial",
 ]
+
+[patch.crates-io]
+matchmaker-lib = { path = "./matchmaker-lib" }
+matchmaker-partial = { path = "./matchmaker-partial" }
+matchmaker-partial-macros = { path = "./matchmaker-partial-macros" }
+
+[workspace.dependencies]
+matchmaker-lib = { path = "./matchmaker-lib" }
+matchmaker-partial = { path = "./matchmaker-partial" }
+matchmaker-partial-macros = { path = "./matchmaker-partial-macros" }

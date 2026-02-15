@@ -1070,7 +1070,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-cli"
-version = "0.0.5"
+version = "0.0.1"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
@@ -1084,6 +1084,7 @@ dependencies = [
  "log",
  "matchmaker-lib",
  "matchmaker-partial",
+ "matchmaker-partial-macros",
  "serde",
  "strum",
  "strum_macros",
@@ -1112,6 +1113,7 @@ dependencies = [
  "indexmap",
  "log",
  "matchmaker-partial",
+ "matchmaker-partial-macros",
  "mio",
  "nix 0.30.1",
  "nucleo",
@@ -1134,6 +1136,17 @@ dependencies = [
 [[package]]
 name = "matchmaker-partial"
 version = "0.1.0"
+dependencies = [
+ "cli_boilerplate_automation",
+ "matchmaker-partial-macros",
+ "serde",
+ "thiserror 2.0.18",
+ "toml",
+]
+
+[[package]]
+name = "matchmaker-partial-macros"
+version = "0.0.1"
 dependencies = [
  "proc-macro2",
  "quote",

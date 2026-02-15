@@ -2,21 +2,22 @@
 //! See `src/bin/mm/config.rs` for an example
 
 #[cfg(feature = "partial")]
-use matchmaker_partial::partial;
+use matchmaker_partial_macros::partial;
 
 use std::{fmt, ops::Deref};
 
 pub use crate::utils::{Percentage, serde::StringOrVec};
 use crate::{
-    MAX_SPLITS, Result,
+    MAX_SPLITS,
     tui::IoStream,
     utils::serde::{escaped_opt_char, escaped_opt_string, serde_duration_ms},
 };
 pub use cli_boilerplate_automation::bother::types::When;
 use cli_boilerplate_automation::define_transparent_wrapper;
 use cli_boilerplate_automation::serde::{
-    one_or_many, through_string, transform::camelcase_normalized,
-    transform::camelcase_normalized_option,
+    // one_or_many,
+    through_string,
+    transform::camelcase_normalized,
 };
 use ratatui::{
     style::{Color, Modifier, Style},
@@ -36,9 +37,13 @@ use serde::{
 ///
 /// Does not deny unknown fields.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "partial", partial(recurse))]
+#[cfg_attr(
+    feature = "partial",
+    partial(recurse, path, derive(Debug, Deserialize))
+)]
 pub struct MatcherConfig {
     #[serde(flatten)]
+    #[cfg(feature = "partial")]
     #[partial(skip)]
     pub matcher: NucleoMatcherConfig,
     #[serde(flatten)]
@@ -55,8 +60,10 @@ pub struct MatcherConfig {
 /// Does not deny unknown fields.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
-#[cfg_attr(feature = "partial", partial)]
+#[cfg_attr(feature = "partial", partial(path, derive(Debug, Deserialize)))]
 pub struct WorkerConfig {
+    #[cfg(feature = "partial")]
+    #[partial(recurse)]
     pub columns: ColumnsConfig,
     pub trim: bool,           // todo
     pub format: FormatString, // todo: implement
@@ -68,13 +75,17 @@ pub struct WorkerConfig {
 /// Does not deny unknown fields.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
-#[cfg_attr(feature = "partial", partial)]
+#[cfg_attr(feature = "partial", partial(path, derive(Debug, Deserialize)))]
 pub struct StartConfig {
     #[serde(deserialize_with = "escaped_opt_char")]
+    #[serde(alias = "i")]
     pub input_separator: Option<char>,
     #[serde(deserialize_with = "escaped_opt_string")]
+    #[serde(alias = "o")]
     pub output_separator: Option<String>,
-    pub default_command: String,
+    #[serde(alias = "c")]
+    pub command: String,
+    #[serde(alias = "s")]
     pub sync: bool,
 }
 
@@ -83,7 +94,7 @@ pub struct StartConfig {
 /// Does not deny unknown fields.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
-#[cfg_attr(feature = "partial", partial)]
+#[cfg_attr(feature = "partial", partial(path, derive(Debug, Deserialize)))]
 pub struct ExitConfig {
     pub select_1: bool,
     pub allow_empty: bool,
@@ -93,7 +104,10 @@ pub struct ExitConfig {
 /// The ui config.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-#[cfg_attr(feature = "partial", partial(recurse))]
+#[cfg_attr(
+    feature = "partial",
+    partial(recurse, path, derive(Debug, Deserialize))
+)]
 pub struct RenderConfig {
     /// The default overlay style
     pub ui: UiConfig,
@@ -124,7 +138,7 @@ pub struct DisplaysConfig {
 }
 
 /// Terminal settings.
-#[cfg_attr(feature = "partial", partial)]
+#[cfg_attr(feature = "partial", partial(path, derive(Debug, Deserialize)))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct TerminalConfig {
@@ -134,7 +148,6 @@ pub struct TerminalConfig {
     // https://docs.rs/crossterm/latest/crossterm/event/struct.PushKeyboardEnhancementFlags.html
     pub extended_keys: bool,
     #[serde(with = "serde_duration_ms")]
-    #[partial(attr)]
     pub sleep_ms: std::time::Duration, // necessary to give ratatui a small delay before resizing after entering and exiting
     // todo: lowpri: will need a value which can deserialize to none when implementing cli parsing
     #[serde(flatten)]
@@ -162,8 +175,10 @@ pub struct TerminalSettings {}
 /// The container ui.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-#[cfg_attr(feature = "partial", partial)]
+#[cfg_attr(feature = "partial", partial(path, derive(Debug, Deserialize)))]
 pub struct UiConfig {
+    #[cfg(feature = "partial")]
+    #[partial(recurse)]
     pub border: BorderSetting,
     pub tick_rate: u8, // seperate from render, but best place ig
 }
@@ -180,8 +195,10 @@ impl Default for UiConfig {
 /// The input bar ui.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-#[cfg_attr(feature = "partial", partial)]
+#[cfg_attr(feature = "partial", partial(path, derive(Debug, Deserialize)))]
 pub struct InputConfig {
+    #[cfg(feature = "partial")]
+    #[partial(recurse)]
     pub border: BorderSetting,
 
     // text styles
@@ -218,15 +235,17 @@ impl Default for InputConfig {
 
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-#[cfg_attr(feature = "partial", partial)]
+#[cfg_attr(feature = "partial", partial(path, derive(Debug, Deserialize)))]
 pub struct OverlayConfig {
+    #[cfg(feature = "partial")]
+    #[partial(recurse)]
     pub border: BorderSetting,
     pub outer_dim: bool,
     pub layout: OverlayLayoutSettings,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "partial", partial)]
+#[cfg_attr(feature = "partial", partial(path, derive(Debug, Deserialize)))]
 pub struct OverlayLayoutSettings {
     /// w, h
     pub percentage: [Percentage; 2],
@@ -256,10 +275,12 @@ pub enum RowConnectionStyle {
 
 // pub struct OverlaySize
 
-#[cfg_attr(feature = "partial", partial)]
+#[cfg_attr(feature = "partial", partial(path, derive(Debug, Deserialize)))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ResultsConfig {
+    #[cfg(feature = "partial")]
+    #[partial(recurse)]
     pub border: BorderSetting,
 
     // prefixes
@@ -360,8 +381,10 @@ impl Default for ResultsConfig {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-#[cfg_attr(feature = "partial", partial)]
+#[cfg_attr(feature = "partial", partial(path, derive(Debug, Deserialize)))]
 pub struct DisplayConfig {
+    #[cfg(feature = "partial")]
+    #[partial(recurse)]
     pub border: BorderSetting,
 
     #[serde(deserialize_with = "camelcase_normalized")]
@@ -422,13 +445,15 @@ impl Default for DisplayConfig {
 ///     ..Default::default()
 /// };
 /// ```
-#[cfg_attr(feature = "partial", partial)]
+#[cfg_attr(feature = "partial", partial(path, derive(Debug, Deserialize)))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PreviewConfig {
+    #[cfg(feature = "partial")]
+    #[partial(recurse)]
     pub border: BorderSetting,
 
-    #[serde(with = "one_or_many")]
+    // #[serde(with = "one_or_many")]
     pub layout: Vec<PreviewSetting>,
     pub scroll_wrap: bool,
     pub wrap: bool,
@@ -502,8 +527,9 @@ impl Deref for FormatString {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize)]
+#[derive(Default, Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
+#[cfg_attr(feature = "partial", partial(path, derive(Debug, Deserialize)))]
 pub struct BorderSetting {
     #[serde(with = "through_string")]
     pub r#type: BorderType,
@@ -514,7 +540,7 @@ pub struct BorderSetting {
     ///
     /// An empty string enforces no sides:
     /// `sides = ""`
-    pub sides: Borders,
+    pub sides: Option<Borders>,
     /// Supply as either 1, 2, or 4 numbers for:
     ///
     /// - Same padding on all sides
@@ -546,14 +572,26 @@ impl BorderSetting {
             ret = ret.title(title)
         };
 
-        if self.sides != Borders::NONE {
+        if !self.is_empty() {
             ret = ret
-                .borders(self.sides)
+                .borders(self.sides())
                 .border_type(self.r#type)
                 .border_style(ratatui::style::Style::default().fg(self.color))
         }
 
         ret
+    }
+
+    pub fn sides(&self) -> Borders {
+        if let Some(s) = self.sides {
+            s
+        } else {
+            if self.color != Default::default() || self.r#type != Default::default() {
+                Borders::ALL
+            } else {
+                Borders::NONE
+            }
+        }
     }
 
     pub fn as_static_block(&self) -> ratatui::widgets::Block<'static> {
@@ -570,9 +608,9 @@ impl BorderSetting {
             ret = ret.title(title)
         };
 
-        if self.sides != Borders::NONE {
+        if !self.is_empty() {
             ret = ret
-                .borders(self.sides)
+                .borders(self.sides())
                 .border_type(self.r#type)
                 .border_style(ratatui::style::Style::default().fg(self.color))
         }
@@ -580,18 +618,22 @@ impl BorderSetting {
         ret
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.sides() == Borders::NONE
+    }
+
     pub fn height(&self) -> u16 {
         let mut height = 0;
-        height += 2 * !self.sides.is_empty() as u16;
+        height += 2 * !self.is_empty() as u16;
         height += self.padding.top + self.padding.bottom;
-        height += (!self.title.is_empty() as u16).saturating_sub(!self.sides.is_empty() as u16);
+        height += (!self.title.is_empty() as u16).saturating_sub(!self.is_empty() as u16);
 
         height
     }
 
     pub fn width(&self) -> u16 {
         let mut width = 0;
-        width += 2 * !self.sides.is_empty() as u16;
+        width += 2 * !self.is_empty() as u16;
         width += self.padding.left + self.padding.right;
 
         width
@@ -599,7 +641,7 @@ impl BorderSetting {
 
     pub fn left(&self) -> u16 {
         let mut width = 0;
-        width += !self.sides.is_empty() as u16;
+        width += !self.is_empty() as u16;
         width += self.padding.left;
 
         width
@@ -607,9 +649,9 @@ impl BorderSetting {
 
     pub fn top(&self) -> u16 {
         let mut height = 0;
-        height += !self.sides.is_empty() as u16;
+        height += !self.is_empty() as u16;
         height += self.padding.top;
-        height += (!self.title.is_empty() as u16).saturating_sub(!self.sides.is_empty() as u16);
+        height += (!self.title.is_empty() as u16).saturating_sub(!self.is_empty() as u16);
 
         height
     }
@@ -643,14 +685,17 @@ pub enum Side {
     Right,
 }
 
+#[cfg_attr(feature = "partial", partial(path, derive(Debug, Deserialize)))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PreviewSetting {
     #[serde(flatten)]
+    #[partial(recurse)]
     pub layout: PreviewLayout,
     #[serde(default)]
     pub command: String,
 }
 
+#[cfg_attr(feature = "partial", partial(path, derive(Debug, Deserialize)))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PreviewLayout {
     pub side: Side,
@@ -682,6 +727,7 @@ use crate::utils::serde::bounded_usize;
 // todo: pass filter and hidden to mm
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
+#[cfg_attr(feature = "partial", partial(path, derive(Debug, Deserialize)))]
 pub struct ColumnsConfig {
     pub split: Split,
     pub names: Vec<ColumnSetting>,
@@ -1092,60 +1138,5 @@ where
         Some("auto") => Ok(None),
         Some(s) => Ok(Some(T::deserialize(s.into_deserializer())?)),
         None => Ok(None),
-    }
-}
-
-impl<'de> Deserialize<'de> for BorderSetting {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        struct Helper {
-            #[serde(default)]
-            r#type: Option<String>,
-            #[serde(default)]
-            #[serde(deserialize_with = "camelcase_normalized_option")]
-            color: Option<Color>,
-            // #[serde(deserialize_with = "transform_uppercase_option")]
-            sides: Option<Borders>,
-            #[serde(default, with = "padding")]
-            padding: Padding,
-            #[serde(default)]
-            title: String,
-            #[serde(default)]
-            // #[serde(deserialize_with = "transform_uppercase")]
-            title_modifier: Modifier,
-            #[serde(default)]
-            #[serde(deserialize_with = "camelcase_normalized")]
-            bg: Color,
-        }
-
-        let h = Helper::deserialize(deserializer)?;
-
-        // parse type
-        let r#type = match h.r#type {
-            Some(ref s) => s.parse::<BorderType>().map_err(serde::de::Error::custom)?,
-            None => BorderType::default(),
-        };
-
-        // parse sides: if type or color is specified, override to ALL
-        let sides = if let Some(sides) = h.sides {
-            sides
-        } else if h.r#type.is_some() || h.color.is_some() {
-            Borders::ALL
-        } else {
-            Borders::NONE
-        };
-
-        Ok(BorderSetting {
-            r#type,
-            color: h.color.unwrap_or_default(),
-            sides,
-            padding: h.padding,
-            title: h.title,
-            title_modifier: h.title_modifier,
-            bg: h.bg,
-        })
     }
 }

@@ -8,13 +8,17 @@ mod paths;
 mod setup;
 mod utils;
 
-use ::clap::Parser;
+use anyhow::bail;
 use clap::*;
-use cli_boilerplate_automation::bog::BogOkExt;
-use matchmaker::{MatchError, preview::AppendOnly};
+use config::PartialConfig;
 use paths::*;
 use setup::*;
 use utils::*;
+
+use cli_boilerplate_automation::{bog::BogOkExt, text::split::split_nesting};
+use matchmaker::{MatchError, preview::AppendOnly};
+
+use crate::parse::{get_pairs, try_split_kv};
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
@@ -25,11 +29,18 @@ async fn main() {
 
     init_logger(verbosity, &logs_dir().join(format!("{BINARY_SHORT}.log")));
 
-    let cli = Cli::parse();
-    log::debug!("{cli:?}");
+    let (cli, config_args) = Cli::get_partitioned_args();
+    log::debug!("{cli:?}, {config_args:?}");
+
+    // get config overrides
+    let partial = get_partial(config_args).__ebog();
+    log::trace!("{partial:?}");
+
+    // cli_boilerplate_automation::_dbg!(partial);
 
     // get config
-    let config = enter(cli).__ebog();
+    let config = enter(cli, partial).__ebog();
+
     let delimiter = config.matcher.start.output_separator.clone();
     let print = AppendOnly::new();
 
@@ -58,4 +69,29 @@ async fn main() {
             }
         },
     };
+}
+
+fn get_partial(config_args: Vec<String>) -> anyhow::Result<PartialConfig> {
+    let split = get_pairs(config_args)?;
+    log::trace!("{split:?}");
+    let mut partial = PartialConfig::default();
+    for (path, val) in split {
+        let parts = match split_nesting(&val) {
+            Ok(mut parts) => {
+                try_split_kv(&mut parts)?;
+                parts
+            }
+            Err(n) => {
+                if n > 0 {
+                    bail!("Encountered {} unclosed parentheses", n)
+                } else {
+                    bail!("Extra closing parenthesis at index {}", -n)
+                }
+            }
+        };
+
+        partial.set(path.as_slice(), &parts)?;
+    }
+
+    Ok(partial)
 }

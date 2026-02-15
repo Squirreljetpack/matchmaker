@@ -4,7 +4,7 @@ use std::{
     process::{Command, exit},
 };
 
-use crate::clap::Cli;
+use crate::{clap::Cli, config::PartialConfig};
 use crate::{config::Config, paths::default_config_path};
 use cli_boilerplate_automation::{
     bait::{OptionExt, ResultExt},
@@ -31,7 +31,7 @@ use matchmaker::{
     preview::AppendOnly,
 };
 
-pub fn enter(cli: Cli) -> anyhow::Result<Config> {
+pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
     if cli.test_keys {
         super::crokey::main();
         exit(0);
@@ -59,6 +59,7 @@ pub fn enter(cli: Cli) -> anyhow::Result<Config> {
     };
 
     // todo
+    config.apply(partial);
     cli.merge_config(&mut config)?;
 
     if cli.dump_config {
@@ -121,7 +122,7 @@ pub async fn start(
                 start:
                     StartConfig {
                         input_separator: delimiter,
-                        default_command,
+                        command,
                         sync,
                         ..
                     },
@@ -189,8 +190,8 @@ pub async fn start(
     let handle = if !atty::is(atty::Stream::Stdin) {
         let stdin = std::io::stdin();
         map_reader(stdin, push_fn, delimiter, abort_empty.then_some(render_tx))
-    } else if !default_command.is_empty() {
-        if let Some(stdout) = Command::from_script(&default_command).spawn_piped()._ebog() {
+    } else if !command.is_empty() {
+        if let Some(stdout) = Command::from_script(&command).spawn_piped()._ebog() {
             map_reader(stdout, push_fn, delimiter, abort_empty.then_some(render_tx))
         } else {
             std::process::exit(99)

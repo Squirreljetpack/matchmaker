@@ -1,10 +1,11 @@
 use cli_boilerplate_automation::bait::MaybeExt;
-use matchmaker_partial::partial;
 use serde::{Deserialize, Serialize};
+
+use matchmaker_partial_macros::partial;
 
 use matchmaker::action::{ActionExt, NullActionExt};
 use matchmaker::binds::{BindMap, BindMapExt};
-use matchmaker::config::{MatcherConfig, PreviewerConfig, RenderConfig, TerminalConfig};
+use matchmaker::config::*;
 
 use crate::clap::Cli;
 
@@ -15,7 +16,7 @@ impl<T: ActionExt + std::fmt::Display + std::str::FromStr> ActionExt_ for T {}
 /// Full config.
 /// Clients probably want to make their own type with RenderConfig + custom settings to instantiate their matchmaker.
 /// Used by the instantiation method [`crate::Matchmaker::new_from_config`]
-#[partial(recursive)]
+#[partial(recurse, path, derive(Debug, Deserialize))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, bound(serialize = "", deserialize = "",))]
 pub struct Config<A: ActionExt_ = NullActionExt> {
@@ -33,6 +34,7 @@ pub struct Config<A: ActionExt_ = NullActionExt> {
     pub tui: TerminalConfig,
 
     #[serde(default)]
+    #[partial(skip)]
     pub previewer: PreviewerConfig,
 
     // this is in a bit of a awkward place because the matcher, worker, picker and reader all want pieces of it.

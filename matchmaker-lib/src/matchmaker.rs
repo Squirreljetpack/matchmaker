@@ -5,7 +5,7 @@ use std::{
 };
 
 use arrayvec::ArrayVec;
-use cli_boilerplate_automation::{_log, broc::CommandExt, env_vars, prints};
+use cli_boilerplate_automation::{_log, bother::types::{Either::{self, Left, Right}}, broc::CommandExt, env_vars, prints};
 use easy_ext::ext;
 use log::{debug, info, warn};
 use ratatui::text::Text;
@@ -222,7 +222,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
     pub async fn pick<A: ActionExt>(
         self,
         builder: PickOptions<'_, T, S, A>,
-    ) -> Result<Vec<S>, MatchError> {
+    ) -> Result<Vec<S>> {
         let PickOptions {
             previewer,
             ext_handler,
@@ -249,7 +249,8 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
             
             // note: this part is "crate-specific" since clients likely use their own previewer
             let preview = match previewer {
-                Some(Err(mut previewer)) => {
+                Some(Left(view)) => Some(view),
+                Some(Right(mut previewer)) => {
                     let view = previewer.view();
                     previewer.connect_controller(event_loop.get_controller());
                     
@@ -259,7 +260,6 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
                     
                     Some(view)
                 }
-                Some(Ok(view)) => Some(view),
                 _ => None,
             };
             
@@ -348,15 +348,15 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
             }
         }
         
-        pub async fn pick_default(self) -> Result<Vec<S>, MatchError> {
+        pub async fn pick_default(self) -> Result<Vec<S>> {
             self.pick::<NullActionExt>(PickOptions::new()).await
         }
     }
     
     #[ext(MatchResultExt)]
-    impl<T> Result<T, MatchError> {
+    impl<T> Result<T> {
         /// Return the first element
-        pub fn first<S>(self) -> Result<S, MatchError>
+        pub fn first<S>(self) -> Result<S>
         where
         T: IntoIterator<Item = S>,
         {
@@ -367,7 +367,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
         }
         
         /// Handle [`MatchError::Abort`] using [`std::process::exit`]
-        pub fn abort(self) -> Result<T, MatchError> {
+        pub fn abort(self) -> Result<T> {
             match self {
                 Err(MatchError::Abort(x)) => std::process::exit(x),
                 _ => self,
@@ -398,7 +398,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
         
         overlays: Vec<Box<dyn Overlay<A = A>>>,
         overlay_config: Option<OverlayConfig>,
-        previewer: Option<Result<Preview, Previewer>>,
+        previewer: Option<Either<Preview, Previewer>>,
         
         /// # Experimental
         // pub signal_handler: Option<(&'static std::sync::atomic::AtomicUsize, SignalHandler<T, S>)>,
@@ -455,14 +455,14 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
         /// # Example
         /// See [`make_previewer`] for how to create one.
         pub fn previewer(mut self, previewer: Previewer) -> Self {
-            self.previewer = Some(Err(previewer));
+            self.previewer = Some(Right(previewer));
             self
         }
         
         /// Set a [`Preview`].
         /// Overrides [`Matchmaker::connect_preview`].
         pub fn preview(mut self, preview: Preview) -> Self {
-            self.previewer = Some(Ok(preview));
+            self.previewer = Some(Left(preview));
             self
         }
         

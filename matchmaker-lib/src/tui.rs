@@ -1,4 +1,5 @@
-use crate::{Result, config::TerminalConfig};
+use crate::config::TerminalConfig;
+use anyhow::Result;
 use cli_boilerplate_automation::bait::ResultExt;
 use crossterm::{
     event::{

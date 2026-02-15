@@ -1,7 +1,26 @@
-#[allow(unused)]
+#![allow(unused)]
+
+macro_rules! vec_ {
+    ($($elem:expr),* $(,)?) => {
+        vec![$($elem.into()),*]
+    };
+    (| $($elem:expr),*) => {
+        vec![$($elem.to_string()),*]
+    };
+    ($t:ty | $($elem:expr),*) => {
+        vec![$($t::from($elem)),*]
+    };
+    ($f:ident | $($elem:expr),*) => {
+        vec![$($f($elem)),*]
+    };
+}
+
+#[cfg(test)]
 mod tests {
-    use matchmaker_partial::partial;
+    use matchmaker_partial::PartialSetError;
+    use matchmaker_partial_macros::partial;
     use serde::Serialize;
+    use std::collections::{HashMap, HashSet};
 
     #[test]
     fn test_make_partial_macro() {
@@ -125,15 +144,6 @@ mod tests {
             }
         }
 
-        impl CustomPartialNested {
-            fn merge(&mut self, other: Self) {
-                todo!()
-            }
-            fn clear(&mut self) {
-                todo!()
-            }
-        }
-
         #[partial]
         #[derive(Debug, PartialEq, Serialize)]
         struct TestRecurseOverride {
@@ -218,7 +228,7 @@ mod tests {
         use serde::{Deserialize, Serialize};
 
         // Case 1: Clone all original derives
-        #[partial(derive)]
+        #[partial]
         #[derive(Default, Clone, PartialEq, Debug, Deserialize, Serialize)]
         struct Original {
             name: String,
@@ -250,14 +260,14 @@ mod tests {
 
     #[test]
     fn test_partial_merge_and_clear() {
-        #[partial]
+        #[partial(merge)]
         #[derive(Debug, PartialEq, Clone)]
         struct Stats {
             hp: i32,
             mana: i32,
         }
 
-        #[partial(recurse)]
+        #[partial(recurse, merge)]
         #[derive(Debug, PartialEq, Clone)]
         struct Character {
             #[partial(recurse = "")]
@@ -304,5 +314,116 @@ mod tests {
         assert_eq!(p3.name, None);
         assert_eq!(p3.stats.mana, None);
         assert_eq!(p3.stats.hp, None);
+    }
+
+    use super::*; // Import the macro
+    // --- Defining the Structs ---
+
+    #[partial(path)]
+    #[derive(Debug, PartialEq, Default, Clone)]
+    pub struct Nested {
+        pub d: usize,
+    }
+
+    #[partial(path)]
+    #[derive(Debug, PartialEq, Default)]
+    pub struct Ex {
+        pub a: usize,
+        pub b: Option<usize>,
+        #[partial(recurse)]
+        pub c: Nested,
+    }
+
+    // --- The Tests ---
+
+    #[test]
+    fn test_path_setting_success() {
+        let mut p_ex = PartialEx::default();
+
+        // 1. Test setting a top-level leaf
+        let path_a = vec_!["a"];
+        p_ex.set(&path_a, &vec_!["42"]).expect("Should set a");
+        assert_eq!(p_ex.a, Some(42));
+
+        // 2. Test setting a nested leaf
+        let path_c_d = vec_!["c", "d"];
+        p_ex.set(&path_c_d, &vec_!["100"]).expect("Should set c.d");
+        assert_eq!(p_ex.c.d, Some(100));
+    }
+
+    #[test]
+    fn test_path_setting_errors() {
+        let mut p_ex = PartialEx::default();
+
+        // 1. Missing Field
+        let path_err = vec_!["unknown"];
+        let res = p_ex.set(&path_err, &vec_!["1"]);
+        assert_eq!(res, Err(PartialSetError::Missing("unknown".to_string())));
+
+        // 2. Extra Paths (trying to go deeper than 'a' allows)
+        let path_extra = vec_!["a", "too_deep"];
+        let res_extra = p_ex.set(&path_extra, &vec_!["1"]);
+        assert_eq!(
+            res_extra,
+            Err(PartialSetError::ExtraPaths(vec_!["too_deep"]))
+        );
+
+        // 3. Missing Paths (stopping at 'c' which is recursive)
+        let path_short = vec_!["c"];
+        let res_short = p_ex.set(&path_short, &vec_!["1"]);
+        assert_eq!(res_short, Err(PartialSetError::EarlyEnd("c".to_string())));
+    }
+
+    #[test]
+    fn test_full_workflow() {
+        let mut original = Ex {
+            a: 1,
+            b: None,
+            c: Nested { d: 10 },
+        };
+
+        let mut p_ex = PartialEx::default();
+
+        // Update partial via string paths (e.g., from a CLI or API)
+        p_ex.set(&vec_!["a"], &vec_!["2"]).unwrap();
+        p_ex.set(&vec_!["c", "d"], &vec_!["20"]).unwrap();
+
+        // Apply partial to original
+        original.apply(p_ex);
+
+        assert_eq!(original.a, 2);
+        assert_eq!(original.c.d, 20);
+        assert_eq!(original.b, None); // Untouched
+    }
+
+    #[test]
+    fn test_collections_recurse_extend() {
+        #[partial(recurse)]
+        #[derive(Debug, PartialEq, Default, Clone)]
+        struct CollectionStruct {
+            pub list: Vec<i32>,
+            pub map: HashMap<String, i32>,
+            pub set: HashSet<i32>,
+        }
+
+        let mut base = CollectionStruct::default();
+        base.list.push(1);
+        base.map.insert("old".into(), 10);
+        base.set.insert(100);
+
+        // In PartialCollectionStruct, these are the original types, not Option<T>
+        let p = PartialCollectionStruct {
+            list: vec![2, 3],
+            map: vec![("new".to_string(), 20)].into_iter().collect(),
+            set: vec![200].into_iter().collect(),
+        };
+
+        base.apply(p);
+
+        assert_eq!(base.list, vec![1, 2, 3]);
+        assert_eq!(base.map.get("old"), Some(&10));
+        assert_eq!(base.map.get("new"), Some(&20));
+        assert!(base.set.contains(&100));
+        assert!(base.set.contains(&200));
     }
 }

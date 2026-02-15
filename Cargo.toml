@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
-    "match-maker",
-    "match-maker-derive",
+    "matchmaker-lib",
+    "matchmaker-partial",
+    "matchmaker-cli",
 ]

@@ -53,7 +53,7 @@ pub fn enter(cli: Cli) -> anyhow::Result<Config> {
             // get config from default location or default config
             let p = default_config_path();
             #[cfg(debug_assertions)]
-            write_str(p, include_str!("../../../assets/dev.toml")).unwrap();
+            write_str(p, include_str!("../assets/dev.toml")).unwrap();
             (p, load_type_or_default(p, |s| toml::from_str(s)))
         }
     };
@@ -66,7 +66,7 @@ pub fn enter(cli: Cli) -> anyhow::Result<Config> {
 
         // if stdout: dump the default cfg with comments
         if atty::is(atty::Stream::Stdout) {
-            write_str(cfg_path, include_str!("../../../assets/config.toml"))?;
+            write_str(cfg_path, include_str!("../assets/config.toml"))?;
         } else {
             // if piped: dump the current cfg
             std::io::Write::write_all(&mut std::io::stdout(), contents.as_bytes())?;
@@ -251,7 +251,7 @@ fn inject_line(
                             .flatten();
 
                         // Collect all lines into a Text column
-                        ratatui::text::Text::from_iter(lines)
+                        matchmaker::nucleo::Text::from_iter(lines)
                     })
                     .collect();
 

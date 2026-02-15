@@ -1,4 +1,5 @@
 use cli_boilerplate_automation::bait::MaybeExt;
+use matchmaker_partial::partial;
 use serde::{Deserialize, Serialize};
 
 use matchmaker::action::{ActionExt, NullActionExt};
@@ -14,6 +15,7 @@ impl<T: ActionExt + std::fmt::Display + std::str::FromStr> ActionExt_ for T {}
 /// Full config.
 /// Clients probably want to make their own type with RenderConfig + custom settings to instantiate their matchmaker.
 /// Used by the instantiation method [`crate::Matchmaker::new_from_config`]
+#[partial(recursive)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, bound(serialize = "", deserialize = "",))]
 pub struct Config<A: ActionExt_ = NullActionExt> {
@@ -24,6 +26,7 @@ pub struct Config<A: ActionExt_ = NullActionExt> {
 
     // binds
     #[serde(default = "BindMap::default_binds")]
+    #[partial(skip)]
     pub binds: BindMap<A>,
 
     #[serde(default)]
@@ -55,7 +58,7 @@ impl Cli {
 
 impl Default for Config {
     fn default() -> Self {
-        toml::from_str(include_str!("../../../assets/config.toml")).unwrap()
+        toml::from_str(include_str!("../assets/config.toml")).unwrap()
     }
 }
 
@@ -65,7 +68,7 @@ mod tests {
 
     #[test]
     fn config_round_trip() {
-        let default_toml = include_str!("../../../assets/dev.toml");
+        let default_toml = include_str!("../assets/dev.toml");
         let config: Config = toml::from_str(default_toml).expect("failed to parse default TOML");
         let serialized = toml::to_string_pretty(&config).expect("failed to serialize to TOML");
         let deserialized: Config = toml::from_str(&serialized)

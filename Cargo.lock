@@ -1069,8 +1069,32 @@ dependencies = [
 ]
 
 [[package]]
-name = "match-maker"
+name = "matchmaker-cli"
 version = "0.0.5"
+dependencies = [
+ "ansi-to-tui",
+ "anyhow",
+ "atty",
+ "clap",
+ "clap_complete",
+ "cli_boilerplate_automation",
+ "crokey",
+ "dirs",
+ "env_logger",
+ "log",
+ "matchmaker-lib",
+ "matchmaker-partial",
+ "serde",
+ "strum",
+ "strum_macros",
+ "thiserror 2.0.18",
+ "tokio",
+ "toml",
+]
+
+[[package]]
+name = "matchmaker-lib"
+version = "0.0.1"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
@@ -1079,17 +1103,15 @@ dependencies = [
  "bitflags 2.11.0",
  "bitflags-derive",
  "boxcar",
- "clap",
- "clap_complete",
  "cli_boilerplate_automation",
  "crokey",
  "crossterm 0.29.0",
- "dirs",
  "easy-ext",
  "env_logger",
  "futures",
  "indexmap",
  "log",
+ "matchmaker-partial",
  "mio",
  "nix 0.30.1",
  "nucleo",
@@ -1099,6 +1121,7 @@ dependencies = [
  "regex",
  "rustc-hash",
  "serde",
+ "serde_json",
  "strum",
  "strum_macros",
  "thiserror 2.0.18",
@@ -1109,8 +1132,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "match-maker-derive"
+name = "matchmaker-partial"
 version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.115",
+]
 
 [[package]]
 name = "memchr"

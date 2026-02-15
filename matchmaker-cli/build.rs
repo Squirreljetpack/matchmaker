@@ -2,12 +2,12 @@ use clap::CommandFactory;
 use clap_complete::{Shell, generate_to};
 use std::{env, path::PathBuf};
 
-include!("build/completions_mock.rs");
+// include!("build/completions_mock.rs");
 
 // -----------------------------------------------------------------------------
 // Include
 // -----------------------------------------------------------------------------
-include!("src/bin/mm/clap.rs");
+include!("src/clap.rs");
 
 fn main() {
     println!("cargo:rerun-if-changed=src/cli/types.rs");

@@ -1,6 +1,9 @@
 //! Config Types.
 //! See `src/bin/mm/config.rs` for an example
 
+#[cfg(feature = "partial")]
+use matchmaker_partial::partial;
+
 use std::{fmt, ops::Deref};
 
 pub use crate::utils::{Percentage, serde::StringOrVec};
@@ -33,8 +36,10 @@ use serde::{
 ///
 /// Does not deny unknown fields.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "partial", partial(recurse))]
 pub struct MatcherConfig {
     #[serde(flatten)]
+    #[partial(skip)]
     pub matcher: NucleoMatcherConfig,
     #[serde(flatten)]
     pub worker: WorkerConfig,
@@ -50,6 +55,7 @@ pub struct MatcherConfig {
 /// Does not deny unknown fields.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
+#[cfg_attr(feature = "partial", partial)]
 pub struct WorkerConfig {
     pub columns: ColumnsConfig,
     pub trim: bool,           // todo
@@ -62,6 +68,7 @@ pub struct WorkerConfig {
 /// Does not deny unknown fields.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
+#[cfg_attr(feature = "partial", partial)]
 pub struct StartConfig {
     #[serde(deserialize_with = "escaped_opt_char")]
     pub input_separator: Option<char>,
@@ -76,6 +83,7 @@ pub struct StartConfig {
 /// Does not deny unknown fields.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
+#[cfg_attr(feature = "partial", partial)]
 pub struct ExitConfig {
     pub select_1: bool,
     pub allow_empty: bool,
@@ -85,6 +93,7 @@ pub struct ExitConfig {
 /// The ui config.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
+#[cfg_attr(feature = "partial", partial(recurse))]
 pub struct RenderConfig {
     /// The default overlay style
     pub ui: UiConfig,
@@ -96,8 +105,6 @@ pub struct RenderConfig {
     pub preview: PreviewConfig,
     pub footer: DisplayConfig,
     pub header: DisplayConfig,
-    /// The default overlay style
-    pub overlay: Option<OverlayConfig>,
 }
 
 impl RenderConfig {
@@ -117,6 +124,7 @@ pub struct DisplaysConfig {
 }
 
 /// Terminal settings.
+#[cfg_attr(feature = "partial", partial)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct TerminalConfig {
@@ -126,6 +134,7 @@ pub struct TerminalConfig {
     // https://docs.rs/crossterm/latest/crossterm/event/struct.PushKeyboardEnhancementFlags.html
     pub extended_keys: bool,
     #[serde(with = "serde_duration_ms")]
+    #[partial(attr)]
     pub sleep_ms: std::time::Duration, // necessary to give ratatui a small delay before resizing after entering and exiting
     // todo: lowpri: will need a value which can deserialize to none when implementing cli parsing
     #[serde(flatten)]
@@ -153,6 +162,7 @@ pub struct TerminalSettings {}
 /// The container ui.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
+#[cfg_attr(feature = "partial", partial)]
 pub struct UiConfig {
     pub border: BorderSetting,
     pub tick_rate: u8, // seperate from render, but best place ig
@@ -170,6 +180,7 @@ impl Default for UiConfig {
 /// The input bar ui.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
+#[cfg_attr(feature = "partial", partial)]
 pub struct InputConfig {
     pub border: BorderSetting,
 
@@ -207,6 +218,7 @@ impl Default for InputConfig {
 
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
+#[cfg_attr(feature = "partial", partial)]
 pub struct OverlayConfig {
     pub border: BorderSetting,
     pub outer_dim: bool,
@@ -214,6 +226,7 @@ pub struct OverlayConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "partial", partial)]
 pub struct OverlayLayoutSettings {
     /// w, h
     pub percentage: [Percentage; 2],
@@ -243,6 +256,7 @@ pub enum RowConnectionStyle {
 
 // pub struct OverlaySize
 
+#[cfg_attr(feature = "partial", partial)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ResultsConfig {
@@ -346,6 +360,7 @@ impl Default for ResultsConfig {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
+#[cfg_attr(feature = "partial", partial)]
 pub struct DisplayConfig {
     pub border: BorderSetting,
 
@@ -407,6 +422,7 @@ impl Default for DisplayConfig {
 ///     ..Default::default()
 /// };
 /// ```
+#[cfg_attr(feature = "partial", partial)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PreviewConfig {

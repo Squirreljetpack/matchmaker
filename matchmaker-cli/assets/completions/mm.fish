@@ -1,9 +1,9 @@
 complete -c mm -l config -r
-complete -c mm -l header-lines -r
-complete -c mm -l verbosity -r
 complete -c mm -l dump-config
 complete -c mm -s F
 complete -c mm -l test-keys
+complete -c mm -s q -d 'Reduce the level of verbosity (the min level is -qq)'
+complete -c mm -s v -d 'Increase the level of verbosity (the max level is -vvv)'
 complete -c mm -l options -d 'Display options doc'
 complete -c mm -l binds
 complete -c mm -s h -l help -d 'Print help'

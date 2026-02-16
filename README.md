@@ -1,1 +1,1 @@
-matchmaker-lib/README.md
+matchmaker-cli/README.md

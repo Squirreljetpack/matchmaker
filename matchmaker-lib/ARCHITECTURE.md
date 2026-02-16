@@ -1,25 +1,35 @@
-## Architecture
-
-### Matchmaker
-
-##### components
+### Components
 
 - Nucleo
   - worker
   - matcher
-- Output function (&Input -> (u32, Output))
+- Selector (&Input -> (u32, Output))
 - Configs (see config.toml/config.rs)
 - Dynamic event/interrupt handlers
-- Previewer config
+- Previewer
 
-##### pick
+### Pick
 
-```
-Event(Bind, Crossterm, Event) -> Event handler -> Action(Context) -> Action -> Computation
-    -> Raise Event/Interrupt -> Event/Interrupt Handlers
-    -> Render
-```
+Event Loop:
+- Recieve Event(Bind, Crossterm, Event)
+- Match to Action(Payload)
+- Send to Renderer
 
+Renderer:
+- Process each action and event in the recieved batch
+- Process Interrupts
+  - Execute builtin effects (restart, exit tui)
+  - Execute attached handlers
+- Compute layouts and widgets
+- Render
+- Update state
+- Process all effects by invoking attached handlers
+
+Previewer:
+- Dynamic handler listens to QueryChange Event
+- Recieve PreviewerMessage, emitted from a dynamic handler
+- Spawn a process to read the stdout of the specified command into the message
+- Cleanup processes on access
 
 ### Dynamic handlers
 
@@ -32,3 +42,6 @@ Some actions can generate these triggers, as well usually performing a minimal a
 For example, the `Preview(bat {})` command generates a `PreviewChanged` event, and leaves the string contents as a payload in the render state. This render state is exposed to the handler, and is used to spawn the command which is then displayed to preview. The `Execute` action is another example: it simply leaves the tui before raising the execute interrupt, then re-enters before the next render -- the handler associated to the interrupt is what spawns the process in the main app. As a rule, any action with effects beyond the UI has its logic defined seperately, and is therefore be fully amenable to the needs of the application.
 
 For more specific requirements, the set of actions can be extended with a type implementing `ActionExt`, on which a handler with mutable access to the UI state can be registered. Additionally, [`PickOptions`](./src/matchmaker.rs#L417) also supports registering an [`ext_aliaser`](./src/matchmaker.rs#L481-L484) which can be used transform actions before they are processed.
+
+### State
+All of the customizable handlers take a `MMState`, which contains data and mutable access to the picker, such as the input text, header text, the matcher worker, and all UI configuration options.

@@ -23,21 +23,13 @@ _mm() {
 
     case "${cmd}" in
         mm)
-            opts="-F -h --config --dump-config --test-keys --header-lines --verbosity --options --binds --help"
+            opts="-F -q -v -h --config --dump-config --test-keys --options --binds --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --config)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --header-lines)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --verbosity)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

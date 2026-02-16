@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{ArgAction, Parser};
 use std::ffi::OsString;
 
 pub static BINARY_FULL: &str = "matchmaker";
@@ -15,10 +15,13 @@ pub struct Cli {
     pub fullscreen: bool,
     #[arg(long)]
     pub test_keys: bool,
-    #[arg(long)]
-    pub header_lines: Option<usize>,
-    #[arg(long, default_value_t = 3)]
-    pub verbosity: u8, // todo: implement
+
+    /// Reduce the level of verbosity (the min level is -qq).
+    #[clap(short, conflicts_with("verbose"), action = ArgAction::Count)]
+    pub quiet: u8,
+    /// Increase the level of verbosity (the max level is -vvv).
+    #[clap(short, conflicts_with("quiet"), action = ArgAction::Count)]
+    pub verbose: u8,
 
     // docs
     /// Display options doc
@@ -64,13 +67,12 @@ impl Cli {
 
             // Long options with optional or required values
             try_parse!("config");
-            try_parse!("header-lines");
             try_parse!("verbosity");
             try_parse!("options");
             try_parse!("binds");
 
             // Flags
-            if ["--dump-config", "--test-keys", "--fullscreen", "-F"].contains(&s.as_ref()) {
+            if ["--dump-config", "--test-keys", "-F", "-q", "-v"].contains(&s.as_ref()) {
                 clap_args.push(arg);
                 continue;
             }

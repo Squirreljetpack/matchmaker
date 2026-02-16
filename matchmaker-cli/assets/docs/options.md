@@ -11,7 +11,7 @@ Overrides follow the pattern `path=value` or `path value`.
 - **Shortcuts**: Many common paths have short aliases:
   - `b` -> `binds`
   - `p` -> `preview`
-  - `h` -> `header`
+  - `h.l` -> `header.lines`
   - `r.r` -> `results.reverse`
   - `r.w` -> `results.wrap`
   - `p.l.x` -> `preview.layout.command`
@@ -34,7 +34,7 @@ If a "leaf" value contains multiple settings (like a [border](#border-settings) 
 ```bash
 # Example: 
 # If you started with one preview layout, the following overrides the first preview layout, and adds two new ones. It also sets 3 binds.
-mm p.l command=hi p.l "x=bye min=3" b "ctrl-c=Quit ?=preview[echo hi]" b.ctrl-a "cancel"
+mm p.l command=hi p.l "x=bye min=3" b "ctrl-c=Quit ?=preview(echo hi)" b.ctrl-a "cancel"
 
 # Example: 
 # Setting the column splitting delimiter
@@ -42,6 +42,14 @@ mm m.c.split "\w+ /\w+" # Sets the field: matcher.columns.split = Split::Regexes
 # or even shorter
 mm d "[ ]" # split on space
 ```
+
+Individual values within the word specifying the leaf are split by whitespace.
+
+- Whitespace splitting is disabled by a single level of parenthesis `()`, or brackets `[]`, and continues until the opening token is matched.
+- The opening bracket `[]` is not included in the final output, while `()` is.
+- Braces within can be escaped from contributing to the nesting level with `\`.
+
+For example, `(( )) [one word] [\[]` splits into `(( ))`, `one word`, `[`.
 
 ## Available Options
 

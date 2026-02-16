@@ -1,12 +1,9 @@
-use cli_boilerplate_automation::bait::MaybeExt;
 use serde::{Deserialize, Serialize};
 
 use matchmaker_partial_macros::partial;
 
 use matchmaker::binds::{BindMap, BindMapExt};
 use matchmaker::config::*;
-
-use crate::clap::Cli;
 
 use matchmaker::action::Actions;
 use matchmaker::binds::Trigger;
@@ -43,21 +40,6 @@ pub struct Config {
 }
 
 // ----------------------- CONFIG
-impl Cli {
-    /// merge cli opts (not including config_path) into config
-    pub fn merge_config(&self, config: &mut Config) -> anyhow::Result<()> {
-        if self.fullscreen {
-            config.tui.layout = None;
-        }
-        config
-            .render
-            .header
-            .header_lines
-            .take_from(self.header_lines);
-        Ok(())
-    }
-}
-
 impl Default for Config {
     fn default() -> Self {
         toml::from_str(include_str!("../assets/config.toml")).unwrap()

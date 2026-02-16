@@ -5,9 +5,8 @@ use cli_boilerplate_automation::{
 };
 use std::{fs::OpenOptions, path::Path};
 
-pub fn init_logger(verbosity: u8, log_path: &Path) {
-    bog::init_bogger(true, false);
-    bog::init_filter(verbosity);
+pub fn init_logger([q, v]: [u8; 2], log_path: &Path) {
+    bog::init_filter((3 + v).saturating_sub(q));
 
     let rust_log = std::env::var("RUST_LOG").ok().map(|val| val.to_lowercase());
 
@@ -27,7 +26,7 @@ pub fn init_logger(verbosity: u8, log_path: &Path) {
                 .format_target(false)
                 .format_timestamp(None);
 
-            let level = cli_boilerplate_automation::bother::level_filter::from_env();
+            let level = cli_boilerplate_automation::bother::level_filter::from_qv(q, v);
 
             builder.filter(Some(BINARY_FULL), level);
         }

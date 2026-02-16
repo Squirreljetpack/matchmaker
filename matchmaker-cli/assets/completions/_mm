@@ -16,11 +16,11 @@ _mm() {
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" : \
 '--config=[]:PATH_OR_STRING:_default' \
-'--header-lines=[]:HEADER_LINES:_default' \
-'--verbosity=[]:VERBOSITY:_default' \
 '--dump-config[]' \
 '-F[]' \
 '--test-keys[]' \
+'(-v)*-q[Reduce the level of verbosity (the min level is -qq)]' \
+'(-q)*-v[Increase the level of verbosity (the max level is -vvv)]' \
 '--options[Display options doc]' \
 '--binds[]' \
 '-h[Print help]' \

@@ -22,11 +22,11 @@ Register-ArgumentCompleter -Native -CommandName 'mm' -ScriptBlock {
     $completions = @(switch ($command) {
         'mm' {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config')
-            [CompletionResult]::new('--header-lines', '--header-lines', [CompletionResultType]::ParameterName, 'header-lines')
-            [CompletionResult]::new('--verbosity', '--verbosity', [CompletionResultType]::ParameterName, 'verbosity')
             [CompletionResult]::new('--dump-config', '--dump-config', [CompletionResultType]::ParameterName, 'dump-config')
             [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'F')
             [CompletionResult]::new('--test-keys', '--test-keys', [CompletionResultType]::ParameterName, 'test-keys')
+            [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the level of verbosity (the min level is -qq)')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the level of verbosity (the max level is -vvv)')
             [CompletionResult]::new('--options', '--options', [CompletionResultType]::ParameterName, 'Display options doc')
             [CompletionResult]::new('--binds', '--binds', [CompletionResultType]::ParameterName, 'binds')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')

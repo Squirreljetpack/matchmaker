@@ -23,14 +23,12 @@ use crate::parse::{get_pairs, try_split_kv};
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
-    #[cfg(debug_assertions)]
-    let verbosity = 6;
-    #[cfg(not(debug_assertions))]
-    let verbosity = 3;
-
-    init_logger(verbosity, &logs_dir().join(format!("{BINARY_SHORT}.log")));
-
     let (cli, config_args) = Cli::get_partitioned_args();
+
+    init_logger(
+        [cli.quiet, cli.verbose],
+        &logs_dir().join(format!("{BINARY_SHORT}.log")),
+    );
     log::debug!("{cli:?}, {config_args:?}");
 
     display_doc(&cli);
@@ -77,7 +75,7 @@ fn get_partial(config_args: Vec<String>) -> anyhow::Result<PartialConfig> {
     log::trace!("{split:?}");
     let mut partial = PartialConfig::default();
     for (path, val) in split {
-        let parts = match split_nesting(&val, '[', ']') {
+        let parts = match split_nesting(&val, ['(', ')'], ['[', ']']) {
             Ok(mut parts) => {
                 let is_binds = parts.len() == 1 && ["binds", "b"].contains(&parts[0].as_ref());
                 try_split_kv(&mut parts, is_binds)?;

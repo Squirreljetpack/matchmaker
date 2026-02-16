@@ -17,7 +17,7 @@ static ALIASES: &[(&str, &str)] = &[
     ("x", "matcher.command"),
 ];
 
-/// Get (path, value) pairs by consuming either a single word, splitting it into a valid key + value by =, or a pair of consecutive words.
+/// Get (path, value) pairs by consuming either a single word, splitting at '=' into a valid key, or a pair of consecutive words.
 /// The value is broken down into words, and fed into [`matchmaker_partial::Set`] to construct the (partial) type at `path`.
 pub fn get_pairs(pairs: Vec<String>) -> Result<Vec<(ArrayVec<String, 10>, String)>, ParseError> {
     let mut result = Vec::new();

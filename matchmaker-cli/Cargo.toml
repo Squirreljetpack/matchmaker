@@ -21,6 +21,7 @@ edition = "2024"
     serde           = "1.0"
     toml            = "0.9.8"
     thiserror = "2.0"
+termimad = "0.34.1"
 
 
 

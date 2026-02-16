@@ -21,6 +21,7 @@ _mm() {
 '--dump-config[]' \
 '-F[]' \
 '--test-keys[]' \
+'--options[Display options doc]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0

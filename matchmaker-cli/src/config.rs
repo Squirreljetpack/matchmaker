@@ -3,34 +3,33 @@ use serde::{Deserialize, Serialize};
 
 use matchmaker_partial_macros::partial;
 
-use matchmaker::action::{ActionExt, NullActionExt};
 use matchmaker::binds::{BindMap, BindMapExt};
 use matchmaker::config::*;
 
 use crate::clap::Cli;
 
-trait ActionExt_: ActionExt + std::fmt::Display + std::str::FromStr {}
-impl<T: ActionExt + std::fmt::Display + std::str::FromStr> ActionExt_ for T {}
-
-#[allow(private_bounds)] // serde bound workaround
-/// Full config.
-/// Clients probably want to make their own type with RenderConfig + custom settings to instantiate their matchmaker.
-/// Used by the instantiation method [`crate::Matchmaker::new_from_config`]
-#[partial(recurse, path, derive(Debug, Deserialize))]
+use matchmaker::action::Actions;
+use matchmaker::binds::Trigger;
+use std::collections::BTreeMap;
+#[partial(recurse, path, derive(Debug), attr)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, bound(serialize = "", deserialize = "",))]
-pub struct Config<A: ActionExt_ = NullActionExt> {
-    // Default bound on A, see https://github.com/serde-rs/serde/issues/1541
+#[serde(deny_unknown_fields)]
+pub struct Config {
     // configure the ui
     #[serde(default, flatten)]
+    #[partial(attr)]
     pub render: RenderConfig,
 
     // binds
     #[serde(default = "BindMap::default_binds")]
-    #[partial(skip)]
-    pub binds: BindMap<A>,
+    #[serde(alias = "b")]
+    #[partial(attr)]
+    #[partial(recurse = "", unwrap)]
+    // #[partial(skip)]
+    pub binds: BTreeMap<Trigger, Actions>,
 
     #[serde(default)]
+    #[partial(attr)]
     pub tui: TerminalConfig,
 
     #[serde(default)]
@@ -38,7 +37,8 @@ pub struct Config<A: ActionExt_ = NullActionExt> {
     pub previewer: PreviewerConfig,
 
     // this is in a bit of a awkward place because the matcher, worker, picker and reader all want pieces of it.
-    #[serde(default)]
+    #[serde(default, alias = "m")]
+    #[partial(attr)]
     pub matcher: MatcherConfig,
 }
 
@@ -80,3 +80,38 @@ mod tests {
         assert_eq!(config, deserialized);
     }
 }
+
+// --------------------------------------------------------------------------------
+
+// this was the original config but the generic is useless
+// use matchmaker::action::{ActionExt, NullActionExt};
+// trait ActionExt_: ActionExt + std::fmt::Display + std::str::FromStr {}
+// impl<T: ActionExt + std::fmt::Display + std::str::FromStr> ActionExt_ for T {}
+// #[allow(private_bounds)] // serde bound workaround
+// /// Full config.
+// /// Clients probably want to make their own type with RenderConfig + custom settings to instantiate their matchmaker.
+// /// Used by the instantiation method [`crate::Matchmaker::new_from_config`]
+// // #[partial(recurse, path, derive(Debug, Deserialize))]
+// #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// #[serde(deny_unknown_fields, bound(serialize = "", deserialize = "",))]
+// pub struct Config<A: ActionExt_ = NullActionExt> {
+//     // Default bound on A, see https://github.com/serde-rs/serde/issues/1541
+//     // configure the ui
+//     #[serde(default, flatten)]
+//     pub render: RenderConfig,
+
+//     // binds
+//     #[serde(default = "BindMap::default_binds", alias = "b")]
+//     pub binds: BindMap<A>,
+
+//     #[serde(default)]
+//     pub tui: TerminalConfig,
+
+//     #[serde(default)]
+//     #[partial(skip)]
+//     pub previewer: PreviewerConfig,
+
+//     // this is in a bit of a awkward place because the matcher, worker, picker and reader all want pieces of it.
+//     #[serde(default)]
+//     pub matcher: MatcherConfig,
+// }

@@ -14,3 +14,9 @@ pub trait Apply {
 
     fn apply(&mut self, partial: Self::Partial);
 }
+
+pub fn from<T: Default + Apply<Partial = Q>, Q>(partial: Q) -> T {
+    let mut base = T::default();
+    base.apply(partial);
+    base
+}

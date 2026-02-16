@@ -108,6 +108,6 @@
     columns.max_columns = 5
     select_1            = false
     format              = "{}"
-    default_command     = "fd"
+    command     = "fd"
     # sync = false
-    stable = true
+    sort_threshold = 1

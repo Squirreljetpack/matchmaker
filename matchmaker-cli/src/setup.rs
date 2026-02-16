@@ -30,6 +30,7 @@ use matchmaker::{
     },
     preview::AppendOnly,
 };
+use matchmaker_partial::Apply;
 
 pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
     if cli.test_keys {
@@ -58,8 +59,10 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
         }
     };
 
-    // todo
+    // let original = config.clone();
     config.apply(partial);
+    // log::debug!("unchanged: {}", original == config);
+
     cli.merge_config(&mut config)?;
 
     if cli.dump_config {

@@ -27,6 +27,7 @@ Register-ArgumentCompleter -Native -CommandName 'mm' -ScriptBlock {
             [CompletionResult]::new('--dump-config', '--dump-config', [CompletionResultType]::ParameterName, 'dump-config')
             [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'F')
             [CompletionResult]::new('--test-keys', '--test-keys', [CompletionResultType]::ParameterName, 'test-keys')
+            [CompletionResult]::new('--options', '--options', [CompletionResultType]::ParameterName, 'Display options doc')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             break

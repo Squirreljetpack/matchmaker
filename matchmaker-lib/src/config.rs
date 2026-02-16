@@ -64,10 +64,16 @@ pub struct MatcherConfig {
 pub struct WorkerConfig {
     #[cfg(feature = "partial")]
     #[partial(recurse)]
+    #[serde(alias = "c")]
+    /// How columns are parsed from input lines
     pub columns: ColumnsConfig,
-    pub trim: bool,           // todo
-    pub format: FormatString, // todo: implement
+    /// Trim the input
+    pub trim: bool,
+    /// How "stable" the results are. Higher values prioritize the initial ordering.
     pub sort_threshold: u32,
+    // todo: what was this for again?
+    // #[serde(alias = "f")]
+    // pub format: FormatString,
 }
 
 /// Configures how input is fed to to the worker(s).
@@ -83,7 +89,7 @@ pub struct StartConfig {
     #[serde(deserialize_with = "escaped_opt_string")]
     #[serde(alias = "o")]
     pub output_separator: Option<String>,
-    #[serde(alias = "c")]
+    #[serde(alias = "x")]
     pub command: String,
     #[serde(alias = "s")]
     pub sync: bool,
@@ -96,8 +102,11 @@ pub struct StartConfig {
 #[serde(default)]
 #[cfg_attr(feature = "partial", partial(path, derive(Debug, Deserialize)))]
 pub struct ExitConfig {
+    /// Exit automatically if there is only one match.
     pub select_1: bool,
+    /// Allow returning without any items selected.
     pub allow_empty: bool,
+    /// Abort if no items.
     pub abort_empty: bool,
 }
 
@@ -114,10 +123,13 @@ pub struct RenderConfig {
     /// The input bar style
     pub input: InputConfig,
     /// The results table style
+    #[serde(alias = "r")]
     pub results: ResultsConfig,
     /// The preview panel style
+    #[serde(alias = "p")]
     pub preview: PreviewConfig,
     pub footer: DisplayConfig,
+    #[serde(alias = "h")]
     pub header: DisplayConfig,
 }
 
@@ -321,7 +333,6 @@ pub struct ResultsConfig {
     pub status_modifier: Modifier,
     pub status_show: bool,
 
-    // todo(?): lowpri
     // pub selected_fg: Color,
     // pub selected_bg: Color,
     // pub selected_modifier: Color,
@@ -329,15 +340,18 @@ pub struct ResultsConfig {
     // scroll
     pub scroll_wrap: bool,
     pub scroll_padding: u16,
+    #[serde(alias = "r")]
     pub reverse: When,
 
     // wrap
+    #[serde(alias = "w")]
     pub wrap: bool,
     pub wrap_scaling_min_width: u16,
 
     // experimental
     pub column_spacing: Count,
     pub current_prefix: String,
+    #[serde(alias = "ral")]
     pub right_align_last: bool,
 }
 define_transparent_wrapper!(
@@ -354,7 +368,7 @@ impl Default for ResultsConfig {
             default_prefix: Default::default(),
 
             fg: Default::default(),
-            modifier: Default::default(), // or whatever your deserialize_modifier default function returns
+            modifier: Default::default(),
             match_fg: Color::Green,
             match_modifier: Modifier::ITALIC,
 
@@ -415,6 +429,7 @@ pub struct DisplayConfig {
     ///
     /// # Note
     /// This only affects the header and is only implemented in the binary.
+    #[serde(alias = "lines", alias = "l")]
     pub header_lines: usize,
 }
 
@@ -455,7 +470,8 @@ pub struct PreviewConfig {
     #[partial(recurse)]
     pub border: BorderSetting,
 
-    // #[serde(with = "one_or_many")]
+    #[serde(alias = "l")]
+    #[partial(recurse)]
     pub layout: Vec<PreviewSetting>,
     pub scroll_wrap: bool,
     pub wrap: bool,
@@ -542,6 +558,7 @@ pub struct BorderSetting {
     ///
     /// An empty string enforces no sides:
     /// `sides = ""`
+    // #[serde(deserialize_with = "uppercase_normalized_option")] // need ratatui bitflags to use transparent
     pub sides: Option<Borders>,
     /// Supply as either 1, 2, or 4 numbers for:
     ///
@@ -587,12 +604,10 @@ impl BorderSetting {
     pub fn sides(&self) -> Borders {
         if let Some(s) = self.sides {
             s
+        } else if self.color != Default::default() || self.r#type != Default::default() {
+            Borders::ALL
         } else {
-            if self.color != Default::default() || self.r#type != Default::default() {
-                Borders::ALL
-            } else {
-                Borders::NONE
-            }
+            Borders::NONE
         }
     }
 
@@ -661,6 +676,7 @@ impl BorderSetting {
 
 // how to determine how many rows to allocate?
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "partial", partial(path, derive(Debug, Deserialize)))]
 pub struct TerminalLayoutSettings {
     pub percentage: Percentage,
     pub min: u16,
@@ -688,12 +704,12 @@ pub enum Side {
 }
 
 #[cfg_attr(feature = "partial", partial(path, derive(Debug, Deserialize)))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PreviewSetting {
     #[serde(flatten)]
     #[partial(recurse)]
     pub layout: PreviewLayout,
-    #[serde(default)]
+    #[serde(default, alias = "cmd", alias = "x")]
     pub command: String,
 }
 
@@ -731,8 +747,13 @@ use crate::utils::serde::bounded_usize;
 #[serde(default, deny_unknown_fields)]
 #[cfg_attr(feature = "partial", partial(path, derive(Debug, Deserialize)))]
 pub struct ColumnsConfig {
+    /// The strategy of how columns are parsed from input lines
+    #[serde(alias = "d", alias = "s")]
     pub split: Split,
+    /// Column names
+    #[serde(alias = "n")]
     pub names: Vec<ColumnSetting>,
+    /// Maximum number of columns to autogenerate when names is unspecified. Maximum of 10.
     #[serde(deserialize_with = "bounded_usize::<{crate::MAX_SPLITS},_>")]
     max_columns: usize,
 }
@@ -752,8 +773,11 @@ pub struct ColumnSetting {
 
 #[derive(Default, Debug, Clone)]
 pub enum Split {
+    /// Split by delimiter. Supports regex.
     Delimiter(Regex),
+    /// A sequence of regexes.
     Regexes(Vec<Regex>),
+    /// No splitting.
     #[default]
     None,
 }

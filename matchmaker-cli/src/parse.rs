@@ -10,13 +10,17 @@ pub enum ParseError {
     MissingValue { path: String },
 }
 
+static ALIASES: &[(&str, &str)] = &[
+    ("d", "matcher.columns.split.delimiter"),
+    // no reflow
+];
+
 pub fn get_pairs(pairs: Vec<String>) -> Result<Vec<(ArrayVec<String, 10>, String)>, ParseError> {
     let mut result = Vec::new();
     let mut iter = pairs.into_iter().peekable();
 
     while let Some(item) = iter.next() {
-        let (path_str, value) = if let Some(eq_pos) = item.find('=') {
-            // path=value
+        let (mut path_str, value) = if let Some(eq_pos) = item.find('=') {
             let path = item[..eq_pos].to_string();
             let val = item[eq_pos + 1..].to_string();
             if val.is_empty() {
@@ -24,7 +28,6 @@ pub fn get_pairs(pairs: Vec<String>) -> Result<Vec<(ArrayVec<String, 10>, String
             }
             (path, val)
         } else {
-            // path value
             let path = item;
             let val = iter
                 .next()
@@ -32,9 +35,14 @@ pub fn get_pairs(pairs: Vec<String>) -> Result<Vec<(ArrayVec<String, 10>, String
             (path, val)
         };
 
+        // Apply alias to full path string
+        if let Some((_, expanded)) = ALIASES.iter().find(|(a, _)| *a == path_str) {
+            path_str = (*expanded).to_string();
+        }
+
         let mut components = ArrayVec::<String, 10>::new();
         for comp in path_str.split('.') {
-            if comp.is_empty() || !comp.chars().all(|c| c.is_ascii_lowercase() || c == '_') {
+            if !valid_key(comp, false) {
                 return Err(ParseError::InvalidPath {
                     path: path_str.clone(),
                     component: comp.to_string(),
@@ -49,23 +57,29 @@ pub fn get_pairs(pairs: Vec<String>) -> Result<Vec<(ArrayVec<String, 10>, String
     Ok(result)
 }
 
-pub fn try_split_kv(vec: &mut Vec<String>) -> anyhow::Result<()> {
-    fn valid_key(s: &str) -> bool {
-        !s.is_empty() && s.chars().all(|c| c.is_ascii_lowercase() || c == '_')
-    }
+pub fn valid_key(s: &str, extended: bool) -> bool {
+    !s.is_empty()
+        && s.chars().all(|c| {
+            (extended && c.is_ascii_graphic())
+                || c.is_ascii_lowercase()
+                || "_-+".contains(c)
+                || c.is_numeric()
+        }) // the last two are for triggers
+}
 
+pub fn try_split_kv(vec: &mut Vec<String>, extended_keys: bool) -> anyhow::Result<()> {
     // Check first element for '='
     if let Some(first) = vec.first() {
         if let Some(pos) = first.find('=') {
             let key = &first[..pos];
             // If the first element is a valid k=v pair, split the rest, and require that they succeed
-            if valid_key(key) {
+            if valid_key(key, extended_keys) {
                 let mut out = Vec::with_capacity(vec.len() * 2);
                 for s in vec.iter() {
                     if let Some(pos) = s.find('=') {
                         let key = &s[..pos];
                         let val = &s[pos + 1..];
-                        if !valid_key(key) {
+                        if !valid_key(key, extended_keys) {
                             bail!("Invalid key: {}", key);
                         }
                         out.push(key.to_string());
@@ -132,18 +146,18 @@ mod tests {
     fn test_split_key_values_in_place() {
         // Split occurs
         let mut v = vec_!["foo=bar", "baz=qux"];
-        try_split_kv(&mut v).unwrap();
+        try_split_kv(&mut v, false).unwrap();
         assert_eq!(v, vec!["foo", "bar", "baz", "qux"]);
 
         // No split (no '=' in first element), unchanged
         let mut v2 = vec_!["hello", "world"];
-        try_split_kv(&mut v2).unwrap();
+        try_split_kv(&mut v2, false).unwrap();
         assert_eq!(v2, vec!["hello", "world"]);
 
         // No split (first element key invalid), unchanged
-        let mut v3 = vec_!["NotAKey=val"];
-        try_split_kv(&mut v3).unwrap();
-        assert_eq!(v3, vec!["NotAKey=val"]);
+        let mut v3 = vec_!["Not AKey=val"];
+        try_split_kv(&mut v3, false).unwrap();
+        assert_eq!(v3, vec!["Not AKey=val"]);
     }
 
     #[test]
@@ -154,7 +168,7 @@ mod tests {
             "another_key=123",
         ];
 
-        let err = try_split_kv(&mut v4).unwrap_err();
+        let err = try_split_kv(&mut v4, false).unwrap_err();
         assert_eq!(err.to_string(), "Invalid key: NotKey");
 
         // vec should remain unchanged

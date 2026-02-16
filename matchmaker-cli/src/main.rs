@@ -1,3 +1,4 @@
+use matchmaker_partial::Set;
 use std::process::exit;
 
 mod clap;
@@ -32,11 +33,11 @@ async fn main() {
     let (cli, config_args) = Cli::get_partitioned_args();
     log::debug!("{cli:?}, {config_args:?}");
 
+    display_doc(&cli); // not sure to put here or in enter
+
     // get config overrides
     let partial = get_partial(config_args).__ebog();
     log::trace!("{partial:?}");
-
-    // cli_boilerplate_automation::_dbg!(partial);
 
     // get config
     let config = enter(cli, partial).__ebog();
@@ -76,9 +77,10 @@ fn get_partial(config_args: Vec<String>) -> anyhow::Result<PartialConfig> {
     log::trace!("{split:?}");
     let mut partial = PartialConfig::default();
     for (path, val) in split {
-        let parts = match split_nesting(&val) {
+        let parts = match split_nesting(&val, '[', ']') {
             Ok(mut parts) => {
-                try_split_kv(&mut parts)?;
+                let is_binds = parts.len() == 1 && ["binds", "b"].contains(&parts[0].as_ref());
+                try_split_kv(&mut parts, is_binds)?;
                 parts
             }
             Err(n) => {
@@ -90,8 +92,27 @@ fn get_partial(config_args: Vec<String>) -> anyhow::Result<PartialConfig> {
             }
         };
 
+        log::trace!("{parts:?}");
+
         partial.set(path.as_slice(), &parts)?;
     }
 
     Ok(partial)
+}
+
+fn display_doc(cli: &Cli) {
+    use termimad::MadSkin;
+    use termimad::crossterm::style::Color;
+
+    let mut md = String::new();
+    if cli.options {
+        md.push_str(include_str!("../assets/docs/options.md"));
+    }
+
+    if !md.is_empty() {
+        let mut skin = MadSkin::default();
+        skin.bold.set_fg(Color::Yellow);
+        skin.print_text(&md);
+        exit(0)
+    }
 }

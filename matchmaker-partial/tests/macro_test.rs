@@ -2,22 +2,13 @@
 
 macro_rules! vec_ {
     ($($elem:expr),* $(,)?) => {
-        vec![$($elem.into()),*]
-    };
-    (| $($elem:expr),*) => {
         vec![$($elem.to_string()),*]
-    };
-    ($t:ty | $($elem:expr),*) => {
-        vec![$($t::from($elem)),*]
-    };
-    ($f:ident | $($elem:expr),*) => {
-        vec![$($f($elem)),*]
     };
 }
 
 #[cfg(test)]
 mod tests {
-    use matchmaker_partial::PartialSetError;
+    use matchmaker_partial::*;
     use matchmaker_partial_macros::partial;
     use serde::{Deserialize, Serialize};
     use std::collections::{HashMap, HashSet};
@@ -136,8 +127,9 @@ mod tests {
         }
 
         // We need to implement `apply` manually for this test.
-        impl Nested {
-            fn apply(&mut self, partial: CustomPartialNested) {
+        impl Apply for Nested {
+            type Partial = CustomPartialNested;
+            fn apply(&mut self, partial: Self::Partial) {
                 if let Some(b) = partial.b {
                     self.b = b;
                 }
@@ -536,6 +528,20 @@ mod tests {
                 }
             ])
         );
+
+        p_path
+            .set(&["recurse_unwrap".into()], &vec_!["d", "99"])
+            .unwrap();
+        assert_eq!(p_path.recurse_unwrap.len(), 1);
+        assert_eq!(p_path.recurse_unwrap[0].d.unwrap(), 99);
+
+        // set singleton on recurse Vec -> extend
+        p_path.set(&["recurse".into()], &vec_!["d", "99"]).unwrap();
+        assert_eq!(
+            p_path.recurse.as_ref().map(|s| s.len()).unwrap_or_default(),
+            1
+        );
+        assert_eq!(p_path.recurse.unwrap()[0].d.unwrap(), 99);
 
         // todo: fix deserializer to pass this
         // set sequence on unrecursed_seq (Option<Vec>) -> overwrite

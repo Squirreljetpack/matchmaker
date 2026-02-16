@@ -386,16 +386,15 @@ macro_rules! enum_from_str_display {
                     return Ok(Self::Custom(x))
                 }
                 match name {
-                    $( stringify!($unit) => {
+                    $( n if n.eq_ignore_ascii_case(stringify!($unit)) => {
                         if data.is_some() {
                             Err(format!("Unexpected data for unit variant {}", name))
-                        } else
-                        {
+                        } else {
                             Ok(Self::$unit)
                         }
                     }, )*
 
-                    $( stringify!($tuple) => {
+                    $( n if n.eq_ignore_ascii_case(stringify!($tuple)) => {
                         let d = data
                         .ok_or_else(|| format!("Missing data for {}", stringify!($tuple)))?
                         .parse()
@@ -403,26 +402,30 @@ macro_rules! enum_from_str_display {
                         Ok(Self::$tuple(d))
                     }, )*
 
-                    $( stringify!($default) => {
+                    $( n if n.eq_ignore_ascii_case(stringify!($default)) => {
                         let d = match data {
-                            Some(val) => val.parse()
+                            Some(val) => val
+                            .parse()
                             .map_err(|_| format!("Invalid data for {}", stringify!($default)))?,
                             None => $default_value,
                         };
                         Ok(Self::$default(d))
                     }, )*
 
-                    $( stringify!($optional) => {
+                    $( n if n.eq_ignore_ascii_case(stringify!($optional)) => {
                         let d = match data {
                             Some(val) if !val.is_empty() => {
-                                Some(val.parse().map_err(|_| format!("Invalid data for {}", stringify!($optional)))?)
+                                Some(
+                                    val.parse()
+                                    .map_err(|_| format!("Invalid data for {}", stringify!($optional)))?,
+                                )
                             }
                             _ => None,
                         };
                         Ok(Self::$optional(d))
                     }, )*
 
-                    _ => Err(format!("Unknown variant {}", s))
+                    _ => Err(format!("Unknown variant {}", s)),
                 }
             }
         }

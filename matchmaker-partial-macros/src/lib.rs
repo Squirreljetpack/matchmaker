@@ -175,7 +175,7 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut merge_field_stmts = Vec::new();
     let mut clear_field_stmts = Vec::new();
     let mut set_field_arms = Vec::new();
-    let mut flattened_fields = Vec::new();
+    let mut flattened_field_targets = Vec::new();
     let mut used_idents = HashSet::new();
 
     for field in fields.iter_mut() {
@@ -184,6 +184,7 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
         let field_ty = &field.ty;
 
         let mut skip_field = false;
+        let mut field_recurse = false;
         let mut recurse_override: Option<Option<proc_macro2::TokenStream>> = None;
         let mut field_unwrap = struct_unwrap;
         let mut field_set: Option<String> = None;
@@ -214,12 +215,9 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                                 let ty: Type = s.parse().unwrap();
                                 recurse_override = Some(Some(quote! { #ty }));
                             }
-                        } else if let Type::Path(ty_path) = field_ty {
-                            let mut p_path = ty_path.path.clone();
-                            if let Some(seg) = p_path.segments.last_mut() {
-                                seg.ident = format_ident!("Partial{}", seg.ident);
-                                recurse_override = Some(Some(quote! { #p_path }));
-                            }
+                        } else {
+                            // Enable recursion using default naming convention
+                            field_recurse = true;
                         }
                     } else if meta.path.is_ident("attr") {
                         field_attrs_for_mirror.clear();
@@ -321,7 +319,7 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
         let coll_info = get_collection_info(inner_ty);
 
         // Determine if we should recurse
-        let mut should_recurse = (struct_recurse || recurse_override.is_some())
+        let mut should_recurse = (struct_recurse || field_recurse || recurse_override.is_some())
             && !matches!(recurse_override, Some(None));
 
         if let Some(ref s) = field_set {
@@ -398,14 +396,14 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                                     let mut p_it = p.into_iter();
                                     for target in #target_expr.iter_mut() {
                                         if let Some(p_item) = p_it.next() {
-                                            target.apply(p_item);
+                                            matchmaker_partial::Apply::apply(target, p_item);
                                         } else {
                                             break;
                                         }
                                     }
                                     for p_item in p_it {
                                         let mut t = <#element_ty as Default>::default();
-                                        t.apply(p_item);
+                                        matchmaker_partial::Apply::apply(&mut t, p_item);
                                         #target_expr.push(t);
                                     }
                                 }
@@ -413,7 +411,7 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                                 quote! {
                                     for p_item in p {
                                         let mut t = <#element_ty as Default>::default();
-                                        t.apply(p_item);
+                                        matchmaker_partial::Apply::apply(&mut t, p_item);
                                         #target_expr.insert(t);
                                     }
                                 }
@@ -422,7 +420,7 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                             quote! {
                                 for p_item in partial.#field_name {
                                     let mut t = <#element_ty as Default>::default();
-                                    t.apply(p_item);
+                                    matchmaker_partial::Apply::apply(&mut t, p_item);
                                     #target_expr.#push_method(t);
                                 }
                             }
@@ -433,10 +431,10 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                             quote! {
                                 for (k, p_v) in p {
                                     if let Some(v) = #target_expr.get_mut(&k) {
-                                        v.apply(p_v);
+                                        matchmaker_partial::Apply::apply(v, p_v);
                                     } else {
                                         let mut v = <#element_ty as Default>::default();
-                                        v.apply(p_v);
+                                        matchmaker_partial::Apply::apply(&mut v, p_v);
                                         #target_expr.insert(k, v);
                                     }
                                 }
@@ -444,9 +442,13 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                         } else {
                             quote! {
                                 for (k, p_v) in partial.#field_name {
-                                    let mut v = <#element_ty as Default>::default();
-                                    v.apply(p_v);
-                                    #target_expr.insert(k, v);
+                                    if let Some(v) = #target_expr.get_mut(&k) {
+                                        matchmaker_partial::Apply::apply(v, p_v);
+                                    } else {
+                                        let mut v = <#element_ty as Default>::default();
+                                        matchmaker_partial::Apply::apply(&mut v, p_v);
+                                        #target_expr.insert(k, v);
+                                    }
                                 }
                             }
                         }
@@ -466,6 +468,12 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                         quote! { p }
                     };
                     quote! { if let Some(p) = partial.#field_name { self.#field_name = #val; } }
+                } else if kind == CollectionKind::HashMap || kind == CollectionKind::BTreeMap {
+                    quote! {
+                        for (k, v) in partial.#field_name {
+                            #target_expr.insert(k, v);
+                        }
+                    }
                 } else {
                     quote! { #target_expr.extend(partial.#field_name.into_iter()); }
                 }
@@ -476,7 +484,7 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
             if !field_unwrap {
                 merge_field_stmts.push(quote! {
                     if let Some(other_coll) = other.#field_name {
-                        #target_expr.extend(other_coll.into_iter());
+                        self.#field_name.get_or_insert_with(Default::default).extend(other_coll.into_iter());
                     }
                 });
                 clear_field_stmts.push(quote! { self.#field_name = None; });
@@ -491,54 +499,104 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                 let field_name_str = field_ident.to_string();
                 let field_name_str = field_name_str.strip_prefix("r#").unwrap_or(&field_name_str);
 
-                if !is_recursive_field {
-                    let is_sequence = field_set.as_deref() == Some("sequence");
-                    let set_logic = if is_sequence {
-                        let assignment = if !field_unwrap {
-                            quote! { self.#field_ident = Some(deserialized); }
+                let is_sequence = field_set.as_deref() == Some("sequence");
+                let set_logic = if is_sequence {
+                    let assignment = if !field_unwrap {
+                        quote! { self.#field_ident = Some(deserialized); }
+                    } else {
+                        quote! { self.#field_ident.extend(deserialized); }
+                    };
+                    quote! {
+                        let deserialized: #partial_coll_ty = matchmaker_partial::deserialize(val)?;
+                        #assignment
+                    }
+                } else {
+                    let target = if !field_unwrap {
+                        quote! { self.#field_ident.get_or_insert_with(Default::default) }
+                    } else {
+                        quote! { self.#field_ident }
+                    };
+
+                    let set_full_coll_logic = if !field_unwrap {
+                        quote! { self.#field_ident = Some(new_map); }
+                    } else {
+                        quote! { #target.extend(new_map.into_iter()); }
+                    };
+
+                    if inners.len() == 2 {
+                        let key_ty = inners[0];
+                        let val_ty = if should_recurse {
+                            quote! { #partial_element_ty }
                         } else {
-                            quote! { self.#field_ident.extend(deserialized); }
+                            quote! { #element_ty }
                         };
+
+                        let descent_logic = if should_recurse {
+                            quote! {
+                                if rest.is_empty() {
+                                    let mut combined = vec![key_str.clone()];
+                                    combined.extend_from_slice(val);
+                                    let (key, value): (#key_ty, #val_ty) = matchmaker_partial::deserialize(&combined)?;
+                                    let _ = #target.insert(key, value);
+                                } else {
+                                    let key: #key_ty = matchmaker_partial::deserialize(&[key_str.clone()])?;
+                                    let item = #target.entry(key).or_insert_with(Default::default);
+                                    matchmaker_partial::Set::set(item, rest, val)?;
+                                }
+                            }
+                        } else {
+                            quote! {
+                                if rest.is_empty() {
+                                    let mut combined = vec![key_str.clone()];
+                                    combined.extend_from_slice(val);
+                                    let (key, value): (#key_ty, #val_ty) = matchmaker_partial::deserialize(&combined)?;
+                                    let _ = #target.insert(key, value);
+                                } else {
+                                    return Err(matchmaker_partial::PartialSetError::ExtraPaths(rest.to_vec()));
+                                }
+                            }
+                        };
+
                         quote! {
-                            let deserialized: #partial_coll_ty = matchmaker_partial::deserialize(val)?;
-                            #assignment
+                            if let Some((key_str, rest)) = tail.split_first() {
+                                #descent_logic
+                            } else {
+                                let new_map: #partial_coll_ty = matchmaker_partial::deserialize(val)?;
+                                #set_full_coll_logic
+                            }
                         }
                     } else {
                         let push_method = match kind {
                             CollectionKind::Vec => quote! { push },
                             _ => quote! { insert },
                         };
-                        let target = if !field_unwrap {
-                            quote! { self.#field_ident.get_or_insert_with(Default::default) }
+                        let item_ty = if should_recurse {
+                            quote! { #partial_element_ty }
                         } else {
-                            quote! { self.#field_ident }
+                            quote! { #element_ty }
                         };
-                        if inners.len() == 2 {
-                            quote! { return Err(matchmaker_partial::PartialSetError::ExtraPaths(tail.to_vec())); }
-                        } else {
-                            quote! {
-                                let item: #element_ty = matchmaker_partial::deserialize(val)?;
-                                #target.#push_method(item);
-                            }
-                        }
-                    };
-
-                    set_field_arms.push(quote! {
-                        #field_name_str #(| #field_aliases)* => {
-                            if !tail.is_empty() {
+                        quote! {
+                            if let Some((_, _)) = tail.split_first() {
                                 return Err(matchmaker_partial::PartialSetError::ExtraPaths(tail.to_vec()));
                             }
-                            #set_logic
-                            Ok(())
+                            let item: #item_ty = matchmaker_partial::deserialize(val)?;
+                            #target.#push_method(item);
                         }
-                    });
-                }
+                    }
+                };
+
+                set_field_arms.push(quote! {
+                    #field_name_str #(| #field_aliases)* => {
+                        #set_logic
+                        Ok(())
+                    }
+                });
             }
         } else {
             // Leaf field handling
             current_field_ty = if should_recurse {
                 is_recursive_field = true;
-                if let Some(Some(ref overridden)) = recurse_override {
+                let p_ty = if let Some(Some(ref overridden)) = recurse_override {
                     overridden.clone()
                 } else if let Type::Path(ty_path) = inner_ty {
                     let mut p_path = ty_path.path.clone();
@@ -550,7 +608,17 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                     }
                 } else {
                     quote! { #inner_ty }
+                };
+
+                if field_unwrap {
+                    p_ty
+                } else if is_opt {
+                    quote! { Option<#p_ty> }
+                } else {
+                    p_ty
                 }
+            } else if field_unwrap {
+                quote! { #inner_ty }
             } else if is_opt {
                 quote! { #field_ty }
             } else {
@@ -558,36 +626,82 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
             };
 
             if is_recursive_field {
-                apply_field_stmts.push(quote! { self.#field_name.apply(partial.#field_name); });
-                merge_field_stmts.push(quote! { self.#field_name.merge(other.#field_name); });
-                clear_field_stmts.push(quote! { self.#field_name.clear(); });
+                if !field_unwrap && is_opt {
+                    apply_field_stmts.push(quote! {
+                        if let Some(p) = partial.#field_name {
+                            if let Some(ref mut v) = self.#field_name {
+                                matchmaker_partial::Apply::apply(v, p);
+                            } else {
+                                self.#field_name = Some(matchmaker_partial::from(p));
+                            }
+                        }
+                    });
+                    merge_field_stmts.push(quote! {
+                        match (&mut self.#field_name, other.#field_name) {
+                            (Some(s), Some(o)) => matchmaker_partial::Merge::merge(s, o),
+                            (t @ None, Some(o)) => *t = Some(o),
+                            _ => {}
+                        }
+                    });
+                    clear_field_stmts.push(quote! { self.#field_name = None; });
+                } else if field_unwrap && is_opt {
+                    // Unwrapped recursive, base is Option
+                    apply_field_stmts.push(quote! {
+                        if let Some(ref mut v) = self.#field_name {
+                            matchmaker_partial::Apply::apply(v, partial.#field_name);
+                        } else {
+                            self.#field_name = Some(matchmaker_partial::from(partial.#field_name));
+                        }
+                    });
+                    merge_field_stmts.push(quote! { matchmaker_partial::Merge::merge(&mut self.#field_name, other.#field_name); });
+                    clear_field_stmts
+                        .push(quote! { matchmaker_partial::Merge::clear(&mut self.#field_name); });
+                } else {
+                    apply_field_stmts.push(quote! { matchmaker_partial::Apply::apply(&mut self.#field_name, partial.#field_name); });
+                    merge_field_stmts.push(quote! { matchmaker_partial::Merge::merge(&mut self.#field_name, other.#field_name); });
+                    clear_field_stmts
+                        .push(quote! { matchmaker_partial::Merge::clear(&mut self.#field_name); });
+                }
 
                 if let Some(field_ident) = &field.ident {
                     let field_name_str = field_ident.to_string();
                     let field_name_str =
                         field_name_str.strip_prefix("r#").unwrap_or(&field_name_str);
 
+                    let set_target = if is_opt {
+                        quote! { self.#field_ident.get_or_insert_with(Default::default) }
+                    } else {
+                        quote! { &mut self.#field_ident }
+                    };
+
                     if is_flattened {
-                        flattened_fields.push(field_ident.clone());
+                        flattened_field_targets.push(set_target);
                     } else {
                         set_field_arms.push(quote! {
                             #field_name_str #(| #field_aliases)* => {
                                 if tail.is_empty() {
                                     return Err(matchmaker_partial::PartialSetError::EarlyEnd(head.clone()));
                                 }
-                                self.#field_ident.set(tail, val)
+                                matchmaker_partial::Set::set(#set_target, tail, val)
                             }
                         });
                     }
                 }
             } else {
-                if is_opt {
+                if field_unwrap {
+                    if is_opt {
+                        apply_field_stmts
+                            .push(quote! { self.#field_name = Some(partial.#field_name); });
+                    } else {
+                        apply_field_stmts.push(quote! { self.#field_name = partial.#field_name; });
+                    }
+                } else if !is_opt {
                     apply_field_stmts.push(
-                        quote! { if let Some(v) = partial.#field_name { self.#field_name = Some(v); } },
+                        quote! { if let Some(v) = partial.#field_name { self.#field_name = v; } },
                     );
                 } else {
                     apply_field_stmts.push(
-                        quote! { if let Some(v) = partial.#field_name { self.#field_name = v; } },
+                        quote! { if let Some(v) = partial.#field_name { self.#field_name = Some(v); } },
                     );
                 }
                 merge_field_stmts.push(
@@ -661,8 +775,8 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
     // --- 6. Optional Path Setter Implementation ---
     let path_setter_impl = if generate_path_setter {
         quote! {
-            impl #p_impl_generics #partial_name #p_ty_generics #p_where_clause {
-                pub fn set(&mut self, path: &[String], val: &[String]) -> Result<(), matchmaker_partial::PartialSetError> {
+            impl #p_impl_generics matchmaker_partial::Set for #partial_name #p_ty_generics #p_where_clause {
+                fn set(&mut self, path: &[String], val: &[String]) -> Result<(), matchmaker_partial::PartialSetError> {
                     let (head, tail) = path.split_first().ok_or_else(|| {
                         matchmaker_partial::PartialSetError::EarlyEnd("root".to_string())
                     })?;
@@ -671,7 +785,7 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                         #(#set_field_arms)*
                         _ => {
                             #(
-                                match self.#flattened_fields.set(path, val) {
+                                match matchmaker_partial::Set::set(#flattened_field_targets, path, val) {
                                     Err(matchmaker_partial::PartialSetError::Missing(_)) => {}
                                     x => return x,
                                 }
@@ -689,12 +803,12 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
     // --- 7. Conditional Merge/Clear auto-impl ---
     let merge_impl = if enable_merge {
         quote! {
-            impl #p_impl_generics #partial_name #p_ty_generics #p_where_clause {
-                pub fn merge(&mut self, other: Self) {
+            impl #p_impl_generics matchmaker_partial::Merge for #partial_name #p_ty_generics #p_where_clause {
+                fn merge(&mut self, other: Self) {
                     #(#merge_field_stmts)*
                 }
 
-                pub fn clear(&mut self) {
+                fn clear(&mut self) {
                     #(#clear_field_stmts)*
                 }
             }
@@ -711,8 +825,9 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
             #(#partial_field_defs),*
         }
 
-        impl #impl_generics #name #ty_generics #where_clause {
-            pub fn apply(&mut self, partial: #partial_name #p_ty_generics) {
+        impl #impl_generics matchmaker_partial::Apply for #name #ty_generics #where_clause {
+            type Partial = #partial_name #p_ty_generics;
+            fn apply(&mut self, partial: Self::Partial) {
                 #(#apply_field_stmts)*
             }
         }
@@ -727,10 +842,7 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 fn is_option(ty: &Type) -> bool {
     if let Type::Path(tp) = ty {
-        tp.path
-            .segments
-            .last()
-            .map_or(false, |s| s.ident == "Option")
+        tp.path.segments.last().is_some_and(|s| s.ident == "Option")
     } else {
         false
     }

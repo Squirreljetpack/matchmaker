@@ -10,8 +10,10 @@ members = [
 matchmaker-lib = { path = "./matchmaker-lib" }
 matchmaker-partial = { path = "./matchmaker-partial" }
 matchmaker-partial-macros = { path = "./matchmaker-partial-macros" }
+nucleo = { git = "https://github.com/Squirreljetpack/nucleo", branch = "mm" }
 
 [workspace.dependencies]
-matchmaker-lib = { path = "./matchmaker-lib" }
-matchmaker-partial = { path = "./matchmaker-partial" }
-matchmaker-partial-macros = { path = "./matchmaker-partial-macros" }
+matchmaker-lib = { version = "0.0.1" }
+matchmaker-partial = { version = "0.0.1" }
+matchmaker-partial-macros = { version = "0.0.3", default-features = false}
+cli_boilerplate_automation = { version = "0.0.10" }

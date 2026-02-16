@@ -282,6 +282,7 @@ impl IoStream {
 
 // ------------------------------------------------------------
 
+#[cfg(unix)]
 mod utils {
     use anyhow::{Context, Result, bail};
     use std::{
@@ -348,5 +349,15 @@ mod utils {
         let col: u16 = parts.next().context("Missing column")?.parse()?;
 
         Ok((col - 1, row - 1)) // convert to 0-based
+    }
+}
+
+#[cfg(windows)]
+mod utils {
+    use anyhow::Result;
+    use std::time::Duration;
+    pub fn query_cursor_position(timeout: Duration) -> Result<(u16, u16)> {
+        let ret = crossterm::cursor::position()?;
+        Ok(ret)
     }
 }

@@ -1,8 +1,7 @@
 #![allow(unused)]
-
 macro_rules! vec_ {
     ($($elem:expr),* $(,)?) => {
-        vec![$($elem.to_string()),*]
+        vec![$($elem.into()),*]
     };
 }
 

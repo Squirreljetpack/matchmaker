@@ -1,7 +1,14 @@
 [package]
 name = "matchmaker-partial-macros"
-version = "0.0.1"
+version = "0.0.3"
 edition = "2024"
+description = "Derive macros for the matchmaker-partial crate"
+repository = "https://github.com/Squirreljetpack/matchmaker"
+license = "MIT"
+
+[features]
+default = ["partial"]
+partial = []
 
 [lib]
 proc-macro = true

@@ -2,9 +2,14 @@
 name = "matchmaker-cli"
 version = "0.0.1"
 edition = "2024"
+description = "Command-line interface for the matchmaker fuzzy finder"
+repository = "https://github.com/Squirreljetpack/matchmaker"
+license = "MIT"
+categories = ["command-line-utilities"]
+keywords     = ["fuzzy", "finder", "tui", "nucleo", "fzf"]
 
 [dependencies]
-    cli_boilerplate_automation = { version = "0", features = [ "text", "serde" ] }
+    cli_boilerplate_automation = { workspace = true, features = [ "text", "serde" ] }
     matchmaker-lib = { workspace = true, features = [ "partial" ]}
     matchmaker-partial = { workspace = true }
     matchmaker-partial-macros = { workspace = true }
@@ -21,9 +26,7 @@ edition = "2024"
     serde           = "1.0"
     toml            = "0.9.8"
     thiserror = "2.0"
-termimad = "0.34.1"
-
-
+    termimad = "0.34.1"
 
 [build-dependencies]
     clap          = { version = "4.0", features = [ "derive" ] }
@@ -31,3 +34,7 @@ termimad = "0.34.1"
     strum         = { version = "0.27.2", features = [ "strum_macros" ] }
     strum_macros  = "0.27.2"
     thiserror     = "2.0.17"
+
+[[bin]]
+name = "mm"
+path = "src/main.rs"

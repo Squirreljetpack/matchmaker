@@ -5,7 +5,7 @@
 
 use super::{Line, Span, Style, Text};
 use bitflags::bitflags;
-use nucleo::pattern::Variant;
+
 use ratatui::style::Modifier;
 use std::{
     borrow::Cow,
@@ -130,11 +130,12 @@ where
         }
     }
 
+    #[cfg(feature = "experimental")]
     pub fn set_column_options(&mut self, index: usize, options: ColumnOptions) {
         if options.contains(ColumnOptions::Optional) {
             self.nucleo
                 .pattern
-                .configure_column(index, Variant::Optional)
+                .configure_column(index, nucleo::pattern::Variant::Optional)
         }
 
         self.column_options[index] = options
@@ -235,6 +236,7 @@ where
         (snapshot.matched_item_count(), snapshot.item_count())
     }
 
+    #[cfg(feature = "experimental")]
     pub fn set_stability(&mut self, threshold: u32) {
         self.nucleo.set_stability(threshold);
     }

@@ -4,6 +4,12 @@ use matchmaker_partial::*;
 use matchmaker_partial_macros::partial;
 use serde::{Deserialize, Serialize};
 
+macro_rules! vec_ {
+    ($($elem:expr),* $(,)?) => {
+        vec![$($elem.into()),*]
+    };
+}
+
 #[partial(path)]
 #[derive(Debug, PartialEq, Default, Clone, Serialize, Deserialize)]
 pub struct Nested {

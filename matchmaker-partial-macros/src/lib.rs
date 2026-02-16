@@ -9,6 +9,17 @@ use syn::{
 #[proc_macro_attribute]
 pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(item as ItemStruct);
+
+    if !cfg!(feature = "partial") {
+        input.attrs.retain(|attr| !attr.path().is_ident("partial"));
+        if let Fields::Named(fields) = &mut input.fields {
+            for field in &mut fields.named {
+                field.attrs.retain(|attr| !attr.path().is_ident("partial"));
+            }
+        }
+        return quote!(#input).into();
+    }
+
     let name = &input.ident;
     let partial_name = format_ident!("Partial{}", name);
 

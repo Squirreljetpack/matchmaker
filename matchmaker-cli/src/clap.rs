@@ -24,9 +24,12 @@ pub struct Cli {
     /// Display options doc
     #[arg(long)]
     pub options: bool,
+    #[arg(long)]
+    pub binds: bool,
 }
 
 impl Cli {
+    /// All words parsed by clap need to be repeated here to be extracted.
     fn partition_clap_args(args: Vec<OsString>) -> (Vec<OsString>, Vec<OsString>) {
         let mut clap_args = Vec::new();
         let mut rest = Vec::new();
@@ -64,6 +67,7 @@ impl Cli {
             try_parse!("header-lines");
             try_parse!("verbosity");
             try_parse!("options");
+            try_parse!("binds");
 
             // Flags
             if ["--dump-config", "--test-keys", "--fullscreen", "-F"].contains(&s.as_ref()) {

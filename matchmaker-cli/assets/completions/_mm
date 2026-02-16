@@ -22,6 +22,7 @@ _mm() {
 '-F[]' \
 '--test-keys[]' \
 '--options[Display options doc]' \
+'--binds[]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0

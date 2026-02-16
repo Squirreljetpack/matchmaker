@@ -33,7 +33,7 @@ async fn main() {
     let (cli, config_args) = Cli::get_partitioned_args();
     log::debug!("{cli:?}, {config_args:?}");
 
-    display_doc(&cli); // not sure to put here or in enter
+    display_doc(&cli);
 
     // get config overrides
     let partial = get_partial(config_args).__ebog();
@@ -107,6 +107,9 @@ fn display_doc(cli: &Cli) {
     let mut md = String::new();
     if cli.options {
         md.push_str(include_str!("../assets/docs/options.md"));
+    }
+    if cli.binds {
+        md.push_str(include_str!("../assets/docs/binds.md"));
     }
 
     if !md.is_empty() {

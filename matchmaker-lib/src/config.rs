@@ -78,12 +78,10 @@ pub struct WorkerConfig {
 #[partial(path, derive(Debug, Deserialize))]
 pub struct StartConfig {
     #[serde(deserialize_with = "escaped_opt_char")]
-    #[serde(alias = "i")]
     pub input_separator: Option<char>,
     #[serde(deserialize_with = "escaped_opt_string")]
     #[serde(alias = "o")]
     pub output_separator: Option<String>,
-    #[serde(alias = "x")]
     pub command: String,
     #[serde(alias = "s")]
     pub sync: bool,
@@ -337,7 +335,7 @@ pub struct ResultsConfig {
     // experimental
     pub column_spacing: Count,
     pub current_prefix: String,
-    #[serde(alias = "ral")]
+    #[serde(alias = "ra")]
     pub right_align_last: bool,
 }
 define_transparent_wrapper!(
@@ -453,8 +451,6 @@ impl Default for DisplayConfig {
 pub struct PreviewConfig {
     #[partial(recurse)]
     pub border: BorderSetting,
-
-    #[serde(alias = "l")]
     #[partial(recurse)]
     pub layout: Vec<PreviewSetting>,
     pub scroll_wrap: bool,
@@ -732,7 +728,6 @@ use crate::utils::serde::bounded_usize;
 #[partial(path, derive(Debug, Deserialize))]
 pub struct ColumnsConfig {
     /// The strategy of how columns are parsed from input lines
-    #[serde(alias = "d", alias = "s")]
     pub split: Split,
     /// Column names
     #[serde(alias = "n")]

@@ -11,10 +11,14 @@ pub enum ParseError {
 }
 
 static ALIASES: &[(&str, &str)] = &[
-    ("d", "matcher.columns.split.delimiter"),
-    // no reflow
+    ("d", "matcher.columns.split"),
+    ("l", "preview.layout"),
+    ("i", "matcher.input_separator"),
+    ("x", "matcher.command"),
 ];
 
+/// Get (path, value) pairs by consuming either a single word, splitting it into a valid key + value by =, or a pair of consecutive words.
+/// The value is broken down into words, and fed into [`matchmaker_partial::Set`] to construct the (partial) type at `path`.
 pub fn get_pairs(pairs: Vec<String>) -> Result<Vec<(ArrayVec<String, 10>, String)>, ParseError> {
     let mut result = Vec::new();
     let mut iter = pairs.into_iter().peekable();
@@ -60,13 +64,12 @@ pub fn get_pairs(pairs: Vec<String>) -> Result<Vec<(ArrayVec<String, 10>, String
 pub fn valid_key(s: &str, extended: bool) -> bool {
     !s.is_empty()
         && s.chars().all(|c| {
-            (extended && c.is_ascii_graphic())
-                || c.is_ascii_lowercase()
-                || "_-+".contains(c)
-                || c.is_numeric()
-        }) // the last two are for triggers
+            (extended && c.is_ascii_graphic()) || c.is_ascii_lowercase() || "_".contains(c)
+        })
 }
 
+/// Determine if a sequence of words should be interpreted as words representing key-value pairs (in which case they are split in two), or not (in which case the words are unchanged).
+/// This is relevant to Maps and Structs as they are defined given a word sequences, interpreting it in word pairs.
 pub fn try_split_kv(vec: &mut Vec<String>, extended_keys: bool) -> anyhow::Result<()> {
     // Check first element for '='
     if let Some(first) = vec.first() {

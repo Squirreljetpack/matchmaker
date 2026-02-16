@@ -22,7 +22,7 @@
 - status template
 - header extraction option in cli
 - case insensitive bitflags deserialization?
-
+- preview initial offset setting
 # Bugs
 
 - Too many execute will crash event loop

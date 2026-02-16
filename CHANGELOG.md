@@ -1,3 +1,10 @@
+## [0.0.1] - 2026-02-16
+
+- Apply anti-aging cream.
+- Tidy up appearance.
+- Prepare to face the music.
+- https://www.youtube.com/watch?v=dQw4w9WgXcQ
+
 ## [0.0.5] - 2026-01-14
 
 - Various fixes and improvements

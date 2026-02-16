@@ -10,9 +10,6 @@
 [results]
     wrap = true
 
-[previewer]
-    try_lossy = false
-
 [preview]
     show = true
     wrap = true
@@ -70,13 +67,12 @@
     "shift+scrolldown" = "PreviewDown"
     "?"                = "SwitchPreview"
     "shift-?"          = "SwitchPreview"
-    "ctrl-shift-/"     = "CyclePreview"  # ctrl-shift-/
+    "ctrl-shift-/"     = "CyclePreview" # cycle preview layouts
     "alt-h"            = "Help"
     "alt-1"            = "Pos(0)"
-    # todo: changing between preview presets, widths
 
     # Programmable
-    "ctrl-l" = "Execute(eval $FZF_PREVIEW_COMMAND | $PAGER)"
+    "ctrl-l" = "Execute(eval $FZF_PREVIEW_COMMAND | $PAGER)" # "maximize" the preview
     "ctrl-o" = "Execute($EDITOR {})"
     "alt-o"  = "Become($EDITOR {})"
     "ctrl-r" = "Reload(find . -type f)"

@@ -27,11 +27,11 @@ impl serde::de::Error for SimpleError {
 
 #[derive(Debug, PartialEq, thiserror::Error)]
 pub enum PartialSetError {
-    #[error("Invalid Field: {0}")]
+    #[error("Unknown field: {0}")]
     Missing(String),
     #[error("Expected more paths after: {0}")]
     EarlyEnd(String),
-    #[error("Unexpected paths: {0:?}")]
+    #[error("Unexpected paths after a concrete field: {0:?}")]
     ExtraPaths(Vec<String>),
     #[error(transparent)]
     Deserialization(#[from] SimpleError),

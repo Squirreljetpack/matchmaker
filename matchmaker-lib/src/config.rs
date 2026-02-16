@@ -151,6 +151,8 @@ pub struct TerminalConfig {
     pub sleep_ms: std::time::Duration, // necessary to give ratatui a small delay before resizing after entering and exiting
     // todo: lowpri: will need a value which can deserialize to none when implementing cli parsing
     #[serde(flatten)]
+    #[cfg(feature = "partial")]
+    #[partial(recurse)]
     pub layout: Option<TerminalLayoutSettings>, // None for fullscreen
     pub clear_on_exit: bool,
 }

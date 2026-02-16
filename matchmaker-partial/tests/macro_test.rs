@@ -19,7 +19,7 @@ macro_rules! vec_ {
 mod tests {
     use matchmaker_partial::PartialSetError;
     use matchmaker_partial_macros::partial;
-    use serde::Serialize;
+    use serde::{Deserialize, Serialize};
     use std::collections::{HashMap, HashSet};
 
     #[test]
@@ -316,13 +316,12 @@ mod tests {
         assert_eq!(p3.stats.hp, None);
     }
 
-    use super::*; // Import the macro
-    // --- Defining the Structs ---
-
+    // ----------------------------------------
     #[partial(path)]
-    #[derive(Debug, PartialEq, Default, Clone)]
+    #[derive(Debug, PartialEq, Default, Clone, Deserialize)]
     pub struct Nested {
         pub d: usize,
+        pub e: String,
     }
 
     #[partial(path)]
@@ -333,8 +332,6 @@ mod tests {
         #[partial(recurse)]
         pub c: Nested,
     }
-
-    // --- The Tests ---
 
     #[test]
     fn test_path_setting_success() {
@@ -379,7 +376,10 @@ mod tests {
         let mut original = Ex {
             a: 1,
             b: None,
-            c: Nested { d: 10 },
+            c: Nested {
+                d: 10,
+                ..Default::default()
+            },
         };
 
         let mut p_ex = PartialEx::default();
@@ -396,9 +396,163 @@ mod tests {
         assert_eq!(original.b, None); // Untouched
     }
 
+    // ----------------------------------------
+
     #[test]
-    fn test_collections_recurse_extend() {
-        #[partial(recurse)]
+    fn test_collections_unwrap() {
+        #[partial(recurse, path)]
+        #[derive(Debug, PartialEq, Default, Clone)]
+        struct CollectionStruct {
+            pub recurse: Vec<Nested>, // Option<Vec<PartialNested>>
+            #[partial(recurse = "", unwrap)]
+            pub unwrap: Vec<Nested>, // Vec<Nested>
+            #[partial(unwrap)]
+            pub recurse_unwrap: Vec<Nested>, // Vec<PartialNested>
+            #[partial(recurse = "")]
+            pub neither: Vec<Nested>, // Option<Vec<Nested>>
+            #[partial(unwrap, set = "sequence")]
+            pub unwrap_seq: Vec<Nested>, // Vec<Nested>, extends on set
+            // #[partial(recurse)]
+            // #[partial(set = "sequence")]
+            // pub recurse_seq: Vec<Nested>, // should compiler error and it does
+            #[partial(set = "sequence")]
+            pub unrecursed_seq: Vec<Nested>, // Option<Vec<Nested>>, overwrites on set
+        }
+
+        let initial = vec![
+            Nested {
+                d: 3,
+                e: "hi".into(),
+            },
+            Nested {
+                d: 1,
+                e: "hi".into(),
+            },
+        ];
+
+        let mut base = CollectionStruct {
+            recurse: initial.clone(),
+            unwrap: initial.clone(),
+            recurse_unwrap: initial.clone(),
+            neither: initial.clone(),
+            unwrap_seq: initial.clone(),
+            unrecursed_seq: initial.clone(),
+        };
+
+        let p = PartialCollectionStruct {
+            recurse: Some(vec![
+                PartialNested {
+                    d: Some(10),
+                    e: None,
+                },
+                PartialNested {
+                    d: Some(10),
+                    e: None,
+                },
+                PartialNested {
+                    d: Some(10),
+                    e: None,
+                },
+            ]),
+            unwrap: vec![Nested {
+                d: 20,
+                e: "B".into(),
+            }],
+            recurse_unwrap: vec![PartialNested {
+                d: Some(30),
+                e: None,
+            }],
+            neither: Some(vec![Nested {
+                d: 40,
+                e: "D".into(),
+            }]),
+            unwrap_seq: vec![Nested {
+                d: 50,
+                e: "E".into(),
+            }],
+            unrecursed_seq: Some(vec![Nested {
+                d: 70,
+                e: "G".into(),
+            }]),
+        };
+
+        base.apply(p);
+
+        // 1. recurse: Option<Vec<P>>. apply does zip-apply then extend.
+        assert_eq!(base.recurse.len(), 3);
+        assert_eq!(base.recurse[0].d, 10);
+        assert_eq!(base.recurse[0].e, "hi");
+        assert_eq!(base.recurse[1].d, 10);
+        assert_eq!(base.recurse[2].d, 10);
+
+        // 2. unwrap: Vec<T>. apply does extend.
+        assert_eq!(base.unwrap.len(), 3);
+        assert_eq!(base.unwrap[2].d, 20);
+
+        // 3. recurse_unwrap: Vec<P>. apply does extend-by-applying-to-default.
+        assert_eq!(base.recurse_unwrap.len(), 3);
+        assert_eq!(base.recurse_unwrap[2].d, 30);
+        assert_eq!(base.recurse_unwrap[2].e, "");
+
+        // 4. neither: Option<Vec<T>>. apply does overwrite.
+        assert_eq!(base.neither.len(), 1);
+        assert_eq!(base.neither[0].d, 40);
+
+        // 5. unwrap_seq: Vec<T>, sequence. apply does extend.
+        assert_eq!(base.unwrap_seq.len(), 3);
+        assert_eq!(base.unwrap_seq[2].d, 50);
+
+        // 6. unrecursed_seq: Option<Vec<T>>, sequence. apply does overwrite.
+        assert_eq!(base.unrecursed_seq.len(), 1);
+        assert_eq!(base.unrecursed_seq[0].d, 70);
+
+        // --- Test Path Set ---
+        let mut p_path = PartialCollectionStruct::default();
+
+        // set singleton on unwrapped Vec (unwrap) -> extend
+        p_path
+            .set(&["unwrap".into()], &vec_!["d", "99", "e", ""])
+            .unwrap();
+        assert_eq!(p_path.unwrap.len(), 1);
+        assert_eq!(p_path.unwrap[0].d, 99);
+
+        // set singleton on wrapped Vec (neither) -> initialize then push
+        p_path
+            .set(&["neither".into()], &vec_!["d", "88", "e", ""])
+            .unwrap();
+        p_path
+            .set(&["neither".into()], &vec_!["d", "88", "e", "88"])
+            .unwrap();
+        assert_eq!(
+            p_path.neither,
+            Some(vec![
+                Nested {
+                    d: 88,
+                    e: "".into()
+                },
+                Nested {
+                    d: 88,
+                    e: "88".into()
+                }
+            ])
+        );
+
+        // todo: fix deserializer to pass this
+        // set sequence on unrecursed_seq (Option<Vec>) -> overwrite
+        // p_path
+        //     .set(
+        //         &["unrecursed_seq".into()],
+        //         &vec_!["d", "1", "e", "", "d", "2", "e", ""],
+        //     )
+        //     .unwrap();
+        // assert_eq!(p_path.unrecursed_seq.as_ref().unwrap().len(), 2);
+        // assert_eq!(p_path.unrecursed_seq.as_ref().unwrap()[0].d, 1);
+        // assert_eq!(p_path.unrecursed_seq.as_ref().unwrap()[1].d, 2);
+    }
+
+    #[test]
+    fn test_collections_recurse() {
+        #[partial(unwrap)]
         #[derive(Debug, PartialEq, Default, Clone)]
         struct CollectionStruct {
             pub list: Vec<i32>,
@@ -425,5 +579,86 @@ mod tests {
         assert_eq!(base.map.get("new"), Some(&20));
         assert!(base.set.contains(&100));
         assert!(base.set.contains(&200));
+    }
+
+    #[test]
+    fn test_collections_set_behavior() {
+        #[partial(path, unwrap)]
+        #[derive(Debug, PartialEq, Default, Clone)]
+        struct UnwrappedColl {
+            pub list: Vec<i32>,
+        }
+
+        #[partial(path)]
+        #[derive(Debug, PartialEq, Default, Clone)]
+        struct WrappedColl {
+            pub list: Vec<i32>,
+            #[partial(set = "sequence")]
+            pub seq: Vec<i32>,
+        }
+
+        let mut u = PartialUnwrappedColl::default();
+        // Singleton set on unwrapped Vec -> extend
+        u.set(&["list".to_string()], &["1".to_string()]).unwrap();
+        u.set(&["list".to_string()], &["2".to_string()]).unwrap();
+        assert_eq!(u.list, vec![1, 2]);
+
+        let mut w = PartialWrappedColl::default();
+        // Singleton set on wrapped Vec (Option<Vec>) -> initialize then push
+        w.set(&["list".to_string()], &["10".to_string()]).unwrap();
+        w.set(&["list".to_string()], &["20".to_string()]).unwrap();
+        assert_eq!(w.list, Some(vec![10, 20]));
+
+        // Sequence set on wrapped Vec -> overwrite
+        w.set(&["seq".to_string()], &vec_!["1", "2", "3"]).unwrap();
+        assert_eq!(w.seq, Some(vec![1, 2, 3]));
+    }
+
+    #[test]
+    fn test_set_alias_and_flatten() {
+        #[partial(path)]
+        #[derive(Debug, PartialEq, Default, Clone, Serialize)]
+        struct InnerFlat {
+            pub a: i32,
+            pub b: i32,
+        }
+
+        #[partial(path)]
+        #[derive(Debug, PartialEq, Default, Clone, Serialize)]
+        struct Root {
+            #[serde(alias = "alias_x")]
+            pub x: i32,
+            #[serde(flatten)]
+            #[partial(recurse)]
+            pub flat: InnerFlat,
+            pub y: i32,
+        }
+
+        let mut p = PartialRoot::default();
+
+        // 1. Test alias
+        p.set(&["alias_x".to_string()], &["10".to_string()])
+            .unwrap();
+        assert_eq!(p.x, Some(10));
+
+        // 2. Test direct name still works
+        p.set(&["x".to_string()], &["20".to_string()]).unwrap();
+        assert_eq!(p.x, Some(20));
+
+        // 3. Test flatten (path "a" should go to flat.a)
+        p.set(&["a".to_string()], &["100".to_string()]).unwrap();
+        assert_eq!(p.flat.a, Some(100));
+
+        // 4. Test flatten (path "b" should go to flat.b)
+        p.set(&["b".to_string()], &["200".to_string()]).unwrap();
+        assert_eq!(p.flat.b, Some(200));
+
+        // 5. Test normal field
+        p.set(&["y".to_string()], &["30".to_string()]).unwrap();
+        assert_eq!(p.y, Some(30));
+
+        // 6. Test missing field
+        let res = p.set(&["unknown".to_string()], &["0".to_string()]);
+        assert_eq!(res, Err(PartialSetError::Missing("unknown".to_string())));
     }
 }

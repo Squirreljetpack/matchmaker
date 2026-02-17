@@ -28,6 +28,10 @@ pub enum Action<A: ActionExt = NullActionExt> {
     Quit(i32),
 
     // UI
+    /// Toggle wrap
+    ToggleWrap,
+
+    // Preview
     /// Cycle preview layouts
     CyclePreview,
     /// Show/hide preview for selection
@@ -39,10 +43,21 @@ pub enum Action<A: ActionExt = NullActionExt> {
     SetPreview(Option<u8>),
     /// Switch or toggle preview;
     SwitchPreview(Option<u8>),
-    /// Toggle wrap in main view
-    ToggleWrap,
     /// Toggle wrap in preview
     ToggleWrapPreview,
+    /// Horizontally scroll either results or preview based on mouse location and wrapping configuration. (unimplemented)
+    /// 0 to reset.
+    HScroll(i8),
+
+    // experimental
+    /// Persistent horizontal scroll
+    /// 0 to reset.
+    PreviewHScroll(i8),
+    /// Persistent single-line vertical scroll
+    /// 0 to reset.
+    PreviewScroll(i8),
+    /// Jump between start, end, last, and initial locations. (unimplemented).
+    PreviewJump,
 
     // Set
     /// Set input query
@@ -59,6 +74,11 @@ pub enum Action<A: ActionExt = NullActionExt> {
     Column(usize),
     /// Cycle columns
     CycleColumn,
+    // todo
+    ColumnLeft,
+    ColumnRight,
+    ScrollLeft,
+    ScrollRight,
 
     // Programmable
     /// Execute command and continue
@@ -312,7 +332,7 @@ impl<A: ActionExt + Display> Serialize for Actions<A> {
 // ----- action serde
 enum_from_str_display!(
     units:
-    Select, Deselect, Toggle, CycleAll, ClearSelections, Accept, CyclePreview, CycleColumn,
+    Select, Deselect, Toggle, CycleAll, ClearSelections, Accept, CyclePreview, CycleColumn, ScrollLeft, ScrollRight, ColumnLeft, ColumnRight, PreviewJump,
     PreviewHalfPageUp, PreviewHalfPageDown, HistoryUp, HistoryDown,
     ChangePrompt, ChangeQuery, ToggleWrap, ToggleWrapPreview, ForwardChar,
     BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord,
@@ -322,7 +342,7 @@ enum_from_str_display!(
     Execute, Become, Reload, Preview, SetInput, Column, Pos, InputPos;
 
     defaults:
-    (Up, 1), (Down, 1), (PreviewUp, 1), (PreviewDown, 1), (Quit, 1), (Overlay, 0), (Print, String::new()), (Help, String::new());
+    (Up, 1), (Down, 1), (PreviewUp, 1), (PreviewDown, 1), (Quit, 1), (Overlay, 0), (Print, String::new()), (Help, String::new()), (PreviewScroll, 1), (PreviewHScroll, 1), (HScroll, 0);
 
     options:
     SwitchPreview, SetPreview, SetPrompt, SetHeader, SetFooter

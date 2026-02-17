@@ -114,11 +114,11 @@ pub fn clip_text_lines<'a, 'b: 'a>(original: &'a mut Text<'b>, max_lines: u16, r
     *original = Text::from(new_lines);
 }
 
-pub fn grapheme_index_to_byte_index(input: &str, grapheme_index: u16) -> usize {
-    let offsets: Vec<usize> = input.grapheme_indices(true).map(|(i, _)| i).collect();
+// pub fn grapheme_index_to_byte_index(input: &str, grapheme_index: u16) -> usize {
+//     let offsets: Vec<usize> = input.grapheme_indices(true).map(|(i, _)| i).collect();
 
-    *offsets.get(grapheme_index as usize).unwrap_or(&input.len())
-}
+//     *offsets.get(grapheme_index as usize).unwrap_or(&input.len())
+// }
 
 pub fn wrapped_height(text: &Text<'_>, width: u16) -> u16 {
     if width == 0 {
@@ -134,6 +134,15 @@ pub fn wrapped_height(text: &Text<'_>, width: u16) -> u16 {
             if w == 0 { 1 } else { w.div_ceil(width) as u16 }
         })
         .sum()
+}
+
+pub fn wrapped_line_height(line: &Line<'_>, width: u16) -> u16 {
+    let w = line.width();
+    if w == 0 {
+        1
+    } else {
+        w.div_ceil(width as usize) as u16
+    }
 }
 
 pub fn substitute_escaped(input: &str, map: &[(char, &str)]) -> String {

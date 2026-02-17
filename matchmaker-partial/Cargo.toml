@@ -11,7 +11,7 @@ serde = { version = "1.0", features = ["derive"] }
 thiserror = "2.0"
 
 [dev-dependencies]
-matchmaker-partial-macros = { workspace = true }
+matchmaker-partial-macros = { workspace = true, features = ["partial"]}
 toml = "0.9.8"
 
 [[test]]
@@ -22,3 +22,6 @@ path = "tests/macro_test.rs"
 name = "macro_optional_test"
 path = "tests/option_wrap.rs"
 
+[[test]]
+name = "penetration_test"
+path = "tests/penetration_test.rs"

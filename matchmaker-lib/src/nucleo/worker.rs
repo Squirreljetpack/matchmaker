@@ -512,4 +512,11 @@ impl<T: SSS> Worker<T> {
             }
         })
     }
+
+    pub fn format_with<'a>(&'a self, item: &'a T, col: &str) -> Option<Cow<'a, str>> {
+        self.columns
+            .iter()
+            .find(|c| &*c.name == col)
+            .map(|c| c.format_text(item))
+    }
 }

@@ -161,11 +161,17 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             if result.contains(pos) {
                                 click = Click::ResultPos(mouse.row - result.top());
                             } else if input.contains(pos) {
-                                let mut cursor_start_offset = picker_ui.input.cursor_offset(&input);
-                                cursor_start_offset.x -= picker_ui.input.cursor();
-                                let rel_pos = pos - cursor_start_offset.into();
+                                // The X offset of the start of the visible text relative to the terminal
+                                let text_start_x = input.x
+                                    + picker_ui.input.prompt.width() as u16
+                                    + picker_ui.input.config.border.left();
 
-                                picker_ui.input.set(None, rel_pos.x);
+                                if pos.x >= text_start_x {
+                                    let visual_offset = pos.x - text_start_x;
+                                    picker_ui.input.set_at_visual_offset(visual_offset);
+                                } else {
+                                    picker_ui.input.set(None, 0);
+                                }
                             } else if status.contains(pos) {
                                 // todo
                             }
@@ -279,6 +285,12 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                 }
                             }
                         }
+
+                        Action::PreviewHScroll(x) | Action::PreviewScroll(x) => {
+                            if let Some(p) = preview_ui.as_mut() {
+                                p.scroll(matches!(action, Action::PreviewHScroll(_)), x);
+                            }
+                        }
                         Action::Preview(context) => {
                             if let Some(p) = preview_ui.as_mut() {
                                 if !state.update_preview(context.as_str()) {
@@ -301,7 +313,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         Action::SwitchPreview(idx) => {
                             if let Some(p) = preview_ui.as_mut() {
                                 if let Some(idx) = idx {
-                                    if !p.set_idx(idx) && !state.update_preview(p.command()) {
+                                    if !p.set_layout(idx) && !state.update_preview(p.command()) {
                                         p.toggle_show();
                                     }
                                 } else {
@@ -312,7 +324,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         Action::SetPreview(idx) => {
                             if let Some(p) = preview_ui.as_mut() {
                                 if let Some(idx) = idx {
-                                    p.set_idx(idx);
+                                    p.set_layout(idx);
                                 } else {
                                     state.update_preview(p.command());
                                 }
@@ -545,6 +557,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
                 if did_resize {
                     picker_ui.results.update_dimensions(&results);
+                    picker_ui.input.update_width(input.width);
                     footer_ui.update_width(
                         if footer_ui.config.row_connection_style == RowConnectionStyle::Capped {
                             area.width
@@ -560,7 +573,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     }
                 };
 
-                render_input(frame, input, &picker_ui.input);
+                render_input(frame, input, &mut picker_ui.input);
                 render_status(frame, status, &picker_ui.results);
                 render_results(frame, results, &mut picker_ui, &mut click);
                 render_display(frame, header, &mut picker_ui.header, &picker_ui.results);
@@ -690,7 +703,8 @@ fn render_results<T: SSS, S: Selection>(
     frame.render_widget(widget, area);
 }
 
-fn render_input(frame: &mut Frame, area: Rect, ui: &InputUI) {
+fn render_input(frame: &mut Frame, area: Rect, ui: &mut InputUI) {
+    ui.scroll_to_cursor();
     let widget = ui.make_input();
     if let CursorSetting::Default = ui.config.cursor {
         frame.set_cursor_position(ui.cursor_offset(&area))

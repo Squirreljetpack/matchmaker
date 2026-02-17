@@ -16,6 +16,10 @@ impl Percentage {
         let pct_height = (total * self.inner()).div_ceil(100);
         pct_height.clamp(min, if max == 0 { total } else { max })
     }
+
+    pub fn complement(&self) -> Self {
+        Self(100 - self.0)
+    }
 }
 
 impl fmt::Display for Percentage {

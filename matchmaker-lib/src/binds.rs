@@ -43,6 +43,8 @@ impl<A: ActionExt> BindMap<A> {
             key!(alt-h) => Action::Help("".to_string()),
             key!(ctrl-'[') => Action::ToggleWrap,
             key!(ctrl-']') => Action::ToggleWrapPreview,
+            key!(shift-right) => Action::HScroll(1),
+            key!(shift-left) => Action::HScroll(-1),
         )
     }
 }

@@ -13,6 +13,7 @@ pub struct Inner {
 pub struct Outer {
     pub opt_inner: Option<Inner>,
     pub opt_vec: Option<Vec<Inner>>,
+    pub o_vec: Vec<Inner>,
 }
 
 #[partial(unwrap)]
@@ -28,7 +29,8 @@ fn test_penetration() {
     let mut p = PartialOuter::default();
     p.opt_inner = Some(PartialInner { x: Some(10) });
     p.opt_vec = Some(vec![PartialInner { x: Some(20) }]);
-    
+    p.o_vec = Some(vec![PartialInner { x: Some(20) }]);
+
     let mut base = Outer::default();
     base.apply(p);
     assert_eq!(base.opt_inner.unwrap().x, 10);
@@ -42,7 +44,7 @@ fn test_unwrap_option() {
     // These should NOT be Options in PartialUnwrappedOuter
     p.opt_inner = Inner { x: 10 };
     p.opt_vec = vec![Inner { x: 20 }];
-    
+
     let mut base = UnwrappedOuter::default();
     base.apply(p);
     assert_eq!(base.opt_inner.unwrap().x, 10);

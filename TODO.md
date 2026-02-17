@@ -23,6 +23,8 @@
 - header extraction option in cli
 - case insensitive bitflags deserialization?
 - preview initial offset setting
+- Offload large previews to disk
+
 # Bugs
 
 - Too many execute will crash event loop

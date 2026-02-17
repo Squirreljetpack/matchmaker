@@ -11,12 +11,13 @@ Overrides follow the pattern `path=value` or `path value`.
 - **Shortcuts**: Many common paths have short aliases:
   - `b` -> `binds`
   - `p` -> `preview`
-  - `h.l` -> `header.lines`
+  - `h.h` -> `header.header_lines`
   - `r.r` -> `results.reverse`
   - `r.w` -> `results.wrap`
   - `p.l.x` -> `preview.layout.command`
   - `x` -> `matcher.command` (absolute alias)
   - `i` -> `matcher.input_separator` (absolute alias)
+  - `d` -> `matcher.columns.delimiter` (absolute alias)
 
 ### Collections (Lists/Vectors)
 
@@ -31,6 +32,8 @@ Fields that are collections (like `preview.layout` or `binds`) are treated as **
 
 If a "leaf" value contains multiple settings (like a [border](#border-settings) or a bind with multiple actions), you can specify them within a single string using `key=value` pairs or nested dot notation.
 
+A few contrived examples:
+
 ```bash
 # Example: 
 # If you started with one preview layout, the following overrides the first preview layout, and adds two new ones. It also sets 3 binds.
@@ -39,8 +42,12 @@ mm p.l command=hi p.l "x=bye min=3" b "ctrl-c=Quit ?=preview(echo hi)" b.ctrl-a 
 # Example: 
 # Setting the column splitting delimiter
 mm m.c.split "\w+ /\w+" # Sets the field: matcher.columns.split = Split::Regexes([Regex('\w'), Regex('/\w+')])
-# or even shorter
+# or even shorter, using the absolute alias
 mm d "[ ]" # split on space
+
+# Example:
+# Enable wrapping
+mm p.w= r.r= # bool values are specified with true, false, or "" (true).
 ```
 
 Individual values within the word specifying the leaf are split by whitespace.
@@ -70,8 +77,7 @@ For example, `(( )) [one word] [\[]` splits into `(( ))`, `one word`, `[`.
 - `trim`: (bool) Trim whitespace from input lines.
 - `sort_threshold`: (u32) Number of items above which sorting is disabled for performance.
 - `c`, `columns`: Column parsing configuration.
-  - `s`, `split`: How columns are split. Can be `None`, `Delimiter <regex>`, or `Regexes [<regex>, ...]`.
-    - This path is aliased to `d`, and the variants are aliased to `n:`, `d:`, and `r:`
+  - `s`, `split`: How columns are split. Can be `None`, `Delimiter <regex>`, or `Regexes [<regex>, ...]`, specified as `null`, `"[delimiter_regex]"`, and `"[regex1] [regex2].."` respectively.
   - `names`, `n`: List of column names/settings.
     - `name`: (string) Name of the column.
     - `filter`: (bool) Whether this column is searchable (default: true).
@@ -140,6 +146,11 @@ For example, `(( )) [one word] [\[]` splits into `(( ))`, `one word`, `[`.
     - `min`, `max`: Pixel constraints for the preview size.
   - This path is aliased to `l`, and overrides the existing preview layouts in order.
 - `border`: [Border Settings](#border-settings).
+- `scroll`: Control the initial scroll offset of the preview window. Supports the following fields from [`PreviewScrollSetting`]:
+  - `index` (string, optional) – Extract the initial display index `n` of the preview window from this column. `n` lines are skipped after the header lines are consumed.
+  - `o`, `offset` (integer) – Adjust the initial scroll index relative to `index`.
+  - `p`, `percent` (0-100) – How far from the bottom of the preview window the scroll offset should appear.
+  - `h`, `header_lines` (usize) – Keep the top N lines as a fixed header so that they are always visible.
 
 #### Header & Footer (`header.`, `footer.`, alias: `h` for header)
 
@@ -150,7 +161,7 @@ For example, `(( )) [one word] [\[]` splits into `(( ))`, `one word`, `[`.
 
 <!-- - `row_connection_style`: See Results Table.  -->
 
-- `l`, `lines`, `header_lines`: (usize, header only) Number of lines to read from input for the header.
+- `h`, `header_lines`: (usize, header only) Number of lines to read from input for the header.
 - `border`: [Border Settings](#border-settings).
 
 ### TUI Settings (`tui.`)

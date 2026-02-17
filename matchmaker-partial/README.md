@@ -77,8 +77,8 @@ fn main() {
 }
 ```
 
->![NOTE]
-> Items in keyed collections can be also referenced either by path.to.collection.key, or in the provided input value (So that the provided input slice is the concatenation of `List deserializing to key` + `List deserializing to value`).
+> [!NOTE]
+> Items in keyed collections can be also referenced either by `path.to.collection.key`, or in the provided input value (So that the provided input slice is the concatenation of `List deserializing to key` + `List deserializing to value`).
 
 ## Nested Structs with `recurse`
 
@@ -122,6 +122,7 @@ fn main() {
 ```
 
 ## Collections
+
 When `#[partial(unwrap)]`is applied to a collection (`HashMap, Vec, BTreeMap, BTreeSet`), the corresponding field omits the wrapping `Option`. This holds even for collections wrapped in Option.
 
 When `#[partial(recurse)]` is applied to a collection, the nesting propogates to the internal type: `Vec<Inner>` becomes `Vec<PartialInner>`.
@@ -132,20 +133,19 @@ The behavior is summarized in the following table:
 
 #### Type Transformation
 
-| Original | No Recurse / Not Unwrapped | No Recurse / Unwrap | Recurse / Not Unwrapped | Recurse / Unwrap |
-|----------|----------------------------|-------------------|------------------------|----------------|
-| `Vec<T>` | `Option<Vec<T>>`                 | `Vec<T>`          | `Option<Vec<P>>`       | `Vec<P>`       |
-| `Option<Vec<T>>` | `Option<Vec<T>>`         | `Vec<T>`          | `Option<Vec<P>>`       | `Vec<P>`       |
-| Apply behavior   | Overwrite                | Extend            | Apply, then extend from upgraded versions | Upgrade all, then extend |
+| Original         | No Recurse / Not Unwrapped | No Recurse / Unwrap | Recurse / Not Unwrapped                   | Recurse / Unwrap         |
+| ---------------- | -------------------------- | ------------------- | ----------------------------------------- | ------------------------ |
+| `Vec<T>`         | `Option<Vec<T>>`           | `Vec<T>`            | `Option<Vec<P>>`                          | `Vec<P>`                 |
+| `Option<Vec<T>>` | `Option<Vec<T>>`           | `Vec<T>`            | `Option<Vec<P>>`                          | `Vec<P>`                 |
+| Apply behavior   | Overwrite                  | Extend              | Apply, then extend from upgraded versions | Upgrade all, then extend |
 
 ## Set Attributes
 
 ### `set = "sequence"`
 
-- Fields can be configured to deserialize input as a sequence rather than a single value using `#[partial(set = "sequence")]`.
-- This is useful for collections or fields that should accept multiple values at once.
-- Example:
-```rust
+Fields can be configured to deserialize input as a sequence rather than a single value using `#[partial(set = "sequence")]`. This is useful for collections or fields that should accept multiple values at once.
+
+````rust
 #[partial(set = "sequence")]
 #[derive(Default)]
 struct Config {
@@ -155,11 +155,12 @@ struct Config {
 let mut partial = PartialConfig::default();
 partial.set(&["tags"], &["alpha", "beta", "gamma"]).unwrap();
 assert_eq!(partial.tags, Some(vec!["alpha".into(), "beta".into(), "gamma".into()]));
+```
 
 ### `serde(alias)`
 
-- Fields with `#[serde(alias = "...")]` can be updated using any of the specified aliases in addition to the original field name.
-- Example:
+Fields with `#[serde(alias = "...")]` can be updated using any of the specified aliases in addition to the original field name.
+
 ```rust
 #[derive(Default)]
 struct Config {
@@ -170,17 +171,13 @@ struct Config {
 let mut partial = PartialConfig::default();
 partial.set(&["threads_count"], &["8"]).unwrap();
 assert_eq!(partial.threads, Some(8));
-```
+````
 
-------
-
-
+---
 
 ### `serde(flatten)`
 
-- Flattened fields allow embedding nested structs directly at the top level.
-- When a flattened field also uses `#[partial(recurse)]`, set delegates updates to the nested partial rather than expecting a top-level field match.
-- Example:
+Flattened fields allow embedding nested structs directly at the top level. When a flattened field also uses `#[partial(recurse)]`, set delegates updates to the nested partial rather than expecting a top-level field match.
 
 ```rust
 #[partial]
@@ -205,11 +202,11 @@ assert_eq!(partial.inner.width, Some(1024));
 assert_eq!(partial.inner.height, Some(768));
 ```
 
-### `merge`
+## `merge`
 
 Adding `#[partial(merge)]` generates the `Merge` trait for the partial struct, providing:
 
-- `merge(&mut self, other)`: Updates fields from another partial where they are `Some`.  
+- `merge(&mut self, other)`: Updates fields from another partial where they are `Some`.
 - `clear(&mut self)`: Resets all fields to `None`.
 
 #### Example
@@ -243,3 +240,16 @@ p3.name = Some("Temp".into());
 p3.clear();
 assert_eq!(p3.name, None);
 ```
+
+# Deserializer
+
+Set fills values from `&[String]` by using a simple data deserializer.
+
+- Most primitive types read a single word.
+- Tuples and Sequences attempt to deserialize their next values from the remaining words sequentially.
+- Maps deserialize keys and values alternately in sequence.
+- Struct deserialization ends when the next word is not a field name.
+- Tuple deserialization ends when the requisite number of values have been deserialized.
+- Otherwise, maps and sequence types consume the input until exhausted.
+- Options are transparent to their inner type unless the word list is exhausted, or the following word is "null". (This last behavior may be subject to change).
+- Unit structs expect "" or "()".

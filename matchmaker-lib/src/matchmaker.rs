@@ -635,6 +635,17 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
                 if preview_tx.send(msg.clone()).is_err() {
                     warn!("Failed to send to preview: {}", msg)
                 }
+                
+                let target = state.preview_ui.as_ref().and_then(|p| p.config.scroll.index.as_ref().and_then(|index_col| {
+                    state.current_raw().and_then(|item| {
+                        state.picker_ui.worker.format_with(item, &index_col).and_then(|t| t.parse::<isize>().ok())
+                    })
+                })).unwrap_or(0); // reset to 0 each time
+
+                if let Some(p) = state.preview_ui {
+                    p.set_target(target);
+                };
+                
             } else if preview_tx.send(PreviewMessage::Stop).is_err() {
                 warn!("Failed to send to preview: stop")
             }

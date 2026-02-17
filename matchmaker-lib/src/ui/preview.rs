@@ -7,16 +7,19 @@ use ratatui::{
 use crate::{
     config::{PreviewConfig, PreviewLayout},
     preview::Preview,
+    utils::text::wrapped_line_height,
 };
 
 #[derive(Debug)]
 pub struct PreviewUI {
     pub view: Preview,
-    config: PreviewConfig,
+    pub config: PreviewConfig,
     pub layout_idx: usize,
     /// content area
     pub area: Rect,
-    pub offset: u16,
+    pub scroll: [u16; 2],
+    offset: u16,
+    target: Option<usize>,
 }
 
 impl PreviewUI {
@@ -25,8 +28,10 @@ impl PreviewUI {
             view,
             config,
             layout_idx: 0,
+            scroll: Default::default(),
             offset: 0,
             area: Rect::default(),
+            target: None,
         }
     }
     pub fn update_dimensions(&mut self, area: &Rect) {
@@ -59,7 +64,7 @@ impl PreviewUI {
     pub fn cycle_layout(&mut self) {
         self.layout_idx = (self.layout_idx + 1) % self.config.layout.len()
     }
-    pub fn set_idx(&mut self, idx: u8) -> bool {
+    pub fn set_layout(&mut self, idx: u8) -> bool {
         let idx = idx as usize;
         if idx <= self.config.layout.len() {
             let changed = self.layout_idx != idx;
@@ -117,17 +122,79 @@ impl PreviewUI {
         }
     }
 
+    pub fn scroll(&mut self, horizontal: bool, val: i8) {
+        let a = &mut self.scroll[horizontal as usize];
+
+        if val == 0 {
+            *a = 0;
+        } else {
+            let new = (*a as i8 + val).clamp(0, u16::MAX as i8);
+            *a = new as u16;
+        }
+    }
+
+    pub fn set_target(&mut self, mut target: isize) {
+        target += self.config.scroll.offset;
+        self.target = Some(if target < 0 {
+            self.view.len().saturating_sub(target.unsigned_abs())
+        } else {
+            self.view.len().min(target.unsigned_abs())
+        });
+        let mut index = self.target.unwrap();
+        log::debug!("{index}");
+
+        // decrement the index to put the target lower on the page.
+        // The resulting height up to the top of target should >= p% of height.
+        let results = self.view.results().lines;
+        let mut lines_above =
+            self.config
+                .scroll
+                .percent
+                .complement()
+                .compute_clamped(self.area.height, 0, 0);
+        // shoddy approximation to how Paragraph wraps lines
+        while index > 0 && lines_above > 0 {
+            let prev = wrapped_line_height(&results[index], self.area.width);
+            if prev > lines_above {
+                break;
+            } else {
+                index -= 1;
+                lines_above -= prev;
+            }
+        }
+        self.offset = index as u16;
+        log::debug!("{}", self.offset);
+    }
+
+    // --------------------------
+
     pub fn make_preview(&self) -> Paragraph<'_> {
-        let results = self.view.results();
+        let mut results = self.view.results().into_iter();
         let height = self.area.height as usize;
-        let offset = self.offset as usize;
+        if height == 0 {
+            return Paragraph::new(Vec::new());
+        }
 
-        let visible_lines: Vec<_> = results.into_iter().skip(offset).take(height).collect();
+        let mut lines = Vec::with_capacity(height);
 
-        let mut preview = Paragraph::new(visible_lines);
+        for _ in 0..self.config.scroll.header_lines.min(height) {
+            if let Some(line) = results.next() {
+                lines.push(line);
+            } else {
+                break;
+            };
+        }
+        let mut results = results.skip(self.offset as usize);
+        for _ in self.config.scroll.header_lines..height {
+            if let Some(line) = results.next() {
+                lines.push(line);
+            }
+        }
+
+        let mut preview = Paragraph::new(lines);
         preview = preview.block(self.config.border.as_block());
         if self.config.wrap {
-            preview = preview.wrap(Wrap { trim: true });
+            preview = preview.wrap(Wrap { trim: true }).scroll(self.scroll.into());
         }
         preview
     }

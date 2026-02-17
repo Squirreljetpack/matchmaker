@@ -1312,7 +1312,6 @@ dependencies = [
 [[package]]
 name = "nucleo"
 version = "0.5.0"
-source = "git+https://github.com/Squirreljetpack/nucleo?branch=mm#0a0fd93ce3ff44be72ba78f351236f8b625322bd"
 dependencies = [
  "log",
  "nucleo-matcher",
@@ -1323,7 +1322,6 @@ dependencies = [
 [[package]]
 name = "nucleo-matcher"
 version = "0.3.1"
-source = "git+https://github.com/Squirreljetpack/nucleo?branch=mm#0a0fd93ce3ff44be72ba78f351236f8b625322bd"
 dependencies = [
  "memchr",
  "unicode-segmentation",
@@ -2853,7 +2851,3 @@ name = "zmij"
 version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8848ee67ecc8aedbaf3e4122217aff892639231befc6a1b58d29fff4c2cabaa"
-
-[[patch.unused]]
-name = "nucleo"
-version = "0.5.0"

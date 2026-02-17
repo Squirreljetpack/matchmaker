@@ -737,8 +737,8 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                         };
 
                         quote! {
-                            let deserializer = matchmaker_partial::SimpleDeserializer::from_slice(val);
-                            let result = #custom_func(deserializer)?;
+                            let mut deserializer = matchmaker_partial::SimpleDeserializer::from_slice(val);
+                            let result = #custom_func(&mut deserializer)?;
                             #assignment
                         }
                     } else {

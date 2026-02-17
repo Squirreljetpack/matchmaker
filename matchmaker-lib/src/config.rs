@@ -65,9 +65,13 @@ pub struct WorkerConfig {
     pub trim: bool,
     /// How "stable" the results are. Higher values prioritize the initial ordering.
     pub sort_threshold: u32,
-    // todo: what was this for again?
-    // #[serde(alias = "f")]
-    // pub format: FormatString,
+
+    /// TODO: Enable raw mode where non-matching items are also displayed in a dimmed color.
+    pub raw: bool,
+    /// TODO: Track the current selection when the result list is updated.
+    pub track: bool,
+    /// TODO: Reverse the order of the input
+    pub reverse: bool,
 }
 
 /// Configures how input is fed to to the worker(s).
@@ -126,16 +130,6 @@ impl RenderConfig {
     pub fn tick_rate(&self) -> u8 {
         self.ui.tick_rate
     }
-}
-
-/// The ui config.
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct DisplaysConfig {
-    pub preview: PreviewConfig,
-    pub footer: DisplayConfig,
-    pub header: DisplayConfig,
-    pub overlay: Option<OverlayConfig>, // the default overlay style
 }
 
 /// Terminal settings.
@@ -216,6 +210,9 @@ pub struct InputConfig {
     pub prompt: String,
     pub cursor: CursorSetting,
     pub initial: String,
+
+    /// Maintain padding when moving the cursor in the bar.
+    pub scroll_padding: bool,
 }
 
 impl Default for InputConfig {
@@ -229,6 +226,8 @@ impl Default for InputConfig {
             prompt: "> ".to_string(),
             cursor: Default::default(),
             initial: Default::default(),
+
+            scroll_padding: true,
         }
     }
 }
@@ -412,7 +411,7 @@ pub struct DisplayConfig {
     ///
     /// # Note
     /// This only affects the header and is only implemented in the binary.
-    #[serde(alias = "lines", alias = "l")]
+    #[serde(alias = "h")]
     pub header_lines: usize,
 }
 
@@ -447,12 +446,17 @@ impl Default for DisplayConfig {
 /// ```
 #[partial(path, derive(Debug, Deserialize))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(default)]
 pub struct PreviewConfig {
     #[partial(recurse)]
     pub border: BorderSetting,
     #[partial(recurse)]
     pub layout: Vec<PreviewSetting>,
+    #[partial(recurse)]
+    #[serde(flatten)]
+    pub scroll: PreviewScrollSetting,
+    /// Whether to cycle to top after scrolling to the bottom and vice versa.
+    #[serde(alias = "c")]
     pub scroll_wrap: bool,
     pub wrap: bool,
     pub show: bool,
@@ -465,10 +469,41 @@ impl Default for PreviewConfig {
                 padding: Padding::left(2),
                 ..Default::default()
             },
+            scroll: Default::default(),
             layout: Default::default(),
             scroll_wrap: true,
             wrap: Default::default(),
             show: Default::default(),
+        }
+    }
+}
+
+/// Determines the initial scroll offset of the preview window.
+#[partial(path, derive(Debug, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct PreviewScrollSetting {
+    /// Extract the initial display index `n` of the preview window from this column.
+    /// `n` lines are skipped after the header lines are consumed.
+    pub index: Option<String>,
+    /// For adjusting the initial scroll index.
+    #[serde(alias = "o")]
+    pub offset: isize,
+    /// How far from the bottom of the preview window the scroll offset should appear.
+    #[serde(alias = "p")]
+    pub percent: Percentage,
+    /// Keep the top N lines as the fixed header so that they are always visible.
+    #[serde(alias = "h")]
+    pub header_lines: usize,
+}
+
+impl Default for PreviewScrollSetting {
+    fn default() -> Self {
+        Self {
+            index: None,
+            offset: 0,
+            percent: Default::default(),
+            header_lines: 0,
         }
     }
 }
@@ -533,8 +568,9 @@ pub struct BorderSetting {
     pub r#type: BorderType,
     #[serde(deserialize_with = "camelcase_normalized")]
     pub color: Color,
-    /// Supply as sides joined by `|`. i.e.:
+    /// Given as sides joined by `|`. i.e.:
     /// `sides = "TOP | BOTTOM"``
+    /// When omitted, this is ALL if either padding or type are specified, otherwose NONE.
     ///
     /// An empty string enforces no sides:
     /// `sides = ""`

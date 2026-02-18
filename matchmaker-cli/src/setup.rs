@@ -2,6 +2,7 @@ use std::{
     io::Read,
     path::Path,
     process::{Command, exit},
+    sync::Arc,
 };
 
 use crate::{clap::Cli, config::PartialConfig};
@@ -111,10 +112,7 @@ pub fn map_reader<E: SSS + std::fmt::Display>(
     })
 }
 
-pub async fn start(
-    config: Config,
-    print_handle: AppendOnly<String>,
-) -> Result<Vec<Segmented<String>>, MatchError> {
+pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let Config {
         render,
         tui,
@@ -129,7 +127,8 @@ pub async fn start(
                         input_separator: delimiter,
                         command,
                         sync,
-                        ..
+                        output_separator,
+                        print_template,
                     },
             },
         binds,
@@ -137,6 +136,8 @@ pub async fn start(
 
     let abort_empty = exit.abort_empty;
     let header_lines = render.header.header_lines;
+    let print_handle = AppendOnly::new();
+    let output_seperator = output_separator.clone().unwrap_or("\n".into());
 
     let event_loop = EventLoop::with_binds(binds).with_tick_rate(render.tick_rate());
     // make matcher and matchmaker with matchmaker-and-matcher-maker
@@ -153,12 +154,16 @@ pub async fn start(
     let previewer = make_previewer(&mut mm, previewer, formatter.clone(), help_str);
 
     // ---------------------- register handlers ---------------------------
-    // print handler
-    let print_formatter = std::sync::Arc::new(
+    // print handler (no quoting)
+    let print_formatter = Arc::new(
         mm.worker
             .default_format_fn::<false>(|item| std::borrow::Cow::Borrowed(&item.inner.inner)),
     );
-    mm.register_print_handler(print_handle, print_formatter);
+    mm.register_print_handler(
+        print_handle.clone(),
+        output_seperator.clone(),
+        print_formatter.clone(),
+    );
 
     // execute handlers
     mm.register_execute_handler(formatter.clone());
@@ -192,7 +197,7 @@ pub async fn start(
 
     // ----------- read -----------------------
     let push_fn = inject_line(header_lines, render_tx.clone(), injector);
-    let handle = if !atty::is(atty::Stream::Stdin) {
+    let handle = if !atty::is(atty::Stream::Stdin) && !no_read {
         let stdin = std::io::stdin();
         map_reader(stdin, push_fn, delimiter, abort_empty.then_some(render_tx))
     } else if !command.is_empty() {
@@ -207,10 +212,28 @@ pub async fn start(
     };
 
     if sync {
-        let _ = handle.await;
+        let _ = handle.await; // ignore the mapreader error?
     }
 
-    mm.pick(options).await
+    mm.pick(options).await.map(|v| {
+        print_handle.map_to_vec(|s| print!("{}{}", s, output_seperator));
+
+        for item in v {
+            let s = if let Some(s) = &print_template {
+                print_formatter(
+                    &matchmaker::nucleo::Indexed {
+                        index: 0,
+                        inner: item,
+                    },
+                    s,
+                )
+            } else {
+                item.inner
+            };
+
+            print!("{}{}", s, output_seperator)
+        }
+    })
 }
 
 type InjectorType = SegmentedInjector<

@@ -17,6 +17,9 @@ pub enum SimpleError {
 
     #[error("Parse failure: {0}")]
     ParseFailure(String),
+
+    #[error("trailing tokens starting at index {index}")]
+    TrailingTokens { index: usize },
 }
 
 impl serde::de::Error for SimpleError {

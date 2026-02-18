@@ -18,6 +18,7 @@ Overrides follow the pattern `path=value` or `path value`.
   - `x` -> `matcher.command` (absolute alias)
   - `i` -> `matcher.input_separator` (absolute alias)
   - `d` -> `matcher.columns.delimiter` (absolute alias)
+  - `t` -> `matcher.print_template` (absolute alias)
 
 ### Collections (Lists/Vectors)
 
@@ -66,10 +67,12 @@ For example, `(( )) [one word] [\[]` splits into `(( ))`, `one word`, `[`.
 - `ignore_case`: (bool) Enable/disable case-insensitive matching.
 - `prefer_prefix`: (bool) Prioritize matches that start with the query.
 - `c`, `command`: (string) The shell command used to generate items.
-  - Absolut alias: `x`.
+  - Absolute alias: `x`.
 - `input_separator`: (char) Character separating input items.
   - Absolute alias: `i`
 - `output_separator`, `o`: (string) String separating output selections.
+- `print_template`, `t`: (string) Template string used to print results.
+  - Absolute alias: `x`.
 - `s`, `sync`: (bool) Whether to wait for the command to finish before starting.
 
 #### Worker _(flattened)_

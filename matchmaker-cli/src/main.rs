@@ -16,8 +16,10 @@ use paths::*;
 use setup::*;
 use utils::*;
 
-use cli_boilerplate_automation::{bog::BogOkExt, text::split::split_nesting};
-use matchmaker::{MatchError, preview::AppendOnly};
+use cli_boilerplate_automation::{
+    bait::ResultExt, bog::BogOkExt, ebog, text::split::split_nesting,
+};
+use matchmaker::MatchError;
 
 use crate::parse::{get_pairs, try_split_kv};
 
@@ -37,25 +39,13 @@ async fn main() {
     let partial = get_partial(config_args).__ebog();
     log::trace!("{partial:?}");
 
+    let no_read = cli.no_read;
     // get config
     let config = enter(cli, partial).__ebog();
 
-    let delimiter = config.matcher.start.output_separator.clone();
-    let print = AppendOnly::new();
-
     // begin
-    match start(config, print.clone()).await {
-        Ok(iter) => {
-            print.map_to_vec(|s| println!("{s}"));
-
-            let sep = delimiter.as_deref().unwrap_or("\n");
-            let output = iter
-                .into_iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>()
-                .join(sep);
-            println!("{output}");
-        }
+    match start(config, no_read).await {
+        Ok(_) => {}
         Err(err) => match err {
             MatchError::Abort(i) => {
                 exit(i);
@@ -63,9 +53,10 @@ async fn main() {
             MatchError::EventLoopClosed => {
                 exit(127);
             }
-            _ => {
-                unreachable!()
+            MatchError::TUIError(e) => {
+                ebog!("TUI"; "{e}")
             }
+            _ => unreachable!(),
         },
     };
 }
@@ -92,7 +83,9 @@ fn get_partial(config_args: Vec<String>) -> anyhow::Result<PartialConfig> {
 
         log::trace!("{parts:?}");
 
-        partial.set(path.as_slice(), &parts)?;
+        partial
+            .set(path.as_slice(), &parts)
+            .prefix(format!("Invalid value for {}", path.join(".")))?;
     }
 
     Ok(partial)

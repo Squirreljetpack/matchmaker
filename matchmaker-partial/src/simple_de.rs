@@ -18,7 +18,13 @@ where
     T: de::Deserialize<'de>,
 {
     let mut de = SimpleDeserializer::from_slice(input);
-    T::deserialize(&mut de)
+    let value = T::deserialize(&mut de)?;
+
+    if de.start != input.len() {
+        return Err(SimpleError::TrailingTokens { index: de.start });
+    }
+
+    Ok(value)
 }
 
 impl<'de> SimpleDeserializer<'de> {
@@ -74,7 +80,7 @@ macro_rules! impl_number {
     };
 }
 
-impl<'de, 'a> Deserializer<'de> for &'a mut SimpleDeserializer<'de> {
+impl<'de> Deserializer<'de> for &mut SimpleDeserializer<'de> {
     type Error = SimpleError;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -286,17 +292,17 @@ impl<'de, 'a> Deserializer<'de> for &'a mut SimpleDeserializer<'de> {
 
 // === Implement SeqAccess, MapAccess, EnumAccess, VariantAccess ===
 
-impl<'de, 'a> SeqAccess<'de> for &'a mut SimpleDeserializer<'de> {
+impl<'de> SeqAccess<'de> for &mut SimpleDeserializer<'de> {
     type Error = SimpleError;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
     where
         T: DeserializeSeed<'de>,
     {
-        if let Some(Ok(len)) = self.consuming {
-            if len == 0 {
-                return Ok(None);
-            }
+        if let Some(Ok(len)) = self.consuming
+            && len == 0
+        {
+            return Ok(None);
         }
 
         if self.start >= self.input.len() {
@@ -313,7 +319,7 @@ impl<'de, 'a> SeqAccess<'de> for &'a mut SimpleDeserializer<'de> {
     }
 }
 
-impl<'de, 'a> MapAccess<'de> for &'a mut SimpleDeserializer<'de> {
+impl<'de> MapAccess<'de> for &mut SimpleDeserializer<'de> {
     type Error = SimpleError;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
@@ -348,7 +354,7 @@ impl<'de, 'a> MapAccess<'de> for &'a mut SimpleDeserializer<'de> {
     }
 }
 
-impl<'de, 'a> EnumAccess<'de> for &'a mut SimpleDeserializer<'de> {
+impl<'de> EnumAccess<'de> for &mut SimpleDeserializer<'de> {
     type Error = SimpleError;
     type Variant = Self;
 
@@ -361,7 +367,7 @@ impl<'de, 'a> EnumAccess<'de> for &'a mut SimpleDeserializer<'de> {
     }
 }
 
-impl<'de, 'a> VariantAccess<'de> for &'a mut SimpleDeserializer<'de> {
+impl<'de> VariantAccess<'de> for &mut SimpleDeserializer<'de> {
     type Error = SimpleError;
 
     fn unit_variant(self) -> Result<(), Self::Error> {

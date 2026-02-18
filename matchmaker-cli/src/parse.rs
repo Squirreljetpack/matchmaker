@@ -12,9 +12,10 @@ pub enum ParseError {
 
 static ALIASES: &[(&str, &str)] = &[
     ("d", "matcher.columns.split"),
-    ("l", "preview.layout"),
     ("i", "matcher.input_separator"),
+    ("t", "matcher.print_template"),
     ("x", "matcher.command"),
+    ("l", "preview.layout"),
 ];
 
 /// Get (path, value) pairs by consuming either a single word, splitting at '=' into a valid key, or a pair of consecutive words.
@@ -72,27 +73,27 @@ pub fn valid_key(s: &str, extended: bool) -> bool {
 /// This is relevant to Maps and Structs as they are defined given a word sequences, interpreting it in word pairs.
 pub fn try_split_kv(vec: &mut Vec<String>, extended_keys: bool) -> anyhow::Result<()> {
     // Check first element for '='
-    if let Some(first) = vec.first() {
-        if let Some(pos) = first.find('=') {
-            let key = &first[..pos];
-            // If the first element is a valid k=v pair, split the rest, and require that they succeed
-            if valid_key(key, extended_keys) {
-                let mut out = Vec::with_capacity(vec.len() * 2);
-                for s in vec.iter() {
-                    if let Some(pos) = s.find('=') {
-                        let key = &s[..pos];
-                        let val = &s[pos + 1..];
-                        if !valid_key(key, extended_keys) {
-                            bail!("Invalid key: {}", key);
-                        }
-                        out.push(key.to_string());
-                        out.push(val.to_string());
-                    } else {
-                        bail!("Expected '=' in element: {}", s);
+    if let Some(first) = vec.first()
+        && let Some(pos) = first.find('=')
+    {
+        let key = &first[..pos];
+        // If the first element is a valid k=v pair, split the rest, and require that they succeed
+        if valid_key(key, extended_keys) {
+            let mut out = Vec::with_capacity(vec.len() * 2);
+            for s in vec.iter() {
+                if let Some(pos) = s.find('=') {
+                    let key = &s[..pos];
+                    let val = &s[pos + 1..];
+                    if !valid_key(key, extended_keys) {
+                        bail!("Invalid key: {}", key);
                     }
+                    out.push(key.to_string());
+                    out.push(val.to_string());
+                } else {
+                    bail!("Expected '=' in element: {}", s);
                 }
-                *vec = out;
             }
+            *vec = out;
         }
     }
 

@@ -86,6 +86,11 @@ pub struct StartConfig {
     #[serde(deserialize_with = "escaped_opt_string")]
     #[serde(alias = "o")]
     pub output_separator: Option<String>,
+
+    /// Format string to print accepted items as.
+    pub print_template: Option<String>,
+
+    /// Default command to execute when stdin is not being read.
     pub command: String,
     #[serde(alias = "s")]
     pub sync: bool,
@@ -482,6 +487,7 @@ impl Default for PreviewConfig {
 #[partial(path, derive(Debug, Deserialize))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
+#[derive(Default)]
 pub struct PreviewScrollSetting {
     /// Extract the initial display index `n` of the preview window from this column.
     /// `n` lines are skipped after the header lines are consumed.
@@ -495,17 +501,6 @@ pub struct PreviewScrollSetting {
     /// Keep the top N lines as the fixed header so that they are always visible.
     #[serde(alias = "h")]
     pub header_lines: usize,
-}
-
-impl Default for PreviewScrollSetting {
-    fn default() -> Self {
-        Self {
-            index: None,
-            offset: 0,
-            percent: Default::default(),
-            header_lines: 0,
-        }
-    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

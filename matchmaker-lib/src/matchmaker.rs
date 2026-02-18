@@ -5,7 +5,7 @@ use std::{
 };
 
 use arrayvec::ArrayVec;
-use cli_boilerplate_automation::{_log, bother::types::{Either::{self, Left, Right}}, broc::CommandExt, env_vars, prints};
+use cli_boilerplate_automation::{_log, bother::types::{Either::{self, Left, Right}}, broc::CommandExt, env_vars};
 use easy_ext::ext;
 use log::{debug, info, warn};
 use ratatui::text::Text;
@@ -522,10 +522,12 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
     // ----------- ATTACHMENTS ------------------
     
     impl<T: SSS, S: Selection> Matchmaker<T, S> {
+        // technically we don't need concurrency but the cost should be negligable
         /// Causes [`Action::Print`] to print to stdout.
         pub fn register_print_handler(
             &mut self,
             print_handle: AppendOnly<String>,
+            output_separator: String,
             formatter: Arc<RenderFn<T>>,
         ) {
             self.register_interrupt_handler(Interrupt::Print, move |state| {
@@ -534,7 +536,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
                     if atty::is(atty::Stream::Stdout) {
                         print_handle.push(s);
                     } else {
-                        prints!(s);
+                        print!("{}{}", s, output_separator);
                     }
                 };
             });
@@ -638,7 +640,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
                 
                 let target = state.preview_ui.as_ref().and_then(|p| p.config.scroll.index.as_ref().and_then(|index_col| {
                     state.current_raw().and_then(|item| {
-                        state.picker_ui.worker.format_with(item, &index_col).and_then(|t| t.parse::<isize>().ok())
+                        state.picker_ui.worker.format_with(item, index_col).and_then(|t| t.parse::<isize>().ok())
                     })
                 })).unwrap_or(0); // reset to 0 each time
 

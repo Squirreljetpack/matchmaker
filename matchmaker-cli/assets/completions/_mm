@@ -19,8 +19,9 @@ _mm() {
 '--dump-config[]' \
 '-F[]' \
 '--test-keys[]' \
-'(-v)*-q[Reduce the level of verbosity (the min level is -qq)]' \
-'(-q)*-v[Increase the level of verbosity (the max level is -vvv)]' \
+'--no-read[Force the default command to run]' \
+'(-v)*-q[Reduce the verbosity level]' \
+'(-q)*-v[Increase the verbosity level]' \
 '--options[Display options doc]' \
 '--binds[]' \
 '-h[Print help]' \

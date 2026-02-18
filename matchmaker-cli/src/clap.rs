@@ -16,10 +16,14 @@ pub struct Cli {
     #[arg(long)]
     pub test_keys: bool,
 
-    /// Reduce the level of verbosity (the min level is -qq).
+    /// Force the default command to run.
+    #[arg(long)]
+    pub no_read: bool,
+
+    /// Reduce the verbosity level.
     #[clap(short, conflicts_with("verbose"), action = ArgAction::Count)]
     pub quiet: u8,
-    /// Increase the level of verbosity (the max level is -vvv).
+    /// Increase the verbosity level.
     #[clap(short, conflicts_with("quiet"), action = ArgAction::Count)]
     pub verbose: u8,
 
@@ -72,7 +76,17 @@ impl Cli {
             try_parse!("binds");
 
             // Flags
-            if ["--dump-config", "--test-keys", "-F", "-q", "-v"].contains(&s.as_ref()) {
+            if [
+                "--dump-config",
+                "--test-keys",
+                "--no-read",
+                "--help",
+                "-F",
+                "-q",
+                "-v",
+            ]
+            .contains(&s.as_ref())
+            {
                 clap_args.push(arg);
                 continue;
             }
@@ -89,7 +103,7 @@ impl Cli {
 
         // Grab all args from the environment
         let args: Vec<std::ffi::OsString> = env::args_os().collect();
-        let prog_name = args.get(0).cloned().unwrap_or_else(|| "prog".into());
+        let prog_name = args.first().cloned().unwrap_or_else(|| "prog".into());
 
         // Partition the args, skipping the program name
         let (mut clap_args, rest_os) =

@@ -263,28 +263,24 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                 let mut drop_attr = false;
                 let _ = attr.parse_nested_meta(|meta| {
                     if meta.path.is_ident("deserialize_with") {
-                        if let Ok(value) = meta.value() {
-                            if let Ok(s) = value.parse::<LitStr>() {
+                        if let Ok(value) = meta.value()
+                            && let Ok(s) = value.parse::<LitStr>() {
                                 custom_deserializer = s.parse::<Path>().ok();
                                 drop_attr = true;
                             }
-                        }
                     } else if meta.path.is_ident("with") {
-                        if let Ok(value) = meta.value() {
-                            if let Ok(s) = value.parse::<LitStr>() {
-                                if let Ok(mut p) = s.parse::<Path>() {
+                        if let Ok(value) = meta.value()
+                            && let Ok(s) = value.parse::<LitStr>()
+                                && let Ok(mut p) = s.parse::<Path>() {
                                     p.segments.push(format_ident!("deserialize").into());
                                     custom_deserializer = Some(p);
                                     drop_attr = true;
                                 }
-                            }
-                        }
                     } else if meta.path.is_ident("alias") {
-                        if let Ok(value) = meta.value() {
-                            if let Ok(s) = value.parse::<LitStr>() {
+                        if let Ok(value) = meta.value()
+                            && let Ok(s) = value.parse::<LitStr>() {
                                 field_aliases.push(s.value());
                             }
-                        }
                     } else if meta.path.is_ident("flatten") {
                         is_flattened = true;
                     }
@@ -309,8 +305,8 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
             continue;
         }
 
-        if let Some(ref s) = field_set {
-            if s == "sequence" && recurse_override.is_some() {
+        if let Some(ref s) = field_set
+            && s == "sequence" && recurse_override.is_some() {
                 return syn::Error::new(
                     field.span(),
                     "cannot use 'recurse' and 'set = \"sequence\"' on the same field",
@@ -318,7 +314,6 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                 .to_compile_error()
                 .into();
             }
-        }
 
         let is_opt = is_option(field_ty);
         let inner_ty = if is_opt {
@@ -333,11 +328,10 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
         let mut should_recurse = (struct_recurse || field_recurse || recurse_override.is_some())
             && !matches!(recurse_override, Some(None));
 
-        if let Some(ref s) = field_set {
-            if s == "sequence" {
+        if let Some(ref s) = field_set
+            && s == "sequence" {
                 should_recurse = false;
             }
-        }
 
         let current_field_ty: proc_macro2::TokenStream;
         let mut is_recursive_field = false;
@@ -471,23 +465,21 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                 } else {
                     element_apply
                 }
-            } else {
-                if !field_unwrap {
-                    let val = if is_opt {
-                        quote! { Some(p) }
-                    } else {
-                        quote! { p }
-                    };
-                    quote! { if let Some(p) = partial.#field_name { self.#field_name = #val; } }
-                } else if kind == CollectionKind::HashMap || kind == CollectionKind::BTreeMap {
-                    quote! {
-                        for (k, v) in partial.#field_name {
-                            #target_expr.insert(k, v);
-                        }
-                    }
+            } else if !field_unwrap {
+                let val = if is_opt {
+                    quote! { Some(p) }
                 } else {
-                    quote! { #target_expr.extend(partial.#field_name.into_iter()); }
+                    quote! { p }
+                };
+                quote! { if let Some(p) = partial.#field_name { self.#field_name = #val; } }
+            } else if kind == CollectionKind::HashMap || kind == CollectionKind::BTreeMap {
+                quote! {
+                    for (k, v) in partial.#field_name {
+                        #target_expr.insert(k, v);
+                    }
                 }
+            } else {
+                quote! { #target_expr.extend(partial.#field_name.into_iter()); }
             };
             apply_field_stmts.push(apply_stmt);
 
@@ -901,17 +893,13 @@ fn get_collection_info(ty: &Type) -> Option<(CollectionKind, Vec<&Type>)> {
 
 /// Helper to get 'T' out of 'Option<T>' or return 'T' if it's not an Option.
 fn extract_inner_type_from_option(ty: &Type) -> &Type {
-    if let Type::Path(tp) = ty {
-        if let Some(last_seg) = tp.path.segments.last() {
-            if last_seg.ident == "Option" {
-                if let PathArguments::AngleBracketed(args) = &last_seg.arguments {
-                    if let Some(GenericArgument::Type(inner)) = args.args.first() {
+    if let Type::Path(tp) = ty
+        && let Some(last_seg) = tp.path.segments.last()
+            && last_seg.ident == "Option"
+                && let PathArguments::AngleBracketed(args) = &last_seg.arguments
+                    && let Some(GenericArgument::Type(inner)) = args.args.first() {
                         return inner;
                     }
-                }
-            }
-        }
-    }
     ty
 }
 

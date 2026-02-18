@@ -14,7 +14,7 @@ Overrides follow the pattern `path=value` or `path value`.
   - `h.h` -> `header.header_lines`
   - `r.r` -> `results.reverse`
   - `r.w` -> `results.wrap`
-  - `p.l.x` -> `preview.layout.command`
+  - `p.l` -> `preview.layout`
   - `x` -> `matcher.command` (absolute alias)
   - `i` -> `matcher.input_separator` (absolute alias)
   - `d` -> `matcher.columns.delimiter` (absolute alias)

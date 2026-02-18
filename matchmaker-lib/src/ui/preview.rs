@@ -149,7 +149,7 @@ impl PreviewUI {
         let mut lines_above =
             self.config
                 .scroll
-                .percent
+                .percentage
                 .complement()
                 .compute_clamped(self.area.height, 0, 0);
         // shoddy approximation to how Paragraph wraps lines

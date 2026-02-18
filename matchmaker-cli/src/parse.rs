@@ -15,7 +15,7 @@ static ALIASES: &[(&str, &str)] = &[
     ("i", "matcher.input_separator"),
     ("t", "matcher.print_template"),
     ("x", "matcher.command"),
-    ("l", "preview.layout"),
+    ("cmd", "matcher.command"),
 ];
 
 /// Get (path, value) pairs by consuming either a single word, splitting at '=' into a valid key, or a pair of consecutive words.

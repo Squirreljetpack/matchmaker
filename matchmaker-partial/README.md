@@ -159,7 +159,7 @@ assert_eq!(partial.tags, Some(vec!["alpha".into(), "beta".into(), "gamma".into()
 
 ### `serde(alias)`
 
-Fields with `#[serde(alias = "...")]` can be updated using any of the specified aliases in addition to the original field name.
+Fields with `#[serde(alias = "...")]` or `#[partial(alias = "...")]` can be updated using any of the specified aliases in addition to the original field name.
 
 ```rust
 #[derive(Default)]
@@ -178,6 +178,8 @@ assert_eq!(partial.threads, Some(8));
 ### `serde(flatten)`
 
 Flattened fields allow embedding nested structs directly at the top level. When a flattened field also uses `#[partial(recurse)]`, set delegates updates to the nested partial rather than expecting a top-level field match.
+
+`#[partial(flatten)]` is also supported.
 
 ```rust
 #[partial]

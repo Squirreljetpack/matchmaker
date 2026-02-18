@@ -26,7 +26,7 @@ find . | mm
 ```
 
 > [!NOTE]
-> The default input and preview commands rely on fd, bat and eza. For an optimal experience, install them or update your configuration.
+> The [default](./matchmaker-cli/assets/config.toml) input and preview commands rely on fd, bat and eza. For an optimal experience, install them or update your configuration.
 
 ## Configuration
 
@@ -41,9 +41,38 @@ The default locations are in order:
 - `~/.config/matchmaker/config.toml` (If the folder exists already).
 - `{PLATFORM_SPECIFIC_CONFIG_DIRECTORY}/matchmaker` (Generally the same as above when on linux)
 
+Matchmaker options are [hierarchical](./matchmaker-lib/src/config.rs) but most categories are flattened to the top level:
+
+```toml
+[preview]
+    show = true
+    wrap = true
+    header_lines = 3 # sticky the top 3 lines
+
+# Full specification of (the default values of) a single layout. Multiple layouts can be specified.
+[[preview.layout]]
+    command    = ""
+    side       = "right"
+    percentage = 60
+    min        = 30
+    max        = 120
+```
+
+They can also be specified on the command line, where abbreviations are supported:
+
+```sh
+mm --config ~/.config/matchmaker/alternate.toml p.l "cmd=[echo {}] p=50 max=20" cmd "ls" t "'{}'"
+
+# 1. Start mm with an alternate config, as well as with the following overrides:
+# 2. List the contents of the current directory by executing `ls`
+# 3. Show the current item name in the preview pane
+# 4. Set a preferred percentage of 50 for the preview pane, and a maximum column width of 20 for the preview pane
+# 5. Output the result wrapped in single quotes
+```
+
 ### Keybindings
 
-All actions must be defined in your `config.toml`.
+Actions can be defined in your `config.toml` or on the command line.
 
 The list of currently supported actions can be found [here](./matchmaker-lib/src/action.rs) or from `mm --options`.
 

@@ -8,6 +8,7 @@ use matchmaker::config::*;
 use matchmaker::action::Actions;
 use matchmaker::binds::Trigger;
 use std::collections::BTreeMap;
+
 #[partial(recurse, path, derive(Debug), attr)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -19,8 +20,8 @@ pub struct Config {
 
     // binds
     #[serde(default = "BindMap::default_binds")]
-    #[serde(alias = "b")]
     #[partial(attr)]
+    #[partial(alias = "b")]
     #[partial(recurse = "", unwrap)]
     // #[partial(skip)]
     pub binds: BTreeMap<Trigger, Actions>,

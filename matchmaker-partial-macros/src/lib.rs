@@ -217,6 +217,11 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                     } else if meta.path.is_ident("set") {
                         let s: LitStr = meta.value()?.parse()?;
                         field_set = Some(s.value());
+                    } else if meta.path.is_ident("alias") {
+                        let s: LitStr = meta.value()?.parse()?;
+                        field_aliases.push(s.value());
+                    } else if meta.path.is_ident("flatten") {
+                        is_flattened = true;
                     } else if meta.path.is_ident("recurse") {
                         if let Ok(value) = meta.value() {
                             let s: LitStr = value.parse().unwrap();
@@ -264,23 +269,26 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                 let _ = attr.parse_nested_meta(|meta| {
                     if meta.path.is_ident("deserialize_with") {
                         if let Ok(value) = meta.value()
-                            && let Ok(s) = value.parse::<LitStr>() {
-                                custom_deserializer = s.parse::<Path>().ok();
-                                drop_attr = true;
-                            }
+                            && let Ok(s) = value.parse::<LitStr>()
+                        {
+                            custom_deserializer = s.parse::<Path>().ok();
+                            drop_attr = true;
+                        }
                     } else if meta.path.is_ident("with") {
                         if let Ok(value) = meta.value()
                             && let Ok(s) = value.parse::<LitStr>()
-                                && let Ok(mut p) = s.parse::<Path>() {
-                                    p.segments.push(format_ident!("deserialize").into());
-                                    custom_deserializer = Some(p);
-                                    drop_attr = true;
-                                }
+                            && let Ok(mut p) = s.parse::<Path>()
+                        {
+                            p.segments.push(format_ident!("deserialize").into());
+                            custom_deserializer = Some(p);
+                            drop_attr = true;
+                        }
                     } else if meta.path.is_ident("alias") {
                         if let Ok(value) = meta.value()
-                            && let Ok(s) = value.parse::<LitStr>() {
-                                field_aliases.push(s.value());
-                            }
+                            && let Ok(s) = value.parse::<LitStr>()
+                        {
+                            field_aliases.push(s.value());
+                        }
                     } else if meta.path.is_ident("flatten") {
                         is_flattened = true;
                     }
@@ -306,14 +314,16 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         if let Some(ref s) = field_set
-            && s == "sequence" && recurse_override.is_some() {
-                return syn::Error::new(
-                    field.span(),
-                    "cannot use 'recurse' and 'set = \"sequence\"' on the same field",
-                )
-                .to_compile_error()
-                .into();
-            }
+            && s == "sequence"
+            && recurse_override.is_some()
+        {
+            return syn::Error::new(
+                field.span(),
+                "cannot use 'recurse' and 'set = \"sequence\"' on the same field",
+            )
+            .to_compile_error()
+            .into();
+        }
 
         let is_opt = is_option(field_ty);
         let inner_ty = if is_opt {
@@ -329,9 +339,10 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
             && !matches!(recurse_override, Some(None));
 
         if let Some(ref s) = field_set
-            && s == "sequence" {
-                should_recurse = false;
-            }
+            && s == "sequence"
+        {
+            should_recurse = false;
+        }
 
         let current_field_ty: proc_macro2::TokenStream;
         let mut is_recursive_field = false;
@@ -895,11 +906,12 @@ fn get_collection_info(ty: &Type) -> Option<(CollectionKind, Vec<&Type>)> {
 fn extract_inner_type_from_option(ty: &Type) -> &Type {
     if let Type::Path(tp) = ty
         && let Some(last_seg) = tp.path.segments.last()
-            && last_seg.ident == "Option"
-                && let PathArguments::AngleBracketed(args) = &last_seg.arguments
-                    && let Some(GenericArgument::Type(inner)) = args.args.first() {
-                        return inner;
-                    }
+        && last_seg.ident == "Option"
+        && let PathArguments::AngleBracketed(args) = &last_seg.arguments
+        && let Some(GenericArgument::Type(inner)) = args.args.first()
+    {
+        return inner;
+    }
     ty
 }
 

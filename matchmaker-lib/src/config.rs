@@ -58,7 +58,7 @@ pub struct MatcherConfig {
 #[partial(path, derive(Debug, Deserialize))]
 pub struct WorkerConfig {
     #[partial(recurse)]
-    #[serde(alias = "c")]
+    #[partial(alias = "c")]
     /// How columns are parsed from input lines
     pub columns: ColumnsConfig,
     /// Trim the input
@@ -84,15 +84,16 @@ pub struct StartConfig {
     #[serde(deserialize_with = "escaped_opt_char")]
     pub input_separator: Option<char>,
     #[serde(deserialize_with = "escaped_opt_string")]
-    #[serde(alias = "o")]
+    #[partial(alias = "o")]
     pub output_separator: Option<String>,
 
     /// Format string to print accepted items as.
     pub print_template: Option<String>,
 
     /// Default command to execute when stdin is not being read.
+    #[partial(alias = "cmd", alias = "x")]
     pub command: String,
-    #[serde(alias = "s")]
+    #[partial(alias = "s")]
     pub sync: bool,
 }
 
@@ -121,13 +122,13 @@ pub struct RenderConfig {
     /// The input bar style
     pub input: InputConfig,
     /// The results table style
-    #[serde(alias = "r")]
+    #[partial(alias = "r")]
     pub results: ResultsConfig,
     /// The preview panel style
-    #[serde(alias = "p")]
+    #[partial(alias = "p")]
     pub preview: PreviewConfig,
     pub footer: DisplayConfig,
-    #[serde(alias = "h")]
+    #[partial(alias = "h")]
     pub header: DisplayConfig,
 }
 
@@ -251,6 +252,7 @@ pub struct OverlayConfig {
 #[partial(path, derive(Debug, Deserialize))]
 pub struct OverlayLayoutSettings {
     /// w, h
+    #[partial(alias = "p")]
     pub percentage: [Percentage; 2],
     /// w, h
     pub min: [u16; 2],
@@ -328,18 +330,18 @@ pub struct ResultsConfig {
     // scroll
     pub scroll_wrap: bool,
     pub scroll_padding: u16,
-    #[serde(alias = "r")]
+    #[partial(alias = "r")]
     pub reverse: When,
 
     // wrap
-    #[serde(alias = "w")]
+    #[partial(alias = "w")]
     pub wrap: bool,
     pub wrap_scaling_min_width: u16,
 
     // experimental
     pub column_spacing: Count,
     pub current_prefix: String,
-    #[serde(alias = "ra")]
+    #[partial(alias = "ra")]
     pub right_align_last: bool,
 }
 define_transparent_wrapper!(
@@ -416,7 +418,7 @@ pub struct DisplayConfig {
     ///
     /// # Note
     /// This only affects the header and is only implemented in the binary.
-    #[serde(alias = "h")]
+    #[partial(alias = "h")]
     pub header_lines: usize,
 }
 
@@ -456,12 +458,13 @@ pub struct PreviewConfig {
     #[partial(recurse)]
     pub border: BorderSetting,
     #[partial(recurse)]
+    #[partial(alias = "l")]
     pub layout: Vec<PreviewSetting>,
     #[partial(recurse)]
     #[serde(flatten)]
     pub scroll: PreviewScrollSetting,
     /// Whether to cycle to top after scrolling to the bottom and vice versa.
-    #[serde(alias = "c")]
+    #[partial(alias = "c")]
     pub scroll_wrap: bool,
     pub wrap: bool,
     pub show: bool,
@@ -493,13 +496,13 @@ pub struct PreviewScrollSetting {
     /// `n` lines are skipped after the header lines are consumed.
     pub index: Option<String>,
     /// For adjusting the initial scroll index.
-    #[serde(alias = "o")]
+    #[partial(alias = "o")]
     pub offset: isize,
     /// How far from the bottom of the preview window the scroll offset should appear.
-    #[serde(alias = "p")]
-    pub percent: Percentage,
+    #[partial(alias = "p")]
+    pub percentage: Percentage,
     /// Keep the top N lines as the fixed header so that they are always visible.
-    #[serde(alias = "h")]
+    #[partial(alias = "h")]
     pub header_lines: usize,
 }
 
@@ -689,6 +692,8 @@ impl BorderSetting {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[partial(path, derive(Debug, Deserialize))]
 pub struct TerminalLayoutSettings {
+    /// Percentage of total rows to occupy.
+    #[partial(alias = "p")]
     pub percentage: Percentage,
     pub min: u16,
     pub max: u16, // 0 for terminal height cap
@@ -728,6 +733,10 @@ pub struct PreviewSetting {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PreviewLayout {
     pub side: Side,
+    /// Percentage of total rows/columns to occupy.
+
+    #[serde(alias = "p")]
+    // we need serde here since its specified inside the value but i don't think there's another case for it.
     pub percentage: Percentage,
     pub min: i16,
     pub max: i16,
@@ -761,7 +770,7 @@ pub struct ColumnsConfig {
     /// The strategy of how columns are parsed from input lines
     pub split: Split,
     /// Column names
-    #[serde(alias = "n")]
+    #[partial(alias = "n")]
     pub names: Vec<ColumnSetting>,
     /// Maximum number of columns to autogenerate when names is unspecified. Maximum of 10.
     #[serde(deserialize_with = "bounded_usize::<{crate::MAX_SPLITS},_>")]

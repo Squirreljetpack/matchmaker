@@ -61,7 +61,7 @@ Matchmaker options are [hierarchical](./matchmaker-lib/src/config.rs) but most c
 They can also be specified on the command line, where abbreviations are supported:
 
 ```sh
-mm --config ~/.config/matchmaker/alternate.toml p.l "cmd=[echo {}] p=50 max=20" cmd "ls" t "'{}'"
+mm --config ~/.config/matchmaker/alternate.toml p.l "cmd=[echo {}] p=50 max=20" cmd "ls" o "'{}'"
 
 # 1. Start mm with an alternate config, as well as with the following overrides:
 # 2. List the contents of the current directory by executing `ls`

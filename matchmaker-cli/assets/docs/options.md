@@ -17,8 +17,8 @@ Overrides follow the pattern `path=value` or `path value`.
   - `p.l` -> `preview.layout`
   - `x` -> `matcher.command` (absolute alias)
   - `i` -> `matcher.input_separator` (absolute alias)
-  - `d` -> `matcher.columns.delimiter` (absolute alias)
-  - `t` -> `matcher.print_template` (absolute alias)
+  - `d` -> `matcher.columns.split` (absolute alias)
+  - `o` -> `matcher.output_template` (absolute alias)
 
 ### Collections (Lists/Vectors)
 

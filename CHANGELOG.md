@@ -1,3 +1,9 @@
+## [0.0.2] - 2026-02-18
+- Various bugfixes and improvements
+- New configuration options:
+	- PreviewScrollSetting
+	- print_template
+
 ## [0.0.1] - 2026-02-16
 
 - Apply anti-aging cream.

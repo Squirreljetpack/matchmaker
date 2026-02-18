@@ -13,7 +13,7 @@ pub enum ParseError {
 static ALIASES: &[(&str, &str)] = &[
     ("d", "matcher.columns.split"),
     ("i", "matcher.input_separator"),
-    ("t", "matcher.print_template"),
+    ("o", "matcher.output_template"),
     ("x", "matcher.command"),
     ("cmd", "matcher.command"),
 ];

@@ -1,6 +1,6 @@
 [package]
 name = "matchmaker-partial-macros"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2024"
 description = "Derive macros for the matchmaker-partial crate"
 repository = "https://github.com/Squirreljetpack/matchmaker"

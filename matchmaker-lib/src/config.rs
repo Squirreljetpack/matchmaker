@@ -82,13 +82,14 @@ pub struct WorkerConfig {
 #[partial(path, derive(Debug, Deserialize))]
 pub struct StartConfig {
     #[serde(deserialize_with = "escaped_opt_char")]
+    #[partial(alias = "is")]
     pub input_separator: Option<char>,
     #[serde(deserialize_with = "escaped_opt_string")]
-    #[partial(alias = "o")]
+    #[partial(alias = "os")]
     pub output_separator: Option<String>,
 
     /// Format string to print accepted items as.
-    pub print_template: Option<String>,
+    pub output_template: Option<String>,
 
     /// Default command to execute when stdin is not being read.
     #[partial(alias = "cmd", alias = "x")]
@@ -181,7 +182,7 @@ pub struct TerminalSettings {}
 pub struct UiConfig {
     #[partial(recurse)]
     pub border: BorderSetting,
-    pub tick_rate: u8, // seperate from render, but best place ig
+    pub tick_rate: u8, // separate from render, but best place ig
 }
 
 impl Default for UiConfig {

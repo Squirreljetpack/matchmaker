@@ -124,11 +124,11 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 exit,
                 start:
                     StartConfig {
-                        input_separator: delimiter,
+                        input_separator,
                         command,
                         sync,
                         output_separator,
-                        print_template,
+                        output_template,
                     },
             },
         binds,
@@ -137,7 +137,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let abort_empty = exit.abort_empty;
     let header_lines = render.header.header_lines;
     let print_handle = AppendOnly::new();
-    let output_seperator = output_separator.clone().unwrap_or("\n".into());
+    let output_separator = output_separator.clone().unwrap_or("\n".into());
 
     let event_loop = EventLoop::with_binds(binds).with_tick_rate(render.tick_rate());
     // make matcher and matchmaker with matchmaker-and-matcher-maker
@@ -161,7 +161,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     );
     mm.register_print_handler(
         print_handle.clone(),
-        output_seperator.clone(),
+        output_separator.clone(),
         print_formatter.clone(),
     );
 
@@ -181,7 +181,12 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             let vars = state.make_env_vars();
             debug!("Reloading: {cmd}");
             if let Some(stdout) = Command::from_script(&cmd).envs(vars).spawn_piped()._elog() {
-                map_reader(stdout, move |line| injector.push(line), delimiter, None);
+                map_reader(
+                    stdout,
+                    move |line| injector.push(line),
+                    input_separator,
+                    None,
+                );
             }
         }
     });
@@ -199,10 +204,20 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let push_fn = inject_line(header_lines, render_tx.clone(), injector);
     let handle = if !atty::is(atty::Stream::Stdin) && !no_read {
         let stdin = std::io::stdin();
-        map_reader(stdin, push_fn, delimiter, abort_empty.then_some(render_tx))
+        map_reader(
+            stdin,
+            push_fn,
+            input_separator,
+            abort_empty.then_some(render_tx),
+        )
     } else if !command.is_empty() {
         if let Some(stdout) = Command::from_script(&command).spawn_piped()._ebog() {
-            map_reader(stdout, push_fn, delimiter, abort_empty.then_some(render_tx))
+            map_reader(
+                stdout,
+                push_fn,
+                input_separator,
+                abort_empty.then_some(render_tx),
+            )
         } else {
             std::process::exit(99)
         }
@@ -216,10 +231,10 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     }
 
     mm.pick(options).await.map(|v| {
-        print_handle.map_to_vec(|s| print!("{}{}", s, output_seperator));
+        print_handle.map_to_vec(|s| print!("{}{}", s, output_separator));
 
         for item in v {
-            let s = if let Some(s) = &print_template {
+            let s = if let Some(s) = &output_template {
                 print_formatter(
                     &matchmaker::nucleo::Indexed {
                         index: 0,
@@ -231,7 +246,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 item.inner
             };
 
-            print!("{}{}", s, output_seperator)
+            print!("{}{}", s, output_separator)
         }
     })
 }

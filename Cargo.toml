@@ -13,7 +13,7 @@ matchmaker-partial-macros = { path = "./matchmaker-partial-macros" }
 nucleo = { git = "https://github.com/Squirreljetpack/nucleo", branch = "mm" }
 
 [workspace.dependencies]
-matchmaker-lib = { version = "0.0.1" }
-matchmaker-partial = { version = "0.0.1" }
-matchmaker-partial-macros = { version = "0.0.3", default-features = false}
-cli_boilerplate_automation = { version = "0.0.10" }
+matchmaker-lib = { version = "0.0.3" }
+matchmaker-partial = { version = "0.0.2" }
+matchmaker-partial-macros = { version = "0.0.4", default-features = false}
+cli_boilerplate_automation = { version = "0.0.11" }

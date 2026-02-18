@@ -609,7 +609,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
     /// The Previewer can be connected to [`Matchmaker`] using [`PickOptions::previewer`]
     pub fn make_previewer<T: SSS, S: Selection>(
         mm: &mut Matchmaker<T, S>,
-        previewer_config: PreviewerConfig, // note: help_str is provided seperately so help_colors is ignored
+        previewer_config: PreviewerConfig, // note: help_str is provided separately so help_colors is ignored
         formatter: Arc<RenderFn<T>>,
         help_str: Text<'static>,
     ) -> Previewer {

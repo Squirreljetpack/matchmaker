@@ -1,4 +1,4 @@
-# m&m [![Crates.io](https://img.shields.io/crates/v/matchmaker-cli)](https://crates.io/crates/matchmaker-cli) [![License](https://img.shields.io/github/license/squirreljetpack/matchmaker/LICENSE)](https://github.com/squirreljetpack/matchmaker/blob/main/matchmaker-cli/LICENSE)
+# m&m [![Crates.io](https://img.shields.io/crates/v/matchmaker-cli)](https://crates.io/crates/matchmaker-cli) [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://github.com/squirreljetpack/matchmaker/blob/main/matchmaker-cli/LICENSE)
 
 Matchmaker is a fuzzy searcher, powered by nucleo and written in rust.
 
@@ -58,7 +58,7 @@ Matchmaker options are [hierarchical](./matchmaker-lib/src/config.rs) but most c
     max        = 120
 ```
 
-They can also be specified on the command line, where abbreviations are supported:
+Options can be overridden on the command line, where abbreviations are supported:
 
 ```sh
 mm --config ~/.config/matchmaker/alternate.toml p.l "cmd=[echo {}] p=50 max=20" cmd "ls" o "'{}'"

@@ -1,9 +1,7 @@
 ## TODO
 
-- Fault tolerance
-- sane defaults for ui
-  - it would be nice to have presets like full, simple, and minimal presets like fzf
-  - it would be nice to have color presets too maybe
+- it would be nice to have presets like full, simple, and minimal presets like fzf
+- it would be nice to have color presets too maybe
 - Examples:
   - query change
   - frecency
@@ -20,23 +18,18 @@
 - Add support for nucleo::Pattern in the matcher config
 - Adaptable percentage (higher on smaller)
 - status template
-- header extraction option in cli
 - case insensitive bitflags deserialization?
-- preview initial offset setting
 - Offload large previews to disk
+- (automatic) horizontal scrolling of results
 
 # Bugs
 
-- Too many execute will crash event loop
+- Too many execute can sometimes crash event loop
 - Preview sometimes disappears?
 - Indexing can break?
 
 ### Low priority
 
-- a scroll action could dispatch between preview and results
-- Should event handlers support exiting the loop? if a use case comes up might be worth changing
 - refactor to better fit components into specific ratatui roles
-- sometimes preview leaks, better autorefresh?
-- (automatic) horizontal scrolling of results
-- too many actions at once (execute/reload) can cause crash sometimes
-- input_rhs_prompt,
+- sometimes preview leaks (on invalid unicode), better autorefresh?
+- input_rhs_prompt

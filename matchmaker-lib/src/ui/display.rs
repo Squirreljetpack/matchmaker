@@ -21,7 +21,7 @@ pub struct DisplayUI {
     width: u16,
     height: u16,
     text: Vec<Text<'static>>,
-    text_split_index: usize,
+    text_split_index: usize, // everything at and after this index is a header_line
     pub show: bool,
     pub config: DisplayConfig,
 }
@@ -57,8 +57,9 @@ impl DisplayUI {
         let new_w = width.saturating_sub(border_w);
         if new_w != self.width {
             self.width = new_w;
+            // only rewrap of single cell is supported for now
             if self.config.wrap && self.text_split_index == 1 {
-                let text = wrap_text(self.text.remove(0), self.width).0;
+                let text = wrap_text(self.text[0].clone(), self.width).0;
                 self.text[0] = text;
             }
         }
@@ -75,19 +76,37 @@ impl DisplayUI {
     }
 
     /// Set text and visibility. Compute wrapped height.
-    pub fn set(&mut self, text: impl Into<Text<'static>>) {
+    pub fn set(&mut self, text: impl Into<Text<'static>>, keep_header_columns: bool) {
         let (text, _) = wrap_text(text.into(), self.config.wrap as u16 * self.width);
-        self.text = vec![text];
+
+        if keep_header_columns {
+            // Keep everything after text_split_index (header)
+            let header = self.text.split_off(self.text_split_index);
+
+            self.text = vec![text];
+            self.text.extend(header);
+        } else {
+            self.text = vec![text];
+        }
+
         self.text_split_index = 1;
         self.show = true;
     }
 
-    pub fn clear(&mut self) {
+    pub fn clear(&mut self, keep_header_columns: bool) {
         self.show = false;
-        self.text.clear();
+
+        if keep_header_columns {
+            let header = self.text.split_off(self.text_split_index);
+            self.text = header;
+        } else {
+            self.text.clear();
+        }
+
         self.text_split_index = 0;
     }
 
+    /// Whether this is table has just one column (ignoring header_lines)
     pub fn single(&self) -> bool {
         self.text_split_index == 1
     }
@@ -128,7 +147,7 @@ impl DisplayUI {
         let (cells, height) = if self.text_split_index == 1 {
             // Single Cell (Full Width)
             // reflow is handled in update_width
-            let cells = if self.text_split_index < self.text.len() {
+            let cells = if self.text.len() > 1 {
                 vec![]
             } else {
                 vec![Cell::from(self.text[0].clone())]
@@ -142,9 +161,9 @@ impl DisplayUI {
             let cells = self.text[..self.text_split_index]
                 .iter()
                 .cloned()
-                .enumerate()
-                .map(|(i, text)| {
-                    let mut ret = wrap_text(text, widths[i]).0;
+                .zip(widths.iter().copied())
+                .map(|(text, width)| {
+                    let mut ret = wrap_text(text, width).0;
                     height = height.max(ret.height() as u16);
 
                     Cell::from(ret.transform_if(
@@ -162,9 +181,10 @@ impl DisplayUI {
 
         let row = Row::new(cells).style(style).height(height);
         let mut rows = vec![row];
+        self.height = height;
 
+        // add header cells
         if self.text_split_index < self.text.len() {
-            self.height = height;
             let mut height = 0;
 
             let cells = self.text[self.text_split_index..].iter().map(|x| {
@@ -177,7 +197,13 @@ impl DisplayUI {
             self.height += height;
         }
 
-        Table::new(rows, widths.to_vec())
+        let widths = if self.single() && self.text.len() == 1 {
+            vec![Constraint::Percentage(100)]
+        } else {
+            widths.into_iter().map(Constraint::Length).collect()
+        };
+
+        Table::new(rows, widths)
             .block(block)
             .column_spacing(col_spacing)
             .transform_if(
@@ -212,7 +238,6 @@ impl DisplayUI {
             bottom,
         });
 
-        // Paragraph with the first text element and correct padding
         Paragraph::new(self.text[0].clone())
             .block(block)
             .style(style)

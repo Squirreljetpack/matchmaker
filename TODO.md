@@ -10,7 +10,7 @@
 - dynamically adjusting column hide/filtering
   - column: column hide should be external, not on the column object
   - formatter:
-  - {_} to join together all visible column outputs
+  - {\_} to join together all visible column outputs
   - {+}
   - {!} current column
 - configurable active and passive column colors
@@ -30,6 +30,6 @@
 
 ### Low priority
 
-- refactor to better fit components into specific ratatui roles
+- refactor to better fit components into specific ratatui roles so the ui can be embedded?
 - sometimes preview leaks (on invalid unicode), better autorefresh?
 - input_rhs_prompt

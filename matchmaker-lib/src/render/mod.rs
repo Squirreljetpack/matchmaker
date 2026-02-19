@@ -90,6 +90,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         };
 
         if state.should_quit {
+            log::debug!("Exiting due to should_quit");
             let ret = picker_ui.selector.output().collect::<Vec<S>>();
             return if picker_ui.selector.is_disabled()
                 && let Some((_, item)) = get_current(&picker_ui)
@@ -101,6 +102,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 Ok(ret)
             };
         } else if state.should_quit_nomatch {
+            log::debug!("Exiting due to should_quit_no_match");
             return Err(MatchError::NoMatch);
         }
 
@@ -264,16 +266,16 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         // UI
                         Action::SetHeader(context) => {
                             if let Some(s) = context {
-                                header.set(s);
+                                header.set(s, true);
                             } else {
-                                header.clear();
+                                header.clear(true);
                             }
                         }
                         Action::SetFooter(context) => {
                             if let Some(s) = context {
-                                footer_ui.set(s);
+                                footer_ui.set(s, false);
                             } else {
-                                footer_ui.clear();
+                                footer_ui.clear(false);
                             }
                         }
                         // this sometimes aborts the viewer on some files, why?
@@ -476,6 +478,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             }
 
             if state.should_quit {
+                log::debug!("Exiting due to should_quit");
                 let ret = picker_ui.selector.output().collect::<Vec<S>>();
                 return if picker_ui.selector.is_disabled()
                     && let Some((_, item)) = get_current(&picker_ui)
@@ -487,6 +490,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     Ok(ret)
                 };
             } else if state.should_quit_nomatch {
+                log::debug!("Exiting due to should_quit_nomatch");
                 return Err(MatchError::NoMatch);
             }
         }
@@ -521,6 +525,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
                 let full_width_footer = footer_ui.single()
                     && footer_ui.config.row_connection_style == RowConnectionStyle::Full;
+
                 let mut footer =
                     if full_width_footer || preview_ui.as_ref().is_none_or(|p| !p.is_show()) {
                         split(&mut _area, footer_ui.height(), picker_ui.reverse())
@@ -577,7 +582,6 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 render_status(frame, status, &picker_ui.results);
                 render_results(frame, results, &mut picker_ui, &mut click);
                 render_display(frame, header, &mut picker_ui.header, &picker_ui.results);
-                render_header_lines(frame, header, &picker_ui.header, &picker_ui.results);
                 render_display(frame, footer, &mut footer_ui, &picker_ui.results);
                 if let Some(preview_ui) = preview_ui.as_mut() {
                     state.update_preview_ui(preview_ui);
@@ -730,17 +734,12 @@ fn render_display(frame: &mut Frame, area: Rect, ui: &mut DisplayUI, results_ui:
         results_ui.config.column_spacing.0,
     );
 
-    log::debug!("{widget:?}");
     frame.render_widget(widget, area);
-}
 
-fn render_header_lines(frame: &mut Frame, area: Rect, ui: &DisplayUI, results_ui: &ResultsUI) {
-    if !ui.show || !ui.single() {
-        return;
+    if ui.single() {
+        let widget = ui.make_full_width_row(results_ui.indentation() as u16);
+        frame.render_widget(widget, area);
     }
-    let widget = ui.make_full_width_row(results_ui.indentation() as u16);
-
-    frame.render_widget(widget, area);
 }
 
 fn render_ui(frame: &mut Frame, area: &mut Rect, ui: &UI) {

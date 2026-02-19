@@ -1,3 +1,7 @@
+## [0.0.4] - 2026-02-19
+- Bugfix and documentation updates
+- Align version cli and library versions
+
 ## [0.0.2] - 2026-02-18
 - Various bugfixes and improvements
 - New configuration options:

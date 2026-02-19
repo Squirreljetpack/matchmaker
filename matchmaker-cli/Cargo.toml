@@ -1,6 +1,6 @@
 [package]
 name = "matchmaker-cli"
-version = "0.0.2"
+version = "0.0.4"
 edition = "2024"
 description = "Command-line interface for the matchmaker fuzzy finder"
 repository = "https://github.com/Squirreljetpack/matchmaker"

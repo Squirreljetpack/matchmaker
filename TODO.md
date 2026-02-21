@@ -21,6 +21,7 @@
 - case insensitive bitflags deserialization?
 - Offload large previews to disk
 - (automatic) horizontal scrolling of results
+- better hr styling (dim etc.)
 
 # Bugs
 

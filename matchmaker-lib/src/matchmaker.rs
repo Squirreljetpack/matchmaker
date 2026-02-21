@@ -5,18 +5,13 @@ use std::{
 };
 
 use arrayvec::ArrayVec;
-use cli_boilerplate_automation::{
-    _log,
-    bother::types::Either::{self, Left, Right},
-    broc::CommandExt,
-    env_vars,
-};
+use cli_boilerplate_automation::{_log, broc::CommandExt, env_vars};
 use easy_ext::ext;
 use log::{debug, info, warn};
 use ratatui::text::Text;
 
 use crate::{
-    MatchError, RenderFn, Result, SSS, Selection, Selector, SplitterFn,
+    MatchError, RenderFn, Result, SSS, Selection, Selector,
     action::{Action, ActionExt, Actions, NullActionExt},
     binds::BindMap,
     config::{
@@ -27,7 +22,10 @@ use crate::{
     message::{Event, Interrupt},
     nucleo::{
         Indexed, Segmented, Worker,
-        injector::{IndexedInjector, Injector, SegmentedInjector, WorkerInjector},
+        injector::{
+            AnsiInjector, Either, IndexedInjector, Injector, SegmentedInjector, SplitterFn,
+            WorkerInjector,
+        },
     },
     preview::{
         AppendOnly, Preview,
@@ -59,15 +57,19 @@ pub struct Matchmaker<T: SSS, S: Selection = T> {
 
 // defined for lack of a better way to expose these fns, i.e. to allow clients to request new injectors in case of worker restart
 pub struct OddEnds {
-    pub formatter: Arc<RenderFn<Indexed<Segmented<String>>>>,
-    pub splitter: SplitterFn<String>,
+    pub formatter: Arc<RenderFn<ConfigMMItem>>,
+    pub splitter: SplitterFn<Either<String, Text<'static>>>,
 }
 
-pub type ConfigInjector = SegmentedInjector<
-    String,
-    IndexedInjector<Segmented<String>, WorkerInjector<Indexed<Segmented<String>>>>,
+pub type ConfigInjector = AnsiInjector<
+    SegmentedInjector<
+        Either<String, Text<'static>>,
+        IndexedInjector<Segmented<Either<String, Text<'static>>>, WorkerInjector<ConfigMMItem>>,
+    >,
 >;
-pub type ConfigMatchmaker = Matchmaker<Indexed<Segmented<String>>, Segmented<String>>;
+pub type ConfigMatchmaker = Matchmaker<ConfigMMItem, Segmented<Either<String, Text<'static>>>>;
+
+pub type ConfigMMItem = Indexed<Segmented<Either<String, Text<'static>>>>;
 
 impl ConfigMatchmaker {
     /// Creates a new Matchmaker from a config::BaseConfig.
@@ -79,7 +81,7 @@ impl ConfigMatchmaker {
     ) -> (Self, ConfigInjector, OddEnds) {
         let cc = worker_config.columns;
         // "hack" because we cannot make the results stable in the worker as our current hack uses the identifier
-        let worker: Worker<Indexed<Segmented<String>>> = match cc.split {
+        let worker: Worker<ConfigMMItem> = match cc.split {
             Split::Delimiter(_) | Split::Regexes(_) => {
                 let names: Vec<Arc<str>> = if cc.names.is_empty() {
                     (0..cc.max_cols())
@@ -102,10 +104,12 @@ impl ConfigMatchmaker {
         let col_count = worker.columns.len();
 
         // Arc over box due to capturing
-        let splitter: SplitterFn<String> = match cc.split {
+        let splitter: SplitterFn<Either<String, Text>> = match cc.split {
             Split::Delimiter(ref rg) => {
                 let rg = rg.clone();
                 Arc::new(move |s| {
+                    let s = &s.to_cow();
+
                     let mut ranges = ArrayVec::new();
                     let mut last_end = 0;
                     for m in rg.find_iter(s).take(col_count) {
@@ -119,7 +123,9 @@ impl ConfigMatchmaker {
             Split::Regexes(ref rgs) => {
                 let rgs = rgs.clone(); // or Arc
                 Arc::new(move |s| {
+                    let s = &s.to_cow();
                     let mut ranges = ArrayVec::new();
+
                     for re in rgs.iter().take(col_count) {
                         if let Some(m) = re.find(s) {
                             ranges.push((m.start(), m.end()));
@@ -130,18 +136,19 @@ impl ConfigMatchmaker {
                     ranges
                 })
             }
-            Split::None => Arc::new(|s| ArrayVec::from_iter([(0, s.len())])),
+            Split::None => Arc::new(|s| ArrayVec::from_iter([(0, s.to_cow().len())])),
         };
         let injector = IndexedInjector::new_globally_indexed(injector);
         let injector = SegmentedInjector::new(injector, splitter.clone());
+        let injector = AnsiInjector::new(injector, worker_config.ansi);
+
+        // segment then index. Question: what about ansi sequences?
 
         let selection_set = Selector::new(Indexed::identifier);
 
         let event_handlers = EventHandlers::new();
         let interrupt_handlers = InterruptHandlers::new();
-        let formatter = Arc::new(
-            worker.default_format_fn::<true>(|item| std::borrow::Cow::Borrowed(&item.inner.inner)),
-        );
+        let formatter = Arc::new(worker.default_format_fn::<true>(|item| item.to_cow()));
 
         let new = Matchmaker {
             worker,
@@ -251,8 +258,8 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
 
         // note: this part is "crate-specific" since clients likely use their own previewer
         let preview = match previewer {
-            Some(Left(view)) => Some(view),
-            Some(Right(mut previewer)) => {
+            Some(Either::Left(view)) => Some(view),
+            Some(Either::Right(mut previewer)) => {
                 let view = previewer.view();
                 previewer.connect_controller(event_loop.get_controller());
 
@@ -457,14 +464,14 @@ impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
     /// # Example
     /// See [`make_previewer`] for how to create one.
     pub fn previewer(mut self, previewer: Previewer) -> Self {
-        self.previewer = Some(Right(previewer));
+        self.previewer = Some(Either::Right(previewer));
         self
     }
 
     /// Set a [`Preview`].
     /// Overrides [`Matchmaker::connect_preview`].
     pub fn preview(mut self, preview: Preview) -> Self {
-        self.previewer = Some(Left(preview));
+        self.previewer = Some(Either::Left(preview));
         self
     }
 

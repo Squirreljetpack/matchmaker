@@ -11,7 +11,7 @@ use std::{
 
 use super::worker::{Column, Worker, WorkerError};
 use super::{Indexed, Segmented};
-use crate::{SSS, SegmentableItem, SplitterFn};
+use crate::{SSS, nucleo::SegmentableItem};
 
 pub trait Injector {
     type InputItem;
@@ -28,6 +28,15 @@ pub trait Injector {
     fn push(&self, item: Self::InputItem) -> Result<(), WorkerError> {
         let item = self.wrap(item)?;
         self.inner().push(item)
+    }
+
+    fn extend(
+        &self,
+        items: impl IntoIterator<Item = Self::InputItem> + ExactSizeIterator,
+    ) -> Result<(), WorkerError> {
+        let items =
+        items.into_iter().map(|item| self.wrap(item)).collect::<Result<Vec<<<Self as Injector>::Inner as Injector>::InputItem>, WorkerError>>()?;
+        self.inner().extend(items.into_iter())
     }
 }
 
@@ -84,10 +93,32 @@ impl<T: SSS> Injector for WorkerInjector<T> {
         push_impl(&self.inner, &self.columns, item);
         Ok(())
     }
+
+    fn extend(
+        &self,
+        items: impl IntoIterator<Item = T> + ExactSizeIterator,
+    ) -> Result<(), WorkerError> {
+        if self.version != self.picker_version.load(Ordering::Relaxed) {
+            return Err(WorkerError::InjectorShutdown);
+        }
+        extend_impl(&self.inner, &self.columns, items);
+        Ok(())
+    }
 }
 
 pub(super) fn push_impl<T>(injector: &nucleo::Injector<T>, columns: &[Column<T>], item: T) {
     injector.push(item, |item, dst| {
+        for (column, text) in columns.iter().filter(|column| column.filter).zip(dst) {
+            *text = column.format_text(item).into()
+        }
+    });
+}
+
+pub(super) fn extend_impl<T, I>(injector: &nucleo::Injector<T>, columns: &[Column<T>], items: I)
+where
+    I: IntoIterator<Item = T> + ExactSizeIterator,
+{
+    injector.extend(items, |item, dst| {
         for (column, text) in columns.iter().filter(|column| column.filter).zip(dst) {
             *text = column.format_text(item).into()
         }
@@ -147,15 +178,17 @@ where
     }
 }
 
-pub struct SegmentedInjector<T: SegmentableItem, I: Injector<InputItem = Segmented<T>>> {
+// ------------------------------------------------------------------------------------------------
+pub type SplitterFn<T, const MAX_SPLITS: usize = { crate::MAX_SPLITS }> = std::sync::Arc<
+    dyn for<'a> Fn(&'a T) -> arrayvec::ArrayVec<(usize, usize), MAX_SPLITS> + Send + Sync,
+>;
+
+pub struct SegmentedInjector<T, I: Injector<InputItem = Segmented<T>>> {
     injector: I,
     splitter: SplitterFn<T>,
-    input_type: PhantomData<T>,
 }
 
-impl<T: SegmentableItem, I: Injector<InputItem = Segmented<T>>> Injector
-    for SegmentedInjector<T, I>
-{
+impl<T, I: Injector<InputItem = Segmented<T>>> Injector for SegmentedInjector<T, I> {
     type InputItem = T;
     type Inner = I;
     type Context = SplitterFn<T>;
@@ -164,7 +197,6 @@ impl<T: SegmentableItem, I: Injector<InputItem = Segmented<T>>> Injector
         Self {
             injector,
             splitter: data,
-            input_type: PhantomData,
         }
     }
 
@@ -182,12 +214,71 @@ impl<T: SegmentableItem, I: Injector<InputItem = Segmented<T>>> Injector
     fn inner(&self) -> &Self::Inner {
         &self.injector
     }
+}
 
-    fn push(&self, item: Self::InputItem) -> Result<(), WorkerError> {
-        let item = self.wrap(item)?;
-        self.inner().push(item)
+mod ansi {
+    use std::ops::Range;
+
+    pub use crate::utils::Either;
+    use crate::{
+        nucleo::Text,
+        utils::text::{scrub_text_styles, slice_ratatui_text},
+    };
+    use ansi_to_tui::IntoText;
+
+    pub use super::*;
+    pub struct AnsiInjector<I> {
+        pub injector: I,
+        parse: bool,
+    }
+
+    impl<I: Injector<InputItem = Either<String, Text<'static>>>> Injector for AnsiInjector<I> {
+        type InputItem = String;
+        type Inner = I;
+        type Context = bool;
+
+        fn new(injector: Self::Inner, wrap: Self::Context) -> Self {
+            Self {
+                injector,
+                parse: wrap,
+            }
+        }
+
+        fn wrap(
+            &self,
+            item: Self::InputItem,
+        ) -> Result<<Self::Inner as Injector>::InputItem, WorkerError> {
+            let ret = if !self.parse {
+                Either::Left(item)
+            } else {
+                let mut parsed = item.as_bytes().into_text().unwrap_or(Text::from(item));
+                scrub_text_styles(&mut parsed);
+                Either::Right(parsed)
+            };
+            Ok(ret)
+        }
+
+        fn inner(&self) -> &Self::Inner {
+            &self.injector
+        }
+    }
+
+    impl SegmentableItem for Either<String, Text<'static>> {
+        fn slice(&self, range: Range<usize>) -> Text<'_> {
+            match self {
+                Either::Left(s) => {
+                    if range.start == range.end {
+                        Text::default()
+                    } else {
+                        Text::raw(&s[range.start..range.end])
+                    }
+                }
+                Either::Right(text) => slice_ratatui_text(text, range),
+            }
+        }
     }
 }
+pub use ansi::*;
 
 // pub type SeenMap<T> = Arc<std::sync::Mutex<collections::HashSet<T>>>;
 // #[derive(Clone)]
@@ -244,7 +335,6 @@ impl<T: SegmentableItem, I: Injector<InputItem = Segmented<T>> + Clone> Clone
         Self {
             injector: self.injector.clone(),
             splitter: Arc::clone(&self.splitter),
-            input_type: PhantomData,
         }
     }
 }

@@ -121,6 +121,7 @@ pub trait ColumnIndexable {
     fn get_str(&self, i: usize) -> std::borrow::Cow<'_, str> {
         plain_text(&self.get_text(i)).into()
     }
+
     fn get_text(&self, i: usize) -> Text<'_> {
         Text::from(self.get_str(i))
     }

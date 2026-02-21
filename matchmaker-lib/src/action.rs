@@ -30,6 +30,7 @@ pub enum Action<A: ActionExt = NullActionExt> {
     // UI
     /// Toggle wrap
     ToggleWrap,
+    CycleSort,
 
     // Preview
     /// Cycle preview layouts
@@ -332,7 +333,7 @@ impl<A: ActionExt + Display> Serialize for Actions<A> {
 // ----- action serde
 enum_from_str_display!(
     units:
-    Select, Deselect, Toggle, CycleAll, ClearSelections, Accept, CyclePreview, CycleColumn, ScrollLeft, ScrollRight, ColumnLeft, ColumnRight, PreviewJump,
+    Select, Deselect, Toggle, CycleAll, ClearSelections, Accept, CyclePreview, CycleColumn, ScrollLeft, ScrollRight, ColumnLeft, ColumnRight, PreviewJump, CycleSort,
     PreviewHalfPageUp, PreviewHalfPageDown, HistoryUp, HistoryDown,
     ChangePrompt, ChangeQuery, ToggleWrap, ToggleWrapPreview, ForwardChar,
     BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord,

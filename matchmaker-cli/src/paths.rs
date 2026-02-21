@@ -19,7 +19,7 @@ pub fn state_dir() -> Option<PathBuf> {
     if let Some(ret) = dirs::state_dir() {
         Some(ret)
     } else {
-        dirs::home_dir().map(|home| home.join(".local").join("state").join(BINARY_FULL))
+        dirs::home_dir().map(|home| home.join(".local").join("state"))
     }
 }
 

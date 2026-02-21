@@ -7,6 +7,7 @@ use std::{
     borrow::Cow,
     fmt::{self, Display, Formatter},
     hash::{Hash, Hasher},
+    ops::Range,
 };
 
 use arrayvec::ArrayVec;
@@ -16,25 +17,42 @@ pub use worker::*;
 pub use nucleo;
 pub use ratatui::prelude::*;
 
-use crate::{MAX_SPLITS, SegmentableItem};
+use crate::{MAX_SPLITS, SSS};
 
 // ------------- Wrapper structs
+pub trait SegmentableItem: SSS {
+    fn slice(&self, range: Range<usize>) -> ratatui::text::Text<'_>;
+}
+
+impl SegmentableItem for String {
+    fn slice(&self, range: Range<usize>) -> ratatui::text::Text<'_> {
+        ratatui::text::Text::from(&self[range])
+    }
+}
 
 /// This struct implements ColumnIndexable, and can instantiate a worker with columns.
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
-pub struct Segmented<T: SegmentableItem> {
+pub struct Segmented<T> {
     pub inner: T,
     ranges: ArrayVec<(usize, usize), MAX_SPLITS>,
 }
 
 impl<T: SegmentableItem> ColumnIndexable for Segmented<T> {
-    fn get_str(&self, index: usize) -> Cow<'_, str> {
-        if let Some((start, end)) = self.ranges.get(index) {
-            &self.inner[*start..*end]
+    // fn get_str(&self, index: usize) -> Cow<'_, str> {
+    //     if let Some((start, end)) = self.ranges.get(index) {
+    //         &self.inner[*start..*end]
+    //     } else {
+    //         ""
+    //     }
+    //     .into()
+    // }
+
+    fn get_text(&self, i: usize) -> Text<'_> {
+        if let Some((start, end)) = self.ranges.get(i) {
+            self.inner.slice(*start..*end)
         } else {
-            ""
+            Text::default()
         }
-        .into()
     }
 }
 
@@ -63,6 +81,16 @@ impl<T: SegmentableItem> Segmented<T> {
     }
 }
 
+impl<T> std::ops::Deref for Segmented<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+// ------------------------------------------------
+
 #[derive(Debug, Clone)]
 pub struct Indexed<T> {
     pub index: u32,
@@ -86,6 +114,10 @@ impl<T> Indexed<T> {
 impl<T: ColumnIndexable> ColumnIndexable for Indexed<T> {
     fn get_str(&self, index: usize) -> Cow<'_, str> {
         self.inner.get_str(index)
+    }
+
+    fn get_text(&self, i: usize) -> Text<'_> {
+        self.inner.get_text(i)
     }
 }
 

@@ -1,8 +1,8 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, ops::Range};
 
 use log::error;
 use ratatui::{
-    style::Style,
+    style::{Color, Modifier, Style},
     text::{Line, Span, Text},
 };
 use unicode_segmentation::UnicodeSegmentation;
@@ -74,6 +74,7 @@ pub fn apply_style_at(mut text: Text<'_>, start: usize, len: usize, style: Style
     text
 }
 
+/// Add a prefix to all lines of the original text
 pub fn prefix_text<'a, 'b: 'a>(
     original: &'a mut Text<'b>,
     prefix: impl Into<Cow<'b, str>> + Clone,
@@ -306,6 +307,108 @@ pub fn wrap_text<'a>(text: Text<'a>, max_width: u16) -> (Text<'a>, bool) {
     (Text::from(new_lines), wrapped)
 }
 
+/// Convert `Text` into lines of plain `String`s
+pub fn text_to_lines(text: &Text) -> Vec<String> {
+    text.iter()
+        .map(|spans| {
+            spans
+                .iter()
+                .map(|span| span.content.as_ref())
+                .collect::<String>()
+        })
+        .collect()
+}
+
+/// Convert `Text` into a single `String` with newlines
+pub fn text_to_string(text: &Text) -> String {
+    text_to_lines(text).join("\n")
+}
+
+/// Helper function to slice a `ratatui::text::Text` based on global byte indices,
+/// assuming lines were virtually joined with a single `\n` (1 byte).
+pub fn slice_ratatui_text<'a>(text: &'a Text<'_>, range: Range<usize>) -> Text<'a> {
+    if range.start == range.end {
+        return Text::default();
+    }
+
+    let mut result_lines = Vec::new();
+    let mut current_line_spans = Vec::new();
+
+    let mut current_byte_idx = 0;
+    let mut started_capturing = false;
+
+    let num_lines = text.lines.len();
+
+    for (line_idx, line) in text.lines.iter().enumerate() {
+        for span in &line.spans {
+            let span_bytes = span.content.len();
+            let span_end = current_byte_idx + span_bytes;
+
+            if span_end > range.start {
+                started_capturing = true;
+
+                let overlap_start = current_byte_idx.max(range.start);
+                let overlap_end = span_end.min(range.end);
+
+                let local_start = overlap_start - current_byte_idx;
+                let local_end = overlap_end - current_byte_idx;
+
+                let sliced_content = &span.content[local_start..local_end];
+
+                current_line_spans.push(Span::styled(sliced_content, span.style));
+            }
+
+            current_byte_idx = span_end;
+
+            if current_byte_idx >= range.end {
+                break;
+            }
+        }
+
+        if line_idx < num_lines - 1 {
+            if current_byte_idx >= range.start {
+                started_capturing = true;
+                result_lines.push(Line::from(std::mem::take(&mut current_line_spans)));
+            }
+
+            current_byte_idx += 1; // Advance 1 byte for the '\n'
+
+            if current_byte_idx >= range.end {
+                started_capturing = false;
+                break;
+            }
+        }
+    }
+
+    // 3. Flush remaining
+    if started_capturing {
+        result_lines.push(Line::from(current_line_spans));
+    }
+
+    Text::from(result_lines)
+}
+
+/// Cleans a Text object by removing explicit 'Reset' colors and 'Not' modifiers.
+/// This allows the Text to properly inherit styles from its parent container.
+pub fn scrub_text_styles(text: &mut Text<'_>) {
+    for line in &mut text.lines {
+        for span in &mut line.spans {
+            // 1. Handle Colors: If it's explicitly Reset, make it None (transparent/inherit)
+            if span.style.fg == Some(Color::Reset) {
+                span.style.fg = None;
+            }
+            if span.style.bg == Some(Color::Reset) {
+                span.style.bg = None;
+            }
+            if span.style.underline_color == Some(Color::Reset) {
+                span.style.underline_color = None;
+            }
+
+            span.style.sub_modifier = Modifier::default();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -411,5 +514,88 @@ mod tests {
         ];
 
         assert_eq!(styled_text, Text::from_iter(expected_spans));
+    }
+
+    // ------------------------------------------------------------------------
+    // Helper to generate a multi-styled, multi-line Ratatui Text object.
+    // Equivalent string when joined with \n: "Hello World\nRust🦀"
+    // Byte offsets:
+    // "Hello " (6) + "World" (5) = 11 bytes.
+    // "\n" = 1 byte.
+    // "Rust🦀" (4 + 4) = 8 bytes.
+    // Total = 20 bytes.
+    fn sample_text() -> Text<'static> {
+        Text::from(vec![
+            Line::from(vec![
+                Span::styled("Hello ", Style::default().fg(Color::Red)),
+                Span::styled("World", Style::default().fg(Color::Blue)),
+            ]),
+            Line::from(vec![Span::styled(
+                "Rust🦀",
+                Style::default().fg(Color::Green),
+            )]),
+        ])
+    }
+
+    #[test]
+    fn test_slice_exact_span_boundary() {
+        let text = sample_text();
+        let sliced = slice_ratatui_text(&text, 0..6);
+
+        let expected = Text::from(vec![Line::from(vec![Span::styled(
+            "Hello ",
+            Style::default().fg(Color::Red),
+        )])]);
+        assert_eq!(sliced, expected);
+    }
+
+    #[test]
+    fn test_slice_across_spans() {
+        let text = sample_text();
+        // Slice "lo Wo"
+        let sliced = slice_ratatui_text(&text, 3..9);
+
+        let expected = Text::from(vec![Line::from(vec![
+            Span::styled("lo ", Style::default().fg(Color::Red)),
+            Span::styled("Wor", Style::default().fg(Color::Blue)),
+        ])]);
+        assert_eq!(sliced, expected);
+    }
+
+    #[test]
+    fn test_slice_across_newline() {
+        let text = sample_text();
+        // Slice "World\nRus" -> byte indices 6 to 15
+        let sliced = slice_ratatui_text(&text, 6..15);
+
+        let expected = Text::from(vec![
+            Line::from(vec![Span::styled(
+                "World",
+                Style::default().fg(Color::Blue),
+            )]),
+            Line::from(vec![Span::styled("Rus", Style::default().fg(Color::Green))]),
+        ]);
+        assert_eq!(sliced, expected);
+    }
+
+    #[test]
+    fn test_slice_multi_byte_emoji() {
+        let text = sample_text();
+        // Slice just the crab emoji. "Rust" is 4 bytes, so emoji starts at index 12 + 4 = 16.
+        // Emoji is 4 bytes, so it ends at 20.
+        let sliced = slice_ratatui_text(&text, 16..20);
+
+        let expected = Text::from(vec![Line::from(vec![Span::styled(
+            "🦀",
+            Style::default().fg(Color::Green),
+        )])]);
+        assert_eq!(sliced, expected);
+    }
+
+    #[test]
+    fn test_slice_empty_range() {
+        let text = sample_text();
+        let sliced = slice_ratatui_text(&text, 5..5);
+        assert_eq!(sliced, Text::default());
     }
 }

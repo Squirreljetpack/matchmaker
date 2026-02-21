@@ -6,14 +6,14 @@ mod config;
 mod crokey;
 mod parse;
 mod paths;
-mod setup;
+mod start;
 mod utils;
 
 use anyhow::bail;
 use clap::*;
 use config::PartialConfig;
 use paths::*;
-use setup::*;
+use start::*;
 use utils::*;
 
 use cli_boilerplate_automation::{

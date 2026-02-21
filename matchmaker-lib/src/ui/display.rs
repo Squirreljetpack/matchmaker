@@ -4,7 +4,7 @@ use log::debug;
 use ratatui::{
     layout::{Constraint, Rect},
     style::{Style, Stylize},
-    text::Text,
+    text::{Line, Text},
     widgets::{Cell, Paragraph, Row, Table, Wrap},
 };
 
@@ -15,13 +15,13 @@ use crate::{
         text::{left_pad, prefix_text, wrap_text, wrapped_height},
     },
 };
-
+pub type HeaderTable = Vec<Vec<Line<'static>>>;
 #[derive(Debug)]
 pub struct DisplayUI {
     width: u16,
     height: u16,
     text: Vec<Text<'static>>,
-    text_split_index: usize, // everything at and after this index is a header_line
+    header: HeaderTable,
     pub show: bool,
     pub config: DisplayConfig,
 }
@@ -46,7 +46,7 @@ impl DisplayUI {
             height,
             width: 0,
             show: config.content.is_some() || config.header_lines > 0,
-            text_split_index: text.len(),
+            header: Vec::new(),
             text,
             config,
         }
@@ -58,7 +58,7 @@ impl DisplayUI {
         if new_w != self.width {
             self.width = new_w;
             // only rewrap of single cell is supported for now
-            if self.config.wrap && self.text_split_index == 1 {
+            if self.config.wrap && self.single() {
                 let text = wrap_text(self.text[0].clone(), self.width).0;
                 self.text[0] = text;
             }
@@ -76,44 +76,35 @@ impl DisplayUI {
     }
 
     /// Set text and visibility. Compute wrapped height.
-    pub fn set(&mut self, text: impl Into<Text<'static>>, keep_header_columns: bool) {
+    pub fn set(&mut self, text: impl Into<Text<'static>>, keep_header: bool) {
         let (text, _) = wrap_text(text.into(), self.config.wrap as u16 * self.width);
 
-        if keep_header_columns {
-            // Keep everything after text_split_index (header)
-            let header = self.text.split_off(self.text_split_index);
+        self.text = vec![text];
 
-            self.text = vec![text];
-            self.text.extend(header);
-        } else {
-            self.text = vec![text];
+        if !keep_header {
+            self.header.clear();
         }
 
-        self.text_split_index = 1;
         self.show = true;
     }
 
-    pub fn clear(&mut self, keep_header_columns: bool) {
+    pub fn clear(&mut self, keep_header: bool) {
         self.show = false;
 
-        if keep_header_columns {
-            let header = self.text.split_off(self.text_split_index);
-            self.text = header;
-        } else {
-            self.text.clear();
+        if !keep_header {
+            self.header.clear();
         }
 
-        self.text_split_index = 0;
+        self.text.clear();
     }
 
-    /// Whether this is table has just one column (ignoring header_lines)
+    /// Whether this is table has just one column
     pub fn single(&self) -> bool {
-        self.text_split_index == 1
+        self.text.len() == 1
     }
 
-    pub fn header_columns(&mut self, columns: Vec<Text<'static>>) {
-        self.text.truncate(self.text_split_index);
-        self.text.extend(columns);
+    pub fn header_table(&mut self, table: HeaderTable) {
+        self.header = table
     }
 
     // todo: lowpri: cache texts to not have to always rewrap?
@@ -144,7 +135,7 @@ impl DisplayUI {
             .fg(self.config.fg)
             .add_modifier(self.config.modifier);
 
-        let (cells, height) = if self.text_split_index == 1 {
+        let (cells, height) = if self.single() {
             // Single Cell (Full Width)
             // reflow is handled in update_width
             let cells = if self.text.len() > 1 {
@@ -157,8 +148,9 @@ impl DisplayUI {
             (cells, height)
         } else {
             let mut height = 0;
-            // todo: for header, instead of reflowing on every render, the widths should be dynamically proportionate to the available width similar to results. Then results should take the max_widths from here instead of computing them.
-            let cells = self.text[..self.text_split_index]
+            // todo: lowpri: is this wrapping behavior good enough?
+            let cells = self
+                .text
                 .iter()
                 .cloned()
                 .zip(widths.iter().copied())
@@ -184,20 +176,15 @@ impl DisplayUI {
         self.height = height;
 
         // add header cells
-        if self.text_split_index < self.text.len() {
-            let mut height = 0;
-
-            let cells = self.text[self.text_split_index..].iter().map(|x| {
-                height = height.max(x.height() as u16);
-                Cell::from(x.clone())
-            });
-
-            rows.push(Row::new(cells).style(style).height(height));
+        if !self.header.is_empty() {
+            let mut height = self.header.len() as u16;
+            // todo: support wrapping
+            rows.extend(self.header.iter().cloned().map(Row::new));
 
             self.height += height;
         }
 
-        let widths = if self.single() && self.text.len() == 1 {
+        let widths = if self.single() {
             vec![Constraint::Percentage(100)]
         } else {
             widths.into_iter().map(Constraint::Length).collect()

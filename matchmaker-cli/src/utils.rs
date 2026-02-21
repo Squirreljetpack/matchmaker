@@ -38,7 +38,10 @@ pub fn init_logger([q, v]: [u8; 2], log_path: &Path) {
         .write(true)
         .create(true)
         .open(log_path)
-        .prefix("Failed to open log file")
+        .prefix(format!(
+            "Failed to open log file @ {}.",
+            log_path.to_string_lossy()
+        ))
         ._wbog()
     {
         builder.target(env_logger::Target::Pipe(Box::new(log_file)));

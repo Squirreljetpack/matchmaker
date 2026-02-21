@@ -149,8 +149,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 RenderCommand::Refresh => {
                     tui.redraw();
                 }
-                RenderCommand::HeaderColumns(columns) => {
-                    picker_ui.header.header_columns(columns);
+                RenderCommand::HeaderTable(columns) => {
+                    picker_ui.header.header_table(columns);
                 }
                 RenderCommand::Mouse(mouse) => {
                     // we could also impl this in the aliasing step
@@ -264,6 +264,17 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         }
 
                         // UI
+                        Action::CycleSort => {
+                            #[cfg(feature = "experimental")]
+                            {
+                                let threshold = match picker_ui.worker.get_stability() {
+                                    0 => 6,
+                                    u32::MAX => 0,
+                                    _ => u32::MAX,
+                                };
+                                picker_ui.worker.set_stability(threshold);
+                            }
+                        }
                         Action::SetHeader(context) => {
                             if let Some(s) = context {
                                 header.set(s, true);

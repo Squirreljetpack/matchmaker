@@ -241,6 +241,11 @@ where
         self.nucleo.set_stability(threshold);
     }
 
+    #[cfg(feature = "experimental")]
+    pub fn get_stability(&self) -> u32 {
+        self.nucleo.get_stability()
+    }
+
     pub fn restart(&mut self, clear_snapshot: bool) {
         self.nucleo.restart(clear_snapshot);
     }
@@ -262,9 +267,15 @@ pub enum WorkerError {
     Custom(&'static str),
 }
 
+/// A vec of ItemResult, each ItemResult being the Column Texts of the Item, The Item, and the item height
 pub type WorkerResults<'a, T> = Vec<(Vec<Text<'a>>, &'a T, u16)>;
 
 impl<T: SSS> Worker<T> {
+    /// Returns:
+    /// 1. Table of (Row, item, height)
+    /// 2. Final column widths
+    /// 3. Status
+    ///
     /// # Notes
     /// - width is at least header width
     pub fn results(
@@ -277,7 +288,7 @@ impl<T: SSS> Worker<T> {
     ) -> (WorkerResults<'_, T>, Vec<u16>, Status) {
         let (snapshot, status) = Self::new_snapshot(&mut self.nucleo);
 
-        let mut widths = vec![0u16; self.columns.len()]; // first cell reserved for prefix
+        let mut widths = vec![0u16; self.columns.len()];
 
         let iter =
             snapshot.matched_items(start.min(status.matched_count)..end.min(status.matched_count));
@@ -285,167 +296,32 @@ impl<T: SSS> Worker<T> {
         let table = iter
             .map(|item| {
                 let mut widths = widths.iter_mut();
-                let mut col_idx = 0;
                 let mut height = 0;
 
                 let row = self
                     .columns
                     .iter()
+                    .enumerate()
                     .zip(width_limits.iter().chain(std::iter::repeat(&u16::MAX)))
-                    .map(|(column, &width_limit)| {
+                    .map(|((col_idx, column), &width_limit)| {
                         let max_width = widths.next().unwrap();
                         let cell = column.format(item.data);
 
                         // 0 represents hide
                         if width_limit == 0 {
-                            return Text::from("");
+                            return Text::default();
                         }
 
-                        let (cell, width) = if column.filter && width_limit == u16::MAX {
-                            let mut cell_width = 0;
-
-                            // get indices
-                            let indices_buffer = &mut self.col_indices_buffer;
-                            indices_buffer.clear();
-                            snapshot.pattern().column_pattern(col_idx).indices(
-                                item.matcher_columns[col_idx].slice(..),
+                        let (cell, width) = if column.filter {
+                            render_cell(
+                                cell,
+                                col_idx,
+                                snapshot,
+                                &item,
                                 matcher,
-                                indices_buffer,
-                            );
-                            indices_buffer.sort_unstable();
-                            indices_buffer.dedup();
-                            let mut indices = indices_buffer.drain(..);
-
-                            let mut lines = vec![];
-                            let mut next_highlight_idx = indices.next().unwrap_or(u32::MAX);
-                            let mut grapheme_idx = 0u32;
-
-                            for line in cell {
-                                let mut span_list = Vec::new();
-                                let mut current_span = String::new();
-                                let mut current_style = Style::default();
-                                let mut width = 0;
-
-                                for span in line {
-                                    // this looks like a bug on first glance, we are iterating
-                                    // graphemes but treating them as char indices. The reason that
-                                    // this is correct is that nucleo will only ever consider the first char
-                                    // of a grapheme (and discard the rest of the grapheme) so the indices
-                                    // returned by nucleo are essentially grapheme indecies
-                                    for grapheme in span.content.graphemes(true) {
-                                        let style = if grapheme_idx == next_highlight_idx {
-                                            next_highlight_idx = indices.next().unwrap_or(u32::MAX);
-                                            span.style.patch(highlight_style)
-                                        } else {
-                                            span.style
-                                        };
-                                        if style != current_style {
-                                            if !current_span.is_empty() {
-                                                span_list
-                                                    .push(Span::styled(current_span, current_style))
-                                            }
-                                            current_span = String::new();
-                                            current_style = style;
-                                        }
-                                        current_span.push_str(grapheme);
-                                        grapheme_idx += 1;
-                                    }
-                                    width += span.width();
-                                }
-
-                                span_list.push(Span::styled(current_span, current_style));
-                                lines.push(Line::from(span_list));
-                                cell_width = cell_width.max(width);
-                                grapheme_idx += 1; // newline?
-                            }
-
-                            col_idx += 1;
-                            (Text::from(lines), cell_width)
-                        } else if column.filter {
-                            let mut cell_width = 0;
-                            let mut wrapped = false;
-
-                            // get indices
-                            let indices_buffer = &mut self.col_indices_buffer;
-                            indices_buffer.clear();
-                            snapshot.pattern().column_pattern(col_idx).indices(
-                                item.matcher_columns[col_idx].slice(..),
-                                matcher,
-                                indices_buffer,
-                            );
-                            indices_buffer.sort_unstable();
-                            indices_buffer.dedup();
-                            let mut indices = indices_buffer.drain(..);
-
-                            let mut lines: Vec<Line<'_>> = vec![];
-                            let mut next_highlight_idx = indices.next().unwrap_or(u32::MAX);
-                            let mut grapheme_idx = 0u32;
-
-                            for line in cell {
-                                let mut current_spans = Vec::new();
-                                let mut current_span = String::new();
-                                let mut current_style = Style::default();
-                                let mut current_width = 0;
-
-                                for span in line {
-                                    let mut graphemes = span.content.graphemes(true).peekable();
-                                    while let Some(grapheme) = graphemes.next() {
-                                        let grapheme_width = UnicodeWidthStr::width(grapheme);
-
-                                        if current_width + grapheme_width
-                                            > (width_limit - 1) as usize
-                                            && { grapheme_width > 1 || graphemes.peek().is_some() }
-                                        {
-                                            current_spans
-                                                .push(Span::styled(current_span, current_style));
-                                            current_spans.push(Span::styled(
-                                                "↵",
-                                                Style::default().add_modifier(Modifier::DIM),
-                                            ));
-                                            lines.push(Line::from(current_spans));
-
-                                            current_spans = Vec::new();
-                                            current_span = String::new();
-                                            current_width = 0;
-                                            wrapped = true;
-                                        }
-
-                                        let style = if grapheme_idx == next_highlight_idx {
-                                            next_highlight_idx = indices.next().unwrap_or(u32::MAX);
-                                            span.style.patch(highlight_style)
-                                        } else {
-                                            span.style
-                                        };
-
-                                        if style != current_style {
-                                            if !current_span.is_empty() {
-                                                current_spans
-                                                    .push(Span::styled(current_span, current_style))
-                                            }
-                                            current_span = String::new();
-                                            current_style = style;
-                                        }
-                                        current_span.push_str(grapheme);
-                                        grapheme_idx += 1;
-                                        current_width += grapheme_width;
-                                    }
-                                }
-
-                                current_spans.push(Span::styled(current_span, current_style));
-                                lines.push(Line::from(current_spans));
-                                cell_width = cell_width.max(current_width);
-                                grapheme_idx += 1; // newline?
-                            }
-
-                            col_idx += 1;
-
-                            (
-                                Text::from(lines),
-                                if wrapped {
-                                    width_limit as usize
-                                } else {
-                                    cell_width
-                                },
+                                highlight_style,
+                                width_limit,
+                                &mut self.col_indices_buffer,
                             )
                         } else if width_limit != u16::MAX {
                             let (cell, wrapped) = wrap_text(cell, width_limit - 1);
@@ -519,4 +395,105 @@ impl<T: SSS> Worker<T> {
             .find(|c| &*c.name == col)
             .map(|c| c.format_text(item))
     }
+}
+
+fn render_cell<T: SSS>(
+    cell: Text<'_>,
+    col_idx: usize,
+    snapshot: &nucleo::Snapshot<T>,
+    item: &nucleo::Item<T>,
+    matcher: &mut nucleo::Matcher,
+    highlight_style: Style,
+    width_limit: u16,
+    col_indices_buffer: &mut Vec<u32>,
+) -> (Text<'static>, usize) {
+    let mut cell_width = 0;
+    let mut wrapped = false;
+
+    // get indices
+    let indices_buffer = col_indices_buffer;
+    indices_buffer.clear();
+    snapshot.pattern().column_pattern(col_idx).indices(
+        item.matcher_columns[col_idx].slice(..),
+        matcher,
+        indices_buffer,
+    );
+    indices_buffer.sort_unstable();
+    indices_buffer.dedup();
+    let mut indices = indices_buffer.drain(..);
+
+    let mut lines = vec![];
+    let mut next_highlight_idx = indices.next().unwrap_or(u32::MAX);
+    let mut grapheme_idx = 0u32;
+
+    for line in cell {
+        let mut current_spans = Vec::new();
+        let mut current_span = String::new();
+        let mut current_style = Style::default();
+        let mut current_width = 0;
+
+        for span in line {
+            // this looks like a bug on first glance, we are iterating
+            // graphemes but treating them as char indices. The reason that
+            // this is correct is that nucleo will only ever consider the first char
+            // of a grapheme (and discard the rest of the grapheme) so the indices
+            // returned by nucleo are essentially grapheme indecies
+
+            if width_limit != u16::MAX {}
+            let mut graphemes = span.content.graphemes(true).peekable();
+            while let Some(grapheme) = graphemes.next() {
+                let grapheme_width = UnicodeWidthStr::width(grapheme);
+
+                if width_limit != u16::MAX {
+                    if current_width + grapheme_width > (width_limit - 1) as usize && {
+                        grapheme_width > 1 || graphemes.peek().is_some()
+                    } {
+                        current_spans.push(Span::styled(current_span, current_style));
+                        current_spans.push(Span::styled(
+                            "↵",
+                            Style::default().add_modifier(Modifier::DIM),
+                        ));
+                        lines.push(Line::from(current_spans));
+
+                        current_spans = Vec::new();
+                        current_span = String::new();
+                        current_width = 0;
+                        wrapped = true;
+                    }
+                }
+
+                let style = if grapheme_idx == next_highlight_idx {
+                    next_highlight_idx = indices.next().unwrap_or(u32::MAX);
+                    span.style.patch(highlight_style)
+                } else {
+                    span.style
+                };
+
+                if style != current_style {
+                    if !current_span.is_empty() {
+                        current_spans.push(Span::styled(current_span, current_style))
+                    }
+                    current_span = String::new();
+                    current_style = style;
+                }
+                current_span.push_str(grapheme);
+                grapheme_idx += 1;
+                current_width += grapheme_width;
+            }
+        }
+
+        current_spans.push(Span::styled(current_span, current_style));
+        lines.push(Line::from(current_spans));
+        cell_width = cell_width.max(current_width);
+        grapheme_idx += 1; // newline?
+    }
+
+    (
+        Text::from(lines),
+        if wrapped {
+            width_limit as usize
+        } else {
+            cell_width
+        },
+    )
 }

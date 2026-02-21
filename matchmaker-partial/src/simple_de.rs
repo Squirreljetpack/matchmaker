@@ -113,7 +113,9 @@ impl<'de> Deserializer<'de> for &mut SimpleDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let s = self.expect_single()?;
+        let Ok(s) = self.expect_single() else {
+            return visitor.visit_bool(true); // note that, like Option, this runs the risk of infinite loop
+        };
         let val = match s {
             "true" | "" => visitor.visit_bool(true)?,
             "false" => visitor.visit_bool(false)?,

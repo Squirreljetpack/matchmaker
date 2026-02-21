@@ -16,12 +16,15 @@ impl Default for StringOrVec {
     }
 }
 
-pub fn bounded_usize<'de, const MAX: usize, D>(d: D) -> Result<usize, D::Error>
+pub fn bounded_usize<'de, D, const MIN: usize, const MAX: usize>(d: D) -> Result<usize, D::Error>
 where
     D: Deserializer<'de>,
 {
     let v = usize::deserialize(d)?;
-    if v > MAX {
+    if v < MIN {
+        wbog!("{} exceeded the the limit of {} and was clamped.", v, MIN);
+        Ok(MIN)
+    } else if v > MAX {
         wbog!("{} exceeded the the limit of {} and was clamped.", v, MAX);
         Ok(MAX)
     } else {

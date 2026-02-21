@@ -18,7 +18,7 @@ use cli_boilerplate_automation::{
 use cli_boilerplate_automation::{bo::load_type, broc::CommandExt};
 use log::debug;
 use matchmaker::{
-    MatchError, Matchmaker, OddEnds, PickOptions, SSS,
+    ConfigInjector, MatchError, Matchmaker, OddEnds, PickOptions, SSS,
     action::NullActionExt,
     binds::display_binds,
     config::{MatcherConfig, StartConfig},
@@ -26,8 +26,8 @@ use matchmaker::{
     make_previewer,
     message::Interrupt,
     nucleo::{
-        ColumnIndexable, Segmented,
-        injector::{IndexedInjector, Injector, SegmentedInjector},
+        ColumnIndexable,
+        injector::{AnsiInjector, IndexedInjector, Injector, SegmentedInjector},
     },
     preview::AppendOnly,
 };
@@ -138,6 +138,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let header_lines = render.header.header_lines;
     let print_handle = AppendOnly::new();
     let output_separator = output_separator.clone().unwrap_or("\n".into());
+    let ansi = worker.ansi;
 
     let event_loop = EventLoop::with_binds(binds).with_tick_rate(render.tick_rate());
     // make matcher and matchmaker with matchmaker-and-matcher-maker
@@ -155,10 +156,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
 
     // ---------------------- register handlers ---------------------------
     // print handler (no quoting)
-    let print_formatter = Arc::new(
-        mm.worker
-            .default_format_fn::<false>(|item| std::borrow::Cow::Borrowed(&item.inner.inner)),
-    );
+    let print_formatter = Arc::new(mm.worker.default_format_fn::<false>(|item| item.to_cow()));
     mm.register_print_handler(
         print_handle.clone(),
         output_separator.clone(),
@@ -175,6 +173,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         let injector = state.injector();
         let injector = IndexedInjector::new_globally_indexed(injector);
         let injector = SegmentedInjector::new(injector, splitter.clone());
+        let injector = AnsiInjector::new(injector, ansi);
 
         if let Some(t) = state.current_raw() {
             let cmd = reload_formatter(t, state.payload());
@@ -210,17 +209,15 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             input_separator,
             abort_empty.then_some(render_tx),
         )
-    } else if !command.is_empty() {
-        if let Some(stdout) = Command::from_script(&command).spawn_piped()._ebog() {
-            map_reader(
-                stdout,
-                push_fn,
-                input_separator,
-                abort_empty.then_some(render_tx),
-            )
-        } else {
-            std::process::exit(99)
-        }
+    } else if !command.is_empty()
+        && let Some(stdout) = Command::from_script(&command).spawn_piped()._ebog()
+    {
+        map_reader(
+            stdout,
+            push_fn,
+            input_separator,
+            abort_empty.then_some(render_tx),
+        )
     } else {
         eprintln!("error: no input detected.");
         std::process::exit(99)
@@ -234,16 +231,17 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         print_handle.map_to_vec(|s| print!("{}{}", s, output_separator));
 
         for item in v {
-            let s = if let Some(s) = &output_template {
-                print_formatter(
-                    &matchmaker::nucleo::Indexed {
-                        index: 0,
-                        inner: item,
-                    },
-                    s,
-                )
+            let s = if let Some(_s) = &output_template {
+                // print_formatter(
+                //     &matchmaker::nucleo::Indexed {
+                //         index: 0,
+                //         inner: item,
+                //     },
+                //     s,
+                // )
+                todo!()
             } else {
-                item.inner
+                item.to_cow()
             };
 
             print!("{}{}", s, output_separator)
@@ -251,22 +249,12 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     })
 }
 
-type InjectorType = SegmentedInjector<
-    String,
-    IndexedInjector<
-        Segmented<String>,
-        matchmaker::nucleo::injector::WorkerInjector<
-            matchmaker::nucleo::Indexed<Segmented<String>>,
-        >,
-    >,
->;
-
-use ansi_to_tui::IntoText;
+use matchmaker::nucleo::{Line, Span};
 
 fn inject_line(
     header_lines: usize,
     render_tx: RenderSender,
-    injector: InjectorType,
+    injector: ConfigInjector,
 ) -> impl FnMut(String) -> Result<(), matchmaker::nucleo::WorkerError> + Send {
     let mut header_buf = Vec::with_capacity(header_lines);
     let mut remaining = header_lines;
@@ -275,31 +263,28 @@ fn inject_line(
     move |line: String| {
         if remaining > 0 {
             let item = injector.wrap(line).unwrap();
+            let item = injector.injector.wrap(item).unwrap();
             header_buf.push(item);
             remaining -= 1;
 
             if remaining == 0 {
-                // # cols = max segments (across all items)
-                let max_len = header_buf.iter().map(|seg| seg.len()).max().unwrap_or(0);
-
-                let columns: Vec<_> = (0..max_len)
-                    .map(|i| {
-                        // For each row, get its lines from the i-th segment of each header item
-                        let lines = header_buf
-                            .iter()
-                            .flat_map(|seg| {
-                                // Get the i-th segment
-                                let s = seg.get_str(i);
-                                s.as_bytes().into_text().ok().map(|t| t.lines)
+                let rows: Vec<Vec<Line>> = header_buf
+                    .drain(..)
+                    .map(|seg| {
+                        (0..seg.len())
+                            .map(move |i| {
+                                let mut s = seg.get_text(i);
+                                if s.lines.is_empty() {
+                                    Line::default()
+                                } else {
+                                    to_static(s.lines.remove(0))
+                                }
                             })
-                            .flatten();
-
-                        // Collect all lines into a Text column
-                        matchmaker::nucleo::Text::from_iter(lines)
+                            .collect()
                     })
                     .collect();
 
-                let _ = render_tx.send(matchmaker::message::RenderCommand::HeaderColumns(columns));
+                let _ = render_tx.send(matchmaker::message::RenderCommand::HeaderTable(rows));
             }
 
             Ok(())
@@ -307,4 +292,18 @@ fn inject_line(
             injector.push(line)
         }
     }
+}
+
+fn to_static(line: Line<'_>) -> Line<'static> {
+    Line::from(
+        line.spans
+            .into_iter()
+            .map(|span| {
+                Span::styled(
+                    span.content.into_owned(), // force ownership
+                    span.style,
+                )
+            })
+            .collect::<Vec<_>>(),
+    )
 }

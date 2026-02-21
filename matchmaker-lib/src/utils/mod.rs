@@ -1,4 +1,10 @@
 mod percentage;
+pub use percentage::Percentage;
+
 pub mod serde;
 pub mod text;
-pub use percentage::Percentage;
+
+mod types;
+pub use types::*;
+
+pub mod seperator;

@@ -2,7 +2,10 @@ use bitflags::bitflags;
 use crossterm::event::MouseEvent;
 use ratatui::layout::Rect;
 
-use crate::action::{Action, ActionExt};
+use crate::{
+    action::{Action, ActionExt},
+    ui::HeaderTable,
+};
 
 bitflags! {
     #[derive(bitflags_derive::FlagsDisplay, bitflags_derive::FlagsFromStr, Debug, PartialEq, Eq, Hash, Clone, Copy, Default, PartialOrd, Ord)]
@@ -51,7 +54,7 @@ pub enum RenderCommand<A: ActionExt> {
     Resize(Rect),
     #[cfg(feature = "bracketed-paste")]
     Paste(String),
-    HeaderColumns(Vec<ratatui::text::Text<'static>>),
+    HeaderTable(HeaderTable),
     Ack,
     Tick,
     Refresh,

@@ -1,27 +1,30 @@
 [package]
-name = "matchmaker-partial"
-version = "0.0.2"
-edition = "2024"
-description = "Support for partial updates and configuration in matchmaker"
-repository = "https://github.com/Squirreljetpack/matchmaker"
-license = "MIT"
+    name        = "matchmaker-partial"
+    version     = "0.0.2"
+    edition     = "2024"
+    description = "Support for partial updates and configuration in matchmaker"
+    repository  = "https://github.com/Squirreljetpack/matchmaker"
+    license     = "MIT"
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
-thiserror = "2.0"
+    serde     = { version = "1.0", features = [ "derive" ] }
+    thiserror = "2.0"
 
 [dev-dependencies]
-matchmaker-partial-macros = { workspace = true, features = ["partial"]}
-toml = "0.9.8"
+    matchmaker-partial-macros = { workspace = true, features = [ "partial" ] }
+    toml                      = "0.9.8"
 
 [[test]]
-name = "derive_macro_test"
-path = "tests/macro_test.rs"
+    name = "derive_macro_test"
+    path = "tests/macro_test.rs"
 
 [[test]]
-name = "macro_optional_test"
-path = "tests/option_wrap.rs"
+    name = "macro_optional_test"
+    path = "tests/option_wrap.rs"
 
 [[test]]
-name = "penetration_test"
-path = "tests/penetration_test.rs"
+    name = "penetration_test"
+    path = "tests/penetration_test.rs"
+
+[lints]
+    workspace = true

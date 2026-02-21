@@ -13,7 +13,10 @@ use crate::{
     config::{ResultsConfig, RowConnectionStyle},
     nucleo::{Status, Worker},
     render::Click,
-    utils::text::{clip_text_lines, fit_width, prefix_text, substitute_escaped},
+    utils::{
+        seperator::HorizontalSeparator,
+        text::{clip_text_lines, fit_width, prefix_text, substitute_escaped},
+    },
 };
 
 #[derive(Debug)]
@@ -182,12 +185,8 @@ impl ResultsUI {
     pub fn width(&self) -> u16 {
         self.width.saturating_sub(self.indentation() as u16)
     }
-    pub fn match_style(&self) -> Style {
-        Style::default()
-            .fg(self.config.match_fg)
-            .add_modifier(self.config.match_modifier)
-    }
 
+    /// Adapt the stored widths (initialized by [`Worker::results`]) to the fit within the available width (self.width)
     pub fn max_widths(&self) -> Vec<u16> {
         if !self.config.wrap {
             return vec![];
@@ -241,9 +240,23 @@ impl ResultsUI {
     ) -> Table<'a> {
         let offset = self.bottom as u32;
         let end = (self.bottom + self.height) as u32;
+        let hz = !self.config.stacked_columns;
+
+        let width_limits = if hz {
+            self.max_widths()
+        } else {
+            vec![
+                if self.config.wrap {
+                    self.width
+                } else {
+                    u16::MAX
+                };
+                worker.columns.len()
+            ]
+        };
 
         let (mut results, mut widths, status) =
-            worker.results(offset, end, &self.max_widths(), self.match_style(), matcher);
+            worker.results(offset, end, &width_limits, self.match_style(), matcher);
 
         let match_count = status.matched_count;
         self.status = status;
@@ -263,6 +276,15 @@ impl ResultsUI {
             return Table::new(rows, widths);
         }
 
+        let height_of = |t: &(Vec<ratatui::text::Text<'a>>, _, u16)| {
+            self._hr()
+                + if hz {
+                    t.2
+                } else {
+                    t.0.iter().map(|t| t.height() as u16).sum::<u16>()
+                }
+        };
+
         // debug!("sb: {}, {}, {}, {}, {}", self.bottom, self.cursor, total_height, self.height, results.len());
         let cursor_result_h = results[self.cursor as usize].2;
         // the index in results of the first complete item
@@ -270,10 +292,11 @@ impl ResultsUI {
 
         let cum_h_after_cursor = results[(self.cursor as usize + 1).min(results.len())..]
             .iter()
-            .map(|(_, _, height)| height)
-            .sum::<u16>();
+            .map(height_of)
+            .sum();
 
         let cursor_should_lt = self.height - self.scroll_padding().min(cum_h_after_cursor);
+        let mut partial = false;
 
         if cursor_result_h >= cursor_should_lt {
             start_index = self.cursor;
@@ -281,61 +304,75 @@ impl ResultsUI {
             self.cursor = 0;
         } else
         // increase the bottom index so that cursor_should_above is maintained
-        if let cum_h_to_cursor = results[0..=self.cursor as usize]
+        if let cum_h_to_cursor_end = results[0..=self.cursor as usize]
             .iter()
-            .map(|(_, _, height)| height)
+            .map(height_of)
             .sum::<u16>()
-            && cum_h_to_cursor > cursor_should_lt
+            && cum_h_to_cursor_end > cursor_should_lt
         {
             start_index = 1;
-            let mut remaining_height = cum_h_to_cursor.saturating_sub(cursor_should_lt);
+            let mut remaining_height = cum_h_to_cursor_end - cursor_should_lt;
+            // note that there is a funny side effect that scrolling up near the bottom can scroll up a bit, but it seems fine to me
 
-            for (row, item, h) in results[..self.cursor as usize].iter_mut() {
-                let h = *h; // item height
+            for r in results[..self.cursor as usize].iter_mut() {
+                let h = height_of(r);
+                let (row, item, _) = r;
 
                 if remaining_height < h {
-                    for (_, t) in row.iter_mut().enumerate().filter(|(i, _)| widths[*i] != 0) {
-                        clip_text_lines(t, remaining_height, !self.reverse());
-                    }
-                    total_height = remaining_height;
-
                     let prefix = if selector.contains(item) {
                         self.config.multi_prefix.clone().to_string()
                     } else {
-                        fit_width(
-                            &substitute_escaped(
-                                &self.config.default_prefix,
-                                &[
-                                    ('d', ""), // no indices
-                                    ('r', ""),
-                                ],
-                            ),
-                            self.indentation(),
-                        )
+                        self.default_prefix(0)
                     };
 
-                    prefix_text(&mut row[0], prefix);
+                    total_height += remaining_height;
 
-                    let last_visible = widths
-                        .iter()
-                        .enumerate()
-                        .rev()
-                        .find_map(|(i, w)| (*w != 0).then_some(i));
+                    if hz {
+                        for (_, t) in row.iter_mut().enumerate().filter(|(i, _)| widths[*i] != 0) {
+                            clip_text_lines(t, remaining_height, !self.reverse());
+                        }
 
-                    let mut row_texts: Vec<_> = row
-                        .iter()
-                        .take(last_visible.map(|x| x + 1).unwrap_or(0))
-                        .cloned()
-                        .collect();
-                    if self.config.right_align_last && row_texts.len() > 1 {
-                        row_texts.last_mut().unwrap().alignment = Some(Alignment::Right)
+                        prefix_text(&mut row[0], prefix);
+
+                        let last_visible = widths
+                            .iter()
+                            .enumerate()
+                            .rev()
+                            .find_map(|(i, w)| (*w != 0).then_some(i));
+
+                        let mut row_texts: Vec<_> = row
+                            .iter()
+                            .take(last_visible.map(|x| x + 1).unwrap_or(0))
+                            .cloned()
+                            .collect();
+
+                        if self.config.right_align_last && row_texts.len() > 1 {
+                            row_texts.last_mut().unwrap().alignment = Some(Alignment::Right)
+                        }
+
+                        let row = Row::new(row_texts).height(remaining_height);
+                        rows.push(row);
+                    } else {
+                        let mut push = vec![];
+
+                        for col in row.into_iter().rev() {
+                            let mut height = col.height() as u16;
+                            if remaining_height == 0 {
+                                break;
+                            } else if remaining_height < height {
+                                clip_text_lines(col, remaining_height, !self.reverse());
+                                height = remaining_height;
+                            }
+                            remaining_height -= height;
+                            prefix_text(col, prefix.clone());
+                            push.push(Row::new(vec![col.clone()]).height(height));
+                        }
+                        rows.extend(push);
                     }
-
-                    let row = Row::new(row_texts).height(remaining_height);
-                    rows.push(row);
 
                     self.bottom += start_index - 1;
                     self.cursor -= start_index - 1;
+                    partial = true;
                     break;
                 } else if remaining_height == h {
                     self.bottom += start_index;
@@ -349,103 +386,132 @@ impl ResultsUI {
             }
         }
 
-        // debug!("si: {start_index}, {}, {}, {}", self.bottom, self.cursor, total_height);
+        // debug!(
+        //     "si: {}, {}, {}, {}",
+        //     start_index, self.bottom, self.cursor, total_height
+        // );
 
-        for (i, (mut row, item, mut height)) in
-            (start_index..).zip(results.drain(start_index as usize..))
+        let mut remaining_height = self.height.saturating_sub(total_height);
+
+        for (mut i, (mut row, item, mut height)) in
+            results.drain(start_index as usize..).enumerate()
         {
+            i += partial as usize;
+
+            // this is technically one step out of sync but idc
             if let Click::ResultPos(c) = click
                 && total_height > *c
             {
-                let idx = offset + i as u32 - 1;
+                let idx = self.bottom as u32 + i as u32 - 1;
                 log::debug!("Mapped click position to index: {c} -> {idx}",);
                 *click = Click::ResultIdx(idx);
             }
 
-            if self.height - total_height == 0 {
+            // insert hr
+            if let Some(hr) = self.hr()
+                && remaining_height > 0
+            {
+                rows.push(hr);
+                remaining_height -= 1;
+            }
+            if remaining_height == 0 {
                 break;
-            } else if self.height - total_height < height {
-                height = self.height - total_height;
-
-                for (_, t) in row.iter_mut().enumerate().filter(|(i, _)| widths[*i] != 0) {
-                    clip_text_lines(t, height, self.reverse());
-                }
-                total_height = self.height;
-            } else {
-                total_height += height;
             }
 
+            // set prefix
             let prefix = if selector.contains(item) {
                 self.config.multi_prefix.clone().to_string()
             } else {
-                fit_width(
-                    &substitute_escaped(
-                        &self.config.default_prefix,
-                        &[
-                            ('d', &(i + 1).to_string()),               // cursor index of item
-                            ('r', &(i + 1 + self.bottom).to_string()), // actual index
-                        ],
-                    ),
-                    self.indentation(),
-                )
+                self.default_prefix(i)
             };
 
-            prefix_text(&mut row[0], prefix);
+            if hz {
+                if remaining_height < height {
+                    height = remaining_height;
 
-            if !self.cursor_disabled && i == self.cursor {
-                row = row
-                    .into_iter()
+                    for (_, t) in row.iter_mut().enumerate().filter(|(i, _)| widths[*i] != 0) {
+                        clip_text_lines(t, height, self.reverse());
+                    }
+                }
+                remaining_height -= height;
+
+                prefix_text(&mut row[0], prefix);
+
+                // same as above
+                let last_visible = widths
+                    .iter()
                     .enumerate()
-                    .map(|(i, t)| {
-                        if self.col == Some(i)
-                            || (self.col.is_none()
+                    .rev()
+                    .find_map(|(i, w)| (*w != 0).then_some(i));
+
+                let mut row_texts: Vec<_> = row
+                    .iter()
+                    .take(last_visible.map(|x| x + 1).unwrap_or(0))
+                    .cloned()
+                    // highlight
+                    .enumerate()
+                    .map(|(x, t)| {
+                        if self.is_current(i)
+                            && (self.col.is_none()
                                 && matches!(
                                     self.config.row_connection_style,
                                     RowConnectionStyle::Disjoint
-                                ))
+                                )
+                                || self.col == Some(x))
                         {
-                            t.style(self.config.current_fg)
-                                .bg(self.config.current_bg)
-                                .add_modifier(self.config.current_modifier)
+                            t.style(self.current_style())
                         } else {
                             t
                         }
                     })
                     .collect();
+
+                if self.config.right_align_last && row_texts.len() > 1 {
+                    row_texts.last_mut().unwrap().alignment = Some(Alignment::Right)
+                }
+
+                // push
+                let mut row = Row::new(row_texts).height(height);
+
+                if self.is_current(i)
+                    && self.col.is_none()
+                    && !matches!(
+                        self.config.row_connection_style,
+                        RowConnectionStyle::Disjoint
+                    )
+                {
+                    row = row.style(self.current_style())
+                }
+
+                rows.push(row);
+            } else {
+                let mut push = vec![];
+
+                for (x, mut col) in row.into_iter().enumerate() {
+                    let mut height = col.height() as u16;
+
+                    if remaining_height == 0 {
+                        break;
+                    } else if remaining_height < height {
+                        height = remaining_height;
+                        clip_text_lines(&mut col, remaining_height, !self.reverse());
+                    }
+                    remaining_height -= height;
+
+                    prefix_text(&mut col, prefix.clone());
+
+                    // push
+                    let mut row = Row::new(vec![col.clone()]).height(height);
+
+                    if self.is_current(i) && (self.col.is_none() || self.col == Some(x)) {
+                        row = row.style(self.current_style())
+                    }
+
+                    push.push(row);
+                }
+                log::debug!("{push:?}");
+                rows.extend(push);
             }
-
-            // same as above
-            let last_visible = widths
-                .iter()
-                .enumerate()
-                .rev()
-                .find_map(|(i, w)| (*w != 0).then_some(i));
-
-            let mut row_texts: Vec<_> = row
-                .iter()
-                .take(last_visible.map(|x| x + 1).unwrap_or(0))
-                .cloned()
-                .collect();
-            if self.config.right_align_last && row_texts.len() > 1 {
-                row_texts.last_mut().unwrap().alignment = Some(Alignment::Right)
-            }
-
-            let mut row = Row::new(row_texts).height(height);
-
-            if i == self.cursor
-                && self.col.is_none()
-                && !matches!(
-                    self.config.row_connection_style,
-                    RowConnectionStyle::Disjoint
-                )
-            {
-                row = row
-                    .style(self.config.current_fg)
-                    .bg(self.config.current_bg)
-                    .add_modifier(self.config.current_modifier)
-            }
-
-            rows.push(row);
         }
 
         if self.reverse() {
@@ -457,21 +523,33 @@ impl ResultsUI {
         }
 
         // up to the last nonempty row position
-        self.widths = {
-            let pos = widths.iter().rposition(|&x| x != 0).map_or(0, |p| p + 1);
-            let mut widths = widths[..pos].to_vec();
-            if pos > 2 && self.config.right_align_last {
-                let used = widths.iter().take(widths.len() - 1).sum();
-                widths[pos - 1] = self.width().saturating_sub(used);
-            }
-            widths
-        };
+
+        if hz {
+            self.widths = {
+                let pos = widths.iter().rposition(|&x| x != 0).map_or(0, |p| p + 1);
+                let mut widths = widths[..pos].to_vec();
+                if pos > 2 && self.config.right_align_last {
+                    let used = widths.iter().take(widths.len() - 1).sum();
+                    widths[pos - 1] = self.width().saturating_sub(used);
+                }
+                widths
+            };
+        }
 
         // why does the row highlight apply beyond the table width?
-        let mut table = Table::new(rows, self.widths.clone())
-            .column_spacing(self.config.column_spacing.0)
-            .style(self.config.fg)
-            .add_modifier(self.config.modifier);
+        let mut table = Table::new(
+            rows,
+            if hz {
+                self.widths.clone()
+            } else {
+                vec![self.width]
+            },
+        )
+        .column_spacing(self.config.column_spacing.0)
+        .style(self.config.fg)
+        .add_modifier(self.config.modifier);
+
+        log::debug!("{table:?}");
 
         table = table.block(self.config.border.as_static_block());
         table
@@ -486,5 +564,58 @@ impl ResultsUI {
         ))
         .style(self.config.status_fg)
         .add_modifier(self.config.status_modifier)
+    }
+}
+
+// helpers
+impl ResultsUI {
+    fn default_prefix(&self, i: usize) -> String {
+        let substituted = substitute_escaped(
+            &self.config.default_prefix,
+            &[
+                ('d', &(i + 1).to_string()),                        // cursor index
+                ('r', &(i + 1 + self.bottom as usize).to_string()), // absolute index
+            ],
+        );
+
+        fit_width(&substituted, self.indentation())
+    }
+
+    fn current_style(&self) -> Style {
+        Style::from(self.config.current_fg)
+            .bg(self.config.current_bg)
+            .add_modifier(self.config.current_modifier)
+    }
+
+    fn is_current(&self, i: usize) -> bool {
+        !self.cursor_disabled && self.cursor == i as u16
+    }
+
+    pub fn match_style(&self) -> Style {
+        Style::default()
+            .fg(self.config.match_fg)
+            .add_modifier(self.config.match_modifier)
+    }
+
+    pub fn hr(&self) -> Option<Row<'static>> {
+        let sep = self.config.horizontal_separator;
+
+        if matches!(sep, HorizontalSeparator::None) {
+            return None;
+        }
+
+        // todo: support non_stacked by doing a seperate rendering pass
+        if !self.config.stacked_columns && self.widths.len() > 1 {
+            return Some(Row::new(vec![vec![]]));
+        }
+
+        let unit = sep.as_str();
+        let line = unit.repeat(self.width as usize);
+
+        Some(Row::new(vec![line]))
+    }
+
+    pub fn _hr(&self) -> u16 {
+        self.hr().is_some() as u16
     }
 }

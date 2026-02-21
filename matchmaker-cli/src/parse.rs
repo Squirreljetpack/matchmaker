@@ -28,9 +28,11 @@ pub fn get_pairs(pairs: Vec<String>) -> Result<Vec<(ArrayVec<String, 10>, String
         let (mut path_str, value) = if let Some(eq_pos) = item.find('=') {
             let path = item[..eq_pos].to_string();
             let val = item[eq_pos + 1..].to_string();
-            if val.is_empty() {
-                return Err(ParseError::MissingValue { path: path.clone() });
-            }
+
+            // keep commented to allow empty value for setting bool as `m.ansi=`
+            // if val.is_empty() {
+            //     return Err(ParseError::MissingValue { path: path.clone() });
+            // }
             (path, val)
         } else {
             let path = item;

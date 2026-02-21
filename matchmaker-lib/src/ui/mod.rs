@@ -3,11 +3,11 @@ mod input;
 mod overlay;
 mod preview;
 mod results;
-pub use display::DisplayUI;
-pub use input::InputUI;
+pub use display::*;
+pub use input::*;
 pub use overlay::*;
-pub use preview::PreviewUI;
-pub use results::ResultsUI;
+pub use preview::*;
+pub use results::*;
 
 pub use ratatui::{
     Frame,

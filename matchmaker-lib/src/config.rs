@@ -5,13 +5,17 @@ use matchmaker_partial_macros::partial;
 
 use std::{fmt, ops::Deref};
 
-pub use crate::utils::{Percentage, serde::StringOrVec};
+pub use crate::utils::{Percentage, When, serde::StringOrVec};
+
 use crate::{
     MAX_SPLITS,
     tui::IoStream,
-    utils::serde::{escaped_opt_char, escaped_opt_string, serde_duration_ms},
+    utils::{
+        seperator::HorizontalSeparator,
+        serde::{escaped_opt_char, escaped_opt_string, serde_duration_ms},
+    },
 };
-pub use cli_boilerplate_automation::bother::types::When;
+
 use cli_boilerplate_automation::define_transparent_wrapper;
 use cli_boilerplate_automation::serde::{
     // one_or_many,
@@ -62,11 +66,16 @@ pub struct WorkerConfig {
     /// How columns are parsed from input lines
     pub columns: ColumnsConfig,
     /// Trim the input
+    #[partial(alias = "t")]
     pub trim: bool,
     /// How "stable" the results are. Higher values prioritize the initial ordering.
     pub sort_threshold: u32,
+    /// Whether to parse ansi sequences from input
+    #[partial(alias = "a")]
+    pub ansi: bool,
 
     /// TODO: Enable raw mode where non-matching items are also displayed in a dimmed color.
+    #[partial(alias = "r")]
     pub raw: bool,
     /// TODO: Track the current selection when the result list is updated.
     pub track: bool,
@@ -342,13 +351,29 @@ pub struct ResultsConfig {
     // experimental
     pub column_spacing: Count,
     pub current_prefix: String,
+
+    // lowpri: maybe space-around/space-between instead?
     #[partial(alias = "ra")]
     pub right_align_last: bool,
+
+    #[partial(alias = "v")]
+    #[serde(alias = "vertical")]
+    pub stacked_columns: bool,
+
+    #[serde(alias = "hr")]
+    #[serde(deserialize_with = "camelcase_normalized")]
+    pub horizontal_separator: HorizontalSeparator,
 }
 define_transparent_wrapper!(
     #[derive(Copy, Clone)]
     Count: u16 = 1
 );
+
+// #[derive(Default, Deserialize)]
+// pub enum HorizontalSeperator {
+//     None,
+
+// }
 
 impl Default for ResultsConfig {
     fn default() -> Self {
@@ -382,6 +407,8 @@ impl Default for ResultsConfig {
             column_spacing: Default::default(),
             current_prefix: Default::default(),
             right_align_last: false,
+            stacked_columns: false,
+            horizontal_separator: Default::default(),
         }
     }
 }
@@ -764,7 +791,7 @@ pub enum CursorSetting {
 
 use crate::utils::serde::bounded_usize;
 // todo: pass filter and hidden to mm
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 #[partial(path, derive(Debug, Deserialize))]
 pub struct ColumnsConfig {
@@ -773,14 +800,24 @@ pub struct ColumnsConfig {
     /// Column names
     #[partial(alias = "n")]
     pub names: Vec<ColumnSetting>,
-    /// Maximum number of columns to autogenerate when names is unspecified. Maximum of 10.
-    #[serde(deserialize_with = "bounded_usize::<{crate::MAX_SPLITS},_>")]
+    /// Maximum number of columns to autogenerate when names is unspecified. Maximum of 10, minimum of 1.
+    #[serde(deserialize_with = "bounded_usize::<_, 1, {crate::MAX_SPLITS}>")]
     max_columns: usize,
 }
 
 impl ColumnsConfig {
     pub fn max_cols(&self) -> usize {
-        self.max_columns.min(MAX_SPLITS)
+        self.max_columns.min(MAX_SPLITS).max(1)
+    }
+}
+
+impl Default for ColumnsConfig {
+    fn default() -> Self {
+        Self {
+            split: Default::default(),
+            names: Default::default(),
+            max_columns: 5,
+        }
     }
 }
 

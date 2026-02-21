@@ -45,7 +45,7 @@ impl UI {
     ) -> (Self, PickerUI<'a, T, S>, DisplayUI, Option<PreviewUI>) {
         assert!(!worker.columns.is_empty());
 
-        if config.results.reverse.is_default() {
+        if config.results.reverse.is_none() {
             config.results.reverse = (
                 tui.is_fullscreen() && tui.area.y < tui.area.height / 2
                 // reverse if fullscreen + cursor is in lower half of the screen

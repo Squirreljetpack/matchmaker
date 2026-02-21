@@ -15,7 +15,7 @@ _mm() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" : \
-'--config=[]:PATH_OR_STRING:_default' \
+'--config=[]:CONFIG:_files' \
 '--dump-config[]' \
 '-F[]' \
 '--test-keys[]' \

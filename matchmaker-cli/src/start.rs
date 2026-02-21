@@ -41,6 +41,7 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
 
     let (cfg_path, mut config): (_, Config) = {
         // parse cli arg as path or toml
+        // todo: deprecate
         if let Some(cfg) = &cli.config {
             let p = Path::new(cfg);
             (

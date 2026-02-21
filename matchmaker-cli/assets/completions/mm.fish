@@ -1,4 +1,4 @@
-complete -c mm -l config -r
+complete -c mm -l config -r -F
 complete -c mm -l dump-config
 complete -c mm -s F
 complete -c mm -l test-keys

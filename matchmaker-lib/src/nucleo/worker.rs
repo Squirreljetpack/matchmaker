@@ -1,8 +1,6 @@
 // Original code from https://github.com/helix-editor/helix (MPL 2.0)
 // Modified by Squirreljetpack, 2025
 
-#![allow(unused)]
-
 use super::{Line, Span, Style, Text};
 use bitflags::bitflags;
 
@@ -21,9 +19,8 @@ use super::{injector::WorkerInjector, query::PickerQuery};
 use crate::{
     SSS,
     nucleo::Render,
-    utils::text::{apply_style_at, plain_text, wrap_text},
+    utils::text::{plain_text, wrap_text},
 };
-use cli_boilerplate_automation::text::StrExt;
 
 type ColumnFormatFn<T> = Box<dyn for<'a> Fn(&'a T) -> Text<'a> + Send + Sync>;
 pub struct Column<T> {
@@ -267,8 +264,8 @@ pub enum WorkerError {
     Custom(&'static str),
 }
 
-/// A vec of ItemResult, each ItemResult being the Column Texts of the Item, The Item, and the item height
-pub type WorkerResults<'a, T> = Vec<(Vec<Text<'a>>, &'a T, u16)>;
+/// A vec of ItemResult, each ItemResult being the Column Texts of the Item, and Item
+pub type WorkerResults<'a, T> = Vec<(Vec<Text<'a>>, &'a T)>;
 
 impl<T: SSS> Worker<T> {
     /// Returns:
@@ -296,7 +293,6 @@ impl<T: SSS> Worker<T> {
         let table = iter
             .map(|item| {
                 let mut widths = widths.iter_mut();
-                let mut height = 0;
 
                 let row = self
                     .columns
@@ -342,14 +338,10 @@ impl<T: SSS> Worker<T> {
                             *max_width = width as u16;
                         }
 
-                        if cell.height() as u16 > height {
-                            height = cell.height() as u16;
-                        }
-
                         cell
                     });
 
-                (row.collect(), item.data, height)
+                (row.collect(), item.data)
             })
             .collect();
 

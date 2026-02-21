@@ -14,20 +14,6 @@ define_either! {
     }
 }
 
-define_when! {
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
-    pub enum When {
-        #[serde(alias = "false", alias = "never")]
-        Never,
-        #[default]
-        #[serde(alias = "auto")]
-        Auto,
-        #[serde(alias = "true", alias = "always")]
-        Always
-    }
-}
-
 impl Either<String, Text<'static>> {
     pub fn to_cow(&self) -> Cow<'_, str> {
         match self {

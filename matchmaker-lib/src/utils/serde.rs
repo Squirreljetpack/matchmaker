@@ -1,6 +1,5 @@
-#![allow(unused)]
 use cli_boilerplate_automation::wbog;
-use serde::{Deserialize, Deserializer, Serialize, de};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::utils::text::parse_escapes;
 
@@ -63,6 +62,7 @@ where
     }
 }
 
+#[allow(unused)] // todo: lowpri: not sure why serialize needs this
 pub mod serde_duration_ms {
     use serde::{Deserialize, Deserializer, Serializer};
     use std::time::Duration;
@@ -82,8 +82,4 @@ pub mod serde_duration_ms {
         let ms = u64::deserialize(deserializer)?;
         Ok(Duration::from_millis(ms))
     }
-}
-
-pub fn uppercase(s: &str) -> String {
-    s.to_uppercase()
 }

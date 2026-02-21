@@ -1,19 +1,14 @@
-#![allow(unused)]
-use cli_boilerplate_automation::bait::{BoolExt, TransformExt};
-use log::debug;
+use cli_boilerplate_automation::bait::TransformExt;
 use ratatui::{
-    layout::{Constraint, Rect},
-    style::{Style, Stylize},
+    layout::Constraint,
+    style::Style,
     text::{Line, Text},
-    widgets::{Cell, Paragraph, Row, Table, Wrap},
+    widgets::{Cell, Paragraph, Row, Table},
 };
 
 use crate::{
     config::{DisplayConfig, RowConnectionStyle},
-    utils::{
-        serde::StringOrVec,
-        text::{left_pad, prefix_text, wrap_text, wrapped_height},
-    },
+    utils::{serde::StringOrVec, text::wrap_text},
 };
 pub type HeaderTable = Vec<Vec<Line<'static>>>;
 #[derive(Debug)]
@@ -155,7 +150,7 @@ impl DisplayUI {
                 .cloned()
                 .zip(widths.iter().copied())
                 .map(|(text, width)| {
-                    let mut ret = wrap_text(text, width).0;
+                    let ret = wrap_text(text, width).0;
                     height = height.max(ret.height() as u16);
 
                     Cell::from(ret.transform_if(
@@ -177,7 +172,6 @@ impl DisplayUI {
 
         // add header cells
         if !self.header.is_empty() {
-            let mut height = self.header.len() as u16;
             // todo: support wrapping
             rows.extend(self.header.iter().cloned().map(Row::new));
 

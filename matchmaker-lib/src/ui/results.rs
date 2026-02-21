@@ -1,6 +1,3 @@
-#[allow(unused)]
-use log::debug;
-
 use ratatui::{
     layout::{Alignment, Rect},
     style::{Style, Stylize},
@@ -32,6 +29,9 @@ pub struct ResultsUI {
     pub status: Status,
     pub config: ResultsConfig,
 
+    pub bottom_clip: Option<u16>,
+    pub cursor_above: u16,
+
     pub cursor_disabled: bool,
 }
 
@@ -47,6 +47,8 @@ impl ResultsUI {
             width: 0,
             config,
             cursor_disabled: false,
+            bottom_clip: None,
+            cursor_above: 0,
         }
     }
     // as given by ratatui area
@@ -54,6 +56,7 @@ impl ResultsUI {
         let [bw, bh] = [self.config.border.height(), self.config.border.width()];
         self.width = area.width.saturating_sub(bw);
         self.height = area.height.saturating_sub(bh);
+        log::debug!("Updated results dimensions: {}x{}", self.width, self.height);
     }
 
     pub fn table_width(&self) -> u16 {
@@ -64,7 +67,7 @@ impl ResultsUI {
 
     // ------ config -------
     pub fn reverse(&self) -> bool {
-        self.config.reverse.is_always()
+        self.config.reverse == Some(true)
     }
     pub fn is_wrap(&self) -> bool {
         self.config.wrap
@@ -123,8 +126,9 @@ impl ResultsUI {
     //     }
     // }
     pub fn cursor_prev(&mut self) {
-        if self.cursor <= self.scroll_padding() && self.bottom > 0 {
+        if self.cursor_above <= self.scroll_padding() && self.bottom > 0 {
             self.bottom -= 1;
+            self.bottom_clip = None;
         } else if self.cursor > 0 {
             self.cursor -= 1;
         } else if self.config.scroll_wrap {
@@ -136,17 +140,16 @@ impl ResultsUI {
             self.cursor_disabled = false
         }
 
-        log::trace!(
-            "Cursor {} @ index {}. Status: {:?}.",
-            self.cursor,
-            self.index(),
-            self.status
-        );
-
+        // log::trace!(
+        //     "Cursor {} @ index {}. Status: {:?}.",
+        //     self.cursor,
+        //     self.index(),
+        //     self.status
+        // );
         if self.cursor + 1 + self.scroll_padding() >= self.height
             && self.bottom + self.height < self.status.matched_count as u16
         {
-            self.bottom += 1;
+            self.bottom += 1; // 
         } else if self.index() < self.end() {
             self.cursor += 1;
         } else if self.config.scroll_wrap {
@@ -156,12 +159,15 @@ impl ResultsUI {
 
     pub fn cursor_jump(&mut self, index: u32) {
         self.cursor_disabled = false;
+        self.bottom_clip = None;
 
         let end = self.end();
         let index = index.min(end) as u16;
 
         if index < self.bottom || index >= self.bottom + self.height {
-            self.bottom = (end as u16 + 1).saturating_sub(self.height).min(index);
+            self.bottom = (end as u16 + 1)
+                .saturating_sub(self.height) // don't exceed the first item of the last self.height items
+                .min(index);
             self.cursor = index - self.bottom;
         } else {
             self.cursor = index - self.bottom;
@@ -276,49 +282,57 @@ impl ResultsUI {
             return Table::new(rows, widths);
         }
 
-        let height_of = |t: &(Vec<ratatui::text::Text<'a>>, _, u16)| {
+        let height_of = |t: &(Vec<ratatui::text::Text<'a>>, _)| {
             self._hr()
                 + if hz {
-                    t.2
+                    t.0.iter()
+                        .map(|t| t.height() as u16)
+                        .max()
+                        .unwrap_or_default()
                 } else {
                     t.0.iter().map(|t| t.height() as u16).sum::<u16>()
                 }
         };
 
-        // debug!("sb: {}, {}, {}, {}, {}", self.bottom, self.cursor, total_height, self.height, results.len());
-        let cursor_result_h = results[self.cursor as usize].2;
-        // the index in results of the first complete item
-        let mut start_index = 0;
-
-        let cum_h_after_cursor = results[(self.cursor as usize + 1).min(results.len())..]
+        // log::debug!("results initial: {}, {}, {}, {}, {}", self.bottom, self.cursor, total_height, self.height, results.len());
+        let h_at_cursor = height_of(&results[self.cursor as usize]);
+        let h_after_cursor = results[self.cursor as usize + 1..]
             .iter()
             .map(height_of)
             .sum();
+        let h_to_cursor = results[0..self.cursor as usize]
+            .iter()
+            .map(height_of)
+            .sum::<u16>();
+        let cursor_end_should_lt = self.height - self.scroll_padding().min(h_after_cursor);
+        // let cursor_start_should_gt = self.scroll_padding().min(h_to_cursor);
 
-        let cursor_should_lt = self.height - self.scroll_padding().min(cum_h_after_cursor);
-        let mut partial = false;
+        // log::debug!(
+        //     "Computed heights: {h_at_cursor}, {h_to_cursor}, {h_after_cursor}, {cursor_end_should_lt}",
+        // );
+        // begin adjustment
+        let mut start_index = 0; // the index in results of the first complete item
 
-        if cursor_result_h >= cursor_should_lt {
+        if h_at_cursor >= cursor_end_should_lt {
             start_index = self.cursor;
             self.bottom += self.cursor;
             self.cursor = 0;
+            self.cursor_above = 0;
         } else
         // increase the bottom index so that cursor_should_above is maintained
-        if let cum_h_to_cursor_end = results[0..=self.cursor as usize]
-            .iter()
-            .map(height_of)
-            .sum::<u16>()
-            && cum_h_to_cursor_end > cursor_should_lt
+        if let h_to_cursor_end = h_to_cursor + h_at_cursor
+            && h_to_cursor_end > cursor_end_should_lt
         {
-            start_index = 1;
-            let mut remaining_height = cum_h_to_cursor_end - cursor_should_lt;
+            let mut trunc_height = h_to_cursor_end - cursor_end_should_lt;
             // note that there is a funny side effect that scrolling up near the bottom can scroll up a bit, but it seems fine to me
 
-            for r in results[..self.cursor as usize].iter_mut() {
+            for r in results[start_index as usize..self.cursor as usize].iter_mut() {
+                start_index += 1;
                 let h = height_of(r);
-                let (row, item, _) = r;
+                let (row, item) = r;
 
-                if remaining_height < h {
+                if trunc_height < h {
+                    let mut remaining_height = h - trunc_height;
                     let prefix = if selector.contains(item) {
                         self.config.multi_prefix.clone().to_string()
                     } else {
@@ -328,8 +342,12 @@ impl ResultsUI {
                     total_height += remaining_height;
 
                     if hz {
-                        for (_, t) in row.iter_mut().enumerate().filter(|(i, _)| widths[*i] != 0) {
-                            clip_text_lines(t, remaining_height, !self.reverse());
+                        if h - self._hr() < remaining_height {
+                            for (_, t) in
+                                row.iter_mut().enumerate().filter(|(i, _)| widths[*i] != 0)
+                            {
+                                clip_text_lines(t, h - remaining_height, !self.reverse());
+                            }
                         }
 
                         prefix_text(&mut row[0], prefix);
@@ -372,39 +390,94 @@ impl ResultsUI {
 
                     self.bottom += start_index - 1;
                     self.cursor -= start_index - 1;
-                    partial = true;
+                    self.bottom_clip = Some(remaining_height);
                     break;
-                } else if remaining_height == h {
+                } else if trunc_height == h {
                     self.bottom += start_index;
                     self.cursor -= start_index;
-                    // debug!("2: {} {}", start_index, h);
+                    self.bottom_clip = None;
                     break;
                 }
 
-                start_index += 1;
-                remaining_height -= h;
+                trunc_height -= h;
+            }
+        } else if let Some(mut remaining_height) = self.bottom_clip {
+            start_index += 1;
+            // same as above
+            let h = height_of(&results[0]);
+            let (row, item) = &mut results[0];
+            let prefix = if selector.contains(item) {
+                self.config.multi_prefix.clone().to_string()
+            } else {
+                self.default_prefix(0)
+            };
+
+            total_height += remaining_height;
+
+            if hz {
+                if self._hr() + remaining_height != h {
+                    for (_, t) in row.iter_mut().enumerate().filter(|(i, _)| widths[*i] != 0) {
+                        clip_text_lines(t, remaining_height, !self.reverse());
+                    }
+                }
+
+                prefix_text(&mut row[0], prefix);
+
+                let last_visible = widths
+                    .iter()
+                    .enumerate()
+                    .rev()
+                    .find_map(|(i, w)| (*w != 0).then_some(i));
+
+                let mut row_texts: Vec<_> = row
+                    .iter()
+                    .take(last_visible.map(|x| x + 1).unwrap_or(0))
+                    .cloned()
+                    .collect();
+
+                if self.config.right_align_last && row_texts.len() > 1 {
+                    row_texts.last_mut().unwrap().alignment = Some(Alignment::Right)
+                }
+
+                let row = Row::new(row_texts).height(remaining_height);
+                rows.push(row);
+            } else {
+                let mut push = vec![];
+
+                for col in row.into_iter().rev() {
+                    let mut height = col.height() as u16;
+                    if remaining_height == 0 {
+                        break;
+                    } else if remaining_height < height {
+                        clip_text_lines(col, remaining_height, !self.reverse());
+                        height = remaining_height;
+                    }
+                    remaining_height -= height;
+                    prefix_text(col, prefix.clone());
+                    push.push(Row::new(vec![col.clone()]).height(height));
+                }
+                rows.extend(push);
             }
         }
 
-        // debug!(
-        //     "si: {}, {}, {}, {}",
-        //     start_index, self.bottom, self.cursor, total_height
-        // );
+        // topside padding is non-flexible, and does its best to stay at 2 full items without obscuring cursor.
+        // One option is we move enforcement from cursor_prev to
 
         let mut remaining_height = self.height.saturating_sub(total_height);
 
-        for (mut i, (mut row, item, mut height)) in
-            results.drain(start_index as usize..).enumerate()
-        {
-            i += partial as usize;
+        for (mut i, (mut row, item)) in results.drain(start_index as usize..).enumerate() {
+            i += self.bottom_clip.is_some() as usize;
 
             // this is technically one step out of sync but idc
             if let Click::ResultPos(c) = click
-                && total_height > *c
+                && self.height - remaining_height > *c
             {
                 let idx = self.bottom as u32 + i as u32 - 1;
                 log::debug!("Mapped click position to index: {c} -> {idx}",);
                 *click = Click::ResultIdx(idx);
+            }
+            if self.is_current(i) {
+                self.cursor_above = self.height - remaining_height;
             }
 
             // insert hr
@@ -426,6 +499,12 @@ impl ResultsUI {
             };
 
             if hz {
+                let mut height = row
+                    .iter()
+                    .map(|t| t.height() as u16)
+                    .max()
+                    .unwrap_or_default();
+
                 if remaining_height < height {
                     height = remaining_height;
 
@@ -509,16 +588,14 @@ impl ResultsUI {
 
                     push.push(row);
                 }
-                log::debug!("{push:?}");
                 rows.extend(push);
             }
         }
 
         if self.reverse() {
             rows.reverse();
-            if total_height < self.height {
-                let spacer_height = self.height - total_height;
-                rows.insert(0, Row::new(vec![vec![]]).height(spacer_height));
+            if remaining_height > 0 {
+                rows.insert(0, Row::new(vec![vec![]]).height(remaining_height));
             }
         }
 
@@ -548,8 +625,6 @@ impl ResultsUI {
         .column_spacing(self.config.column_spacing.0)
         .style(self.config.fg)
         .add_modifier(self.config.modifier);
-
-        log::debug!("{table:?}");
 
         table = table.block(self.config.border.as_static_block());
         table
@@ -616,6 +691,6 @@ impl ResultsUI {
     }
 
     pub fn _hr(&self) -> u16 {
-        self.hr().is_some() as u16
+        !matches!(self.config.horizontal_separator, HorizontalSeparator::None) as u16
     }
 }

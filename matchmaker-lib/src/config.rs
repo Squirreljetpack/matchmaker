@@ -5,7 +5,7 @@ use matchmaker_partial_macros::partial;
 
 use std::{fmt, ops::Deref};
 
-pub use crate::utils::{Percentage, When, serde::StringOrVec};
+pub use crate::utils::{Percentage, serde::StringOrVec};
 
 use crate::{
     MAX_SPLITS,
@@ -338,10 +338,13 @@ pub struct ResultsConfig {
     // pub selected_modifier: Color,
 
     // scroll
+    #[partial(alias = "c")]
+    #[serde(alias = "cycle")]
     pub scroll_wrap: bool,
+    #[partial(alias = "sp")]
     pub scroll_padding: u16,
     #[partial(alias = "r")]
-    pub reverse: When,
+    pub reverse: Option<bool>,
 
     // wrap
     #[partial(alias = "w")]
@@ -493,6 +496,7 @@ pub struct PreviewConfig {
     pub scroll: PreviewScrollSetting,
     /// Whether to cycle to top after scrolling to the bottom and vice versa.
     #[partial(alias = "c")]
+    #[serde(alias = "cycle")]
     pub scroll_wrap: bool,
     pub wrap: bool,
     pub show: bool,

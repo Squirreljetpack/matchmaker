@@ -1,6 +1,6 @@
 use clap::CommandFactory;
 use clap_complete::{Shell, generate_to};
-use std::{env, path::PathBuf};
+use std::env;
 
 // include!("build/completions_mock.rs");
 

@@ -17,6 +17,7 @@ pub fn plain_text(text: &Text) -> String {
 }
 
 use std::cmp::{max, min};
+#[allow(unused)]
 pub fn apply_style_at(mut text: Text<'_>, start: usize, len: usize, style: Style) -> Text<'_> {
     let mut global_pos = 0;
     let end = start + len;
@@ -121,21 +122,21 @@ pub fn clip_text_lines<'a, 'b: 'a>(original: &'a mut Text<'b>, max_lines: u16, r
 //     *offsets.get(grapheme_index as usize).unwrap_or(&input.len())
 // }
 
-pub fn wrapped_height(text: &Text<'_>, width: u16) -> u16 {
-    if width == 0 {
-        return text.height() as u16;
-    }
+// pub fn wrapped_height(text: &Text<'_>, width: u16) -> u16 {
+//     if width == 0 {
+//         return text.height() as u16;
+//     }
 
-    let width = width as usize;
+//     let width = width as usize;
 
-    text.lines
-        .iter()
-        .map(|line| {
-            let w = line.width();
-            if w == 0 { 1 } else { w.div_ceil(width) as u16 }
-        })
-        .sum()
-}
+//     text.lines
+//         .iter()
+//         .map(|line| {
+//             let w = line.width();
+//             if w == 0 { 1 } else { w.div_ceil(width) as u16 }
+//         })
+//         .sum()
+// }
 
 pub fn wrapped_line_height(line: &Line<'_>, width: u16) -> u16 {
     let w = line.width();
@@ -184,14 +185,6 @@ pub fn fit_width(input: &str, width: usize) -> String {
         s.extend(std::iter::repeat_n(' ', width - len));
     }
     s
-}
-
-pub fn left_pad(text: &str, pad: usize) -> String {
-    let padding = " ".repeat(pad);
-    text.lines()
-        .map(|line| format!("{}{}", padding, line))
-        .collect::<Vec<_>>()
-        .join("\n")
 }
 
 pub fn parse_escapes(s: &str) -> String {

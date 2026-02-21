@@ -1,5 +1,5 @@
 use clap::{ArgAction, Parser};
-use std::ffi::OsString;
+use std::{ffi::OsString, path::PathBuf};
 
 pub static BINARY_FULL: &str = "matchmaker";
 pub static BINARY_SHORT: &str = "mm";
@@ -7,8 +7,8 @@ pub static BINARY_SHORT: &str = "mm";
 #[derive(Debug, Parser, Default, Clone)]
 #[command(trailing_var_arg = true)]
 pub struct Cli {
-    #[arg(long, value_name = "PATH_OR_STRING")]
-    pub config: Option<OsString>,
+    #[arg(long)]
+    pub config: Option<PathBuf>,
     #[arg(long)]
     pub dump_config: bool,
     #[arg(short = 'F')]
@@ -62,6 +62,8 @@ impl Cli {
                         if needs_next {
                             if let Some(next) = iter.next() {
                                 clap_args.push(next);
+                            } else {
+                                // clap will handle
                             }
                         }
                         continue;

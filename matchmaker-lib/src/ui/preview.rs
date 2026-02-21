@@ -141,7 +141,6 @@ impl PreviewUI {
             self.view.len().min(target.unsigned_abs())
         });
         let mut index = self.target.unwrap();
-        log::debug!("{index}");
 
         // decrement the index to put the target lower on the page.
         // The resulting height up to the top of target should >= p% of height.
@@ -163,7 +162,7 @@ impl PreviewUI {
             }
         }
         self.offset = index as u16;
-        log::debug!("{}", self.offset);
+        log::trace!("offset: {}, index: {}", self.offset, self.target.unwrap());
     }
 
     // --------------------------

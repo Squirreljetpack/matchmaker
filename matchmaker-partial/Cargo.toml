@@ -1,6 +1,6 @@
 [package]
     name        = "matchmaker-partial"
-    version     = "0.0.2"
+    version     = "0.0.5"
     edition     = "2024"
     description = "Support for partial updates and configuration in matchmaker"
     repository  = "https://github.com/Squirreljetpack/matchmaker"
@@ -11,7 +11,7 @@
     thiserror = "2.0"
 
 [dev-dependencies]
-    matchmaker-partial-macros = { workspace = true, features = [ "partial" ] }
+    matchmaker-partial-macros = { path = "../matchmaker-partial-macros", features = [ "partial" ] }
     toml                      = "0.9.8"
 
 [[test]]

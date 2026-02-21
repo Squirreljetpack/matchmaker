@@ -30,6 +30,7 @@ pub trait Injector {
         self.inner().push(item)
     }
 
+    #[cfg(feature = "experimental")]
     fn extend(
         &self,
         items: impl IntoIterator<Item = Self::InputItem> + ExactSizeIterator,
@@ -94,6 +95,7 @@ impl<T: SSS> Injector for WorkerInjector<T> {
         Ok(())
     }
 
+    #[cfg(feature = "experimental")]
     fn extend(
         &self,
         items: impl IntoIterator<Item = T> + ExactSizeIterator,
@@ -114,6 +116,7 @@ pub(super) fn push_impl<T>(injector: &nucleo::Injector<T>, columns: &[Column<T>]
     });
 }
 
+#[cfg(feature = "experimental")]
 pub(super) fn extend_impl<T, I>(injector: &nucleo::Injector<T>, columns: &[Column<T>], items: I)
 where
     I: IntoIterator<Item = T> + ExactSizeIterator,

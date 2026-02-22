@@ -729,7 +729,7 @@ fn render_input(frame: &mut Frame, area: Rect, ui: &mut InputUI) {
 }
 
 fn render_status(frame: &mut Frame, area: Rect, ui: &ResultsUI) {
-    if ui.config.status_show {
+    if ui.status_config.show {
         let widget = ui.make_status();
         frame.render_widget(widget, area);
     }

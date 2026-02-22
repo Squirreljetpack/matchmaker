@@ -8,3 +8,5 @@ pub mod text;
 
 mod types;
 pub use types::*;
+
+pub mod string;

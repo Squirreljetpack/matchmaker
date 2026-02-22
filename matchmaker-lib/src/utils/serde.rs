@@ -1,7 +1,7 @@
 use cli_boilerplate_automation::wbog;
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::utils::text::parse_escapes;
+use crate::utils::string::resolve_escapes;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -36,7 +36,7 @@ where
     D: serde::Deserializer<'de>,
 {
     let opt = Option::<String>::deserialize(deserializer)?;
-    Ok(opt.map(|s| parse_escapes(&s)))
+    Ok(opt.map(|s| resolve_escapes(&s)))
 }
 
 pub fn escaped_opt_char<'de, D>(deserializer: D) -> Result<Option<char>, D::Error>
@@ -46,7 +46,7 @@ where
     let opt = Option::<String>::deserialize(deserializer)?;
     match opt {
         Some(s) => {
-            let parsed = parse_escapes(&s);
+            let parsed = resolve_escapes(&s);
             let mut chars = parsed.chars();
             let first = chars
                 .next()

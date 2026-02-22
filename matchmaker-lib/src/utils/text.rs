@@ -1,3 +1,5 @@
+//! Ratatui text utils
+
 use std::{borrow::Cow, ops::Range};
 
 use log::error;
@@ -116,28 +118,6 @@ pub fn clip_text_lines<'a, 'b: 'a>(original: &'a mut Text<'b>, max_lines: u16, r
     *original = Text::from(new_lines);
 }
 
-// pub fn grapheme_index_to_byte_index(input: &str, grapheme_index: u16) -> usize {
-//     let offsets: Vec<usize> = input.grapheme_indices(true).map(|(i, _)| i).collect();
-
-//     *offsets.get(grapheme_index as usize).unwrap_or(&input.len())
-// }
-
-// pub fn wrapped_height(text: &Text<'_>, width: u16) -> u16 {
-//     if width == 0 {
-//         return text.height() as u16;
-//     }
-
-//     let width = width as usize;
-
-//     text.lines
-//         .iter()
-//         .map(|line| {
-//             let w = line.width();
-//             if w == 0 { 1 } else { w.div_ceil(width) as u16 }
-//         })
-//         .sum()
-// }
-
 pub fn wrapped_line_height(line: &Line<'_>, width: u16) -> u16 {
     let w = line.width();
     if w == 0 {
@@ -145,86 +125,6 @@ pub fn wrapped_line_height(line: &Line<'_>, width: u16) -> u16 {
     } else {
         w.div_ceil(width as usize) as u16
     }
-}
-
-pub fn substitute_escaped(input: &str, map: &[(char, &str)]) -> String {
-    let mut out = String::new();
-    let mut chars = input.chars().peekable();
-
-    while let Some(c) = chars.next() {
-        if c == '\\' {
-            match chars.peek() {
-                Some(&'\\') => {
-                    out.push('\\');
-                    chars.next();
-                }
-                Some(&k) => {
-                    if let Some(&(_, replacement)) = map.iter().find(|(key, _)| *key == k) {
-                        out.push_str(replacement);
-                        chars.next();
-                    } else {
-                        out.push('\\');
-                        out.push(k);
-                        chars.next();
-                    }
-                }
-                None => out.push('\\'),
-            }
-        } else {
-            out.push(c);
-        }
-    }
-
-    out
-}
-
-pub fn fit_width(input: &str, width: usize) -> String {
-    let mut s: String = input.chars().take(width).collect(); // truncate
-    let len = s.chars().count();
-    if len < width {
-        s.extend(std::iter::repeat_n(' ', width - len));
-    }
-    s
-}
-
-pub fn parse_escapes(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut chars = s.chars().peekable();
-
-    while let Some(c) = chars.next() {
-        if c == '\\' {
-            match chars.next() {
-                Some('n') => out.push('\n'),
-                Some('r') => out.push('\r'),
-                Some('t') => out.push('\t'),
-                Some('0') => out.push('\0'),
-                Some('\\') => out.push('\\'),
-                Some('"') => out.push('"'),
-                Some('\'') => out.push('\''),
-                Some('x') => {
-                    // hex byte e.g. \x1b
-                    let h1 = chars.next();
-                    let h2 = chars.next();
-                    if let (Some(h1), Some(h2)) = (h1, h2)
-                        && let Ok(v) = u8::from_str_radix(&format!("{h1}{h2}"), 16)
-                    {
-                        out.push(v as char);
-                        continue;
-                    }
-                    out.push_str("\\x"); // fallback
-                }
-                Some(other) => {
-                    out.push('\\');
-                    out.push(other);
-                }
-                None => out.push('\\'),
-            }
-        } else {
-            out.push(c);
-        }
-    }
-
-    out
 }
 
 pub fn wrap_text<'a>(text: Text<'a>, max_width: u16) -> (Text<'a>, bool) {

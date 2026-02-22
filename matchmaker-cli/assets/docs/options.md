@@ -104,15 +104,15 @@ For example, `(( )) [one word] [\[]` splits into `(( ))`, `one word`, `[`.
 - `tick_rate`: (u8) Refresh rate of the UI (default 60).
 - `border`: [Border Settings](#border-settings).
 
-#### Input Bar (`input.`)
+#### Input Bar (`input.`, `i`)
 
-- `prompt`: (string) The prompt string (default "> ").
+- `prompt`: (string) The prompt prefix (default "> ").
 - `initial`: (string) Initial text in the input bar.
 - `fg`: (color) Foreground color of the input text.
 - `modifier`: (modifier) Style modifier for the input text.
 - `prompt_fg`: (color) Foreground color of the prompt.
 - `prompt_modifier`: (modifier) Style modifier for the prompt.
-- `cursor`: `None` or `Default`.
+- `cursor`: Cursor style.
 - `border`: [Border Settings](#border-settings).
 
 #### Results Table (`results.`, `r`)
@@ -128,14 +128,11 @@ For example, `(( )) [one word] [\[]` splits into `(( ))`, `one word`, `[`.
 - `current_bg`: (color) Background color of the highlighted item.
 - `current_modifier`: (modifier) Style of the highlighted item.
 - `row_connection_style`: `Disjoint`, `Capped`, or `Full`. Controls how current item styles apply across the row.
-- `status_fg`: (color) Color of the status line.
-- `status_modifier`: (modifier) Style of the status line.
-- `status_show`: (bool) Show/hide the status line.
 - `scroll_wrap`: (bool) Wrap selection when reaching the end of the list.
 - `scroll_padding`: (u16) Number of items to keep visible above/below the selection.
 - `r`, `reverse`: (When) When to reverse the list order (`Always`, `Never`, `Auto`).
 - `w`, `wrap`: (bool) Enable line wrapping for result items.
-- `wrap_scaling_min_width`: (u16) Minimum width for wrapping.
+- `min_wrap_width`: (u16) Minimum column width when wrapping.
 - `column_spacing`: (u16) Spacing between columns.
 - `right_align_last`: (bool) Right-align the last column.
 - `v`, `vertical`, `stacked_columns`: (bool) Display columns stacked vertically instead of across.
@@ -143,7 +140,18 @@ For example, `(( )) [one word] [\[]` splits into `(( ))`, `one word`, `[`.
 - `right_align_last`: (bool) Right-align the last column.
 - `border`: [Border Settings](#border-settings).
 
-#### Preview Panel (`preview.`, alias: `p`)
+#### Status Line (`status.`)
+
+- `fg`: (color) Color of the status line.
+- `modifier`: (modifier) Style of the status line.
+- `show`: (bool) Show/hide the status line.
+- `template`: (string) The following replacements are available:
+  - `\r` -> current index
+  - `\c` -> current column
+  - `\m` -> match count
+  - `\t` -> total count
+
+#### Preview Panel (`preview.`, `p`)
 
 - `show`: (bool) Toggle the preview window.
 - `scroll_wrap`: (bool) Enable scroll wrapping in preview.
@@ -162,9 +170,9 @@ For example, `(( )) [one word] [\[]` splits into `(( ))`, `one word`, `[`.
   - `p`, `percent` (0-100) – How far from the bottom of the preview window the scroll offset should appear.
   - `h`, `header_lines` (usize) – Keep the top N lines as a fixed header so that they are always visible.
 
-#### Header & Footer (`header.`, `footer.`, alias: `h` for header)
+#### Header & Footer (`header.`, `footer.`, `h`, `f`)
 
-- `content`: (string or list) Static content to display. Set to `auto` for default behavior.
+- `c`, `content`: (string or list) Static content to display.
 - `fg`, `modifier`: Style of the text.
 - `match_indent`: (bool) Indent content to match the results table.
 - `wrap`: (bool) Enable line wrapping.
@@ -197,6 +205,6 @@ Most UI components have a `border` block:
 - `title`: Optional text to display on the border.
 - `title_modifier`: Style modifier for the title.
 
-### Key Binds (`binds.`, alias: `b`)
+### Key Binds (`binds.`, `b`)
 
-See `--binds`
+See [webpage](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/binds.md) or `--binds`.

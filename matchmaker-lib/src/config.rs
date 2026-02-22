@@ -127,13 +127,18 @@ pub struct RenderConfig {
     /// The default overlay style
     pub ui: UiConfig,
     /// The input bar style
+    #[partial(alias = "i")]
     pub input: InputConfig,
     /// The results table style
     #[partial(alias = "r")]
     pub results: ResultsConfig,
+
+    /// The results status style
+    pub status: StatusConfig,
     /// The preview panel style
     #[partial(alias = "p")]
     pub preview: PreviewConfig,
+    #[partial(alias = "f")]
     pub footer: DisplayConfig,
     #[partial(alias = "h")]
     pub header: DisplayConfig,
@@ -219,9 +224,14 @@ pub struct InputConfig {
     // #[serde(deserialize_with = "transform_uppercase")]
     pub prompt_modifier: Modifier,
 
+    /// The prompt prefix.
     #[serde(deserialize_with = "deserialize_string_or_char_as_double_width")]
     pub prompt: String,
+    /// Cursor style.
     pub cursor: CursorSetting,
+
+    /// Initial text in the input bar.
+    #[partial(alias = "i")]
     pub initial: String,
 
     /// Maintain padding when moving the cursor in the bar.
@@ -323,13 +333,6 @@ pub struct ResultsConfig {
     #[serde(deserialize_with = "camelcase_normalized")]
     pub row_connection_style: RowConnectionStyle,
 
-    // status
-    #[serde(deserialize_with = "camelcase_normalized")]
-    pub status_fg: Color,
-    // #[serde(deserialize_with = "transform_uppercase")]
-    pub status_modifier: Modifier,
-    pub status_show: bool,
-
     // pub selected_fg: Color,
     // pub selected_bg: Color,
     // pub selected_modifier: Color,
@@ -346,7 +349,7 @@ pub struct ResultsConfig {
     // wrap
     #[partial(alias = "w")]
     pub wrap: bool,
-    pub wrap_scaling_min_width: u16,
+    pub min_wrap_width: u16,
 
     // experimental
     pub column_spacing: Count,
@@ -393,22 +396,43 @@ impl Default for ResultsConfig {
             current_modifier: Modifier::BOLD,
             row_connection_style: RowConnectionStyle::Disjoint,
 
-            status_fg: Color::Green,
-            status_modifier: Modifier::ITALIC,
-            status_show: true,
-
             scroll_wrap: true,
             scroll_padding: 2,
             reverse: Default::default(),
 
             wrap: Default::default(),
-            wrap_scaling_min_width: 5,
+            min_wrap_width: 5,
 
             column_spacing: Default::default(),
             current_prefix: Default::default(),
             right_align_last: false,
             stacked_columns: false,
             horizontal_separator: Default::default(),
+        }
+    }
+}
+
+#[partial(path, derive(Debug, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct StatusConfig {
+    #[serde(deserialize_with = "camelcase_normalized")]
+    pub fg: Color,
+    // #[serde(deserialize_with = "transform_uppercase")]
+    pub modifier: Modifier,
+    pub show: bool,
+    pub match_indent: bool,
+    #[partial(alias = "t")]
+    pub template: String,
+}
+impl Default for StatusConfig {
+    fn default() -> Self {
+        Self {
+            fg: Color::Green,
+            modifier: Modifier::ITALIC,
+            show: true,
+            match_indent: true,
+            template: r#"\m/\t"#.to_string(),
         }
     }
 }
@@ -425,10 +449,14 @@ pub struct DisplayConfig {
     // #[serde(deserialize_with = "transform_uppercase")]
     pub modifier: Modifier,
 
+    /// Indent content to match the results table.
     pub match_indent: bool,
+    /// Enable line wrapping.
     pub wrap: bool,
 
+    /// Static content to display.
     #[serde(deserialize_with = "deserialize_option_auto")]
+    #[partial(alias = "i")]
     pub content: Option<StringOrVec>,
 
     /// This setting controls the effective width of the displayed content.

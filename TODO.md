@@ -34,3 +34,4 @@
 - refactor to better fit components into specific ratatui roles so the ui can be embedded?
 - sometimes preview leaks (on invalid unicode), better autorefresh?
 - input_rhs_prompt
+- status template substitution via shell command

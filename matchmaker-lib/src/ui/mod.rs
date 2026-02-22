@@ -18,7 +18,7 @@ pub use ratatui::{
 use crate::{
     SSS, Selection, Selector,
     config::{
-        DisplayConfig, InputConfig, PreviewLayout, RenderConfig, ResultsConfig,
+        DisplayConfig, InputConfig, PreviewLayout, RenderConfig, ResultsConfig, StatusConfig,
         TerminalLayoutSettings, UiConfig,
     },
     nucleo::Worker,
@@ -61,6 +61,7 @@ impl UI {
 
         let picker = PickerUI::new(
             config.results,
+            config.status,
             config.input,
             config.header,
             matcher,
@@ -109,6 +110,7 @@ pub struct PickerUI<'a, T: SSS, S: Selection> {
 impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
     pub fn new(
         results_config: ResultsConfig,
+        status_config: StatusConfig,
         input_config: InputConfig,
         header_config: DisplayConfig,
         matcher: &'a mut nucleo::Matcher,
@@ -116,7 +118,7 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
         selections: Selector<T, S>,
     ) -> Self {
         Self {
-            results: ResultsUI::new(results_config),
+            results: ResultsUI::new(results_config, status_config),
             input: InputUI::new(input_config),
             header: DisplayUI::new(header_config),
             matcher,
@@ -135,7 +137,7 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
 
         let mut constraints = [
             Constraint::Length(1 + input.config.border.height()), // input
-            Constraint::Length(results.config.status_show as u16), // status
+            Constraint::Length(results.status_config.show as u16), // status
             Constraint::Length(header.height()),
             Constraint::Fill(1), // results
         ];

@@ -1,3 +1,4 @@
+use cli_boilerplate_automation::bring::StrExt;
 use ratatui::{
     layout::{Alignment, Rect},
     style::{Style, Stylize},
@@ -7,10 +8,13 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::{
     SSS, Selection, Selector,
-    config::{HorizontalSeparator, ResultsConfig, RowConnectionStyle},
+    config::{HorizontalSeparator, ResultsConfig, RowConnectionStyle, StatusConfig},
     nucleo::{Status, Worker},
     render::Click,
-    utils::text::{clip_text_lines, fit_width, prefix_text, substitute_escaped},
+    utils::{
+        string::{fit_width, substitute_escaped},
+        text::{clip_text_lines, prefix_text},
+    },
 };
 
 #[derive(Debug)]
@@ -25,6 +29,7 @@ pub struct ResultsUI {
     col: Option<usize>,
     pub status: Status,
     pub config: ResultsConfig,
+    pub status_config: StatusConfig,
 
     pub bottom_clip: Option<u16>,
     pub cursor_above: u16,
@@ -33,7 +38,7 @@ pub struct ResultsUI {
 }
 
 impl ResultsUI {
-    pub fn new(config: ResultsConfig) -> Self {
+    pub fn new(config: ResultsConfig, status_config: StatusConfig) -> Self {
         Self {
             cursor: 0,
             bottom: 0,
@@ -43,6 +48,7 @@ impl ResultsUI {
             height: 0, // uninitialized, so be sure to call update_dimensions
             width: 0,
             config,
+            status_config,
             cursor_disabled: false,
             bottom_clip: None,
             cursor_above: 0,
@@ -207,7 +213,7 @@ impl ResultsUI {
         let mut scalable_indices = Vec::new();
 
         for (i, &w) in self.widths.iter().enumerate() {
-            if w <= self.config.wrap_scaling_min_width {
+            if w <= self.config.min_wrap_width {
                 available = available.saturating_sub(w);
             } else {
                 scale_total += w;
@@ -218,7 +224,7 @@ impl ResultsUI {
         for &i in &scalable_indices {
             let old = self.widths[i];
             let new_w = old * available / scale_total;
-            widths[i] = new_w.max(self.config.wrap_scaling_min_width);
+            widths[i] = new_w.max(self.config.min_wrap_width);
         }
 
         // give remainder to the last scalable column
@@ -626,16 +632,25 @@ impl ResultsUI {
         table = table.block(self.config.border.as_static_block());
         table
     }
+}
 
+impl ResultsUI {
     pub fn make_status(&self) -> Paragraph<'_> {
-        Paragraph::new(format!(
-            "{}{}/{}",
-            " ".repeat(self.indentation()),
-            &self.status.matched_count,
-            &self.status.item_count
-        ))
-        .style(self.config.status_fg)
-        .add_modifier(self.config.status_modifier)
+        let substituted = substitute_escaped(
+            &self.status_config.template,
+            &[
+                ('r', &(self.index().to_string())),
+                ('m', &(self.status.matched_count.to_string())),
+                ('t', &(self.status.item_count.to_string())),
+            ],
+        )
+        .pad(
+            self.status_config.match_indent as usize * self.indentation(),
+            0,
+        );
+        Paragraph::new(substituted)
+            .style(self.status_config.fg)
+            .add_modifier(self.status_config.modifier)
     }
 }
 

@@ -1,3 +1,13 @@
+## [0.0.6] - 2026-02-22
+
+### 🚀 Features
+
+- Status template
+
+### 🚜 Refactor
+
+- Lints
+## [0.0.5] - 2026-02-21
 ## [0.0.4] - 2026-02-19
 - Bugfix and documentation updates
 - Align version cli and library versions

@@ -14,7 +14,7 @@
     nucleo                    = { git = "https://github.com/Squirreljetpack/nucleo", branch = "mm" }
 
 [workspace.dependencies]
-    matchmaker-lib             = { version = "0.0.5" }
+    matchmaker-lib             = { version = "0.0.6" }
     matchmaker-partial         = { version = "0.0.5" }
     matchmaker-partial-macros  = { version = "0.0.5", default-features = false }
     cli_boilerplate_automation = { version = "0.0.*" }

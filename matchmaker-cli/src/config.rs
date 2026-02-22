@@ -9,8 +9,9 @@ use matchmaker::action::Actions;
 use matchmaker::binds::Trigger;
 use std::collections::BTreeMap;
 
-#[partial(recurse, path, derive(Debug), attr)]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize)]
+#[partial(recurse, path)]
+#[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
     // configure the ui
@@ -35,9 +36,17 @@ pub struct Config {
     pub previewer: PreviewerConfig,
 
     // this is in a bit of a awkward place because the matcher, worker, picker and reader all want pieces of it.
-    #[serde(default, alias = "m")]
-    #[partial(attr)]
+    #[serde(default)]
+    #[partial(attr, alias = "m")]
     pub matcher: MatcherConfig,
+
+    #[serde(default)]
+    #[partial(attr, alias = "s")]
+    pub start: StartConfig,
+
+    #[serde(default)]
+    #[partial(attr, alias = "e")]
+    pub exit: ExitConfig,
 }
 
 // ----------------------- CONFIG

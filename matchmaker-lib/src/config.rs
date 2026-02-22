@@ -44,11 +44,6 @@ pub struct MatcherConfig {
     pub matcher: NucleoMatcherConfig,
     #[serde(flatten)]
     pub worker: WorkerConfig,
-    // only nit is that we would really prefer this config sit at top level since its irrelevant to [`crate::Matchmaker::new_from_config`] but it makes more sense under matcher in the config file
-    #[serde(flatten)]
-    pub start: StartConfig,
-    #[serde(flatten)]
-    pub exit: ExitConfig,
 }
 
 /// "Input/output specific". Configures the matchmaker worker.
@@ -59,17 +54,11 @@ pub struct MatcherConfig {
 #[partial(path, derive(Debug, Deserialize))]
 pub struct WorkerConfig {
     #[partial(recurse)]
-    #[partial(alias = "c")]
+    #[serde(flatten)]
     /// How columns are parsed from input lines
     pub columns: ColumnsConfig,
-    /// Trim the input
-    #[partial(alias = "t")]
-    pub trim: bool,
     /// How "stable" the results are. Higher values prioritize the initial ordering.
     pub sort_threshold: u32,
-    /// Whether to parse ansi sequences from input
-    #[partial(alias = "a")]
-    pub ansi: bool,
 
     /// TODO: Enable raw mode where non-matching items are also displayed in a dimmed color.
     #[partial(alias = "r")]
@@ -84,7 +73,7 @@ pub struct WorkerConfig {
 ///
 /// Does not deny unknown fields.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 #[partial(path, derive(Debug, Deserialize))]
 pub struct StartConfig {
     #[serde(deserialize_with = "escaped_opt_char")]
@@ -95,20 +84,28 @@ pub struct StartConfig {
     pub output_separator: Option<String>,
 
     /// Format string to print accepted items as.
+    #[partial(alias = "ot")]
+    #[serde(alias = "output")]
     pub output_template: Option<String>,
 
     /// Default command to execute when stdin is not being read.
     #[partial(alias = "cmd", alias = "x")]
     pub command: String,
-    #[partial(alias = "s")]
     pub sync: bool,
+
+    /// Whether to parse ansi sequences from input
+    #[partial(alias = "a")]
+    pub ansi: bool,
+    /// Trim the input
+    #[partial(alias = "t")]
+    pub trim: bool,
 }
 
 /// Exit conditions of the render loop.
 ///
 /// Does not deny unknown fields.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 #[partial(path, derive(Debug, Deserialize))]
 pub struct ExitConfig {
     /// Exit automatically if there is only one match.
@@ -456,7 +453,6 @@ pub struct DisplayConfig {
 
     /// Static content to display.
     #[serde(deserialize_with = "deserialize_option_auto")]
-    #[partial(alias = "i")]
     pub content: Option<StringOrVec>,
 
     /// This setting controls the effective width of the displayed content.
@@ -513,7 +509,7 @@ impl Default for DisplayConfig {
 pub struct PreviewConfig {
     #[partial(recurse)]
     pub border: BorderSetting,
-    #[partial(recurse)]
+    #[partial(recurse, set = "recurse")]
     #[partial(alias = "l")]
     pub layout: Vec<PreviewSetting>,
     #[partial(recurse)]
@@ -825,6 +821,7 @@ use crate::utils::serde::bounded_usize;
 #[partial(path, derive(Debug, Deserialize))]
 pub struct ColumnsConfig {
     /// The strategy of how columns are parsed from input lines
+    #[partial(alias = "s")]
     pub split: Split,
     /// Column names
     #[partial(alias = "n")]

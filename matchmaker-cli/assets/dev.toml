@@ -106,8 +106,11 @@
     trim                = true
     columns.split       = '\s+'
     columns.max_columns = 5
-    select_1            = false
-    format              = "{}"
-    command     = "fd"
-    # sync = false
     sort_threshold = 1
+
+[start]
+    command = "fd"
+    output = "{}"
+
+[exit]
+    select_1            = false

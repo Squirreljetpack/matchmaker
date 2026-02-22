@@ -229,28 +229,35 @@ mod ansi {
     };
     use ansi_to_tui::IntoText;
 
+    pub type PreprocessOptions = (bool, bool);
+
     pub use super::*;
     pub struct AnsiInjector<I> {
         pub injector: I,
         parse: bool,
+        trim: bool,
     }
 
     impl<I: Injector<InputItem = Either<String, Text<'static>>>> Injector for AnsiInjector<I> {
         type InputItem = String;
         type Inner = I;
-        type Context = bool;
+        type Context = PreprocessOptions;
 
-        fn new(injector: Self::Inner, wrap: Self::Context) -> Self {
+        fn new(injector: Self::Inner, (parse, trim): Self::Context) -> Self {
             Self {
                 injector,
-                parse: wrap,
+                parse,
+                trim,
             }
         }
 
         fn wrap(
             &self,
-            item: Self::InputItem,
+            mut item: Self::InputItem,
         ) -> Result<<Self::Inner as Injector>::InputItem, WorkerError> {
+            if self.trim {
+                item = item.trim().to_string();
+            }
             let ret = if !self.parse {
                 Either::Left(item)
             } else {

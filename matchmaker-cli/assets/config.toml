@@ -77,5 +77,5 @@
     "alt-o"  = "Become($EDITOR {})"
     "ctrl-r" = "Reload(find . -type f)"
 
-[matcher]
+[start]
     command = "fd --strip-cwd-prefix"

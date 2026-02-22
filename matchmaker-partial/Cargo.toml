@@ -26,5 +26,9 @@
     name = "penetration_test"
     path = "tests/penetration_test.rs"
 
+[[test]]
+    name = "set_recurse_test"
+    path = "tests/set_recurse_test.rs"
+
 [lints]
     workspace = true

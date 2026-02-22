@@ -118,28 +118,26 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         render,
         tui,
         previewer,
-        matcher:
-            MatcherConfig {
-                matcher,
-                worker,
-                exit,
-                start:
-                    StartConfig {
-                        input_separator,
-                        command,
-                        sync,
-                        output_separator,
-                        output_template,
-                    },
-            },
+        matcher: MatcherConfig { matcher, worker },
         binds,
+        start:
+            StartConfig {
+                input_separator,
+                command,
+                sync,
+                output_separator,
+                output_template,
+                ansi,
+                trim,
+            },
+        exit,
     } = config;
 
     let abort_empty = exit.abort_empty;
     let header_lines = render.header.header_lines;
     let print_handle = AppendOnly::new();
     let output_separator = output_separator.clone().unwrap_or("\n".into());
-    let ansi = worker.ansi;
+    let preprocess = (ansi, trim);
 
     let event_loop = EventLoop::with_binds(binds).with_tick_rate(render.tick_rate());
     // make matcher and matchmaker with matchmaker-and-matcher-maker
@@ -150,7 +148,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             formatter,
             splitter,
         },
-    ) = Matchmaker::new_from_config(render, tui, worker, exit);
+    ) = Matchmaker::new_from_config(render, tui, worker, exit, (ansi, trim));
     // make previewer
     let help_str = display_binds(&event_loop.binds, Some(&previewer.help_colors));
     let previewer = make_previewer(&mut mm, previewer, formatter.clone(), help_str);
@@ -174,7 +172,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         let injector = state.injector();
         let injector = IndexedInjector::new_globally_indexed(injector);
         let injector = SegmentedInjector::new(injector, splitter.clone());
-        let injector = AnsiInjector::new(injector, ansi);
+        let injector = AnsiInjector::new(injector, preprocess);
 
         if let Some(t) = state.current_raw() {
             let cmd = reload_formatter(t, state.payload());

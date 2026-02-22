@@ -514,6 +514,7 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                 let field_name_str = field_name_str.strip_prefix("r#").unwrap_or(&field_name_str);
 
                 let is_sequence = field_set.as_deref() == Some("sequence");
+                let is_set_recurse = field_set.as_deref() == Some("recurse");
                 let set_logic = if is_sequence {
                     let assignment = if !field_unwrap {
                         quote! { self.#field_ident = Some(deserialized); }
@@ -537,6 +538,18 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                         quote! { #target.extend(new_map.into_iter()); }
                     };
 
+                    let p_element_ty = if let Type::Path(tp) = element_ty {
+                        let mut p_path = tp.path.clone();
+                        if let Some(seg) = p_path.segments.last_mut() {
+                            seg.ident = format_ident!("Partial{}", seg.ident);
+                            quote! { #p_path }
+                        } else {
+                            quote! { #element_ty }
+                        }
+                    } else {
+                        quote! { #element_ty }
+                    };
+
                     if inners.len() == 2 {
                         let key_ty = inners[0];
                         let val_ty = if should_recurse {
@@ -545,7 +558,17 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                             quote! { #element_ty }
                         };
 
-                        let descent_logic = if should_recurse {
+                        let descent_logic = if should_recurse || is_set_recurse {
+                            let set_item_logic = if should_recurse {
+                                quote! { matchmaker_partial::Set::set(item, rest, val)?; }
+                            } else {
+                                quote! {
+                                    let mut p_item = #p_element_ty::default();
+                                    matchmaker_partial::Set::set(&mut p_item, rest, val)?;
+                                    *item = matchmaker_partial::from(p_item);
+                                }
+                            };
+
                             quote! {
                                 if rest.is_empty() {
                                     let mut combined = vec![key_str.clone()];
@@ -555,7 +578,7 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                                 } else {
                                     let key: #key_ty = matchmaker_partial::deserialize(&[key_str.clone()])?;
                                     let item = #target.entry(key).or_insert_with(Default::default);
-                                    matchmaker_partial::Set::set(item, rest, val)?;
+                                    #set_item_logic
                                 }
                             }
                         } else {
@@ -589,12 +612,38 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                         } else {
                             quote! { #element_ty }
                         };
-                        quote! {
-                            if let Some((_, _)) = tail.split_first() {
-                                return Err(matchmaker_partial::PartialSetError::ExtraPaths(tail.to_vec()));
+                        if is_set_recurse {
+                            if should_recurse {
+                                quote! {
+                                    let mut item = #item_ty::default();
+                                    if tail.is_empty() {
+                                        item = matchmaker_partial::deserialize(val)?;
+                                    } else {
+                                        matchmaker_partial::Set::set(&mut item, tail, val)?;
+                                    }
+                                    #target.#push_method(item);
+                                }
+                            } else {
+                                quote! {
+                                    if tail.is_empty() {
+                                        let item: #item_ty = matchmaker_partial::deserialize(val)?;
+                                        #target.#push_method(item);
+                                    } else {
+                                        let mut p_item = #p_element_ty::default();
+                                        matchmaker_partial::Set::set(&mut p_item, tail, val)?;
+                                        let item: #item_ty = matchmaker_partial::from(p_item);
+                                        #target.#push_method(item);
+                                    }
+                                }
                             }
-                            let item: #item_ty = matchmaker_partial::deserialize(val)?;
-                            #target.#push_method(item);
+                        } else {
+                            quote! {
+                                if let Some((_, _)) = tail.split_first() {
+                                    return Err(matchmaker_partial::PartialSetError::ExtraPaths(tail.to_vec()));
+                                }
+                                let item: #item_ty = matchmaker_partial::deserialize(val)?;
+                                #target.#push_method(item);
+                            }
                         }
                     }
                 };

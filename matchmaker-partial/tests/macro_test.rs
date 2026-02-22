@@ -169,7 +169,7 @@ mod tests {
     #[test]
     fn test_struct_level_recurse_with_overrides() {
         #[partial]
-        #[derive(Debug, PartialEq, Clone)]
+        #[derive(Debug, PartialEq)]
         struct Inner {
             pub count: i32,
         }
@@ -252,14 +252,14 @@ mod tests {
     #[test]
     fn test_partial_merge_and_clear() {
         #[partial(merge)]
-        #[derive(Debug, PartialEq, Clone)]
+        #[derive(Debug, PartialEq)]
         struct Stats {
             hp: i32,
             mana: i32,
         }
 
         #[partial(recurse, merge)]
-        #[derive(Debug, PartialEq, Clone)]
+        #[derive(Debug, PartialEq)]
         struct Character {
             #[partial(recurse = "")]
             name: String,

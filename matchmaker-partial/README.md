@@ -19,7 +19,7 @@ use matchmaker_partial::Apply;
 use matchmaker_partial_macros::partial;
 
 #[partial]
-#[derive(Debug, PartialEq, Default)]
+#[derive(Debug, PartialEq)]
 struct Config {
     pub name: String,
     pub threads: Option<i32>,
@@ -89,14 +89,14 @@ use matchmaker_partial::Apply;
 use matchmaker_partial_macros::partial;
 
 #[partial]
-#[derive(Debug, Default, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 struct UIConfig {
     pub width: u32,
     pub height: u32,
 }
 
 #[partial]
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, PartialEq)]
 struct AppConfig {
     pub name: String,
     #[partial(recurse)]
@@ -133,22 +133,22 @@ The behavior is summarized in the following table:
 
 #### Type Transformation
 
-| Original         | No Recurse / Not Unwrapped | No Recurse / Unwrap | Recurse / Not Unwrapped                   | Recurse / Unwrap         |
-| ---------------- | -------------------------- | ------------------- | ----------------------------------------- | ------------------------ |
-| `Vec<T>`         | `Option<Vec<T>>`           | `Vec<T>`            | `Option<Vec<P>>`                          | `Vec<P>`                 |
-| `Option<Vec<T>>` | `Option<Vec<T>>`           | `Vec<T>`            | `Option<Vec<P>>`                          | `Vec<P>`                 |
-| Apply behavior   | Overwrite                  | Extend              | Apply, then extend from upgraded versions | Upgrade all, then extend |
+| Original         | No Recurse / Not Unwrapped | No Recurse / Unwrap | Recurse / Not Unwrapped                   | Recurse / Unwrap              |
+| ---------------- | -------------------------- | ------------------- | ----------------------------------------- | ----------------------------- |
+| `Vec<T>`         | `Option<Vec<T>>`           | `Vec<T>`            | `Option<Vec<P>>`                          | `Vec<P>`                      |
+| `Option<Vec<T>>` | `Option<Vec<T>>`           | `Vec<T>`            | `Option<Vec<P>>`                          | `Vec<P>`                      |
+| Apply behavior   | Overwrite                  | Extend              | Apply, then extend from upgraded versions | Upgrade all to T, then extend |
 
 ## Set Attributes
 
 ### `set = "sequence"`
 
-Fields can be configured to deserialize input as a sequence rather than a single value using `#[partial(set = "sequence")]`. This is useful for collections or fields that should accept multiple values at once.
+On a collection, using `#[partial(set = "sequence")]` causes it to deserialize input as a sequence rather than as the next given single value.
 
-````rust
-#[partial(set = "sequence")]
-#[derive(Default)]
+```rust
+#[partial(path)]
 struct Config {
+    #[partial(set = "sequence")]
     pub tags: Vec<String>,
 }
 
@@ -157,12 +157,35 @@ partial.set(&["tags"], &["alpha", "beta", "gamma"]).unwrap();
 assert_eq!(partial.tags, Some(vec!["alpha".into(), "beta".into(), "gamma".into()]));
 ```
 
+### `set = "recurse"`
+
+On a collection, using `#[partial(set = "recurse")]` adds support for additional path segments after its own. The additional path segments are used to create a new partial item with a single field set, which is then appended to the collection.
+
+```rust
+struct Nested {
+    pub name: String
+    pub kind: usize
+}
+
+#[partial(path)]
+struct Config {
+    #[partial(set = "recurse")]
+    pub tags: Vec<Nested>,
+}
+
+let mut partial = PartialConfig::default();
+partial.set(&["tags", "name"], &["alpha"]).unwrap();
+assert_eq!(partial.tags, Some(
+    vec![Nested { name: "alpha".into(), kind: 0 }]
+));
+```
+
 ### `serde(alias)`
 
 Fields with `#[serde(alias = "...")]` or `#[partial(alias = "...")]` can be updated using any of the specified aliases in addition to the original field name.
 
 ```rust
-#[derive(Default)]
+#[partial(path)]
 struct Config {
     #[serde(alias = "threads_count")]
     pub threads: i32,
@@ -171,7 +194,7 @@ struct Config {
 let mut partial = PartialConfig::default();
 partial.set(&["threads_count"], &["8"]).unwrap();
 assert_eq!(partial.threads, Some(8));
-````
+```
 
 ---
 
@@ -182,15 +205,13 @@ Flattened fields allow embedding nested structs directly at the top level. When 
 `#[partial(flatten)]` is also supported.
 
 ```rust
-#[partial]
-#[derive(Default)]
+#[partial(path)]
 struct Inner {
     pub width: u32,
     pub height: u32,
 }
 
-#[partial]
-#[derive(Default)]
+#[partial(path)]
 struct Outer {
     #[serde(flatten)]
     #[partial(recurse)]
@@ -204,7 +225,7 @@ assert_eq!(partial.inner.width, Some(1024));
 assert_eq!(partial.inner.height, Some(768));
 ```
 
-## `merge`
+## Modify with `merge`
 
 Adding `#[partial(merge)]` generates the `Merge` trait for the partial struct, providing:
 
@@ -215,11 +236,9 @@ Adding `#[partial(merge)]` generates the `Merge` trait for the partial struct, p
 
 ```rust
 #[partial(merge)]
-#[derive(Default, Clone)]
 struct Stats { hp: i32, mana: i32 }
 
 #[partial(recurse, merge)]
-#[derive(Default, Clone)]
 struct Character { name: String, stats: Stats }
 
 let mut hero = Character { name: "Arthur".into(), stats: Stats { hp: 100, mana: 50 } };

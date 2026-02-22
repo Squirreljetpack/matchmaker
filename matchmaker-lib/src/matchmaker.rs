@@ -23,8 +23,8 @@ use crate::{
     nucleo::{
         Indexed, Segmented, Worker,
         injector::{
-            AnsiInjector, Either, IndexedInjector, Injector, SegmentedInjector, SplitterFn,
-            WorkerInjector,
+            AnsiInjector, Either, IndexedInjector, Injector, PreprocessOptions, SegmentedInjector,
+            SplitterFn, WorkerInjector,
         },
     },
     preview::{
@@ -78,6 +78,7 @@ impl ConfigMatchmaker {
         tui_config: TerminalConfig,
         worker_config: WorkerConfig,
         exit_config: ExitConfig,
+        preprocess_config: PreprocessOptions,
     ) -> (Self, ConfigInjector, OddEnds) {
         let cc = worker_config.columns;
         // "hack" because we cannot make the results stable in the worker as our current hack uses the identifier
@@ -140,7 +141,7 @@ impl ConfigMatchmaker {
         };
         let injector = IndexedInjector::new_globally_indexed(injector);
         let injector = SegmentedInjector::new(injector, splitter.clone());
-        let injector = AnsiInjector::new(injector, worker_config.ansi);
+        let injector = AnsiInjector::new(injector, preprocess_config);
 
         // segment then index. Question: what about ansi sequences?
 

@@ -232,15 +232,15 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         print_handle.map_to_vec(|s| print!("{}{}", s, output_separator));
 
         for item in v {
-            let s = if let Some(_s) = &output_template {
-                // print_formatter(
-                //     &matchmaker::nucleo::Indexed {
-                //         index: 0,
-                //         inner: item,
-                //     },
-                //     s,
-                // )
-                todo!()
+            let s = if let Some(s) = &output_template {
+                print_formatter(
+                    &matchmaker::nucleo::Indexed {
+                        index: 0,
+                        inner: item,
+                    },
+                    s,
+                )
+                .into()
             } else {
                 item.to_cow()
             };

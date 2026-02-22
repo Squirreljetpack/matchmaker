@@ -5,15 +5,12 @@ use matchmaker_partial_macros::partial;
 
 use std::{fmt, ops::Deref};
 
-pub use crate::utils::{Percentage, serde::StringOrVec};
+pub use crate::utils::{HorizontalSeparator, Percentage, serde::StringOrVec};
 
 use crate::{
     MAX_SPLITS,
     tui::IoStream,
-    utils::{
-        seperator::HorizontalSeparator,
-        serde::{escaped_opt_char, escaped_opt_string, serde_duration_ms},
-    },
+    utils::serde::{escaped_opt_char, escaped_opt_string, serde_duration_ms},
 };
 
 use cli_boilerplate_automation::define_transparent_wrapper;

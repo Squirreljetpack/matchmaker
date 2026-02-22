@@ -7,13 +7,10 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::{
     SSS, Selection, Selector,
-    config::{ResultsConfig, RowConnectionStyle},
+    config::{HorizontalSeparator, ResultsConfig, RowConnectionStyle},
     nucleo::{Status, Worker},
     render::Click,
-    utils::{
-        seperator::HorizontalSeparator,
-        text::{clip_text_lines, fit_width, prefix_text, substitute_escaped},
-    },
+    utils::text::{clip_text_lines, fit_width, prefix_text, substitute_escaped},
 };
 
 #[derive(Debug)]

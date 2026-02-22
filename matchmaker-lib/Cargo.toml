@@ -9,7 +9,7 @@
     keywords    = [ "fuzzy", "finder", "tui", "nucleo", "fzf" ]
 
 [dependencies]
-    cli_boilerplate_automation = { version = "0", features = [ "text", "serde" ] }
+    cli_boilerplate_automation = { version = "0", features = [ "serde" ] }
     matchmaker-partial         = { workspace = true, optional = true }
     matchmaker-partial-macros  = { workspace = true, default-features = false }
 

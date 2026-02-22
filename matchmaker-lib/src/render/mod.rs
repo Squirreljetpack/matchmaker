@@ -277,14 +277,14 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         }
                         Action::SetHeader(context) => {
                             if let Some(s) = context {
-                                header.set(s, true);
+                                header.set(s);
                             } else {
                                 header.clear(true);
                             }
                         }
                         Action::SetFooter(context) => {
                             if let Some(s) = context {
-                                footer_ui.set(s, false);
+                                footer_ui.set(s);
                             } else {
                                 footer_ui.clear(false);
                             }

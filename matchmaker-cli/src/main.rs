@@ -17,7 +17,7 @@ use start::*;
 use utils::*;
 
 use cli_boilerplate_automation::{
-    bait::ResultExt, bog::BogOkExt, ebog, text::split::split_nesting,
+    bait::ResultExt, bog::BogOkExt, bring::split::split_nesting, ebog,
 };
 use matchmaker::MatchError;
 

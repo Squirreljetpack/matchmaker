@@ -16,7 +16,7 @@ pub struct DisplayUI {
     width: u16,
     height: u16,
     text: Vec<Text<'static>>,
-    header: HeaderTable,
+    header: HeaderTable, // lines from input
     pub show: bool,
     pub config: DisplayConfig,
 }
@@ -71,23 +71,20 @@ impl DisplayUI {
     }
 
     /// Set text and visibility. Compute wrapped height.
-    pub fn set(&mut self, text: impl Into<Text<'static>>, keep_header: bool) {
+    pub fn set(&mut self, text: impl Into<Text<'static>>) {
         let (text, _) = wrap_text(text.into(), self.config.wrap as u16 * self.width);
 
         self.text = vec![text];
-
-        if !keep_header {
-            self.header.clear();
-        }
 
         self.show = true;
     }
 
     pub fn clear(&mut self, keep_header: bool) {
-        self.show = false;
-
         if !keep_header {
             self.header.clear();
+            self.show = false;
+        } else if self.header.is_empty() {
+            self.show = false;
         }
 
         self.text.clear();

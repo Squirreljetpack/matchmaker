@@ -15,10 +15,11 @@ pub struct InputUI {
     pub input: String,
     /// (byte_index, width)
     graphemes: Vec<(usize, u16)>,
-    pub config: InputConfig,
     pub prompt: Span<'static>,
-    before: usize, // index into graphemes of the first visible grapheme
-    pub width: u16,
+    before: usize,  // index into graphemes of the first visible grapheme
+    pub width: u16, // only relevant to cursor scrolling
+
+    pub config: InputConfig,
 }
 
 impl InputUI {
@@ -42,6 +43,7 @@ impl InputUI {
         ui
     }
 
+    // -------- UTILS -----------
     fn recompute_graphemes(&mut self) {
         self.graphemes = self
             .input
@@ -87,6 +89,24 @@ impl InputUI {
         )
     }
 
+    // ------------ SETTERS ---------------
+    pub fn update_width(&mut self, width: u16) {
+        let text_width = width
+            .saturating_sub(self.prompt.width() as u16)
+            .saturating_sub(self.config.border.width());
+        if self.width != text_width {
+            self.width = text_width;
+        }
+    }
+
+    pub fn set(&mut self, input: impl Into<Option<String>>, cursor: u16) {
+        if let Some(input) = input.into() {
+            self.input = input;
+            self.recompute_graphemes();
+        }
+        self.cursor = (cursor as usize).min(self.graphemes.len());
+    }
+
     pub fn push_char(&mut self, c: char) {
         let byte_idx = self.byte_index(self.cursor);
         self.input.insert(byte_idx, c);
@@ -100,24 +120,6 @@ impl InputUI {
         let added_graphemes = content.graphemes(true).count();
         self.recompute_graphemes();
         self.cursor += added_graphemes;
-    }
-
-    // ------------ SETTERS ---------------
-    pub fn set(&mut self, input: impl Into<Option<String>>, cursor: u16) {
-        if let Some(input) = input.into() {
-            self.input = input;
-            self.recompute_graphemes();
-        }
-        self.cursor = (cursor as usize).min(self.graphemes.len());
-    }
-
-    pub fn update_width(&mut self, width: u16) {
-        let text_width = width
-            .saturating_sub(self.prompt.width() as u16)
-            .saturating_sub(self.config.border.width());
-        if self.width != text_width {
-            self.width = text_width;
-        }
     }
 
     pub fn scroll_to_cursor(&mut self) {
@@ -155,6 +157,17 @@ impl InputUI {
         }
     }
 
+    pub fn cancel(&mut self) {
+        self.input.clear();
+        self.graphemes.clear();
+        self.cursor = 0;
+        self.before = 0;
+    }
+    pub fn reset_prompt(&mut self) {
+        self.prompt = Span::from(self.config.prompt.clone());
+    }
+
+    /// Set cursor to a visual offset relative to start position
     pub fn set_at_visual_offset(&mut self, visual_offset: u16) {
         let mut current_width = 0;
         let mut target_cursor = self.before;
@@ -174,16 +187,6 @@ impl InputUI {
         }
 
         self.cursor = target_cursor;
-    }
-
-    pub fn cancel(&mut self) {
-        self.input.clear();
-        self.graphemes.clear();
-        self.cursor = 0;
-        self.before = 0;
-    }
-    pub fn reset_prompt(&mut self) {
-        self.prompt = Span::from(self.config.prompt.clone());
     }
 
     // ---------- EDITING -------------
@@ -285,7 +288,7 @@ impl InputUI {
 
         while end_idx < self.graphemes.len() {
             let g_width = self.graphemes[end_idx].1;
-            if visible_width + g_width > self.width {
+            if self.width != 0 && visible_width + g_width > self.width {
                 break;
             }
             visible_width += g_width;

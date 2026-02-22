@@ -1,3 +1,13 @@
+## [0.0.7] - 2026-02-22
+
+### 🚀 Features
+- matchmaker-partial: support recursive set in collections
+- matchmaker-cli: support direct override of preview command (alias: px)
+- matchmaker-cli: new aliases: see options.md
+
+### 🚜 Refactor
+- Move start and exit configs out from under MatcherConfig to top level
+
 ## [0.0.6] - 2026-02-22
 
 ### 🚀 Features

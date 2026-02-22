@@ -11,16 +11,18 @@ pub enum ParseError {
 }
 
 static ALIASES: &[(&str, &str)] = &[
-    ("d", "matcher.split"),
     ("i", "start.input_separator"),
     ("o", "start.output_template"),
     ("x", "start.command"),
     ("cmd", "start.command"),
+    ("a", "start.ansi"),
+    ("t", "start.trim"),
+    //
+    ("d", "matcher.split"),
+    //
     ("px", "preview.layout.command"),
     ("l", "preview.layout"),
     ("h", "header.content"),
-    ("a", "start.ansi"),
-    ("t", "start.trim"),
 ];
 
 /// Get (path, value) pairs by consuming either a single word, splitting at '=' into a valid key, or a pair of consecutive words.

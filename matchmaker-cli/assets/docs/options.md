@@ -158,7 +158,7 @@ For example, `(( )) [one word] [\[]` splits into `(( ))`, `one word`, `[`.
 - `show`: (bool) Toggle the preview window.
 - `scroll_wrap`: (bool) Enable scroll wrapping in preview.
 - `wrap`: (bool) Enable line wrapping in preview.
-- `layout`: List of preview settings.
+- `layout`: List of preview settings. This path overrides the existing preview layouts in order.
   - Absolute alias: `l`.
   - `x`, `command`: Command to run for preview. `{}` is replaced by the item.
     - Absolute alias: `px`.
@@ -166,7 +166,6 @@ For example, `(( )) [one word] [\[]` splits into `(( ))`, `one word`, `[`.
     - `side`: `top`, `bottom`, `left`, `right`.
     - `percentage`: Percentage of the screen to occupy.
     - `min`, `max`: Pixel constraints for the preview size.
-  - Note: This path overrides the existing preview layouts in order.
 - `border`: [Border Settings](#border-settings).
 - `scroll`: Control the initial scroll offset of the preview window. Supports the following fields from [`PreviewScrollSetting`]:
   - `index` (string, optional) – Extract the initial display index `n` of the preview window from this column. `n` lines are skipped after the header lines are consumed.

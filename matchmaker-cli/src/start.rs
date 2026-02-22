@@ -148,7 +148,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             formatter,
             splitter,
         },
-    ) = Matchmaker::new_from_config(render, tui, worker, exit, (ansi, trim));
+    ) = Matchmaker::new_from_config(render, tui, worker, exit, preprocess);
     // make previewer
     let help_str = display_binds(&event_loop.binds, Some(&previewer.help_colors));
     let previewer = make_previewer(&mut mm, previewer, formatter.clone(), help_str);

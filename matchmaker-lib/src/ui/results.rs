@@ -1,7 +1,7 @@
-use cli_boilerplate_automation::bring::StrExt;
 use ratatui::{
     layout::{Alignment, Rect},
     style::{Style, Stylize},
+    text::{Line, Span},
     widgets::{Paragraph, Row, Table},
 };
 use unicode_width::UnicodeWidthStr;
@@ -13,7 +13,7 @@ use crate::{
     render::Click,
     utils::{
         string::{fit_width, substitute_escaped},
-        text::{clip_text_lines, prefix_text},
+        text::{clip_text_lines, expand_indents, prefix_text},
     },
 };
 
@@ -21,14 +21,18 @@ use crate::{
 pub struct ResultsUI {
     cursor: u16,
     bottom: u16,
-    height: u16, // actual height
+    col: Option<usize>,
+
+    /// available height
+    height: u16,
+    /// available width
     width: u16,
     // column widths.
     // Note that the first width includes the indentation.
     widths: Vec<u16>,
-    col: Option<usize>,
 
     pub status: Status,
+    pub status_template: Line<'static>,
     pub status_config: StatusConfig,
 
     pub config: ResultsConfig,
@@ -45,12 +49,19 @@ impl ResultsUI {
             cursor: 0,
             bottom: 0,
             col: None,
+
             widths: Vec::new(),
-            status: Default::default(),
             height: 0, // uninitialized, so be sure to call update_dimensions
             width: 0,
-            config,
+
+            status: Default::default(),
+            status_template: Span::from(status_config.template.clone())
+                .style(status_config.fg)
+                .add_modifier(status_config.modifier)
+                .into(),
             status_config,
+            config,
+
             cursor_disabled: false,
             bottom_clip: None,
             cursor_above: 0,
@@ -638,21 +649,38 @@ impl ResultsUI {
 
 impl ResultsUI {
     pub fn make_status(&self) -> Paragraph<'_> {
-        let substituted = substitute_escaped(
-            &self.status_config.template,
-            &[
-                ('r', &(self.index().to_string())),
-                ('m', &(self.status.matched_count.to_string())),
-                ('t', &(self.status.item_count.to_string())),
-            ],
-        )
-        .pad(
-            self.status_config.match_indent as usize * self.indentation(),
-            0,
-        );
-        Paragraph::new(substituted)
-            .style(self.status_config.fg)
-            .add_modifier(self.status_config.modifier)
+        let replacements = [
+            ('r', self.index().to_string()),
+            ('m', self.status.matched_count.to_string()),
+            ('t', self.status.item_count.to_string()),
+        ];
+
+        let mut new_spans = Vec::new();
+
+        if self.status_config.match_indent {
+            new_spans.push(Span::raw(" ".repeat(self.indentation())));
+        }
+
+        for span in &self.status_template {
+            let subbed = substitute_escaped(&span.content, &replacements);
+
+            new_spans.push(Span::styled(subbed, span.style));
+        }
+
+        let substituted_line = Line::from(new_spans);
+
+        let expanded = expand_indents(substituted_line, r"\s", self.width as usize);
+
+        Paragraph::new(expanded)
+    }
+
+    pub fn set_status_line(&mut self, template: Option<String>) {
+        let status_config = &self.status_config;
+
+        self.status_template = Span::from(template.unwrap_or(status_config.template.clone()))
+            .style(status_config.fg)
+            .add_modifier(status_config.modifier)
+            .into()
     }
 }
 

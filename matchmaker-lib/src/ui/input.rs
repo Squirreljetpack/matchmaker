@@ -11,8 +11,8 @@ use crate::config::InputConfig;
 
 #[derive(Debug)]
 pub struct InputUI {
-    cursor: usize, // index into graphemes, can = graphemes.len()
-    pub input: String,
+    cursor: usize,     // index into graphemes, can = graphemes.len()
+    pub input: String, // remember to call recompute_graphemes() after modifying directly
     /// (byte_index, width)
     graphemes: Vec<(usize, u16)>,
     pub prompt: Span<'static>,
@@ -44,7 +44,7 @@ impl InputUI {
     }
 
     // -------- UTILS -----------
-    fn recompute_graphemes(&mut self) {
+    pub fn recompute_graphemes(&mut self) {
         self.graphemes = self
             .input
             .grapheme_indices(true)

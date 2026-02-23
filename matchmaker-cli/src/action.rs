@@ -51,17 +51,13 @@ pub enum MMAction {
 
 pub struct ActionContext {
     pub bind_tx: BindSender<MMAction>,
-    pub status_template: String,
 }
 
 #[allow(unused)]
 pub fn action_handler(
     a: MMAction,
     state: &mut MMState<'_, '_>,
-    ActionContext {
-        bind_tx,
-        status_template,
-    }: &mut ActionContext,
+    ActionContext { bind_tx }: &mut ActionContext,
 ) {
     match a {
         // state
@@ -158,11 +154,7 @@ pub fn action_handler(
             }
         }
         MMAction::SetStatus(s) => {
-            if let Some(s) = s {
-                state.picker_ui.results.status_config.template = s;
-            } else {
-                state.picker_ui.results.status_config.template = status_template.clone();
-            }
+            state.picker_ui.results.set_status_line(s);
         }
         MMAction::SetQuery(s) => {
             state.picker_ui.input.set(s, u16::MAX);

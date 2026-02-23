@@ -3,7 +3,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
 /// Substitute characters present as keys in the map, unless they are escaped.
-pub fn substitute_escaped(input: &str, map: &[(char, &str)]) -> String {
+pub fn substitute_escaped<U: AsRef<str>>(input: &str, map: &[(char, U)]) -> String {
     let mut out = String::new();
     let mut chars = input.chars().peekable();
 
@@ -11,8 +11,8 @@ pub fn substitute_escaped(input: &str, map: &[(char, &str)]) -> String {
         if c == '\\' {
             match chars.peek() {
                 Some(&k) => {
-                    if let Some(&(_, replacement)) = map.iter().find(|(key, _)| *key == k) {
-                        out.push_str(replacement);
+                    if let Some((_, replacement)) = map.iter().find(|(key, _)| *key == k) {
+                        out.push_str(replacement.as_ref());
                         chars.next();
                     } else {
                         out.push('\\');

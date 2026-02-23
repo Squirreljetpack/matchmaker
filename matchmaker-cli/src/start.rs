@@ -162,7 +162,6 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let print_handle = AppendOnly::new();
     let output_separator = output_separator.clone().unwrap_or("\n".into());
     let preprocess = (ansi, trim);
-    let status_template = render.status.template.clone();
 
     if exit.last_key_path.is_none() {
         exit.last_key_path = Some(last_key_path().into())
@@ -221,8 +220,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     debug!("{mm:?}");
 
     let mut action_context = ActionContext {
-        bind_tx: event_loop.get_bind_controller(),
-        status_template,
+        bind_tx: event_loop.bind_controller(),
     };
 
     let mut options = PickOptions::new()

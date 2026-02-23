@@ -302,6 +302,82 @@ pub fn scrub_text_styles(text: &mut Text<'_>) {
     }
 }
 
+/// Expand `placeholder` inside a Line and distribute spaces to reach `target_width`.
+pub fn expand_indents<'a>(input: Line<'a>, placeholder: &str, target_width: usize) -> Line<'a> {
+    let mut count = 0;
+    let mut base_width = 0;
+
+    // Compute display width excluding placeholders
+    for span in &input.spans {
+        count += span.content.matches(placeholder).count();
+        for segment in span.content.split(placeholder) {
+            base_width += segment.width();
+        }
+    }
+
+    // No placeholders, return a fully owned version of the original line
+    if count == 0 {
+        let owned_spans: Vec<Span<'static>> = input
+            .spans
+            .iter()
+            .map(|span| Span::styled(span.content.to_string(), span.style))
+            .collect();
+        return Line::from(owned_spans);
+    }
+
+    // If we exceed or meet the target width, just strip the placeholders
+    if base_width >= target_width {
+        let new_spans: Vec<Span<'static>> = input
+            .spans
+            .iter()
+            .map(|span| {
+                let new_content = span.content.replace(placeholder, "");
+                Span::styled(new_content, span.style) // String becomes Cow::Owned
+            })
+            .collect();
+        return Line::from(new_spans);
+    }
+
+    let total_spaces = target_width - base_width;
+    let per = total_spaces / count;
+    let mut remainder = total_spaces % count;
+
+    let mut new_spans = Vec::new();
+
+    for span in input.spans {
+        // If this span doesn't have the placeholder, clone it as an owned String
+        if !span.content.contains(placeholder) {
+            new_spans.push(Span::styled(span.content.to_string(), span.style));
+            continue;
+        }
+
+        let mut new_content = String::new();
+        let mut parts = span.content.split(placeholder).peekable();
+
+        while let Some(part) = parts.next() {
+            // Safely push the segment (preserves graphemes naturally)
+            new_content.push_str(part);
+
+            // Add the distributed spaces if there is a next part
+            if parts.peek().is_some() {
+                let extra = if remainder > 0 {
+                    remainder -= 1;
+                    1
+                } else {
+                    0
+                };
+
+                new_content.push_str(&" ".repeat(per + extra));
+            }
+        }
+
+        // Reconstruct the span with the expanded String content (becomes Cow::Owned)
+        new_spans.push(Span::styled(new_content, span.style));
+    }
+
+    Line::from(new_spans)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

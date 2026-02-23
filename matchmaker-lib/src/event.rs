@@ -110,10 +110,10 @@ impl<A: ActionExt> EventLoop<A> {
         self.txs.clear();
     }
 
-    pub fn get_controller(&self) -> EventSender {
+    pub fn controller(&self) -> EventSender {
         self.controller_tx.clone()
     }
-    pub fn get_bind_controller(&self) -> BindSender<A> {
+    pub fn bind_controller(&self) -> BindSender<A> {
         self.bind_tx.clone()
     }
 

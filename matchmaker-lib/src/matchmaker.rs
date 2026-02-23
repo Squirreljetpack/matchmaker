@@ -277,7 +277,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
                 Some(Either::Left(view)) => Some(view),
                 Some(Either::Right(mut previewer)) => {
                     let view = previewer.view();
-                    previewer.connect_controller(event_loop.get_controller());
+                    previewer.connect_controller(event_loop.controller());
                     
                     tokio::spawn(async move {
                         let _ = previewer.run().await;
@@ -299,7 +299,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
             .map_err(|e| MatchError::TUIError(e.to_string()))?;
             
             // important to start after tui
-            let  event_controller = event_loop.get_controller();
+            let  event_controller = event_loop.controller();
             let event_loop_handle = tokio::spawn(async move {
                 let _ = event_loop.run().await;
             });

@@ -61,7 +61,7 @@ impl<A: ActionExt> EventLoop<A> {
 
         Self {
             txs: vec![],
-            tick_interval: time::Duration::from_secs(1),
+            tick_interval: time::Duration::from_millis(200),
 
             binds: BindMap::new(),
             combiner,

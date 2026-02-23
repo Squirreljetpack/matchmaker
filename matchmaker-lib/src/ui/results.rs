@@ -334,6 +334,7 @@ impl ResultsUI {
             self.bottom += self.cursor;
             self.cursor = 0;
             self.cursor_above = 0;
+            self.bottom_clip = None;
         } else
         // increase the bottom index so that cursor_should_above is maintained
         if let h_to_cursor_end = h_to_cursor + h_at_cursor
@@ -343,9 +344,9 @@ impl ResultsUI {
             // note that there is a funny side effect that scrolling up near the bottom can scroll up a bit, but it seems fine to me
 
             for r in results[start_index as usize..self.cursor as usize].iter_mut() {
-                start_index += 1;
                 let h = height_of(r);
                 let (row, item) = r;
+                start_index += 1; // we always skip at least the first item
 
                 if trunc_height < h {
                     let mut remaining_height = h - trunc_height;
@@ -357,6 +358,7 @@ impl ResultsUI {
 
                     total_height += remaining_height;
 
+                    log::debug!("r: {remaining_height}");
                     if hz {
                         if h - self._hr() < remaining_height {
                             for (_, t) in
@@ -401,7 +403,7 @@ impl ResultsUI {
                             prefix_text(col, prefix.clone());
                             push.push(Row::new(vec![col.clone()]).height(height));
                         }
-                        rows.extend(push);
+                        rows.extend(push.into_iter().rev());
                     }
 
                     self.bottom += start_index - 1;
@@ -472,7 +474,7 @@ impl ResultsUI {
                     prefix_text(col, prefix.clone());
                     push.push(Row::new(vec![col.clone()]).height(height));
                 }
-                rows.extend(push);
+                rows.extend(push.into_iter().rev());
             }
         }
 
@@ -589,14 +591,14 @@ impl ResultsUI {
                         break;
                     } else if remaining_height < height {
                         height = remaining_height;
-                        clip_text_lines(&mut col, remaining_height, !self.reverse());
+                        clip_text_lines(&mut col, remaining_height, self.reverse());
                     }
                     remaining_height -= height;
 
                     prefix_text(&mut col, prefix.clone());
 
                     // push
-                    let mut row = Row::new(vec![col.clone()]).height(height);
+                    let mut row = Row::new(vec![col]).height(height);
 
                     if self.is_current(i) && (self.col.is_none() || self.col == Some(x)) {
                         row = row.style(self.current_style())

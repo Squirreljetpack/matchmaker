@@ -173,6 +173,9 @@ impl<'a, T: SSS, O: Selection> PickerUI<'a, T, O> {
     pub fn update(&mut self) {
         self.worker.find(&self.input.input);
     }
+    pub fn tick(&mut self) {
+        self.worker.find(&self.input.input);
+    }
 
     // creation from UI ensures Some
     pub fn reverse(&self) -> bool {

@@ -8,7 +8,7 @@ pub use state::*;
 
 use std::io::Write;
 
-use log::{info, warn};
+use log::{info, trace, warn};
 use ratatui::Frame;
 use ratatui::layout::{Position, Rect};
 use tokio::sync::mpsc;
@@ -76,6 +76,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
     }
 
     while render_rx.recv_many(&mut buffer, 256).await > 0 {
+        if state.iterations == 0 {
+            log::debug!("Render loop started");
+        }
         let mut did_pause = false;
         let mut did_exit = false;
         let mut did_resize = false;
@@ -118,6 +121,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
             if !matches!(event, RenderCommand::Tick) {
                 info!("Recieved {event:?}");
+            } else {
+                trace!("Recieved {event:?}");
             }
 
             match event {
@@ -521,6 +526,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         // ------------- update state + render ------------------------
         if state.filtering {
             picker_ui.update();
+        } else {
+            // nothing
         }
         // process exit conditions
         if exit_config.select_1

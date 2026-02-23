@@ -27,10 +27,20 @@ pub enum Action<A: ActionExt = NullActionExt> {
     /// Quit with code
     Quit(i32),
 
-    // UI
+    // Results
     /// Toggle wrap
     ToggleWrap,
-    CycleSort,
+
+    // Results Navigation
+    /// Move selection index up
+    Up(u16),
+    /// Move selection index down
+    Down(u16),
+    Pos(i32),
+    // TODO
+    PageDown,
+    // TODO
+    PageUp,
 
     // Preview
     /// Cycle preview layouts
@@ -45,8 +55,20 @@ pub enum Action<A: ActionExt = NullActionExt> {
     /// Switch or toggle preview;
     SwitchPreview(Option<u8>),
     /// Toggle wrap in preview
-    ToggleWrapPreview,
-    /// Horizontally scroll either results or preview based on mouse location and wrapping configuration. (unimplemented)
+    TogglePreviewWrap,
+
+    // Preview navigation
+    /// Scroll preview up
+    PreviewUp(u16),
+    /// Scroll preview down
+    PreviewDown(u16),
+    /// Scroll preview half page up in rows.
+    /// If wrapping is enabled, the visual distance may exceed half a page.
+    PreviewHalfPageUp,
+    /// Scroll preview half page down in rows.
+    /// If wrapping is enabled, the visual distance may exceed half a page.
+    PreviewHalfPageDown,
+    /// Horizontally scroll either results or preview based on mouse location and wrapping configuration. (TODO)
     /// 0 to reset.
     HScroll(i8),
 
@@ -60,18 +82,8 @@ pub enum Action<A: ActionExt = NullActionExt> {
     /// Jump between start, end, last, and initial locations. (unimplemented).
     PreviewJump,
 
-    // Set
-    /// Set input query
-    SetInput(String),
-    /// Set header
-    SetHeader(Option<String>),
-    /// Set footer
-    SetFooter(Option<String>),
-    /// Set prompt
-    SetPrompt(Option<String>),
-
     // Columns
-    /// Set column
+    /// Set active column
     Column(usize),
     /// Cycle columns
     CycleColumn,
@@ -90,16 +102,6 @@ pub enum Action<A: ActionExt = NullActionExt> {
     Reload(String),
     /// Print via handler
     Print(String),
-
-    // Unimplemented
-    /// History up (TODO)
-    HistoryUp,
-    /// History down (TODO)
-    HistoryDown,
-    /// Change prompt (TODO)
-    ChangePrompt,
-    /// Change query (TODO)
-    ChangeQuery,
 
     // Edit (Input)
     /// Move cursor forward char
@@ -120,28 +122,14 @@ pub enum Action<A: ActionExt = NullActionExt> {
     DeleteLineEnd,
     /// Clear input
     Cancel,
-    /// Set input cursor pos
-    InputPos(i32),
-
-    // Navigation
-    /// Move selection index up
-    Up(u16),
-    /// Move selection index down
-    Down(u16),
-    /// Scroll preview up
-    PreviewUp(u16),
-    /// Scroll preview down
-    PreviewDown(u16),
-    /// Scroll preview half page up
-    PreviewHalfPageUp,
-    /// Scroll preview half page down
-    PreviewHalfPageDown,
-    /// Jump to absolute position
-    Pos(i32),
+    /// Set input query
+    SetQuery(String),
+    /// Set query cursor pos
+    QueryPos(i32),
 
     // Other/Experimental/Debugging
     /// Insert char into input
-    Input(char),
+    Char(char),
     /// Force redraw
     Redraw,
     /// Custom action
@@ -218,8 +206,8 @@ where
         Self::Custom(value)
     }
 }
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct NullActionExt {}
+#[derive(Debug, Clone, PartialEq)]
+pub enum NullActionExt {}
 
 impl fmt::Display for NullActionExt {
     fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -238,8 +226,14 @@ impl std::str::FromStr for NullActionExt {
 // --------------- ACTIONS ---------------
 pub use arrayvec::ArrayVec;
 
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct Actions<A: ActionExt = NullActionExt>(ArrayVec<Action<A>, MAX_ACTIONS>);
+#[derive(Debug, Clone, PartialEq)]
+pub struct Actions<A: ActionExt = NullActionExt>(pub ArrayVec<Action<A>, MAX_ACTIONS>);
+
+impl Default for Actions {
+    fn default() -> Self {
+        Self(ArrayVec::new())
+    }
+}
 
 macro_rules! repeat_impl {
     ($($len:expr),*) => {
@@ -333,20 +327,27 @@ impl<A: ActionExt + Display> Serialize for Actions<A> {
 // ----- action serde
 enum_from_str_display!(
     units:
-    Select, Deselect, Toggle, CycleAll, ClearSelections, Accept, CyclePreview, CycleColumn, ScrollLeft, ScrollRight, ColumnLeft, ColumnRight, PreviewJump, CycleSort,
-    PreviewHalfPageUp, PreviewHalfPageDown, HistoryUp, HistoryDown,
-    ChangePrompt, ChangeQuery, ToggleWrap, ToggleWrapPreview, ForwardChar,
-    BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord,
-    DeleteLineStart, DeleteLineEnd, Cancel, Redraw;
+    Select, Deselect, Toggle, CycleAll, ClearSelections, Accept,
+
+    PageDown, PageUp, ScrollLeft, ScrollRight,
+
+    ToggleWrap, TogglePreviewWrap, CyclePreview, PreviewJump,
+
+    PreviewHalfPageUp, PreviewHalfPageDown,
+
+    CycleColumn, ColumnLeft, ColumnRight,
+
+    ForwardChar,BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord, DeleteLineStart, DeleteLineEnd, Cancel, Redraw;
 
     tuples:
-    Execute, Become, Reload, Preview, SetInput, Column, Pos, InputPos;
+    Execute, Become, Reload, Preview,
+    SetQuery, Column, Pos, QueryPos;
 
     defaults:
     (Up, 1), (Down, 1), (PreviewUp, 1), (PreviewDown, 1), (Quit, 1), (Overlay, 0), (Print, String::new()), (Help, String::new()), (PreviewScroll, 1), (PreviewHScroll, 1), (HScroll, 0);
 
     options:
-    SwitchPreview, SetPreview, SetPrompt, SetHeader, SetFooter
+    SwitchPreview, SetPreview
 );
 
 macro_rules! enum_from_str_display {
@@ -382,7 +383,7 @@ macro_rules! enum_from_str_display {
                     Self::Custom(inner) => {
                         write!(f, "{}", inner.to_string())
                     }
-                    Self::Input(c) => {
+                    Self::Char(c) => {
                         write!(f, "{c}")
                     }
                 }
@@ -446,7 +447,7 @@ macro_rules! enum_from_str_display {
                         Ok(Self::$optional(d))
                     }, )*
 
-                    _ => Err(format!("Unknown variant {}", s)),
+                    _ => Err(format!("Unknown action: {}.", s)),
                 }
             }
         }
@@ -469,5 +470,13 @@ impl<'a, A: ActionExt> IntoIterator for &'a Actions<A> {
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter()
+    }
+}
+
+impl<A: ActionExt> FromIterator<Action<A>> for Actions<A> {
+    fn from_iter<T: IntoIterator<Item = Action<A>>>(iter: T) -> Self {
+        let mut inner = ArrayVec::<Action<A>, MAX_ACTIONS>::new();
+        inner.extend(iter);
+        Actions(inner)
     }
 }

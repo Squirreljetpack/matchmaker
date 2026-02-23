@@ -9,12 +9,12 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
-use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::watch::{Receiver, Sender, channel};
 use tokio::task::JoinHandle;
 
 use super::AppendOnly;
 use crate::config::PreviewerConfig;
+use crate::event::EventSender;
 use crate::message::Event;
 use crate::preview::Preview;
 
@@ -46,8 +46,8 @@ pub struct Previewer {
     current: Option<(Child, JoinHandle<bool>)>,
     pub config: PreviewerConfig,
     /// Event loop controller
-    // todo: lowpri: does this want to be a render loop controller instead
-    event_controller_tx: Option<UnboundedSender<Event>>,
+    // We only use it to send [`ControlEvent::Event`]
+    event_controller_tx: Option<EventSender>,
 }
 
 impl Previewer {
@@ -251,8 +251,8 @@ impl Previewer {
 
             match old.as_mut().now_or_never() {
                 Some(Ok(result)) => {
-                    if !result && let Some(ref tx) = self.event_controller_tx {
-                        let _ = tx.send(Event::Refresh);
+                    if !result {
+                        self.send(Event::Refresh)
                     }
                 }
                 None => {
@@ -263,7 +263,13 @@ impl Previewer {
         }
     }
 
-    pub fn connect_controller(&mut self, event_controller_tx: UnboundedSender<Event>) {
+    fn send(&self, event: Event) {
+        if let Some(ref tx) = self.event_controller_tx {
+            let _ = tx.send(event);
+        }
+    }
+
+    pub fn connect_controller(&mut self, event_controller_tx: EventSender) {
         self.event_controller_tx = Some(event_controller_tx)
     }
 

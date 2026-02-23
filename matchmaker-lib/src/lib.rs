@@ -1,5 +1,6 @@
 // event
 pub mod action;
+pub use action::{Action, Actions};
 pub mod binds;
 pub mod config;
 pub mod event;

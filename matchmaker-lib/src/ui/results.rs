@@ -27,12 +27,14 @@ pub struct ResultsUI {
     // Note that the first width includes the indentation.
     widths: Vec<u16>,
     col: Option<usize>,
+
     pub status: Status,
-    pub config: ResultsConfig,
     pub status_config: StatusConfig,
 
-    pub bottom_clip: Option<u16>,
-    pub cursor_above: u16,
+    pub config: ResultsConfig,
+
+    bottom_clip: Option<u16>,
+    cursor_above: u16,
 
     pub cursor_disabled: bool,
 }

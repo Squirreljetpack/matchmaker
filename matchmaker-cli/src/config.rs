@@ -9,6 +9,8 @@ use matchmaker::action::Actions;
 use matchmaker::binds::Trigger;
 use std::collections::BTreeMap;
 
+use crate::action::MMAction;
+
 #[derive(Clone, PartialEq, Serialize)]
 #[partial(recurse, path)]
 #[derive(Debug, Deserialize)]
@@ -25,7 +27,7 @@ pub struct Config {
     #[partial(alias = "b")]
     #[partial(recurse = "", unwrap)]
     // #[partial(skip)]
-    pub binds: BTreeMap<Trigger, Actions>,
+    pub binds: BTreeMap<Trigger, Actions<MMAction>>,
 
     #[serde(default)]
     #[partial(attr)]

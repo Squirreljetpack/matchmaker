@@ -15,6 +15,8 @@ pub struct Cli {
     pub fullscreen: bool,
     #[arg(long)]
     pub test_keys: bool,
+    #[arg(long)]
+    pub last_key: bool,
 
     /// Force the default command to run.
     #[arg(long)]
@@ -78,7 +80,15 @@ impl Cli {
             try_parse!("binds");
 
             // Flags
-            if ["--dump-config", "--test-keys", "--no-read", "--help", "-F"].contains(&s.as_ref())
+            if [
+                "--dump-config",
+                "--test-keys",
+                "--last-key",
+                "--no-read",
+                "--help",
+                "-F",
+            ]
+            .contains(&s.as_ref())
                 || s.strip_prefix('-')
                     .is_some_and(|x| x.chars().all(|c| c == 'v') || x.chars().all(|c| c == 'q'))
             {

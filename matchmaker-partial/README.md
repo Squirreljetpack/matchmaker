@@ -196,8 +196,6 @@ partial.set(&["threads_count"], &["8"]).unwrap();
 assert_eq!(partial.threads, Some(8));
 ```
 
----
-
 ### `serde(flatten)`
 
 Flattened fields allow embedding nested structs directly at the top level. When a flattened field also uses `#[partial(recurse)]`, set delegates updates to the nested partial rather than expecting a top-level field match.

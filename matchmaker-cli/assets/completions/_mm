@@ -19,6 +19,7 @@ _mm() {
 '--dump-config[]' \
 '-F[]' \
 '--test-keys[]' \
+'--last-key[]' \
 '--no-read[Force the default command to run]' \
 '(-v)*-q[Reduce the verbosity level]' \
 '(-q)*-v[Increase the verbosity level]' \

@@ -5,7 +5,12 @@ use std::{
     sync::Arc,
 };
 
-use crate::{clap::Cli, config::PartialConfig};
+use crate::{
+    action::{ActionContext, MMAction, action_handler},
+    clap::Cli,
+    config::PartialConfig,
+    paths::last_key_path,
+};
 use crate::{config::Config, paths::default_config_path};
 use cli_boilerplate_automation::{
     bait::{OptionExt, ResultExt},
@@ -14,12 +19,12 @@ use cli_boilerplate_automation::{
         write_str,
     },
     bog::BogOkExt,
+    prints,
 };
 use cli_boilerplate_automation::{bo::load_type, broc::CommandExt};
 use log::debug;
 use matchmaker::{
     ConfigInjector, MatchError, Matchmaker, OddEnds, PickOptions, SSS,
-    action::NullActionExt,
     binds::display_binds,
     config::{MatcherConfig, StartConfig},
     event::{EventLoop, RenderSender},
@@ -65,6 +70,25 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
     config.apply(partial);
     // log::debug!("unchanged: {}", original == config);
 
+    if cli.last_key {
+        let path = config
+            .exit
+            .last_key_path
+            .as_deref()
+            .unwrap_or(last_key_path());
+
+        let content = std::fs::read_to_string(path)._elog();
+        if let Some(s) = content
+            && let s = s.trim()
+            && !s.is_empty()
+        {
+            prints!(s);
+            exit(0);
+        } else {
+            exit(1)
+        }
+    }
+
     if cli.fullscreen {
         config.tui.layout = None;
     }
@@ -94,7 +118,7 @@ pub fn map_reader<E: SSS + std::fmt::Display>(
     reader: impl Read + SSS,
     f: impl FnMut(String) -> Result<(), E> + SSS,
     input_separator: Option<char>,
-    abort_empty: Option<RenderSender<NullActionExt>>,
+    abort_empty: Option<RenderSender<MMAction>>,
 ) -> tokio::task::JoinHandle<Result<usize, MapReaderError<E>>> {
     tokio::task::spawn_blocking(move || {
         let ret = if let Some(delim) = input_separator {
@@ -130,7 +154,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 ansi,
                 trim,
             },
-        exit,
+        mut exit,
     } = config;
 
     let abort_empty = exit.abort_empty;
@@ -138,6 +162,11 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let print_handle = AppendOnly::new();
     let output_separator = output_separator.clone().unwrap_or("\n".into());
     let preprocess = (ansi, trim);
+    let status_template = render.status.template.clone();
+
+    if exit.last_key_path.is_none() {
+        exit.last_key_path = Some(last_key_path().into())
+    }
 
     let event_loop = EventLoop::with_binds(binds).with_tick_rate(render.tick_rate());
     // make matcher and matchmaker with matchmaker-and-matcher-maker
@@ -191,10 +220,16 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
 
     debug!("{mm:?}");
 
+    let mut action_context = ActionContext {
+        bind_tx: event_loop.get_bind_controller(),
+        status_template,
+    };
+
     let mut options = PickOptions::new()
         .event_loop(event_loop)
         .matcher(matcher.0)
-        .previewer(previewer);
+        .previewer(previewer)
+        .ext_handler(move |x, y| action_handler(x, y, &mut action_context));
 
     let render_tx = options.render_tx();
 
@@ -252,7 +287,7 @@ use matchmaker::nucleo::{Line, Span};
 
 fn inject_line(
     header_lines: usize,
-    render_tx: RenderSender,
+    render_tx: RenderSender<MMAction>,
     injector: ConfigInjector,
 ) -> impl FnMut(String) -> Result<(), matchmaker::nucleo::WorkerError> + Send {
     let mut header_buf = Vec::with_capacity(header_lines);

@@ -25,6 +25,7 @@ Register-ArgumentCompleter -Native -CommandName 'mm' -ScriptBlock {
             [CompletionResult]::new('--dump-config', '--dump-config', [CompletionResultType]::ParameterName, 'dump-config')
             [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'F')
             [CompletionResult]::new('--test-keys', '--test-keys', [CompletionResultType]::ParameterName, 'test-keys')
+            [CompletionResult]::new('--last-key', '--last-key', [CompletionResultType]::ParameterName, 'last-key')
             [CompletionResult]::new('--no-read', '--no-read', [CompletionResultType]::ParameterName, 'Force the default command to run')
             [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
             [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')

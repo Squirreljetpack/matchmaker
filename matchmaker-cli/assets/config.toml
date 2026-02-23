@@ -50,7 +50,7 @@
     "backspace"  = "DeleteChar"
     "ctrl-h"     = "DeleteWord"
     "ctrl-u"     = "Cancel"
-    "alt-a"      = "InputPos(0)"
+    "alt-a"      = "QueryPos(0)"
 
     # Navigation
     "up"              = "Up"

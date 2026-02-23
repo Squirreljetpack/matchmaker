@@ -17,6 +17,7 @@ use tokio::sync::mpsc;
 use crate::PasteHandler;
 use crate::action::{Action, ActionExt};
 use crate::config::{CursorSetting, ExitConfig, RowConnectionStyle};
+use crate::event::EventSender;
 use crate::message::{Event, Interrupt, RenderCommand};
 use crate::tui::Tui;
 use crate::ui::{DisplayUI, InputUI, OverlayUI, PickerUI, PreviewUI, ResultsUI, UI};
@@ -24,7 +25,7 @@ use crate::{ActionAliaser, ActionExtHandler, MatchError, SSS, Selection};
 
 fn apply_aliases<T: SSS, S: Selection, A: ActionExt>(
     buffer: &mut Vec<RenderCommand<A>>,
-    aliaser: ActionAliaser<T, S, A>,
+    aliaser: &mut ActionAliaser<T, S, A>,
     dispatcher: &mut MMState<'_, '_, T, S>,
 ) {
     let mut out = Vec::new();
@@ -55,12 +56,12 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
     exit_config: ExitConfig,
 
     mut render_rx: mpsc::UnboundedReceiver<RenderCommand<A>>,
-    controller_tx: mpsc::UnboundedSender<Event>,
+    controller_tx: EventSender,
 
     dynamic_handlers: DynamicHandlers<T, S>,
-    ext_handler: Option<ActionExtHandler<T, S, A>>,
-    ext_aliaser: Option<ActionAliaser<T, S, A>>,
-    #[cfg(feature = "bracketed-paste")] paste_handler: Option<PasteHandler<T, S>>,
+    mut ext_handler: Option<ActionExtHandler<T, S, A>>,
+    mut ext_aliaser: Option<ActionAliaser<T, S, A>>,
+    #[cfg(feature = "bracketed-paste")] mut paste_handler: Option<PasteHandler<T, S>>,
 ) -> Result<Vec<S>, MatchError> {
     let mut buffer = Vec::with_capacity(256);
 
@@ -80,11 +81,17 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         let mut did_resize = false;
 
         // todo: why exactly can we not borrow the picker_ui mutably?
-        if let Some(aliaser) = ext_aliaser {
+        if let Some(aliaser) = &mut ext_aliaser {
             apply_aliases(
                 &mut buffer,
                 aliaser,
-                &mut state.dispatcher(&mut ui, &mut picker_ui, &mut footer_ui, &mut preview_ui),
+                &mut state.dispatcher(
+                    &mut ui,
+                    &mut picker_ui,
+                    &mut footer_ui,
+                    &mut preview_ui,
+                    &controller_tx,
+                ),
             )
             // effects could be moved out for efficiency, but it seems more logical to add them as they come so that we can trigger interrupts
         };
@@ -114,18 +121,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             }
 
             match event {
-                RenderCommand::Action(Action::Input(c)) => {
-                    // btw, why can't we do let input = picker_ui.input without running into issues?
-                    if let Some(x) = overlay_ui.as_mut()
-                        && x.handle_input(c)
-                    {
-                        continue;
-                    }
-                    picker_ui.input.push_char(c);
-                }
                 #[cfg(feature = "bracketed-paste")]
                 RenderCommand::Paste(content) => {
-                    if let Some(handler) = paste_handler {
+                    if let Some(handler) = &mut paste_handler {
                         let content = {
                             handler(
                                 content,
@@ -134,6 +132,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                     &mut picker_ui,
                                     &mut footer_ui,
                                     &mut preview_ui,
+                                    &controller_tx,
                                 ),
                             )
                         };
@@ -220,7 +219,6 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         results,
                         worker,
                         selector: selections,
-                        header,
                         ..
                     } = &mut picker_ui;
                     match action {
@@ -263,32 +261,80 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             return Err(MatchError::Abort(code));
                         }
 
-                        // UI
-                        Action::CycleSort => {
-                            #[cfg(feature = "experimental")]
-                            {
-                                let threshold = match picker_ui.worker.get_stability() {
-                                    0 => 6,
-                                    u32::MAX => 0,
-                                    _ => u32::MAX,
-                                };
-                                picker_ui.worker.set_stability(threshold);
+                        // Results
+                        Action::ToggleWrap => {
+                            results.wrap(!results.is_wrap());
+                        }
+                        Action::Up(x) | Action::Down(x) => {
+                            let next = matches!(action, Action::Down(_)) ^ results.reverse();
+                            for _ in 0..x.into() {
+                                if next {
+                                    results.cursor_next();
+                                } else {
+                                    results.cursor_prev();
+                                }
                             }
                         }
-                        Action::SetHeader(context) => {
-                            if let Some(s) = context {
-                                header.set(s);
+                        Action::Pos(pos) => {
+                            let pos = if pos >= 0 {
+                                pos as u32
                             } else {
-                                header.clear(true);
-                            }
+                                results.status.matched_count.saturating_sub((-pos) as u32)
+                            };
+                            results.cursor_jump(pos);
                         }
-                        Action::SetFooter(context) => {
-                            if let Some(s) = context {
-                                footer_ui.set(s);
+                        Action::QueryPos(pos) => {
+                            let pos = if pos >= 0 {
+                                pos as u16
                             } else {
-                                footer_ui.clear(false);
+                                (input.len() as u16).saturating_sub((-pos) as u16)
+                            };
+                            input.set(None, pos);
+                        }
+                        Action::HScroll(_n) => {
+                            // todo
+                        }
+                        Action::PageDown => {
+                            // todo
+                        }
+                        Action::PageUp => {
+                            // todo
+                        }
+
+                        // Preview Navigation
+                        Action::PreviewUp(n) => {
+                            if let Some(p) = preview_ui.as_mut() {
+                                p.up(n)
                             }
                         }
+                        Action::PreviewDown(n) => {
+                            if let Some(p) = preview_ui.as_mut() {
+                                p.down(n)
+                            }
+                        }
+                        Action::PreviewHalfPageUp => {
+                            let n = (tui.area.height + 1) / 2;
+                            if let Some(p) = preview_ui.as_mut() {
+                                p.down(n)
+                            }
+                        }
+                        Action::PreviewHalfPageDown => {
+                            let n = (tui.area.height + 1) / 2;
+                            if let Some(p) = preview_ui.as_mut() {
+                                p.down(n)
+                            }
+                        }
+
+                        Action::PreviewHScroll(x) | Action::PreviewScroll(x) => {
+                            if let Some(p) = preview_ui.as_mut() {
+                                p.scroll(matches!(action, Action::PreviewHScroll(_)), x);
+                            }
+                        }
+                        Action::PreviewJump => {
+                            // todo
+                        }
+
+                        // Preview
                         // this sometimes aborts the viewer on some files, why?
                         Action::CyclePreview => {
                             if let Some(p) = preview_ui.as_mut() {
@@ -299,11 +345,6 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             }
                         }
 
-                        Action::PreviewHScroll(x) | Action::PreviewScroll(x) => {
-                            if let Some(p) = preview_ui.as_mut() {
-                                p.scroll(matches!(action, Action::PreviewHScroll(_)), x);
-                            }
-                        }
                         Action::Preview(context) => {
                             if let Some(p) = preview_ui.as_mut() {
                                 if !state.update_preview(context.as_str()) {
@@ -323,6 +364,15 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                 }
                             };
                         }
+                        Action::SetPreview(idx) => {
+                            if let Some(p) = preview_ui.as_mut() {
+                                if let Some(idx) = idx {
+                                    p.set_layout(idx);
+                                } else {
+                                    state.update_preview(p.command());
+                                }
+                            }
+                        }
                         Action::SwitchPreview(idx) => {
                             if let Some(p) = preview_ui.as_mut() {
                                 if let Some(idx) = idx {
@@ -334,19 +384,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                 }
                             }
                         }
-                        Action::SetPreview(idx) => {
-                            if let Some(p) = preview_ui.as_mut() {
-                                if let Some(idx) = idx {
-                                    p.set_layout(idx);
-                                } else {
-                                    state.update_preview(p.command());
-                                }
-                            }
-                        }
-                        Action::ToggleWrap => {
-                            results.wrap(!results.is_wrap());
-                        }
-                        Action::ToggleWrapPreview => {
+                        Action::TogglePreviewWrap => {
                             if let Some(p) = preview_ui.as_mut() {
                                 p.wrap(!p.is_wrap());
                             }
@@ -366,16 +404,22 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             state.set_interrupt(Interrupt::Print, payload);
                         }
 
-                        Action::SetInput(context) => {
-                            input.set(context, u16::MAX);
-                        }
+                        // Columns
                         Action::Column(context) => {
                             results.toggle_col(context);
                         }
                         Action::CycleColumn => {
                             results.cycle_col();
                         }
+                        Action::ColumnLeft => {}
+                        Action::ColumnRight => {}
+                        Action::ScrollLeft => {}
+                        Action::ScrollRight => {}
+
                         // Edit
+                        Action::SetQuery(context) => {
+                            input.set(context, u16::MAX);
+                        }
                         Action::ForwardChar => input.forward_char(),
                         Action::BackwardChar => input.backward_char(),
                         Action::ForwardWord => input.forward_word(),
@@ -386,47 +430,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         Action::DeleteLineEnd => input.delete_line_end(),
                         Action::Cancel => input.cancel(),
 
-                        // Navigation
-                        Action::Up(x) | Action::Down(x) => {
-                            let next = matches!(action, Action::Down(_)) ^ results.reverse();
-                            for _ in 0..x.into() {
-                                if next {
-                                    results.cursor_next();
-                                } else {
-                                    results.cursor_prev();
-                                }
-                            }
-                        }
-                        Action::PreviewUp(n) => {
-                            if let Some(p) = preview_ui.as_mut() {
-                                p.up(n)
-                            }
-                        }
-                        Action::PreviewDown(n) => {
-                            if let Some(p) = preview_ui.as_mut() {
-                                p.down(n)
-                            }
-                        }
-                        Action::PreviewHalfPageUp => todo!(),
-                        Action::PreviewHalfPageDown => todo!(),
-                        Action::Pos(pos) => {
-                            let pos = if pos >= 0 {
-                                pos as u32
-                            } else {
-                                results.status.matched_count.saturating_sub((-pos) as u32)
-                            };
-                            results.cursor_jump(pos);
-                        }
-                        Action::InputPos(pos) => {
-                            let pos = if pos >= 0 {
-                                pos as u16
-                            } else {
-                                (input.len() as u16).saturating_sub((-pos) as u16)
-                            };
-                            input.set(None, pos);
-                        }
-
-                        // Experimental/Debugging
+                        // Other
                         Action::Redraw => {
                             tui.redraw();
                         }
@@ -437,7 +441,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             };
                         }
                         Action::Custom(e) => {
-                            if let Some(handler) = ext_handler {
+                            if let Some(handler) = &mut ext_handler {
                                 handler(
                                     e,
                                     &mut state.dispatcher(
@@ -445,11 +449,12 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                         &mut picker_ui,
                                         &mut footer_ui,
                                         &mut preview_ui,
+                                        &controller_tx,
                                     ),
                                 );
                             }
                         }
-                        _ => {}
+                        Action::Char(c) => picker_ui.input.push_char(c),
                     }
                 }
                 _ => {}
@@ -477,8 +482,13 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             }
             // Apply interrupt effect
             {
-                let mut dispatcher =
-                    state.dispatcher(&mut ui, &mut picker_ui, &mut footer_ui, &mut preview_ui);
+                let mut dispatcher = state.dispatcher(
+                    &mut ui,
+                    &mut picker_ui,
+                    &mut footer_ui,
+                    &mut preview_ui,
+                    &controller_tx,
+                );
                 for h in dynamic_handlers.1.get(interrupt) {
                     h(&mut dispatcher);
                 }
@@ -509,7 +519,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         // debug!("{state:?}");
 
         // ------------- update state + render ------------------------
-        picker_ui.update();
+        if state.filtering {
+            picker_ui.update();
+        }
         // process exit conditions
         if exit_config.select_1
             && picker_ui.results.status.matched_count == 1
@@ -619,8 +631,13 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         let events = state.events();
 
         // ---- Invoke handlers -------
-        let mut dispatcher =
-            state.dispatcher(&mut ui, &mut picker_ui, &mut footer_ui, &mut preview_ui);
+        let mut dispatcher = state.dispatcher(
+            &mut ui,
+            &mut picker_ui,
+            &mut footer_ui,
+            &mut preview_ui,
+            &controller_tx,
+        );
         // if let Some((signal, handler)) = signal_handler &&
         // let s = signal.load(std::sync::atomic::Ordering::Acquire) &&
         // s > 0

@@ -138,6 +138,10 @@ where
         self.column_options[index] = options
     }
 
+    pub fn reverse_items(&mut self, reverse_items: bool) {
+        self.nucleo.reverse_items(reverse_items);
+    }
+
     pub fn injector(&self) -> WorkerInjector<T> {
         WorkerInjector {
             inner: self.nucleo.injector(),

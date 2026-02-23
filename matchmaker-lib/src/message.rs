@@ -3,7 +3,9 @@ use crossterm::event::MouseEvent;
 use ratatui::layout::Rect;
 
 use crate::{
+    Actions,
     action::{Action, ActionExt},
+    binds::Trigger,
     ui::HeaderTable,
 };
 
@@ -61,9 +63,9 @@ pub enum RenderCommand<A: ActionExt> {
     QuitEmpty,
 }
 
-impl<A: ActionExt> From<&Action<A>> for RenderCommand<A> {
-    fn from(action: &Action<A>) -> Self {
-        RenderCommand::Action(action.clone())
+impl<A: ActionExt> From<Action<A>> for RenderCommand<A> {
+    fn from(action: Action<A>) -> Self {
+        RenderCommand::Action(action)
     }
 }
 
@@ -71,4 +73,13 @@ impl<A: ActionExt> RenderCommand<A> {
     pub fn quit() -> Self {
         RenderCommand::Action(Action::Quit(1))
     }
+}
+
+// ---------------------------------------------------------------------
+#[derive(Debug)]
+pub enum BindDirective<A: ActionExt> {
+    Bind(Trigger, Actions<A>),
+    PushBind(Trigger, Actions<A>),
+    Unbind(Trigger),
+    PopBind(Trigger),
 }

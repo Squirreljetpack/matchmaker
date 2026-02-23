@@ -24,8 +24,8 @@ mm b.key 'action1 action2'
 ## Actions
 
 - **Selection**: `Select`, `Deselect`, `Toggle`, `CycleAll`, `ClearSelections`, `Accept`, `Quit(code)`.
-- **Navigation**: `Up(n)`, `Down(n)`, `Pos(pos)`, `ForwardChar`, `BackwardChar`, `ForwardWord`, `BackwardWord`, `InputPos(pos)`.
+- **Navigation**: `Up(n)`, `Down(n)`, `Pos(pos)`, `ForwardChar`, `BackwardChar`, `ForwardWord`, `BackwardWord`, `QueryPos(pos)`.
 - **Preview**: `CyclePreview`, `Preview(cmd)`, `Help(section)`, `SetPreview(idx)`, `SwitchPreview(idx)`, `PreviewUp(n)`, `PreviewDown(n)`, `PreviewHalfPageUp`, `PreviewHalfPageDown`, `ToggleWrapPreview`.
-- **Input/Edit**: `SetInput(str)`, `Cancel` (clear input), `DeleteChar`, `DeleteWord`, `DeleteLineStart`, `DeleteLineEnd`, `HistoryUp`, `HistoryDown`, `ToggleWrap`.
+- **Input/Edit**: `SetQuery(str)`, `Cancel` (clear query), `DeleteChar`, `DeleteWord`, `DeleteLineStart`, `DeleteLineEnd`, `HistoryUp`, `HistoryDown`, `ToggleWrap`.
 - **UI/Display**: `SetHeader(str)`, `SetFooter(str)`, `SetPrompt(str)`, `Column(idx)`, `CycleColumn`, `Redraw`, `Overlay(idx)`.
 - **System**: `Execute(cmd)`, `Become(cmd)` (replace matchmaker with command), `Reload(cmd)`, `Print(str)`.

@@ -33,6 +33,10 @@ pub fn init_logger([q, v]: [u8; 2], log_path: &Path) {
         }
     }
 
+    log_path
+        .parent()
+        .map(cli_boilerplate_automation::bs::create_dir);
+
     if let Some(log_file) = OpenOptions::new()
         .truncate(true)
         .write(true)

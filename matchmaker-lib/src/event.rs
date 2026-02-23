@@ -1,7 +1,13 @@
+use std::collections::btree_map::Entry;
+use std::path::PathBuf;
+
 use crate::Result;
 use crate::action::{Action, ActionExt, NullActionExt};
 use crate::binds::BindMap;
-use crate::message::{Event, RenderCommand};
+use crate::message::{BindDirective, Event, RenderCommand};
+use cli_boilerplate_automation::bait::ResultExt;
+use cli_boilerplate_automation::bath::PathExt;
+use cli_boilerplate_automation::unwrap;
 use crokey::{Combiner, KeyCombination, KeyCombinationFormat, key};
 use crossterm::event::{
     Event as CrosstermEvent, EventStream, KeyModifiers, MouseEvent, MouseEventKind,
@@ -13,6 +19,9 @@ use tokio::sync::mpsc;
 use tokio::time::{self};
 
 pub type RenderSender<A = NullActionExt> = mpsc::UnboundedSender<RenderCommand<A>>;
+pub type EventSender = mpsc::UnboundedSender<Event>;
+pub type BindSender<A> = mpsc::UnboundedSender<BindDirective<A>>;
+
 #[derive(Debug)]
 pub struct EventLoop<A: ActionExt> {
     txs: Vec<mpsc::UnboundedSender<RenderCommand<A>>>,
@@ -25,8 +34,15 @@ pub struct EventLoop<A: ActionExt> {
     mouse_events: bool,
     paused: bool,
     event_stream: Option<EventStream>,
-    controller_rx: mpsc::UnboundedReceiver<Event>,
+
+    rx: mpsc::UnboundedReceiver<Event>,
     controller_tx: mpsc::UnboundedSender<Event>,
+
+    bind_rx: mpsc::UnboundedReceiver<BindDirective<A>>,
+    bind_tx: BindSender<A>,
+
+    key_file: Option<PathBuf>,
+    current_task: Option<tokio::task::JoinHandle<io::Result<()>>>,
 }
 
 impl<A: ActionExt> Default for EventLoop<A> {
@@ -41,6 +57,8 @@ impl<A: ActionExt> EventLoop<A> {
         let fmt = KeyCombinationFormat::default();
         let (controller_tx, controller_rx) = tokio::sync::mpsc::unbounded_channel();
 
+        let (bind_tx, bind_rx) = tokio::sync::mpsc::unbounded_channel();
+
         Self {
             txs: vec![],
             tick_interval: time::Duration::from_secs(1),
@@ -49,11 +67,16 @@ impl<A: ActionExt> EventLoop<A> {
             combiner,
             fmt,
             event_stream: None, // important not to initialize it too early?
-            controller_rx,
+            rx: controller_rx,
             controller_tx,
 
             mouse_events: false,
             paused: false,
+            key_file: None,
+            current_task: None,
+
+            bind_rx,
+            bind_tx,
         }
     }
 
@@ -61,6 +84,11 @@ impl<A: ActionExt> EventLoop<A> {
         let mut ret = Self::new();
         ret.binds = binds;
         ret
+    }
+
+    pub fn record_last_key(&mut self, path: PathBuf) -> &mut Self {
+        self.key_file = Some(path);
+        self
     }
 
     pub fn with_tick_rate(mut self, tick_rate: u8) -> Self {
@@ -82,8 +110,11 @@ impl<A: ActionExt> EventLoop<A> {
         self.txs.clear();
     }
 
-    pub fn get_controller(&self) -> mpsc::UnboundedSender<Event> {
+    pub fn get_controller(&self) -> EventSender {
         self.controller_tx.clone()
+    }
+    pub fn get_bind_controller(&self) -> BindSender<A> {
+        self.bind_tx.clone()
     }
 
     fn handle_event(&mut self, e: Event) {
@@ -100,8 +131,41 @@ impl<A: ActionExt> EventLoop<A> {
             }
             _ => {}
         }
-        if let Some(actions) = self.binds.get(&e.into()) {
+        if let Some(actions) = self.binds.get(&e.into()).cloned() {
             self.send_actions(actions);
+        }
+    }
+
+    fn handle_rebind(&mut self, e: BindDirective<A>) {
+        debug!("Received: {e:?}");
+
+        match e {
+            BindDirective::Bind(k, v) => {
+                self.binds.insert(k, v);
+            }
+
+            BindDirective::PushBind(k, v) => match self.binds.entry(k) {
+                Entry::Occupied(mut entry) => {
+                    entry.get_mut().0.extend(v);
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(v);
+                }
+            },
+
+            BindDirective::Unbind(k) => {
+                self.binds.remove(&k);
+            }
+
+            BindDirective::PopBind(k) => {
+                if let Some(actions) = self.binds.get_mut(&k) {
+                    actions.0.pop();
+
+                    if actions.0.is_empty() {
+                        self.binds.remove(&k);
+                    }
+                }
+            }
         }
     }
 
@@ -115,11 +179,23 @@ impl<A: ActionExt> EventLoop<A> {
         self.event_stream = Some(EventStream::new());
         let mut interval = time::interval(self.tick_interval);
 
+        if let Some(path) = self.key_file.clone() {
+            log::error!("Cleaning up temp files @ {path:?}");
+            tokio::spawn(async move {
+                cleanup_tmp_files(&path).await._elog();
+            });
+        }
+
         // this loops infinitely until all readers are closed
         loop {
+            self.txs.retain(|tx| !tx.is_closed());
+            if self.txs.is_empty() {
+                break;
+            }
+
             // wait for resume signal
             while self.paused {
-                if let Some(event) = self.controller_rx.recv().await {
+                if let Some(event) = self.rx.recv().await {
                     if matches!(event, Event::Resume) {
                         debug!("Resumed from pause");
                         self.paused = false;
@@ -133,16 +209,10 @@ impl<A: ActionExt> EventLoop<A> {
                 }
             }
 
-            // flush controller events
-            while let Ok(event) = self.controller_rx.try_recv() {
-                // todo: note that our dynamic event handlers don't detect events originating outside of render currently, tho maybe we could reseed here
-                self.handle_event(event)
-            }
-
-            self.txs.retain(|tx| !tx.is_closed());
-            if self.txs.is_empty() {
-                break;
-            }
+            // // flush controller events
+            // while let Ok(event) = self.rx.try_recv() {
+            //    self.handle_event(event)
+            // }
 
             let event = if let Some(stream) = &mut self.event_stream {
                 stream.next()
@@ -157,7 +227,8 @@ impl<A: ActionExt> EventLoop<A> {
 
                 // In case ctrl-c manifests as a signal instead of a key
                 _ = tokio::signal::ctrl_c() => {
-                    if let Some(actions) = self.binds.get(&key!(ctrl-c).into()) {
+                    self.record_key("ctrl-c".into());
+                    if let Some(actions) = self.binds.get(&key!(ctrl-c).into()).cloned() {
                         self.send_actions(actions);
                     } else {
                         self.send(RenderCommand::quit());
@@ -165,8 +236,12 @@ impl<A: ActionExt> EventLoop<A> {
                     }
                 }
 
-                Some(event) = self.controller_rx.recv() => {
-                    self.handle_event(event);
+                Some(event) = self.rx.recv() => {
+                    self.handle_event(event)
+                }
+
+                Some(directive) = self.bind_rx.recv() => {
+                    self.handle_rebind(directive)
                 }
 
                 // Input ready
@@ -188,17 +263,24 @@ impl<A: ActionExt> EventLoop<A> {
                                     if let Some(key) = self.combiner.transform(k) {
                                         info!("{key:?}");
                                         let key = KeyCombination::normalized(key);
-                                        if let Some(actions) = self.binds.get(&key.into()) {
+                                        if let Some(actions) = self.binds.get(&key.into()).cloned() {
+                                            self.record_key(key.to_string());
                                             self.send_actions(actions);
                                         } else if let Some(c) = key_code_as_letter(key) {
-                                            self.send(RenderCommand::Action(Action::Input(c)));
+                                            self.send(RenderCommand::Action(Action::Char(c)));
                                         } else {
+                                            let mut matched = true;
                                             // a basic set of keys to prevent confusion
                                             match key {
-                                                key!(ctrl-c) | key!(esc) => self.send(RenderCommand::quit()),
+                                                key!(ctrl-c) | key!(esc) => {
+                                                    self.send(RenderCommand::quit())
+                                                },
                                                 key!(up) => self.send_action(Action::Up(1)),
                                                 key!(down) => self.send_action(Action::Down(1)),
-                                                key!(enter) => self.send_action(Action::Accept),
+                                                key!(enter) => {
+                                                    self.record_key(key.to_string());
+                                                    self.send_action(Action::Accept)
+                                                }
                                                 key!(right) => self.send_action(Action::ForwardChar),
                                                 key!(left) => self.send_action(Action::BackwardChar),
                                                 key!(ctrl-right) => self.send_action(Action::ForwardWord),
@@ -208,14 +290,19 @@ impl<A: ActionExt> EventLoop<A> {
                                                 key!(ctrl-u) => self.send_action(Action::Cancel),
                                                 key!(alt-h) => self.send_action(Action::Help("".to_string())),
                                                 key!(ctrl-'[') => self.send_action(Action::ToggleWrap),
-                                                key!(ctrl-']') => self.send_action(Action::ToggleWrapPreview),
-                                                _ => {}
+                                                key!(ctrl-']') => self.send_action(Action::TogglePreviewWrap),
+                                                _ => {
+                                                    matched = false
+                                                }
+                                            }
+                                            if matched {
+                                                self.record_key(key.to_string());
                                             }
                                         }
                                     }
                                 }
                                 CrosstermEvent::Mouse(mouse) => {
-                                    if let Some(actions) = self.binds.get(&mouse.into()) {
+                                    if let Some(actions) = self.binds.get(&mouse.into()).cloned() {
                                         self.send_actions(actions);
                                     } else if !matches!(mouse.kind, MouseEventKind::Moved) {
                                         // mouse binds can be disabled by overriding with empty action
@@ -263,7 +350,22 @@ impl<A: ActionExt> EventLoop<A> {
         }
     }
 
-    fn send_actions<'a>(&self, actions: impl IntoIterator<Item = &'a Action<A>>) {
+    fn record_key(&mut self, content: String) {
+        let Some(path) = self.key_file.clone() else {
+            return;
+        };
+
+        // Cancel previous task if still running
+        if let Some(handle) = self.current_task.take() {
+            handle.abort();
+        }
+
+        let handle = tokio::spawn(write_to_file(path, content));
+
+        self.current_task = Some(handle);
+    }
+
+    fn send_actions<'a>(&self, actions: impl IntoIterator<Item = Action<A>>) {
         for action in actions {
             self.send(action.into());
         }
@@ -290,4 +392,53 @@ fn key_code_as_letter(key: KeyCombination) -> Option<char> {
         } => Some(l.to_ascii_uppercase()),
         _ => None,
     }
+}
+
+use std::path::Path;
+use tokio::fs;
+use tokio::io;
+
+/// Cleanup files in the same directory with the same basename, and a .tmp extension
+async fn cleanup_tmp_files(path: &Path) -> io::Result<()> {
+    let parent = unwrap!(path.parent(); Ok(()));
+    let name = unwrap!(path.file_name().and_then(|s| s.to_str()); Ok(()));
+
+    let mut entries = fs::read_dir(parent).await?;
+
+    while let Some(entry) = entries.next_entry().await? {
+        let entry_path = entry.path();
+
+        if let Ok(filename) = entry_path._filename()
+            && let Some(e) = filename.strip_prefix(name)
+            && e.starts_with('.')
+            && e.ends_with(".tmp")
+        {
+            fs::remove_file(entry_path).await._elog();
+        }
+    }
+
+    Ok(())
+}
+
+/// Spawns a thread that writes `content` to `path` atomically using a temp file.
+/// Returns the `JoinHandle` so you can wait for it if desired.
+pub async fn write_to_file(path: PathBuf, content: String) -> io::Result<()> {
+    let suffix = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+
+    let tmp_path = path.with_file_name(format!(
+        "{}.{}.tmp",
+        path.file_name().unwrap().to_string_lossy(),
+        suffix
+    ));
+
+    // Write temp file
+    fs::write(&tmp_path, &content).await?;
+
+    // Atomically replace target
+    fs::rename(&tmp_path, &path).await?;
+
+    Ok(())
 }

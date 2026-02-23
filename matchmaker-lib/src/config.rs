@@ -65,13 +65,12 @@ pub struct WorkerConfig {
     pub raw: bool,
     /// TODO: Track the current selection when the result list is updated.
     pub track: bool,
-    /// TODO: Reverse the order of the input
-    pub reverse: bool,
+    /// Reverse the order of the input
+    pub reverse: bool, // TODO: test with sort_threshold
 }
 
 /// Configures how input is fed to to the worker(s).
 ///
-/// Does not deny unknown fields.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 #[partial(path, derive(Debug, Deserialize))]
@@ -102,8 +101,6 @@ pub struct StartConfig {
 }
 
 /// Exit conditions of the render loop.
-///
-/// Does not deny unknown fields.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 #[partial(path, derive(Debug, Deserialize))]
@@ -114,6 +111,9 @@ pub struct ExitConfig {
     pub allow_empty: bool,
     /// Abort if no items.
     pub abort_empty: bool,
+    /// Last processed key is written here.
+    /// Set to an empty path to disable.
+    pub last_key_path: Option<std::path::PathBuf>,
 }
 
 /// The ui config.
@@ -159,7 +159,6 @@ pub struct TerminalConfig {
     pub extended_keys: bool,
     #[serde(with = "serde_duration_ms")]
     pub sleep_ms: std::time::Duration, // necessary to give ratatui a small delay before resizing after entering and exiting
-    // todo: lowpri: will need a value which can deserialize to none when implementing cli parsing
     #[serde(flatten)]
     #[partial(recurse)]
     pub layout: Option<TerminalLayoutSettings>, // None for fullscreen
@@ -179,9 +178,6 @@ impl Default for TerminalConfig {
         }
     }
 }
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct TerminalSettings {}
 
 /// The container ui.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -306,6 +302,9 @@ pub struct ResultsConfig {
     pub multi_prefix: String,
     pub default_prefix: String,
 
+    /// Enable selections
+    pub multi: bool,
+
     // text styles
     #[serde(deserialize_with = "camelcase_normalized")]
     pub fg: Color,
@@ -382,6 +381,7 @@ impl Default for ResultsConfig {
 
             multi_prefix: "▌ ".to_string(),
             default_prefix: Default::default(),
+            multi: true,
 
             fg: Default::default(),
             modifier: Default::default(),
@@ -826,7 +826,7 @@ pub struct ColumnsConfig {
     /// Column names
     #[partial(alias = "n")]
     pub names: Vec<ColumnSetting>,
-    /// Maximum number of columns to autogenerate when names is unspecified. Maximum of 10, minimum of 1.
+    /// Maximum number of columns to autogenerate when names is unspecified. Maximum of 16, minimum of 1.
     #[serde(deserialize_with = "bounded_usize::<_, 1, {crate::MAX_SPLITS}>")]
     max_columns: usize,
 }
@@ -842,7 +842,7 @@ impl Default for ColumnsConfig {
         Self {
             split: Default::default(),
             names: Default::default(),
-            max_columns: 5,
+            max_columns: 6,
         }
     }
 }

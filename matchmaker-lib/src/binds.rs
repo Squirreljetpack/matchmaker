@@ -42,7 +42,7 @@ impl<A: ActionExt> BindMap<A> {
             key!(ctrl-u) => Action::Cancel,
             key!(alt-h) => Action::Help("".to_string()),
             key!(ctrl-'[') => Action::ToggleWrap,
-            key!(ctrl-']') => Action::ToggleWrapPreview,
+            key!(ctrl-']') => Action::TogglePreviewWrap,
             key!(shift-right) => Action::HScroll(1),
             key!(shift-left) => Action::HScroll(-1),
         )
@@ -173,6 +173,57 @@ pub fn mouse_event_kind_as_str(kind: MouseEventKind) -> &'static str {
     }
 }
 
+impl FromStr for Trigger {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        // 1. Try KeyCombination
+        if let Ok(key) = KeyCombination::from_str(value) {
+            return Ok(Trigger::Key(key));
+        }
+
+        // 2. Try MouseEvent
+        let parts: Vec<&str> = value.split('+').collect();
+        if let Some(last) = parts.last()
+            && let Some(kind) = match last.to_lowercase().as_str() {
+                "left" => Some(MouseEventKind::Down(MouseButton::Left)),
+                "middle" => Some(MouseEventKind::Down(MouseButton::Middle)),
+                "right" => Some(MouseEventKind::Down(MouseButton::Right)),
+                "scrolldown" => Some(MouseEventKind::ScrollDown),
+                "scrollup" => Some(MouseEventKind::ScrollUp),
+                "scrollleft" => Some(MouseEventKind::ScrollLeft),
+                "scrollright" => Some(MouseEventKind::ScrollRight),
+                _ => None,
+            }
+        {
+            let mut modifiers = KeyModifiers::empty();
+            for m in &parts[..parts.len() - 1] {
+                match m.to_lowercase().as_str() {
+                    "shift" => modifiers |= KeyModifiers::SHIFT,
+                    "ctrl" => modifiers |= KeyModifiers::CONTROL,
+                    "alt" => modifiers |= KeyModifiers::ALT,
+                    "super" => modifiers |= KeyModifiers::SUPER,
+                    "hyper" => modifiers |= KeyModifiers::HYPER,
+                    "meta" => modifiers |= KeyModifiers::META,
+                    "none" => {}
+                    unknown => {
+                        return Err(format!("Unknown modifier: {}", unknown));
+                    }
+                }
+            }
+
+            return Ok(Trigger::Mouse(SimpleMouseEvent { kind, modifiers }));
+        }
+
+        // 3. Try Event
+        if let Ok(evt) = value.parse::<Event>() {
+            return Ok(Trigger::Event(evt));
+        }
+
+        Err(format!("failed to parse trigger from '{}'", value))
+    }
+}
+
 impl<'de> serde::Deserialize<'de> for Trigger {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -191,52 +242,7 @@ impl<'de> serde::Deserialize<'de> for Trigger {
             where
                 E: de::Error,
             {
-                // 1. Try KeyCombination
-                if let Ok(key) = KeyCombination::from_str(value) {
-                    return Ok(Trigger::Key(key));
-                }
-
-                // 2. Try MouseEvent: modifiers split by '+', last = mouse button
-                let parts: Vec<&str> = value.split('+').collect();
-                if let Some(last) = parts.last()
-                    && let Some(kind) = match last.to_lowercase().as_str() {
-                        "left" => Some(MouseEventKind::Down(MouseButton::Left)),
-                        "middle" => Some(MouseEventKind::Down(MouseButton::Middle)),
-                        "right" => Some(MouseEventKind::Down(MouseButton::Right)),
-                        "scrolldown" => Some(MouseEventKind::ScrollDown),
-                        "scrollup" => Some(MouseEventKind::ScrollUp),
-                        "scrollleft" => Some(MouseEventKind::ScrollLeft),
-                        "scrollright" => Some(MouseEventKind::ScrollRight),
-                        _ => None,
-                    }
-                {
-                    let mut modifiers = KeyModifiers::empty();
-                    for m in &parts[..parts.len() - 1] {
-                        match m.to_lowercase().as_str() {
-                            "shift" => modifiers |= KeyModifiers::SHIFT,
-                            "ctrl" => modifiers |= KeyModifiers::CONTROL,
-                            "alt" => modifiers |= KeyModifiers::ALT,
-                            "super" => modifiers |= KeyModifiers::SUPER,
-                            "hyper" => modifiers |= KeyModifiers::HYPER,
-                            "meta" => modifiers |= KeyModifiers::META,
-                            "none" => {}
-                            unknown => {
-                                return Err(E::custom(format!("Unknown modifier: {}", unknown)));
-                            }
-                        }
-                    }
-                    return Ok(Trigger::Mouse(SimpleMouseEvent { kind, modifiers }));
-                }
-
-                // 3. Try Event
-                if let Ok(evt) = value.parse::<Event>() {
-                    return Ok(Trigger::Event(evt));
-                }
-
-                Err(E::custom(format!(
-                    "failed to parse trigger from '{}'",
-                    value
-                )))
+                value.parse::<Trigger>().map_err(E::custom)
             }
         }
 

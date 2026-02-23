@@ -1,6 +1,7 @@
 use matchmaker_partial::Set;
 use std::process::exit;
 
+mod action;
 mod clap;
 mod config;
 mod crokey;
@@ -29,7 +30,7 @@ async fn main() {
 
     init_logger(
         [cli.quiet, cli.verbose],
-        &logs_dir().join(format!("{BINARY_SHORT}.log")),
+        &state_dir().join(format!("{BINARY_SHORT}.log")),
     );
     log::debug!("{cli:?}, {config_args:?}");
 

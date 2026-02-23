@@ -3,6 +3,7 @@ use cli_boilerplate_automation::{broc::EnvVars, env_vars};
 use crate::{
     SSS, Selection, Selector,
     action::ActionExt,
+    event::EventSender,
     message::{Event, Interrupt},
     nucleo::{Status, injector::WorkerInjector},
     ui::{DisplayUI, OverlayUI, PickerUI, PreviewUI, Rect, UI},
@@ -38,6 +39,7 @@ pub struct State {
     pub should_quit: bool,
     /// Setting this to true finishes the picker with [`crate::MatchError::NoMatch`].
     pub should_quit_nomatch: bool,
+    pub filtering: bool,
 }
 
 impl State {
@@ -63,6 +65,7 @@ impl State {
             events: Event::empty(),
             should_quit: false,
             should_quit_nomatch: false,
+            filtering: true,
         }
     }
     // ------ properties -----------
@@ -209,6 +212,7 @@ impl State {
         picker_ui: &'a mut PickerUI<'b, T, S>,
         footer_ui: &'a mut DisplayUI,
         preview_ui: &'a mut Option<PreviewUI>,
+        event_controller: &'a EventSender,
     ) -> MMState<'a, 'b, T, S> {
         MMState {
             state: self,
@@ -216,6 +220,7 @@ impl State {
             picker_ui,
             footer_ui,
             preview_ui,
+            event_controller,
         }
     }
 
@@ -238,6 +243,7 @@ pub struct MMState<'a, 'b: 'a, T: SSS, S: Selection> {
     pub picker_ui: &'a mut PickerUI<'b, T, S>,
     pub footer_ui: &'a mut DisplayUI,
     pub preview_ui: &'a mut Option<PreviewUI>,
+    pub event_controller: &'a EventSender,
 }
 
 impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {

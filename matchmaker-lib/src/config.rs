@@ -16,7 +16,6 @@ use crate::{
 use cli_boilerplate_automation::define_transparent_wrapper;
 use cli_boilerplate_automation::serde::{
     // one_or_many,
-    through_string,
     transform::camelcase_normalized,
 };
 use ratatui::{
@@ -557,7 +556,6 @@ impl Default for PreviewConfig {
 #[partial(path, derive(Debug, Deserialize))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-#[derive(Default)]
 pub struct PreviewScrollSetting {
     /// Extract the initial display index `n` of the preview window from this column.
     /// `n` lines are skipped after the header lines are consumed.
@@ -571,6 +569,17 @@ pub struct PreviewScrollSetting {
     /// Keep the top N lines as the fixed header so that they are always visible.
     #[partial(alias = "h")]
     pub header_lines: usize,
+}
+
+impl Default for PreviewScrollSetting {
+    fn default() -> Self {
+        Self {
+            index: Default::default(),
+            offset: -1,
+            percentage: Default::default(),
+            header_lines: Default::default(),
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -629,13 +638,14 @@ impl Deref for FormatString {
 #[serde(default, deny_unknown_fields)]
 #[partial(path, derive(Debug, Deserialize))]
 pub struct BorderSetting {
-    #[serde(with = "through_string")]
+    #[serde(deserialize_with = "camelcase_normalized")]
     pub r#type: BorderType,
     #[serde(deserialize_with = "camelcase_normalized")]
     pub color: Color,
     /// Given as sides joined by `|`. i.e.:
     /// `sides = "TOP | BOTTOM"``
-    /// When omitted, this is ALL if either padding or type are specified, otherwose NONE.
+    /// `sides = "ALL"`
+    /// When omitted, this either ALL or the side that sits between results and the corresponding layout if either padding or type are specified, otherwise NONE.
     ///
     /// An empty string enforces no sides:
     /// `sides = ""`
@@ -786,12 +796,25 @@ pub enum Side {
     Right,
 }
 
+impl Side {
+    pub fn opposite(&self) -> Borders {
+        match self {
+            Side::Top => Borders::BOTTOM,
+            Side::Bottom => Borders::TOP,
+            Side::Left => Borders::RIGHT,
+            Side::Right => Borders::LEFT,
+        }
+    }
+}
+
 #[partial(path, derive(Debug, Deserialize))]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PreviewSetting {
     #[serde(flatten)]
     #[partial(recurse)]
     pub layout: PreviewLayout,
+    #[partial(recurse)]
+    pub border: Option<BorderSetting>,
     #[serde(default, alias = "cmd", alias = "x")]
     pub command: String,
 }

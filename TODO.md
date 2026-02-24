@@ -23,6 +23,7 @@
 - (automatic) horizontal scrolling of results
 - better hr styling (dim etc.)
 - partial should be under #[cfg] but that breaks field level attributes, is there a solution?
+- Previewer debouncing
 
 # Bugs
 

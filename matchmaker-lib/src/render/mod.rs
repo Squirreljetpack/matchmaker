@@ -69,10 +69,10 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
     let mut click = Click::None;
 
     // place the initial command in the state where the preview listener can access
-    if let Some(ref preview_ui) = preview_ui
-        && !preview_ui.command().is_empty()
+    if let Some(ref p) = preview_ui
+        && p.is_show()
     {
-        state.update_preview(preview_ui.command());
+        state.update_preview(p.get_initial_command());
     }
 
     while render_rx.recv_many(&mut buffer, 256).await > 0 {
@@ -722,6 +722,9 @@ fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {
     //     let widget = ui.make_preview();
     //     frame.render_widget(widget, area);
     // }
+    if !ui.is_show() {
+        return;
+    }
     let widget = ui.make_preview();
     frame.render_widget(widget, area);
 }

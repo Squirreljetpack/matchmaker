@@ -294,6 +294,10 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
         &self.picker_ui.selector
     }
 
+    pub fn preview_visible(&self) -> bool {
+        self.preview_ui.as_ref().is_some_and(|s| s.is_show())
+    }
+
     pub fn get_content_and_index(&self) -> (String, u32) {
         (
             self.picker_ui.input.input.clone(),

@@ -5,7 +5,7 @@ use ratatui::{
 };
 
 use crate::{
-    config::{PreviewConfig, PreviewLayout},
+    config::{BorderSetting, PreviewConfig, PreviewLayout},
     preview::Preview,
     utils::text::wrapped_line_height,
 };
@@ -23,7 +23,16 @@ pub struct PreviewUI {
 }
 
 impl PreviewUI {
-    pub fn new(view: Preview, config: PreviewConfig) -> Self {
+    pub fn new(view: Preview, mut config: PreviewConfig) -> Self {
+        // todo: lowpri: this is not strictly correct
+        for x in &mut config.layout {
+            if let Some(b) = &mut x.border
+                && b.sides.is_none()
+            {
+                b.sides = Some(x.layout.side.opposite())
+            }
+        }
+
         Self {
             view,
             config,
@@ -45,7 +54,7 @@ impl PreviewUI {
     }
 
     // -------- Layout -----------
-    // None if not show
+    /// None if not show
     pub fn layout(&self) -> Option<&PreviewLayout> {
         if !self.config.show || self.config.layout.is_empty() {
             None
@@ -61,6 +70,29 @@ impl PreviewUI {
             self.config.layout[self.layout_idx].command.as_str()
         }
     }
+
+    pub fn border(&self) -> &BorderSetting {
+        self.config.layout[self.layout_idx]
+            .border
+            .as_ref()
+            .unwrap_or(&self.config.border)
+    }
+
+    pub fn get_initial_command(&self) -> &str {
+        if let Some(current) = self.config.layout.get(self.layout_idx) {
+            if !current.command.is_empty() {
+                return current.command.as_str();
+            }
+        }
+
+        self.config
+            .layout
+            .iter()
+            .map(|l| l.command.as_str())
+            .find(|cmd| !cmd.is_empty())
+            .unwrap_or("")
+    }
+
     pub fn cycle_layout(&mut self) {
         self.layout_idx = (self.layout_idx + 1) % self.config.layout.len()
     }
@@ -168,6 +200,8 @@ impl PreviewUI {
     // --------------------------
 
     pub fn make_preview(&self) -> Paragraph<'_> {
+        assert!(self.is_show());
+
         let mut results = self.view.results().into_iter();
         let height = self.area.height as usize;
         if height == 0 {
@@ -191,7 +225,7 @@ impl PreviewUI {
         }
 
         let mut preview = Paragraph::new(lines);
-        preview = preview.block(self.config.border.as_block());
+        preview = preview.block(self.border().as_block());
         if self.config.wrap {
             preview = preview.wrap(Wrap { trim: true }).scroll(self.scroll.into());
         }

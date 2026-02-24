@@ -214,10 +214,13 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     return Ok(vec![]);
                 }
                 RenderCommand::Action(action) => {
-                    if let Some(x) = overlay_ui.as_mut()
-                        && x.handle_action(&action)
-                    {
-                        continue;
+                    if let Some(x) = overlay_ui.as_mut() {
+                        if match action {
+                            Action::Char(c) => x.handle_input(c),
+                            _ => x.handle_action(&action),
+                        } {
+                            continue;
+                        }
                     }
                     let PickerUI {
                         input,
@@ -318,13 +321,13 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             }
                         }
                         Action::PreviewHalfPageUp => {
-                            let n = (tui.area.height + 1) / 2;
+                            let n = (ui.area.height + 1) / 2;
                             if let Some(p) = preview_ui.as_mut() {
                                 p.down(n)
                             }
                         }
                         Action::PreviewHalfPageDown => {
-                            let n = (tui.area.height + 1) / 2;
+                            let n = (ui.area.height + 1) / 2;
                             if let Some(p) = preview_ui.as_mut() {
                                 p.down(n)
                             }
@@ -609,7 +612,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 };
 
                 render_input(frame, input, &mut picker_ui.input);
-                render_status(frame, status, &picker_ui.results);
+                render_status(frame, status, &picker_ui.results, ui.area.width);
                 render_results(frame, results, &mut picker_ui, &mut click);
                 render_display(frame, header, &mut picker_ui.header, &picker_ui.results);
                 render_display(frame, footer, &mut footer_ui, &picker_ui.results);
@@ -752,9 +755,9 @@ fn render_input(frame: &mut Frame, area: Rect, ui: &mut InputUI) {
     frame.render_widget(widget, area);
 }
 
-fn render_status(frame: &mut Frame, area: Rect, ui: &ResultsUI) {
+fn render_status(frame: &mut Frame, area: Rect, ui: &ResultsUI, full_width: u16) {
     if ui.status_config.show {
-        let widget = ui.make_status();
+        let widget = ui.make_status(full_width);
         frame.render_widget(widget, area);
     }
 }

@@ -52,7 +52,8 @@ pub enum Action<A: ActionExt = NullActionExt> {
     /// Set preview layout;
     /// None restores the command of the current layout.
     SetPreview(Option<u8>),
-    /// Switch or toggle preview;
+    /// Switch or toggle preview:
+    /// If an index is provided and the index is already current, the preview is hidden.
     SwitchPreview(Option<u8>),
     /// Toggle wrap in preview
     TogglePreviewWrap,

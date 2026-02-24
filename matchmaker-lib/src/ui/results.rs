@@ -1,6 +1,9 @@
+use std::str::FromStr;
+
+use cli_boilerplate_automation::bring::split::split_on_nesting;
 use ratatui::{
     layout::{Alignment, Rect},
-    style::{Style, Stylize},
+    style::{Color, Style, Stylize},
     text::{Line, Span},
     widgets::{Paragraph, Row, Table},
 };
@@ -32,7 +35,7 @@ pub struct ResultsUI {
     widths: Vec<u16>,
 
     pub status: Status,
-    pub status_template: Line<'static>,
+    status_template: Line<'static>,
     pub status_config: StatusConfig,
 
     pub config: ResultsConfig,
@@ -650,36 +653,45 @@ impl ResultsUI {
 }
 
 impl ResultsUI {
-    pub fn make_status(&self) -> Paragraph<'_> {
+    pub fn make_status(&self, full_width: u16) -> Paragraph<'_> {
+        let status_config = &self.status_config;
         let replacements = [
             ('r', self.index().to_string()),
             ('m', self.status.matched_count.to_string()),
             ('t', self.status.item_count.to_string()),
         ];
 
+        // sub replacements into line
         let mut new_spans = Vec::new();
 
-        if self.status_config.match_indent {
+        if status_config.match_indent {
             new_spans.push(Span::raw(" ".repeat(self.indentation())));
         }
 
         for span in &self.status_template {
             let subbed = substitute_escaped(&span.content, &replacements);
-
             new_spans.push(Span::styled(subbed, span.style));
         }
 
         let substituted_line = Line::from(new_spans);
 
-        let expanded = expand_indents(substituted_line, r"\s", self.width as usize);
+        // sub whitespace expansions
+        let effective_width = match self.status_config.row_connection_style {
+            RowConnectionStyle::Full => full_width,
+            _ => self.width,
+        } as usize;
+        let expanded = expand_indents(substituted_line, r"\s", effective_width)
+            .style(status_config.fg)
+            .add_modifier(status_config.modifier);
 
         Paragraph::new(expanded)
     }
 
-    pub fn set_status_line(&mut self, template: Option<String>) {
+    pub fn set_status_line(&mut self, template: Option<Line<'static>>) {
         let status_config = &self.status_config;
 
-        self.status_template = Span::from(template.unwrap_or(status_config.template.clone()))
+        self.status_template = template
+            .unwrap_or(status_config.template.clone().into())
             .style(status_config.fg)
             .add_modifier(status_config.modifier)
             .into()
@@ -716,7 +728,7 @@ impl ResultsUI {
             .add_modifier(self.config.match_modifier)
     }
 
-    pub fn hr(&self) -> Option<Row<'static>> {
+    fn hr(&self) -> Option<Row<'static>> {
         let sep = self.config.horizontal_separator;
 
         if matches!(sep, HorizontalSeparator::None) {
@@ -734,7 +746,47 @@ impl ResultsUI {
         Some(Row::new(vec![line]))
     }
 
-    pub fn _hr(&self) -> u16 {
+    fn _hr(&self) -> u16 {
         !matches!(self.config.horizontal_separator, HorizontalSeparator::None) as u16
+    }
+}
+
+pub struct StatusUI {}
+
+impl StatusUI {
+    pub fn parse_template_to_status_line(s: &str) -> Line<'static> {
+        let parts = match split_on_nesting(&s, ['{', '}']) {
+            Ok(x) => x,
+            Err(n) => {
+                if n > 0 {
+                    log::error!("Encountered {} unclosed parentheses", n)
+                } else {
+                    log::error!("Extra closing parenthesis at index {}", -n)
+                }
+                return Line::from(s.to_string());
+            }
+        };
+
+        let mut spans = Vec::new();
+        let mut in_nested = !s.starts_with('{');
+        for part in parts {
+            in_nested = !in_nested;
+            let content = part.as_str();
+
+            if in_nested {
+                let inner = &content[1..content.len() - 1];
+
+                if let Some((color_name, text)) = inner.split_once(':') {
+                    if let Ok(color) = Color::from_str(color_name) {
+                        spans.push(Span::styled(text.to_string(), Style::default().fg(color)));
+                        continue;
+                    }
+                }
+            }
+
+            spans.push(Span::raw(content.to_string()));
+        }
+
+        Line::from(spans)
     }
 }

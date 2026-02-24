@@ -66,7 +66,7 @@ impl PreviewUI {
     }
     pub fn set_layout(&mut self, idx: u8) -> bool {
         let idx = idx as usize;
-        if idx <= self.config.layout.len() {
+        if idx < self.config.layout.len() {
             let changed = self.layout_idx != idx;
             self.layout_idx = idx;
             changed

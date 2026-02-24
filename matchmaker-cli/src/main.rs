@@ -18,7 +18,7 @@ use start::*;
 use utils::*;
 
 use cli_boilerplate_automation::{
-    bait::ResultExt, bog::BogOkExt, bring::split::split_nesting, ebog,
+    bait::ResultExt, bog::BogOkExt, bring::split::split_whitespace_preserving_nesting, ebog,
 };
 use matchmaker::MatchError;
 
@@ -67,7 +67,7 @@ fn get_partial(config_args: Vec<String>) -> anyhow::Result<PartialConfig> {
     log::trace!("{split:?}");
     let mut partial = PartialConfig::default();
     for (path, val) in split {
-        let parts = match split_nesting(&val, ['(', ')'], ['[', ']']) {
+        let parts = match split_whitespace_preserving_nesting(&val, Some(['(', ')']), Some(['[', ']'])) {
             Ok(mut parts) => {
                 let is_binds = parts.len() == 1 && ["binds", "b"].contains(&parts[0].as_ref());
                 try_split_kv(&mut parts, is_binds)?;

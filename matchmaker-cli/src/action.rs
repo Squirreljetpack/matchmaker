@@ -1,9 +1,9 @@
 use std::str::FromStr;
 
-use cli_boilerplate_automation::{bait::ResultExt, bring::split::split_nesting, unwrap};
+use cli_boilerplate_automation::{bait::ResultExt, bring::split::split_whitespace_preserving_nesting, unwrap};
 use matchmaker::{
     Action, ConfigMMInnerItem, ConfigMMItem, event::BindSender, message::BindDirective,
-    nucleo::Span,
+    nucleo::Span, ui::StatusUI,
 };
 
 pub type MMState<'a, 'b> = matchmaker::render::MMState<'a, 'b, ConfigMMItem, ConfigMMInnerItem>;
@@ -33,12 +33,10 @@ pub enum MMAction {
     SetHeader(Option<String>),
     /// Set footer
     SetFooter(Option<String>),
-    /// Set prompt (TODO)
+    /// Set prompt
     SetPrompt(Option<String>),
-    /// Set status (TODO)
+    /// Set status
     SetStatus(Option<String>),
-    /// Set prompt (TODO)
-    SetQuery(String),
 
     // Unimplemented
     /// History up (TODO)
@@ -102,7 +100,7 @@ pub fn action_handler(
 
             let trigger = unwrap!(trigger.parse()._elog());
             let parts = unwrap!(
-                split_nesting(&values, ['(', ')'], ['[', ']']);
+                split_whitespace_preserving_nesting(&values, Some(['(', ')']), Some(['[', ']']));
                 |n: i32| if n > 0 {
                     log::error!("Encountered {} unclosed parentheses", n)
                 } else {
@@ -154,10 +152,10 @@ pub fn action_handler(
             }
         }
         MMAction::SetStatus(s) => {
-            state.picker_ui.results.set_status_line(s);
-        }
-        MMAction::SetQuery(s) => {
-            state.picker_ui.input.set(s, u16::MAX);
+            state
+                .picker_ui
+                .results
+                .set_status_line(s.as_deref().map(StatusUI::parse_template_to_status_line));
         }
 
         MMAction::ExecuteSilent(s) => {
@@ -174,7 +172,7 @@ enum_from_str_display! {
 
 
     tuples:
-    SetQuery, Bind, Unbind, PushBind, PopBind, ExecuteSilent;
+    Bind, Unbind, PushBind, PopBind, ExecuteSilent;
 
     defaults:
     ;

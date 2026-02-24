@@ -29,3 +29,7 @@ mm b.key 'action1 action2'
 - **Input/Edit**: `SetQuery(str)`, `Cancel` (clear query), `DeleteChar`, `DeleteWord`, `DeleteLineStart`, `DeleteLineEnd`, `HistoryUp`, `HistoryDown`, `ToggleWrap`.
 - **UI/Display**: `SetHeader(str)`, `SetFooter(str)`, `SetPrompt(str)`, `Column(idx)`, `CycleColumn`, `Redraw`, `Overlay(idx)`.
 - **System**: `Execute(cmd)`, `Become(cmd)` (replace matchmaker with command), `Reload(cmd)`, `Print(str)`.
+
+## Source
+
+[Basic actions](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/src/action.rs), [Extended](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/src/action.rs),

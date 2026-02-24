@@ -417,10 +417,23 @@ pub struct StatusConfig {
     pub fg: Color,
     // #[serde(deserialize_with = "transform_uppercase")]
     pub modifier: Modifier,
+    /// Whether the status is visible.
     pub show: bool,
+    /// Indent the status to match the results.
     pub match_indent: bool,
+
+    /// Supports replacements:
+    /// - `\r` -> cursor index
+    /// - `\m` -> match count
+    /// - `\t` -> total count
+    /// - `\s` -> available whitespace / # appearances
     #[partial(alias = "t")]
     pub template: String,
+
+    /// - Full: available whitespace is computed using the full ui width when replacing `\s` in the template.
+    /// - Disjoint: no effect.
+    /// - Capped: no effect.
+    pub row_connection_style: RowConnectionStyle,
 }
 impl Default for StatusConfig {
     fn default() -> Self {
@@ -430,6 +443,7 @@ impl Default for StatusConfig {
             show: true,
             match_indent: true,
             template: r#"\m/\t"#.to_string(),
+            row_connection_style: RowConnectionStyle::Full,
         }
     }
 }

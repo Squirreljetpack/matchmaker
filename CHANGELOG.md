@@ -1,3 +1,19 @@
+## [0.0.8] - 2026-02-24
+
+### 🚀 Features
+
+- New actions
+- dynamic rebinding
+- --last-key now displays the last recorded key
+- support --no-multi
+- support various toggle/set actions (filtering, sorting, header and more).
+- Enhance status line styling
+- various bugfixes
+- per-preview-layout borders
+- hidden columns
+- bugfixes
+- Richer status line (support template and styling)
+
 ## [0.0.7] - 2026-02-22
 
 ### 🚀 Features

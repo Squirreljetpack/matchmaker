@@ -138,6 +138,7 @@ where
         self.column_options[index] = options
     }
 
+    #[cfg(feature = "experimental")]
     pub fn reverse_items(&mut self, reverse_items: bool) {
         self.nucleo.reverse_items(reverse_items);
     }

@@ -101,6 +101,7 @@ impl ConfigMatchmaker {
             Split::None => Worker::new_indexable([""]),
         };
         
+        #[cfg(feature = "experimental")]
         worker.reverse_items(worker_config.reverse);
         #[cfg(feature = "experimental")]
         worker.set_stability(worker_config.sort_threshold);

@@ -1,3 +1,5 @@
+use cli_boilerplate_automation::bait::ResultExt;
+use cli_boilerplate_automation::unwrap;
 use ratatui::text::{Line, Text};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -15,28 +17,28 @@ pub struct Preview {
 
 impl Preview {
     pub fn results(&self) -> Text<'_> {
-        if let Some(s) = self.string.lock().unwrap().as_ref() {
+        if let Some(s) = unwrap!(self.string.lock().prefix("Previewer panicked")._elog()).as_ref() {
             s.clone()
         } else {
-            let output = self.lines.read().unwrap(); // acquire read lock
+            let output = unwrap!(self.lines.read().prefix("Previewer panicked")._elog());
             Text::from_iter(output.iter().map(|(_, line)| line.clone()))
         }
     }
 
     pub fn len(&self) -> usize {
-        if let Some(s) = self.string.lock().unwrap().as_ref() {
+        if let Some(s) = unwrap!(self.string.lock().prefix("Previewer panicked")._elog()).as_ref() {
             s.height()
         } else {
-            let output = self.lines.read().unwrap();
+            let output = unwrap!(self.lines.read().prefix("Previewer panicked")._elog());
             output.iter().count()
         }
     }
 
     pub fn is_empty(&self) -> bool {
-        if let Some(s) = self.string.lock().unwrap().as_ref() {
+        if let Some(s) = unwrap!(self.string.lock().prefix("Previewer panicked")._elog()).as_ref() {
             s.height() == 0
         } else {
-            let output = self.lines.read().unwrap();
+            let output = unwrap!(self.lines.read().prefix("Previewer panicked")._elog());
             output.iter().next().is_none()
         }
     }

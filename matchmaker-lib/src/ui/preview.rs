@@ -166,17 +166,19 @@ impl PreviewUI {
     }
 
     pub fn set_target(&mut self, mut target: isize) {
+        let results = self.view.results().lines;
+        let line_count = results.len();
+
         target += self.config.scroll.offset;
         self.target = Some(if target < 0 {
-            self.view.len().saturating_sub(target.unsigned_abs())
+            line_count.saturating_sub(target.unsigned_abs())
         } else {
-            self.view.len().min(target.unsigned_abs())
+            line_count.saturating_sub(1).min(target.unsigned_abs())
         });
         let mut index = self.target.unwrap();
 
         // decrement the index to put the target lower on the page.
         // The resulting height up to the top of target should >= p% of height.
-        let results = self.view.results().lines;
         let mut lines_above =
             self.config
                 .scroll
@@ -193,7 +195,7 @@ impl PreviewUI {
                 lines_above -= prev;
             }
         }
-        self.offset = index as u16;
+        self.offset = u16::try_from(index).unwrap_or(u16::MAX);
         log::trace!("offset: {}, index: {}", self.offset, self.target.unwrap());
     }
 

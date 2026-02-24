@@ -397,7 +397,7 @@ impl Default for ResultsConfig {
             reverse: Default::default(),
 
             wrap: Default::default(),
-            min_wrap_width: 5,
+            min_wrap_width: 6,
 
             column_spacing: Default::default(),
             current_prefix: Default::default(),

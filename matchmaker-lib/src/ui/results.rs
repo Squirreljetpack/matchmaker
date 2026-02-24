@@ -23,7 +23,7 @@ use crate::{
 #[derive(Debug)]
 pub struct ResultsUI {
     cursor: u16,
-    bottom: u16,
+    bottom: u32,
     col: Option<usize>,
 
     /// available height
@@ -74,9 +74,8 @@ impl ResultsUI {
         }
     }
 
-    pub fn with_hidden_columns(mut self, hidden_columns: Vec<bool>) -> Self {
+    pub fn hidden_columns(&mut self, hidden_columns: Vec<bool>) {
         self.hidden_columns = hidden_columns;
-        self
     }
 
     // as given by ratatui area
@@ -143,7 +142,7 @@ impl ResultsUI {
         if self.cursor_disabled {
             u32::MAX
         } else {
-            (self.cursor + self.bottom) as u32
+            self.cursor as u32 + self.bottom
         }
     }
     // pub fn cursor(&self) -> Option<u16> {
@@ -154,6 +153,7 @@ impl ResultsUI {
     //     }
     // }
     pub fn cursor_prev(&mut self) {
+        log::trace!("cursor_prev: {self:?}");
         if self.cursor_above <= self.scroll_padding() && self.bottom > 0 {
             self.bottom -= 1;
             self.bottom_clip = None;
@@ -175,7 +175,7 @@ impl ResultsUI {
         //     self.status
         // );
         if self.cursor + 1 + self.scroll_padding() >= self.height
-            && self.bottom + self.height < self.status.matched_count as u16
+            && self.bottom + (self.height as u32) < self.status.matched_count
         {
             self.bottom += 1; // 
         } else if self.index() < self.end() {
@@ -190,16 +190,15 @@ impl ResultsUI {
         self.bottom_clip = None;
 
         let end = self.end();
-        let index = index.min(end) as u16;
+        let index = index.min(end);
 
-        if index < self.bottom || index >= self.bottom + self.height {
-            self.bottom = (end as u16 + 1)
-                .saturating_sub(self.height) // don't exceed the first item of the last self.height items
+        if index < self.bottom as u32 || index >= self.bottom + self.height as u32 {
+            self.bottom = (end + 1)
+                .saturating_sub(self.height as u32) // don't exceed the first item of the last self.height items
                 .min(index);
-            self.cursor = index - self.bottom;
-        } else {
-            self.cursor = index - self.bottom;
         }
+        self.cursor = (index - self.bottom) as u16;
+        log::debug!("cursor jumped to {}: {index}, end: {end}", self.cursor);
     }
 
     // ------- RENDERING ----------
@@ -221,45 +220,58 @@ impl ResultsUI {
     }
 
     /// Adapt the stored widths (initialized by [`Worker::results`]) to the fit within the available width (self.width)
+    /// widths <= min_wrap_width don't shrink and aren't wrapped
     pub fn max_widths(&self) -> Vec<u16> {
-        if !self.config.wrap {
-            return vec![];
-        }
-
-        let mut widths = vec![u16::MAX; self.widths.len()];
-
-        let total: u16 = self.widths.iter().sum();
-        if total <= self.width() {
-            return vec![];
-        }
-
-        let mut available = self.width();
         let mut scale_total = 0;
-        let mut scalable_indices = Vec::new();
 
-        for (i, &w) in self.widths.iter().enumerate() {
-            if w <= self.config.min_wrap_width {
-                available = available.saturating_sub(w);
-            } else if i < self.hidden_columns.len() && self.hidden_columns[i] {
+        let mut widths = vec![u16::MAX; self.widths.len().max(self.hidden_columns.len())];
+        let mut total = 0; // total current width
+        for i in 0..widths.len() {
+            if i < self.hidden_columns.len() && self.hidden_columns[i] || widths[i] == 0 {
                 widths[i] = 0;
-            } else {
-                scale_total += w;
-                scalable_indices.push(i);
+            } else if let Some(&w) = self.widths.get(i) {
+                total += w;
+                if w >= self.config.min_wrap_width {
+                    scale_total += w;
+                    widths[i] = w;
+                }
             }
         }
 
-        for &i in &scalable_indices {
-            let old = self.widths[i];
-            let new_w = old * available / scale_total;
-            widths[i] = new_w.max(self.config.min_wrap_width);
+        if !self.config.wrap || scale_total == 0 {
+            for x in &mut widths {
+                if *x != 0 {
+                    *x = u16::MAX
+                }
+            }
+            return widths;
+        }
+
+        let mut last_scalable = None;
+        let available = self.width().saturating_sub(total - scale_total); // 
+
+        let mut used_total = 0;
+        for (i, x) in widths.iter_mut().enumerate() {
+            if *x == 0 {
+                continue;
+            }
+            if *x == u16::MAX
+                && let Some(w) = self.widths.get(i)
+            {
+                used_total += w;
+                continue;
+            }
+            let new_w = *x * available / scale_total;
+            *x = new_w.max(self.config.min_wrap_width);
+            used_total += *x;
+            last_scalable = Some(x);
         }
 
         // give remainder to the last scalable column
-        if let Some(&last_idx) = scalable_indices.last() {
-            let used_total: u16 = widths.iter().sum();
-            if used_total < self.width() {
-                widths[last_idx] += self.width() - used_total;
-            }
+        if used_total < self.width()
+            && let Some(last) = last_scalable
+        {
+            *last += self.width() - used_total;
         }
 
         widths
@@ -275,29 +287,38 @@ impl ResultsUI {
         click: &mut Click,
     ) -> Table<'a> {
         let offset = self.bottom as u32;
-        let end = (self.bottom + self.height) as u32;
+        let end = self.bottom + self.height as u32;
         let hz = !self.config.stacked_columns;
 
         let width_limits = if hz {
             self.max_widths()
         } else {
-            vec![
-                if self.config.wrap {
-                    self.width
-                } else {
-                    u16::MAX
-                };
-                worker.columns.len()
-            ]
+            let default = if self.config.wrap {
+                self.width
+            } else {
+                u16::MAX
+            };
+
+            (0..worker.columns.len())
+                .map(|i| {
+                    if self.hidden_columns.get(i).copied().unwrap_or(false) {
+                        0
+                    } else {
+                        default
+                    }
+                })
+                .collect()
         };
 
         let (mut results, mut widths, status) =
             worker.results(offset, end, &width_limits, self.match_style(), matcher);
 
+        // log::debug!("widths: {width_limits:?}, {widths:?}");
+
         let match_count = status.matched_count;
         self.status = status;
 
-        if match_count < (self.bottom + self.cursor) as u32 && !self.cursor_disabled {
+        if match_count < self.bottom + self.cursor as u32 && !self.cursor_disabled {
             self.cursor_jump(match_count);
         } else {
             self.cursor = self.cursor.min(results.len().saturating_sub(1) as u16)
@@ -345,7 +366,7 @@ impl ResultsUI {
 
         if h_at_cursor >= cursor_end_should_lt {
             start_index = self.cursor;
-            self.bottom += self.cursor;
+            self.bottom += self.cursor as u32;
             self.cursor = 0;
             self.cursor_above = 0;
             self.bottom_clip = None;
@@ -372,13 +393,13 @@ impl ResultsUI {
 
                     total_height += remaining_height;
 
-                    log::debug!("r: {remaining_height}");
+                    // log::debug!("r: {remaining_height}");
                     if hz {
                         if h - self._hr() < remaining_height {
                             for (_, t) in
                                 row.iter_mut().enumerate().filter(|(i, _)| widths[*i] != 0)
                             {
-                                clip_text_lines(t, h - remaining_height, !self.reverse());
+                                clip_text_lines(t, remaining_height, !self.reverse());
                             }
                         }
 
@@ -420,12 +441,12 @@ impl ResultsUI {
                         rows.extend(push.into_iter().rev());
                     }
 
-                    self.bottom += start_index - 1;
+                    self.bottom += start_index as u32 - 1;
                     self.cursor -= start_index - 1;
                     self.bottom_clip = Some(remaining_height);
                     break;
                 } else if trunc_height == h {
-                    self.bottom += start_index;
+                    self.bottom += start_index as u32;
                     self.cursor -= start_index;
                     self.bottom_clip = None;
                     break;

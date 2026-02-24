@@ -27,12 +27,15 @@
     current_bg       = "Black"
     current_modifier = "BOLD"
     match_fg         = "Green"
-    status_fg        = "Green"
-    status_modifier  = "ITALIC"
+
     # reverse = auto
     wrap = true
 
     scroll_wrap = true
+
+[status]
+    fg        = "Green"
+    modifier  = "ITALIC"
 
 [previewer]
     try_lossy = false

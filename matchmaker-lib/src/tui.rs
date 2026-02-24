@@ -102,22 +102,28 @@ where
 
     pub fn enter(&mut self) -> Result<()> {
         let fullscreen = self.is_fullscreen();
+        if fullscreen {
+            self.alternate_screen()?;
+        }
+        
         let backend = self.terminal.backend_mut();
         crossterm::terminal::enable_raw_mode()?; // duplicate but crossterm checks this
+
         execute!(backend, EnableMouseCapture)._elog();
         #[cfg(feature = "bracketed-paste")]
-        execute!(backend, crossterm::event::EnableBracketedPaste)._elog();
+        {
+            execute!(backend, crossterm::event::EnableBracketedPaste)._elog();
+        }
+
         if self.config.extended_keys {
             execute!(
                 backend,
                 PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)
             )
             ._elog();
+            log::trace!("keyboard enhancement set");
         }
 
-        if fullscreen {
-            self.alternate_screen()?;
-        }
         Ok(())
     }
 

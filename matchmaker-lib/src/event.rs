@@ -1,10 +1,7 @@
-use std::collections::btree_map::Entry;
-use std::path::PathBuf;
-
-use crate::Result;
 use crate::action::{Action, ActionExt, NullActionExt};
 use crate::binds::BindMap;
 use crate::message::{BindDirective, Event, RenderCommand};
+use anyhow::Result;
 use cli_boilerplate_automation::bait::ResultExt;
 use cli_boilerplate_automation::bath::PathExt;
 use cli_boilerplate_automation::unwrap;
@@ -15,6 +12,8 @@ use crossterm::event::{
 use futures::stream::StreamExt;
 use log::{debug, error, info, warn};
 use ratatui::layout::Rect;
+use std::collections::btree_map::Entry;
+use std::path::PathBuf;
 use tokio::sync::mpsc;
 use tokio::time::{self};
 
@@ -42,7 +41,7 @@ pub struct EventLoop<A: ActionExt> {
     bind_tx: BindSender<A>,
 
     key_file: Option<PathBuf>,
-    current_task: Option<tokio::task::JoinHandle<io::Result<()>>>,
+    current_task: Option<tokio::task::JoinHandle<Result<()>>>,
 }
 
 impl<A: ActionExt> Default for EventLoop<A> {
@@ -175,7 +174,7 @@ impl<A: ActionExt> EventLoop<A> {
     }
 
     // todo: should its return type carry info
-    pub async fn run(&mut self) -> Result<()> {
+    pub async fn run(&mut self) {
         self.event_stream = Some(EventStream::new());
         let mut interval = time::interval(self.tick_interval);
 
@@ -253,13 +252,12 @@ impl<A: ActionExt> EventLoop<A> {
                                 CrosstermEvent::Mouse(MouseEvent {
                                     kind: crossterm::event::MouseEventKind::Moved,
                                     ..
-                                })
+                                }) |  CrosstermEvent::Key {..}
                             ) {
                                 info!("Event {event:?}");
                             }
                             match event {
                                 CrosstermEvent::Key(k) => {
-                                    info!("{k:?}");
                                     if let Some(key) = self.combiner.transform(k) {
                                         info!("{key:?}");
                                         let key = KeyCombination::normalized(key);
@@ -340,7 +338,6 @@ impl<A: ActionExt> EventLoop<A> {
                 }
             }
         }
-        Ok(())
     }
 
     fn send(&self, action: RenderCommand<A>) {
@@ -396,10 +393,9 @@ fn key_code_as_letter(key: KeyCombination) -> Option<char> {
 
 use std::path::Path;
 use tokio::fs;
-use tokio::io;
 
 /// Cleanup files in the same directory with the same basename, and a .tmp extension
-async fn cleanup_tmp_files(path: &Path) -> io::Result<()> {
+async fn cleanup_tmp_files(path: &Path) -> Result<()> {
     let parent = unwrap!(path.parent(); Ok(()));
     let name = unwrap!(path.file_name().and_then(|s| s.to_str()); Ok(()));
 
@@ -422,17 +418,13 @@ async fn cleanup_tmp_files(path: &Path) -> io::Result<()> {
 
 /// Spawns a thread that writes `content` to `path` atomically using a temp file.
 /// Returns the `JoinHandle` so you can wait for it if desired.
-pub async fn write_to_file(path: PathBuf, content: String) -> io::Result<()> {
+pub async fn write_to_file(path: PathBuf, content: String) -> Result<()> {
     let suffix = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
 
-    let tmp_path = path.with_file_name(format!(
-        "{}.{}.tmp",
-        path.file_name().unwrap().to_string_lossy(),
-        suffix
-    ));
+    let tmp_path = path.with_file_name(format!("{}.{}.tmp", path._filename()?, suffix));
 
     // Write temp file
     fs::write(&tmp_path, &content).await?;

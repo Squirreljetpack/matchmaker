@@ -69,7 +69,7 @@ impl UI {
             worker,
             selection_set,
         );
-        picker.results = picker.results.with_hidden_columns(hidden_columns);
+        picker.results.hidden_columns(hidden_columns);
 
         let preview = if let Some(view) = view {
             Some(PreviewUI::new(view, config.preview))

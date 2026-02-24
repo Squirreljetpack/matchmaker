@@ -79,20 +79,22 @@ impl Previewer {
     }
 
     pub fn set_string(&self, s: Text<'static>) {
-        let mut guard = self.string.lock().unwrap();
-        *guard = Some(s);
-        self.changed.store(true, Ordering::Release);
+        if let Ok(mut guard) = self.string.lock() {
+            *guard = Some(s);
+            self.changed.store(true, Ordering::Release);
+        }
     }
 
     pub fn clear_string(&self) {
-        let mut guard = self.string.lock().unwrap();
-        *guard = None;
-        self.changed.store(true, Ordering::Release);
+        if let Ok(mut guard) = self.string.lock() {
+            *guard = None;
+            self.changed.store(true, Ordering::Release);
+        }
     }
 
     pub fn has_string(&self) -> bool {
-        let guard = self.string.lock().unwrap();
-        guard.is_some()
+        let guard = self.string.lock();
+        guard.is_ok_and(|s| s.is_some())
     }
 
     pub async fn run(mut self) -> Result<(), Vec<Child>> {

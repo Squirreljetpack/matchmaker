@@ -706,7 +706,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
                     state.current_raw().and_then(|item| {
                         state.picker_ui.worker.format_with(item, index_col).and_then(|t| t.parse::<isize>().ok())
                     })
-                })).unwrap_or(0); // reset to 0 each time
+                }));
                 
                 if let Some(p) = state.preview_ui {
                     p.set_target(target);

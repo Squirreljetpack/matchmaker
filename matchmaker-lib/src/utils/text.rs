@@ -4,7 +4,7 @@ use std::{borrow::Cow, ops::Range};
 
 use log::error;
 use ratatui::{
-    style::{Color, Modifier, Style},
+    style::{Color, Modifier, Style, Stylize},
     text::{Line, Span, Text},
 };
 use unicode_segmentation::UnicodeSegmentation;
@@ -128,6 +128,9 @@ pub fn wrapped_line_height(line: &Line<'_>, width: u16) -> u16 {
 }
 
 pub fn wrap_text<'a>(text: Text<'a>, max_width: u16) -> (Text<'a>, bool) {
+    // todo: lowpri: refactor to support configuring
+    let wrapping_span = Span::raw("↵").fg(Color::DarkGray).dim();
+
     if max_width == 0 {
         return (text, false);
     }
@@ -184,7 +187,7 @@ pub fn wrap_text<'a>(text: Text<'a>, max_width: u16) -> (Text<'a>, bool) {
                 if current_grapheme_start_idx < graphemes.len() {
                     // line wrapped
                     wrapped = true;
-                    current_line_spans.push(Span::raw("↵"));
+                    current_line_spans.push(wrapping_span.clone());
                     new_lines.push(Line::from(current_line_spans));
                     current_line_spans = Vec::new();
                     current_line_width = 0;

@@ -16,7 +16,7 @@ use crate::{
 use cli_boilerplate_automation::define_transparent_wrapper;
 use cli_boilerplate_automation::serde::{
     // one_or_many,
-    transform::camelcase_normalized,
+    transform::{camelcase_normalized, camelcase_normalized_option},
 };
 use ratatui::{
     style::{Color, Modifier, Style},
@@ -50,7 +50,7 @@ pub struct MatcherConfig {
 /// Does not deny unknown fields.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
-#[partial(path, derive(Debug, Deserialize))]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct WorkerConfig {
     #[partial(recurse)]
     #[serde(flatten)]
@@ -72,7 +72,7 @@ pub struct WorkerConfig {
 ///
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-#[partial(path, derive(Debug, Deserialize))]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct StartConfig {
     #[serde(deserialize_with = "escaped_opt_char")]
     #[partial(alias = "is")]
@@ -102,7 +102,7 @@ pub struct StartConfig {
 /// Exit conditions of the render loop.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-#[partial(path, derive(Debug, Deserialize))]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct ExitConfig {
     /// Exit automatically if there is only one match.
     pub select_1: bool,
@@ -147,7 +147,7 @@ impl RenderConfig {
 }
 
 /// Terminal settings.
-#[partial(path, derive(Debug, Deserialize))]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct TerminalConfig {
@@ -181,7 +181,7 @@ impl Default for TerminalConfig {
 /// The container ui.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-#[partial(path, derive(Debug, Deserialize))]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct UiConfig {
     #[partial(recurse)]
     pub border: BorderSetting,
@@ -200,7 +200,7 @@ impl Default for UiConfig {
 /// The input bar ui.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-#[partial(path, derive(Debug, Deserialize))]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct InputConfig {
     #[partial(recurse)]
     pub border: BorderSetting,
@@ -249,7 +249,7 @@ impl Default for InputConfig {
 
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-#[partial(path, derive(Debug, Deserialize))]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct OverlayConfig {
     #[partial(recurse)]
     pub border: BorderSetting,
@@ -258,7 +258,7 @@ pub struct OverlayConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[partial(path, derive(Debug, Deserialize))]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct OverlayLayoutSettings {
     /// w, h
     #[partial(alias = "p")]
@@ -289,7 +289,7 @@ pub enum RowConnectionStyle {
 
 // pub struct OverlaySize
 
-#[partial(path, derive(Debug, Deserialize))]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ResultsConfig {
@@ -408,7 +408,7 @@ impl Default for ResultsConfig {
     }
 }
 
-#[partial(path, derive(Debug, Deserialize))]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct StatusConfig {
@@ -449,7 +449,7 @@ impl Default for StatusConfig {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-#[partial(path, derive(Debug, Deserialize))]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct DisplayConfig {
     #[partial(recurse)]
     pub border: BorderSetting,
@@ -516,7 +516,7 @@ impl Default for DisplayConfig {
 ///     ..Default::default()
 /// };
 /// ```
-#[partial(path, derive(Debug, Deserialize))]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PreviewConfig {
@@ -553,7 +553,7 @@ impl Default for PreviewConfig {
 }
 
 /// Determines the initial scroll offset of the preview window.
-#[partial(path, derive(Debug, Deserialize))]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PreviewScrollSetting {
@@ -635,11 +635,11 @@ impl Deref for FormatString {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[serde(default, deny_unknown_fields)]
-#[partial(path, derive(Debug, Deserialize))]
 pub struct BorderSetting {
-    #[serde(deserialize_with = "camelcase_normalized")]
-    pub r#type: BorderType,
+    #[serde(deserialize_with = "camelcase_normalized_option")]
+    pub r#type: Option<BorderType>,
     #[serde(deserialize_with = "camelcase_normalized")]
     pub color: Color,
     /// Given as sides joined by `|`. i.e.:
@@ -685,7 +685,7 @@ impl BorderSetting {
         if !self.is_empty() {
             ret = ret
                 .borders(self.sides())
-                .border_type(self.r#type)
+                .border_type(self.r#type.unwrap_or_default())
                 .border_style(ratatui::style::Style::default().fg(self.color))
         }
 
@@ -719,7 +719,7 @@ impl BorderSetting {
         if !self.is_empty() {
             ret = ret
                 .borders(self.sides())
-                .border_type(self.r#type)
+                .border_type(self.r#type.unwrap_or_default())
                 .border_style(ratatui::style::Style::default().fg(self.color))
         }
 
@@ -767,7 +767,7 @@ impl BorderSetting {
 
 // how to determine how many rows to allocate?
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[partial(path, derive(Debug, Deserialize))]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct TerminalLayoutSettings {
     /// Percentage of total rows to occupy.
     #[partial(alias = "p")]
@@ -807,7 +807,7 @@ impl Side {
     }
 }
 
-#[partial(path, derive(Debug, Deserialize))]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PreviewSetting {
     #[serde(flatten)]
@@ -819,7 +819,7 @@ pub struct PreviewSetting {
     pub command: String,
 }
 
-#[partial(path, derive(Debug, Deserialize))]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PreviewLayout {
     pub side: Side,
@@ -855,7 +855,7 @@ use crate::utils::serde::bounded_usize;
 // todo: pass filter and hidden to mm
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-#[partial(path, derive(Debug, Deserialize))]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct ColumnsConfig {
     /// The strategy of how columns are parsed from input lines
     #[partial(alias = "s")]

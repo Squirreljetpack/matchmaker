@@ -165,11 +165,18 @@ impl PreviewUI {
         }
     }
 
-    pub fn set_target(&mut self, mut target: isize) {
+    pub fn set_target(&mut self, target: Option<isize>) {
         let results = self.view.results().lines;
         let line_count = results.len();
 
+        let Some(mut target) = target else {
+            self.target = None;
+            self.offset = 0;
+            return;
+        };
+
         target += self.config.scroll.offset;
+
         self.target = Some(if target < 0 {
             line_count.saturating_sub(target.unsigned_abs())
         } else {
@@ -196,7 +203,11 @@ impl PreviewUI {
             }
         }
         self.offset = u16::try_from(index).unwrap_or(u16::MAX);
-        log::trace!("offset: {}, index: {}", self.offset, self.target.unwrap());
+        log::trace!(
+            "Preview initial offset: {}, index: {}",
+            self.offset,
+            self.target.unwrap()
+        );
     }
 
     // --------------------------

@@ -42,6 +42,7 @@ impl UI {
         selection_set: Selector<T, S>,
         view: Option<Preview>,
         tui: &mut Tui<W>,
+        hidden_columns: Vec<bool>,
     ) -> (Self, PickerUI<'a, T, S>, DisplayUI, Option<PreviewUI>) {
         assert!(!worker.columns.is_empty());
 
@@ -59,7 +60,7 @@ impl UI {
             config: config.ui,
         };
 
-        let picker = PickerUI::new(
+        let mut picker = PickerUI::new(
             config.results,
             config.status,
             config.input,
@@ -68,6 +69,7 @@ impl UI {
             worker,
             selection_set,
         );
+        picker.results = picker.results.with_hidden_columns(hidden_columns);
 
         let preview = if let Some(view) = view {
             Some(PreviewUI::new(view, config.preview))

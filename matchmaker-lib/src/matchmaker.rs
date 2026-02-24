@@ -59,6 +59,7 @@ pub struct Matchmaker<T: SSS, S: Selection = T> {
 pub struct OddEnds {
     pub formatter: Arc<RenderFn<ConfigMMItem>>,
     pub splitter: SplitterFn<Either<String, Text<'static>>>,
+    pub hidden_columns: Vec<bool>
 }
 
 pub type ConfigInjector = AnsiInjector<
@@ -81,6 +82,7 @@ impl ConfigMatchmaker {
         preprocess_config: PreprocessOptions,
     ) -> (Self, ConfigInjector, OddEnds) {
         let cc = worker_config.columns;
+        let hidden_columns = cc.names.iter().map(|x| x.hidden).collect();
         // "hack" because we cannot make the results stable in the worker as our current hack uses the identifier
         let mut worker: Worker<ConfigMMItem> = match cc.split {
             Split::Delimiter(_) | Split::Regexes(_) => {
@@ -173,6 +175,7 @@ impl ConfigMatchmaker {
         let misc = OddEnds {
             formatter,
             splitter,
+            hidden_columns
         };
         
         (new, injector, misc)
@@ -249,6 +252,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
             #[cfg(feature = "bracketed-paste")]
             paste_handler,
             overlay_config,
+            hidden_columns,
             ..
         } = builder;
         
@@ -325,6 +329,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
                     self.selector,
                     preview,
                     &mut tui,
+                    hidden_columns
                 );
                 render::render_loop(
                     ui,
@@ -352,6 +357,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
                     self.selector,
                     preview,
                     &mut tui,
+                    hidden_columns
                 );
                 render::render_loop(
                     ui,
@@ -434,6 +440,8 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
         overlays: Vec<Box<dyn Overlay<A = A>>>,
         overlay_config: Option<OverlayConfig>,
         previewer: Option<Either<Preview, Previewer>>,
+
+        hidden_columns: Vec<bool>,
         
         /// # Experimental
         // pub signal_handler: Option<(&'static std::sync::atomic::AtomicUsize, SignalHandler<T, S>)>,
@@ -461,6 +469,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
                 overlay_config: None,
                 overlays: Vec::new(),
                 channel: None,
+                hidden_columns: Vec::new()
             }
         }
         
@@ -503,6 +512,11 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
         
         pub fn matcher(mut self, matcher_config: nucleo::Config) -> Self {
             self.matcher_config = matcher_config;
+            self
+        }
+
+        pub fn hidden_columns(mut self, hidden_columns: Vec<bool>) -> Self {
+            self.hidden_columns = hidden_columns;
             self
         }
         

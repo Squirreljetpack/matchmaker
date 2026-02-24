@@ -175,6 +175,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         OddEnds {
             formatter,
             splitter,
+            hidden_columns,
         },
     ) = Matchmaker::new_from_config(render, tui, worker, exit, preprocess);
     // make previewer
@@ -227,6 +228,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         .event_loop(event_loop)
         .matcher(matcher.0)
         .previewer(previewer)
+        .hidden_columns(hidden_columns)
         .ext_handler(move |x, y| action_handler(x, y, &mut action_context));
 
     let render_tx = options.render_tx();

@@ -34,6 +34,8 @@ pub struct ResultsUI {
     // Note that the first width includes the indentation.
     widths: Vec<u16>,
 
+    pub hidden_columns: Vec<bool>,
+
     pub status: Status,
     status_template: Line<'static>,
     pub status_config: StatusConfig,
@@ -56,6 +58,7 @@ impl ResultsUI {
             widths: Vec::new(),
             height: 0, // uninitialized, so be sure to call update_dimensions
             width: 0,
+            hidden_columns: Default::default(),
 
             status: Default::default(),
             status_template: Span::from(status_config.template.clone())
@@ -70,6 +73,12 @@ impl ResultsUI {
             cursor_above: 0,
         }
     }
+
+    pub fn with_hidden_columns(mut self, hidden_columns: Vec<bool>) -> Self {
+        self.hidden_columns = hidden_columns;
+        self
+    }
+
     // as given by ratatui area
     pub fn update_dimensions(&mut self, area: &Rect) {
         let [bw, bh] = [self.config.border.height(), self.config.border.width()];
@@ -231,6 +240,8 @@ impl ResultsUI {
         for (i, &w) in self.widths.iter().enumerate() {
             if w <= self.config.min_wrap_width {
                 available = available.saturating_sub(w);
+            } else if i < self.hidden_columns.len() && self.hidden_columns[i] {
+                widths[i] = 0;
             } else {
                 scale_total += w;
                 scalable_indices.push(i);

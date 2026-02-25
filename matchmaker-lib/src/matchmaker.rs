@@ -84,6 +84,7 @@ impl ConfigMatchmaker {
         let cc = worker_config.columns;
         let hidden_columns = cc.names.iter().map(|x| x.hidden).collect();
         // "hack" because we cannot make the results stable in the worker as our current hack uses the identifier
+        #[allow(unused_mut)]
         let mut worker: Worker<ConfigMMItem> = match cc.split {
             Split::Delimiter(_) | Split::Regexes(_) => {
                 let names: Vec<Arc<str>> = if cc.names.is_empty() {

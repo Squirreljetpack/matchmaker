@@ -1,11 +1,12 @@
 use log::error;
 use ratatui::{
     layout::Rect,
+    text::Line,
     widgets::{Paragraph, Wrap},
 };
 
 use crate::{
-    config::{BorderSetting, PreviewConfig, PreviewLayout},
+    config::{BorderSetting, PreviewConfig, PreviewLayout, ShowCondition, Side},
     preview::Preview,
     utils::text::wrapped_line_height,
 };
@@ -20,18 +21,35 @@ pub struct PreviewUI {
     pub scroll: [u16; 2],
     offset: usize,
     target: Option<usize>,
+    attained_target: bool,
+
+    pub show: bool,
 }
 
 impl PreviewUI {
-    pub fn new(view: Preview, mut config: PreviewConfig) -> Self {
-        // todo: lowpri: this is not strictly correct
+    pub fn new(view: Preview, mut config: PreviewConfig, [ui_width, ui_height]: [u16; 2]) -> Self {
         for x in &mut config.layout {
             if let Some(b) = &mut x.border
                 && b.sides.is_none()
+                && !b.is_empty()
             {
                 b.sides = Some(x.layout.side.opposite())
             }
         }
+
+        let show = match config.show {
+            ShowCondition::Free(x) => {
+                if let Some(l) = config.layout.first() {
+                    match l.layout.side {
+                        Side::Bottom | Side::Top => ui_height >= x,
+                        _ => ui_width >= x,
+                    }
+                } else {
+                    false
+                }
+            }
+            ShowCondition::Bool(x) => x,
+        };
 
         Self {
             view,
@@ -41,8 +59,11 @@ impl PreviewUI {
             offset: 0,
             area: Rect::default(),
             target: None,
+            attained_target: false,
+            show,
         }
     }
+
     pub fn update_dimensions(&mut self, area: &Rect) {
         let mut height = area.height;
         height -= self.config.border.height().min(height);
@@ -53,36 +74,61 @@ impl PreviewUI {
         self.area.width = width;
     }
 
+    pub fn reevaluate_show_condition(&mut self, [ui_width, ui_height]: [u16; 2], hide: bool) {
+        match self.config.show {
+            ShowCondition::Free(x) => {
+                if let Some(l) = self.layout() {
+                    let show = match l.side {
+                        Side::Bottom | Side::Top => ui_height >= x,
+                        _ => ui_width >= x,
+                    };
+                    if !hide && !show {
+                        return;
+                    }
+                    self.show(show);
+                };
+            }
+            ShowCondition::Bool(show) => {
+                if !hide && !show {
+                    return;
+                }
+                self.show(show);
+            }
+        };
+    }
+
     // -------- Layout -----------
     /// None if not show
     pub fn layout(&self) -> Option<&PreviewLayout> {
-        if !self.config.show || self.config.layout.is_empty() {
-            None
+        if self.show
+            && let Some(ret) = self.config.layout.get(self.layout_idx)
+            && ret.layout.max != 0
+        {
+            Some(&ret.layout)
         } else {
-            let ret = &self.config.layout[self.layout_idx].layout;
-            if ret.max == 0 { None } else { Some(ret) }
+            None
         }
     }
     pub fn command(&self) -> &str {
-        if self.config.layout.is_empty() {
-            ""
-        } else {
-            self.config.layout[self.layout_idx].command.as_str()
-        }
+        self.config
+            .layout
+            .get(self.layout_idx)
+            .map(|x| x.command.as_str())
+            .unwrap_or("")
     }
 
     pub fn border(&self) -> &BorderSetting {
-        self.config.layout[self.layout_idx]
-            .border
-            .as_ref()
+        self.config
+            .layout
+            .get(self.layout_idx)
+            .and_then(|s| s.border.as_ref())
             .unwrap_or(&self.config.border)
     }
 
     pub fn get_initial_command(&self) -> &str {
-        if let Some(current) = self.config.layout.get(self.layout_idx) {
-            if !current.command.is_empty() {
-                return current.command.as_str();
-            }
+        let x = self.command();
+        if !x.is_empty() {
+            return x;
         }
 
         self.config
@@ -114,12 +160,12 @@ impl PreviewUI {
     }
     // cheap show toggle + change tracking
     pub fn show(&mut self, show: bool) -> bool {
-        let previous = self.config.show;
-        self.config.show = show;
+        let previous = self.show;
+        self.show = show;
         previous != show
     }
     pub fn toggle_show(&mut self) {
-        self.config.show = !self.config.show;
+        self.show = !self.show;
     }
 
     pub fn wrap(&mut self, wrap: bool) {
@@ -189,10 +235,23 @@ impl PreviewUI {
         self.target = Some(if target < 0 {
             line_count.saturating_sub(target.unsigned_abs())
         } else {
-            line_count.saturating_sub(1).min(target.unsigned_abs())
+            target as usize
         });
-        let mut index = self.target.unwrap();
 
+        let index = self.target.unwrap();
+
+        self.offset = if index >= results.len() {
+            self.attained_target = false;
+            results.len() - self.area.height as usize / 2
+        } else {
+            self.attained_target = true;
+            self.target_to_offset(index, &results)
+        };
+
+        log::trace!("Preview initial offset: {}, index: {}", self.offset, index);
+    }
+
+    fn target_to_offset(&self, mut target: usize, results: &Vec<Line>) -> usize {
         // decrement the index to put the target lower on the page.
         // The resulting height up to the top of target should >= p% of height.
         let mut lines_above =
@@ -201,31 +260,42 @@ impl PreviewUI {
                 .percentage
                 .complement()
                 .compute_clamped(self.area.height, 0, 0);
+
         // shoddy approximation to how Paragraph wraps lines
-        while index > 0 && lines_above > 0 {
-            let prev = wrapped_line_height(&results[index], self.area.width);
+        while target > 0 && lines_above > 0 {
+            let prev = results
+                .get(target)
+                .map(|x| wrapped_line_height(x, self.area.width))
+                .unwrap_or(1);
             if prev > lines_above {
                 break;
             } else {
-                index -= 1;
+                target -= 1;
                 lines_above -= prev;
             }
         }
-        self.offset = index;
-        log::trace!(
-            "Preview initial offset: {}, index: {}",
-            self.offset,
-            self.target.unwrap()
-        );
-    }
 
+        target
+    }
     // --------------------------
 
-    pub fn make_preview(&self) -> Paragraph<'_> {
+    pub fn make_preview(&mut self) -> Paragraph<'_> {
         assert!(self.is_show());
 
-        let mut results = self.view.results().into_iter();
+        let results = self.view.results();
+        let rl = results.lines.len();
         let height = self.area.height as usize;
+
+        if let Some(target) = self.target
+            && !self.attained_target
+            && target < rl
+        {
+            self.offset = self.target_to_offset(target, &results.lines);
+            self.attained_target = true;
+        };
+
+        let mut results = results.into_iter();
+
         if height == 0 {
             return Paragraph::new(Vec::new());
         }
@@ -239,7 +309,9 @@ impl PreviewUI {
                 break;
             };
         }
+
         let mut results = results.skip(self.offset);
+
         for _ in self.config.scroll.header_lines..height {
             if let Some(line) = results.next() {
                 lines.push(line);

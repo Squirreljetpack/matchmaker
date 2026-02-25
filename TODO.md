@@ -37,3 +37,4 @@
 - sometimes preview leaks (on invalid unicode), better autorefresh?
 - input_rhs_prompt
 - status template substitution via shell command
+- find out why previewchange event doesn't seem to fire as often as it should

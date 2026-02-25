@@ -4,7 +4,8 @@ use cli_boilerplate_automation::define_restricted_wrapper;
 use serde::{Deserialize, Deserializer};
 
 define_restricted_wrapper!(
-    #[derive(Clone)]
+    #[derive(Clone, serde::Serialize)]
+    #[serde(transparent)]
     Percentage: u16 = 100
 );
 impl Percentage {
@@ -52,7 +53,7 @@ impl std::str::FromStr for Percentage {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim_end_matches('%'); // allow optional trailing '%'
+        let s = s.trim_end_matches('%');
         let v: u16 = s
             .parse()
             .map_err(|e: std::num::ParseIntError| format!("Invalid number: {}", e))?;

@@ -767,15 +767,16 @@ impl ResultsUI {
             return None;
         }
 
-        // todo: support non_stacked by doing a seperate rendering pass
-        if !self.config.stacked_columns && self.widths.len() > 1 {
-            return Some(Row::new(vec![vec![]]));
-        }
-
         let unit = sep.as_str();
         let line = unit.repeat(self.width as usize);
 
-        Some(Row::new(vec![line]))
+        // todo: support non_stacked properly by doing a seperate rendering pass
+        if !self.config.stacked_columns && self.widths.len() > 1 {
+            // Some(Row::new(vec![vec![]]))
+            Some(Row::new(vec![line; self.widths().len()]))
+        } else {
+            Some(Row::new(vec![line]))
+        }
     }
 
     fn _hr(&self) -> u16 {

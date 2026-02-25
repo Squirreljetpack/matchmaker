@@ -194,6 +194,7 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
         let field_vis = &field.vis;
         let field_ty = &field.ty;
 
+        let is_opt = is_option(field_ty);
         let mut skip_field = false;
         let mut field_recurse = false;
         let mut recurse_override: Option<Option<proc_macro2::TokenStream>> = None;
@@ -265,6 +266,12 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
 
             // --- 4b. Handle #[serde] attributes ---
             if attr.path().is_ident("serde") {
+                // todo: this is even more fishy
+                let should_recurse =
+                    (struct_recurse || field_recurse || recurse_override.is_some())
+                        && !matches!(recurse_override, Some(None));
+                let is_same_type = !should_recurse && (field_unwrap == !is_opt);
+
                 let mut drop_attr = false;
                 let _ = attr.parse_nested_meta(|meta| {
                     if meta.path.is_ident("deserialize_with") {
@@ -272,7 +279,9 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                             && let Ok(s) = value.parse::<LitStr>()
                         {
                             custom_deserializer = s.parse::<Path>().ok();
-                            drop_attr = true;
+                            if !is_same_type {
+                                drop_attr = true;
+                            }
                         }
                     } else if meta.path.is_ident("with") {
                         if let Ok(value) = meta.value()
@@ -281,6 +290,10 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                         {
                             p.segments.push(format_ident!("deserialize").into());
                             custom_deserializer = Some(p);
+                            if !is_same_type {
+                                drop_attr = true;
+                            }
+                        } else if meta.path.is_ident("serialize_with") && !is_same_type {
                             drop_attr = true;
                         }
                     } else if meta.path.is_ident("alias") {
@@ -315,7 +328,7 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
 
         if let Some(ref s) = field_set
             && s == "sequence"
-            && recurse_override.is_some()
+            && recurse_override.as_ref().is_some_and(|s| s.is_some())
         {
             return syn::Error::new(
                 field.span(),
@@ -325,7 +338,6 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
             .into();
         }
 
-        let is_opt = is_option(field_ty);
         let inner_ty = if is_opt {
             extract_inner_type_from_option(field_ty)
         } else {
@@ -335,14 +347,9 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
         let coll_info = get_collection_info(inner_ty);
 
         // Determine if we should recurse
-        let mut should_recurse = (struct_recurse || field_recurse || recurse_override.is_some())
+        // TODO: this is a bit fishy
+        let should_recurse = (struct_recurse || field_recurse || recurse_override.is_some())
             && !matches!(recurse_override, Some(None));
-
-        if let Some(ref s) = field_set
-            && s == "sequence"
-        {
-            should_recurse = false;
-        }
 
         let current_field_ty: proc_macro2::TokenStream;
         let mut is_recursive_field = false;

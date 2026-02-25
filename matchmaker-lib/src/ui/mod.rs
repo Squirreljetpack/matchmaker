@@ -71,8 +71,12 @@ impl UI {
         );
         picker.results.hidden_columns(hidden_columns);
 
+        let ui_area = [
+            tui.area.width.saturating_sub(ui.config.border.width()),
+            tui.area.height.saturating_sub(ui.config.border.height()),
+        ];
         let preview = if let Some(view) = view {
-            Some(PreviewUI::new(view, config.preview))
+            Some(PreviewUI::new(view, config.preview, ui_area))
         } else {
             None
         };

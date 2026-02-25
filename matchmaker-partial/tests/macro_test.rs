@@ -406,7 +406,7 @@ mod tests {
             // #[partial(recurse)]
             // #[partial(set = "sequence")]
             // pub recurse_seq: Vec<Nested>, // should compiler error and it does
-            #[partial(set = "sequence")]
+            #[partial(set = "sequence", recurse = "")]
             pub unrecursed_seq: Vec<Nested>, // Option<Vec<Nested>>, overwrites on set
         }
 
@@ -457,9 +457,9 @@ mod tests {
                 d: 40,
                 e: "D".into(),
             }]),
-            unwrap_seq: vec![Nested {
-                d: 50,
-                e: "E".into(),
+            unwrap_seq: vec![PartialNested {
+                d: Some(50),
+                e: Some("E".into()),
             }],
             unrecursed_seq: Some(vec![Nested {
                 d: 70,
@@ -665,5 +665,68 @@ mod tests {
         // 6. Test missing field
         let res = p.set(&["unknown".to_string()], &["0".to_string()]);
         assert_eq!(res, Err(PartialSetError::Missing("unknown".to_string())));
+    }
+
+    #[test]
+    fn test_serde_with_mirroring_unwrapped() {
+        use serde::{Deserialize, Deserializer, Serialize};
+
+        // test attribute preservation
+        mod my_with {
+            use super::*;
+            use serde::Deserializer;
+            pub fn deserialize<'de, D>(deserializer: D) -> Result<i32, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                let val = i32::deserialize(deserializer)?;
+                Ok(val + 1)
+            }
+            pub fn serialize<S>(val: &i32, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                val.serialize(serializer)
+            }
+        }
+
+        #[partial(unwrap)]
+        #[derive(Deserialize, Serialize, Debug, PartialEq)]
+        struct Repro {
+            #[serde(with = "my_with")]
+            field: i32,
+        }
+
+        let toml_str = "field = 10";
+        let p: PartialRepro = toml::from_str(toml_str).expect("Failed to deserialize PartialRepro");
+
+        assert_eq!(p.field, 11, "serde(with) was stripped from PartialRepro!");
+    }
+
+    #[test]
+    fn test_sequential_clearing() {
+        use serde::{Deserialize, Serialize};
+
+        #[partial(unwrap)]
+        #[derive(Deserialize, Serialize, Debug, PartialEq)]
+        struct Sequential {
+            #[serde(rename = "old")]
+            #[partial(attr(serde(rename = "new")))]
+            field: i32,
+        }
+
+        // Test that "new" is used instead of "old"
+        let toml_str = "new = 42";
+        let p: PartialSequential =
+            toml::from_str(toml_str).expect("Failed to deserialize PartialSequential");
+        assert_eq!(p.field, 42);
+
+        // Verify "old" fails
+        let toml_str_old = "old = 42";
+        let res: Result<PartialSequential, _> = toml::from_str(toml_str_old);
+        assert!(
+            res.is_err(),
+            "Should have cleared the 'old' rename attribute"
+        );
     }
 }

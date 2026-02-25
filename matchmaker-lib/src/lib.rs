@@ -3,6 +3,7 @@ pub mod action;
 pub use action::{Action, Actions};
 pub mod binds;
 pub mod config;
+mod config_types;
 pub mod event;
 
 pub mod message;

@@ -3,9 +3,10 @@
 
 use matchmaker_partial_macros::partial;
 
-use std::{fmt, ops::Deref};
+use std::fmt;
 
-pub use crate::utils::{HorizontalSeparator, Percentage, serde::StringOrVec};
+pub use crate::config_types::*;
+pub use crate::utils::{Percentage, serde::StringOrVec};
 
 use crate::{
     MAX_SPLITS,
@@ -13,23 +14,18 @@ use crate::{
     utils::serde::{escaped_opt_char, escaped_opt_string, serde_duration_ms},
 };
 
-use cli_boilerplate_automation::define_transparent_wrapper;
-use cli_boilerplate_automation::serde::{
-    // one_or_many,
-    transform::{camelcase_normalized, camelcase_normalized_option},
+use cli_boilerplate_automation::serde::transform::{
+    camelcase_normalized, camelcase_normalized_option,
 };
 use ratatui::{
     style::{Color, Modifier, Style},
     text::Span,
-    widgets::{BorderType, Borders, Padding},
+    widgets::{BorderType, Borders},
 };
-
-use regex::Regex;
 
 use serde::{
     Deserialize, Deserializer, Serialize,
     de::{self, IntoDeserializer, Visitor},
-    ser::SerializeSeq,
 };
 
 /// Settings unrelated to event loop/picker_ui.
@@ -279,14 +275,6 @@ impl Default for OverlayLayoutSettings {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
-pub enum RowConnectionStyle {
-    #[default]
-    Disjoint,
-    Capped,
-    Full,
-}
-
 // pub struct OverlaySize
 
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
@@ -362,10 +350,6 @@ pub struct ResultsConfig {
     #[serde(deserialize_with = "camelcase_normalized")]
     pub horizontal_separator: HorizontalSeparator,
 }
-define_transparent_wrapper!(
-    #[derive(Copy, Clone)]
-    Count: u16 = 1
-);
 
 // #[derive(Default, Deserialize)]
 // pub enum HorizontalSeperator {
@@ -465,7 +449,6 @@ pub struct DisplayConfig {
     pub wrap: bool,
 
     /// Static content to display.
-    #[serde(deserialize_with = "deserialize_option_auto")]
     pub content: Option<StringOrVec>,
 
     /// This setting controls the effective width of the displayed content.
@@ -510,7 +493,8 @@ impl Default for DisplayConfig {
 ///     layout: vec![
 ///         PreviewSetting {
 ///             layout: PreviewLayout::default(),
-///             command: String::new()
+///             command: String::new(),
+///             ..Default::default
 ///         }
 ///     ],
 ///     ..Default::default()
@@ -533,14 +517,19 @@ pub struct PreviewConfig {
     #[serde(alias = "cycle")]
     pub scroll_wrap: bool,
     pub wrap: bool,
-    pub show: bool,
+    /// Whether to show the preview pane initially.
+    /// Can either be a boolean or a number which the relevant dimension of the available ui area must exceed.
+    pub show: ShowCondition,
+
+    // todo
+    pub reevaluate_show_on_resize: bool,
 }
 
 impl Default for PreviewConfig {
     fn default() -> Self {
         PreviewConfig {
             border: BorderSetting {
-                padding: Padding::left(2),
+                padding: Padding(ratatui::widgets::Padding::left(2)),
                 ..Default::default()
             },
             scroll: Default::default(),
@@ -548,6 +537,7 @@ impl Default for PreviewConfig {
             scroll_wrap: true,
             wrap: Default::default(),
             show: Default::default(),
+            reevaluate_show_on_resize: false,
         }
     }
 }
@@ -620,19 +610,6 @@ impl Default for TomlColorConfig {
 }
 
 // ----------- SETTING TYPES -------------------------
-// Default config file -> write if not exists, then load
-
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct FormatString(String);
-
-impl Deref for FormatString {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
 
 #[derive(Default, Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
@@ -658,7 +635,6 @@ pub struct BorderSetting {
     /// - Top, Right, Bottom, Left padding values
     ///
     /// respectively.
-    #[serde(with = "padding")]
     pub padding: Padding,
     pub title: String,
     // #[serde(deserialize_with = "transform_uppercase")]
@@ -670,7 +646,7 @@ pub struct BorderSetting {
 impl BorderSetting {
     pub fn as_block(&self) -> ratatui::widgets::Block<'_> {
         let mut ret = ratatui::widgets::Block::default()
-            .padding(self.padding)
+            .padding(self.padding.0)
             .style(Style::default().bg(self.bg));
 
         if !self.title.is_empty() {
@@ -704,7 +680,7 @@ impl BorderSetting {
 
     pub fn as_static_block(&self) -> ratatui::widgets::Block<'static> {
         let mut ret = ratatui::widgets::Block::default()
-            .padding(self.padding)
+            .padding(self.padding.0)
             .style(Style::default().bg(self.bg));
 
         if !self.title.is_empty() {
@@ -786,27 +762,6 @@ impl Default for TerminalLayoutSettings {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Side {
-    Top,
-    Bottom,
-    Left,
-    #[default]
-    Right,
-}
-
-impl Side {
-    pub fn opposite(&self) -> Borders {
-        match self {
-            Side::Top => Borders::BOTTOM,
-            Side::Bottom => Borders::TOP,
-            Side::Left => Borders::RIGHT,
-            Side::Right => Borders::LEFT,
-        }
-    }
-}
-
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PreviewSetting {
@@ -843,14 +798,6 @@ impl Default for PreviewLayout {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum CursorSetting {
-    None,
-    #[default]
-    Default,
-}
-
 use crate::utils::serde::bounded_usize;
 // todo: pass filter and hidden to mm
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -884,64 +831,7 @@ impl Default for ColumnsConfig {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq)]
-pub struct ColumnSetting {
-    pub filter: bool,
-    pub hidden: bool,
-    pub name: String,
-}
-
-#[derive(Default, Debug, Clone)]
-pub enum Split {
-    /// Split by delimiter. Supports regex.
-    Delimiter(Regex),
-    /// A sequence of regexes.
-    Regexes(Vec<Regex>),
-    /// No splitting.
-    #[default]
-    None,
-}
-
-impl PartialEq for Split {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Split::Delimiter(r1), Split::Delimiter(r2)) => r1.as_str() == r2.as_str(),
-            (Split::Regexes(v1), Split::Regexes(v2)) => {
-                if v1.len() != v2.len() {
-                    return false;
-                }
-                v1.iter()
-                    .zip(v2.iter())
-                    .all(|(r1, r2)| r1.as_str() == r2.as_str())
-            }
-            (Split::None, Split::None) => true,
-            _ => false,
-        }
-    }
-}
-
 // --------- Deserialize Helpers ------------
-pub fn serialize_borders<S>(borders: &Borders, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    use serde::ser::SerializeSeq;
-    let mut seq = serializer.serialize_seq(None)?;
-    if borders.contains(Borders::TOP) {
-        seq.serialize_element("top")?;
-    }
-    if borders.contains(Borders::BOTTOM) {
-        seq.serialize_element("bottom")?;
-    }
-    if borders.contains(Borders::LEFT) {
-        seq.serialize_element("left")?;
-    }
-    if borders.contains(Borders::RIGHT) {
-        seq.serialize_element("right")?;
-    }
-    seq.end()
-}
-
 pub fn deserialize_string_or_char_as_double_width<'de, D, T>(deserializer: D) -> Result<T, D::Error>
 where
     D: Deserializer<'de>,
@@ -1041,236 +931,6 @@ impl<'de> Deserialize<'de> for NucleoMatcherConfig {
         }
 
         Ok(NucleoMatcherConfig(config))
-    }
-}
-
-impl serde::Serialize for Split {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            Split::Delimiter(r) => serializer.serialize_str(r.as_str()),
-            Split::Regexes(rs) => {
-                let mut seq = serializer.serialize_seq(Some(rs.len()))?;
-                for r in rs {
-                    seq.serialize_element(r.as_str())?;
-                }
-                seq.end()
-            }
-            Split::None => serializer.serialize_none(),
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for Split {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct SplitVisitor;
-
-        impl<'de> Visitor<'de> for SplitVisitor {
-            type Value = Split;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("string for delimiter or array of strings for regexes")
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-            where
-                E: de::Error,
-            {
-                // Try to compile single regex
-                Regex::new(value)
-                    .map(Split::Delimiter)
-                    .map_err(|e| E::custom(format!("Invalid regex: {}", e)))
-            }
-
-            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-            where
-                A: serde::de::SeqAccess<'de>,
-            {
-                let mut regexes = Vec::new();
-                while let Some(s) = seq.next_element::<String>()? {
-                    let r = Regex::new(&s)
-                        .map_err(|e| de::Error::custom(format!("Invalid regex: {}", e)))?;
-                    regexes.push(r);
-                }
-                Ok(Split::Regexes(regexes))
-            }
-        }
-
-        deserializer.deserialize_any(SplitVisitor)
-    }
-}
-
-impl serde::Serialize for ColumnSetting {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        use serde::ser::SerializeStruct;
-        let mut state = serializer.serialize_struct("ColumnSetting", 3)?;
-        state.serialize_field("filter", &self.filter)?;
-        state.serialize_field("hidden", &self.hidden)?;
-        state.serialize_field("name", &self.name)?;
-        state.end()
-    }
-}
-
-impl<'de> Deserialize<'de> for ColumnSetting {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        #[serde(deny_unknown_fields)]
-        struct ColumnStruct {
-            #[serde(default = "default_true")]
-            filter: bool,
-            #[serde(default)]
-            hidden: bool,
-            name: String,
-        }
-
-        fn default_true() -> bool {
-            true
-        }
-
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum Input {
-            Str(String),
-            Obj(ColumnStruct),
-        }
-
-        match Input::deserialize(deserializer)? {
-            Input::Str(name) => Ok(ColumnSetting {
-                filter: true,
-                hidden: false,
-                name,
-            }),
-            Input::Obj(obj) => Ok(ColumnSetting {
-                filter: obj.filter,
-                hidden: obj.hidden,
-                name: obj.name,
-            }),
-        }
-    }
-}
-
-mod padding {
-    use super::*;
-
-    pub fn serialize<S>(padding: &Padding, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        use serde::ser::SerializeSeq;
-        if padding.top == padding.bottom
-            && padding.left == padding.right
-            && padding.top == padding.left
-        {
-            serializer.serialize_u16(padding.top)
-        } else if padding.top == padding.bottom && padding.left == padding.right {
-            let mut seq = serializer.serialize_seq(Some(2))?;
-            seq.serialize_element(&padding.left)?;
-            seq.serialize_element(&padding.top)?;
-            seq.end()
-        } else {
-            let mut seq = serializer.serialize_seq(Some(4))?;
-            seq.serialize_element(&padding.top)?;
-            seq.serialize_element(&padding.right)?;
-            seq.serialize_element(&padding.bottom)?;
-            seq.serialize_element(&padding.left)?;
-            seq.end()
-        }
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Padding, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct PaddingVisitor;
-
-        impl<'de> Visitor<'de> for PaddingVisitor {
-            type Value = Padding;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a number or an array of 1, 2, or 4 numbers")
-            }
-
-            fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
-            where
-                E: de::Error,
-            {
-                let v = u16::try_from(value).map_err(|_| {
-                    E::custom(format!("padding value {} is out of range for u16", value))
-                })?;
-
-                Ok(Padding {
-                    top: v,
-                    right: v,
-                    bottom: v,
-                    left: v,
-                })
-            }
-
-            fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
-            where
-                E: de::Error,
-            {
-                let v = u16::try_from(value).map_err(|_| {
-                    E::custom(format!("padding value {} is out of range for u16", value))
-                })?;
-
-                Ok(Padding {
-                    top: v,
-                    right: v,
-                    bottom: v,
-                    left: v,
-                })
-            }
-
-            // 3. Handle Sequences (Arrays)
-            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-            where
-                A: de::SeqAccess<'de>,
-            {
-                let first: u16 = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-
-                let second: Option<u16> = seq.next_element()?;
-                let third: Option<u16> = seq.next_element()?;
-                let fourth: Option<u16> = seq.next_element()?;
-
-                match (second, third, fourth) {
-                    (None, None, None) => Ok(Padding {
-                        top: first,
-                        right: first,
-                        bottom: first,
-                        left: first,
-                    }),
-                    (Some(v2), None, None) => Ok(Padding {
-                        top: first,
-                        bottom: first,
-                        left: v2,
-                        right: v2,
-                    }),
-                    (Some(v2), Some(v3), Some(v4)) => Ok(Padding {
-                        top: first,
-                        right: v2,
-                        bottom: v3,
-                        left: v4,
-                    }),
-                    _ => Err(de::Error::invalid_length(3, &self)),
-                }
-            }
-        }
-
-        deserializer.deserialize_any(PaddingVisitor)
     }
 }
 

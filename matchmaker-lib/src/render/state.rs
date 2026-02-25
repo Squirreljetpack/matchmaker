@@ -254,6 +254,13 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
     pub fn ui_area(&self) -> &Rect {
         &self.ui.area
     }
+    pub fn ui_size(&self) -> [u16; 2] {
+        let q = &self.ui.area;
+        [
+            q.width.saturating_sub(self.ui.config.border.width()),
+            q.height.saturating_sub(self.ui.config.border.width()),
+        ]
+    }
 
     pub fn current_item(&self) -> Option<S> {
         get_current(self.picker_ui).map(|s| s.1)

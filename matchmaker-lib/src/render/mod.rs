@@ -617,7 +617,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 render_display(frame, header, &mut picker_ui.header, &picker_ui.results);
                 render_display(frame, footer, &mut footer_ui, &picker_ui.results);
                 if let Some(preview_ui) = preview_ui.as_mut() {
-                    state.update_preview_ui(preview_ui);
+                    state.update_preview_visible(preview_ui);
                     if did_resize {
                         preview_ui.update_dimensions(&preview);
                     }

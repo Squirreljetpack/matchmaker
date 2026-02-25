@@ -24,6 +24,8 @@ pub enum PreviewMessage {
     Set(Text<'static>),
     Unset,
     Stop,
+    Pause,
+    Unpause,
 }
 
 #[derive(Debug)]
@@ -40,6 +42,7 @@ pub struct Previewer {
 
     /// Incremented on every new run / kill to invalidate old feeders
     version: Arc<AtomicUsize>,
+    paused: bool,
     /// Maintain a queue of child processes to improve cleanup reliability
     procs: Vec<Child>,
     /// The currently executing child process
@@ -60,6 +63,7 @@ impl Previewer {
             string: Default::default(),
             changed: Default::default(),
             version: Arc::new(AtomicUsize::new(0)),
+            paused: false,
 
             procs: Vec::new(),
             current: None,
@@ -105,13 +109,28 @@ impl Previewer {
 
             {
                 let m = &*self.rx.borrow();
-                if let PreviewMessage::Set(s) = m {
-                    self.set_string(s.clone());
-                    // don't kill the underlying
-                    continue;
-                } else if matches!(m, PreviewMessage::Unset) {
-                    self.clear_string();
-                    continue;
+                match m {
+                    PreviewMessage::Pause => {
+                        self.paused = true;
+                        continue;
+                    }
+                    PreviewMessage::Unpause => {
+                        self.paused = false;
+                        continue;
+                    }
+                    _ if self.paused => {
+                        continue;
+                    }
+                    PreviewMessage::Set(s) => {
+                        self.set_string(s.clone());
+                        // don't kill the underlying
+                        continue;
+                    }
+                    PreviewMessage::Unset => {
+                        self.clear_string();
+                        continue;
+                    }
+                    _ => {}
                 }
             }
 

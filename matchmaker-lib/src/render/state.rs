@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::{broc::EnvVars, env_vars};
+use cli_boilerplate_automation::{broc::EnvVars, env_vars, unwrap};
 
 use crate::{
     SSS, Selection, Selector,
@@ -153,7 +153,7 @@ impl State {
     }
 
     /// Emit PreviewChange event on change to visible
-    pub(crate) fn update_preview_ui(&mut self, preview_ui: &PreviewUI) -> bool {
+    pub(crate) fn update_preview_visible(&mut self, preview_ui: &PreviewUI) -> bool {
         let changed = self.preview_visible != preview_ui.is_show();
         // todo: cache to make up for this?
         if changed && preview_ui.is_show() {
@@ -318,14 +318,16 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
     }
 
     // -------- other
+
+    /// Some(s) -> Save current visibility, set visibility to s
+    /// None -> Restore saved visibility
     pub fn stash_preview_visibility(&mut self, show: Option<bool>) {
-        if let Some(p) = self.preview_ui {
-            if let Some(s) = show {
-                self.state.stashed_preview_visibility = Some(p.is_show());
-                p.show(s);
-            } else if let Some(s) = self.state.stashed_preview_visibility.take() {
-                p.show(s);
-            }
+        let p = unwrap!(self.preview_ui);
+        if let Some(s) = show {
+            self.state.stashed_preview_visibility = Some(p.is_show());
+            p.show(s);
+        } else if let Some(s) = self.state.stashed_preview_visibility.take() {
+            p.show(s);
         }
     }
 }

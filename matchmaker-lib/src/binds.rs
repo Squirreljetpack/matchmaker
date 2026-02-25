@@ -26,8 +26,9 @@ pub type BindMap<A: ActionExt = NullActionExt> = BTreeMap<Trigger, Actions<A>>;
 
 #[easy_ext::ext(BindMapExt)]
 impl<A: ActionExt> BindMap<A> {
+    #[allow(unused_mut)]
     pub fn default_binds() -> Self {
-        bindmap!(
+        let mut ret = bindmap!(
             key!(ctrl-c) => Action::Quit(1),
             key!(esc) => Action::Quit(1),
             key!(up) => Action::Up(1),
@@ -35,9 +36,9 @@ impl<A: ActionExt> BindMap<A> {
             key!(enter) => Action::Accept,
             key!(right) => Action::ForwardChar,
             key!(left) => Action::BackwardChar,
+            key!(backspace) => Action::DeleteChar,
             key!(ctrl-right) => Action::ForwardWord,
             key!(ctrl-left) => Action::BackwardWord,
-            key!(backspace) => Action::DeleteChar,
             key!(ctrl-h) => Action::DeleteWord,
             key!(ctrl-u) => Action::Cancel,
             key!(alt-h) => Action::Help("".to_string()),
@@ -45,7 +46,19 @@ impl<A: ActionExt> BindMap<A> {
             key!(ctrl-']') => Action::TogglePreviewWrap,
             key!(shift-right) => Action::HScroll(1),
             key!(shift-left) => Action::HScroll(-1),
-        )
+        );
+
+        #[cfg(target_os = "macos")]
+        {
+            let ext = bindmap!(
+                key!(alt-left) => Action::ForwardWord,
+                key!(alt-right) => Action::BackwardWord,
+                key!(alt-backspace) => Action::DeleteWord,
+            );
+            ret.extend(ext);
+        }
+
+        ret
     }
 }
 

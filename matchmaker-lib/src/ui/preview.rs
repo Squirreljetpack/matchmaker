@@ -16,9 +16,9 @@ pub struct PreviewUI {
     pub config: PreviewConfig,
     pub layout_idx: usize,
     /// content area
-    pub area: Rect,
+    pub(crate) area: Rect,
     pub scroll: [u16; 2],
-    offset: u16,
+    offset: usize,
     target: Option<usize>,
 }
 
@@ -108,7 +108,7 @@ impl PreviewUI {
         }
     }
 
-    // ----- config ---------
+    // ----- config && getters ---------
     pub fn is_show(&self) -> bool {
         self.layout().is_some()
     }
@@ -128,20 +128,29 @@ impl PreviewUI {
     pub fn is_wrap(&self) -> bool {
         self.config.wrap
     }
+    pub fn offset(&self) -> usize {
+        self.config.scroll.header_lines + self.offset
+    }
+    pub fn target_line(&self) -> Option<usize> {
+        self.target
+    }
 
     // ----- actions --------
     pub fn up(&mut self, n: u16) {
+        let total_lines = self.view.len();
+        let n = n as usize;
+
         if self.offset >= n {
             self.offset -= n;
         } else if self.config.scroll_wrap {
-            let total_lines = self.view.len() as u16;
             self.offset = total_lines.saturating_sub(n - self.offset);
         } else {
             self.offset = 0;
         }
     }
     pub fn down(&mut self, n: u16) {
-        let total_lines = self.view.len() as u16;
+        let total_lines = self.view.len();
+        let n = n as usize;
 
         if self.offset + n > total_lines {
             if self.config.scroll_wrap {
@@ -202,7 +211,7 @@ impl PreviewUI {
                 lines_above -= prev;
             }
         }
-        self.offset = u16::try_from(index).unwrap_or(u16::MAX);
+        self.offset = index;
         log::trace!(
             "Preview initial offset: {}, index: {}",
             self.offset,
@@ -230,7 +239,7 @@ impl PreviewUI {
                 break;
             };
         }
-        let mut results = results.skip(self.offset as usize);
+        let mut results = results.skip(self.offset);
         for _ in self.config.scroll.header_lines..height {
             if let Some(line) = results.next() {
                 lines.push(line);
@@ -240,7 +249,9 @@ impl PreviewUI {
         let mut preview = Paragraph::new(lines);
         preview = preview.block(self.border().as_block());
         if self.config.wrap {
-            preview = preview.wrap(Wrap { trim: true }).scroll(self.scroll.into());
+            preview = preview
+                .wrap(Wrap { trim: false })
+                .scroll(self.scroll.into());
         }
         preview
     }

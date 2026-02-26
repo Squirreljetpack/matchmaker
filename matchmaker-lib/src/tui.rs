@@ -24,6 +24,7 @@ where
     pub terminal: ratatui::Terminal<CrosstermBackend<W>>,
     pub area: Rect,
     pub config: TerminalConfig,
+    pub fullscreen: bool, // initially fullscreen
 }
 
 impl<W> Tui<W>
@@ -95,6 +96,7 @@ where
         let terminal = Terminal::with_options(backend, options)?;
         Ok(Self {
             terminal,
+            fullscreen: config.layout.is_none(),
             config,
             area,
         })
@@ -102,13 +104,13 @@ where
 
     pub fn enter(&mut self) -> Result<()> {
         let fullscreen = self.is_fullscreen();
-        if fullscreen {
-            self.alternate_screen()?;
-        }
-        
-        let backend = self.terminal.backend_mut();
-        crossterm::terminal::enable_raw_mode()?; // duplicate but crossterm checks this
 
+        crossterm::terminal::enable_raw_mode()?;
+        if fullscreen {
+            self.enter_alternate_screen()?;
+        }
+
+        let backend = self.terminal.backend_mut();
         execute!(backend, EnableMouseCapture)._elog();
         #[cfg(feature = "bracketed-paste")]
         {
@@ -127,7 +129,8 @@ where
         Ok(())
     }
 
-    pub fn alternate_screen(&mut self) -> Result<()> {
+    // call iff self.fullscreen
+    pub fn enter_alternate_screen(&mut self) -> Result<()> {
         let backend = self.terminal.backend_mut();
         execute!(backend, EnterAlternateScreen)?;
         execute!(backend, crossterm::terminal::Clear(ClearType::All))?;
@@ -144,23 +147,12 @@ where
         // do we ever need to scroll up?
     }
 
-    pub fn resize(&mut self, area: Rect) {
-        self.terminal.resize(area)._elog();
-        self.area = area
-    }
-
-    pub fn redraw(&mut self) {
-        self.terminal.resize(self.area)._elog();
-    }
-
     pub fn return_execute(&mut self) -> Result<()> {
+        self.config.layout = None; // force fullscreen
         self.enter()?;
-        if !self.is_fullscreen() {
-            // altho we cannot resize the viewport, this is the best we can do
-            self.alternate_screen()._elog();
-        }
+
         sleep(self.config.sleep_ms);
-        log::debug!("During return, slept {}", self.config.sleep_ms.as_millis());
+        log::trace!("During return, slept {}", self.config.sleep_ms.as_millis());
 
         execute!(
             self.terminal.backend_mut(),
@@ -168,6 +160,7 @@ where
         )
         ._wlog();
 
+        // resize
         if self.is_fullscreen() || self.config.restore_fullscreen {
             if let Some((width, height)) = Self::full_size() {
                 self.resize(Rect::new(0, 0, width, height));
@@ -185,32 +178,35 @@ where
     pub fn exit(&mut self) {
         let backend = self.terminal.backend_mut();
 
-        // if !fullscreen {
-        if self.config.clear_on_exit && !cfg!(debug_assertions) {
-            execute!(
-                backend,
-                crossterm::cursor::MoveTo(0, self.area.y),
-                crossterm::terminal::Clear(ClearType::FromCursorDown)
-            )
-            ._elog();
-        }
+        execute!(backend, LeaveAlternateScreen, DisableMouseCapture)._wlog();
 
         if self.config.extended_keys {
             execute!(backend, PopKeyboardEnhancementFlags)._elog();
         }
-        // } else {
-        //     if let Err(e) = execute!(backend, cursor::MoveTo(0, 0)) {
-        //         warn!("Failed to move cursor: {:?}", e);
-        //     }
-        // }
 
-        execute!(backend, LeaveAlternateScreen, DisableMouseCapture)._wlog();
+        if self.config.clear_on_exit && !cfg!(debug_assertions) {
+            execute!(
+                backend,
+                crossterm::cursor::MoveUp(1),
+                crossterm::terminal::Clear(ClearType::FromCursorDown)
+            )
+            ._elog();
+        }
 
         self.terminal.show_cursor()._wlog();
 
         disable_raw_mode()._wlog();
 
         debug!("Terminal exited");
+    }
+
+    pub fn resize(&mut self, area: Rect) {
+        self.terminal.resize(area)._elog();
+        self.area = area
+    }
+
+    pub fn redraw(&mut self) {
+        self.terminal.resize(self.area)._elog();
     }
 
     // note: do not start before event stream

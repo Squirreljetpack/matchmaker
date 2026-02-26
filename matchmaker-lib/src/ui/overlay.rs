@@ -43,11 +43,26 @@ pub trait Overlay {
     /// Called when layout area changes.
     /// The output of this is processed and cached into the area which the draw method is called with.
     ///
-    /// # Notes
-    /// Return None or Err([0, 0]) to draw in the default area (see [`OverlayConfig`] and [`default_area`])
-    fn area(&mut self, ui_area: &Rect) -> Result<Rect, [u16; 2]> {
+    /// # Returns
+    /// - Ok: The Rect to render in
+    /// - Err: a [`SizeHint`] used to compute the area to render in
+    fn area(&mut self, ui_area: &Rect) -> Result<Rect, [SizeHint; 2]> {
         let _ = ui_area;
-        Err([0, 0])
+        Err([0.into(), 0.into()])
+    }
+}
+
+/// If Exact(0), the default computed dimension is used (see [`OverlayConfig`] and [`default_area`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SizeHint {
+    Min(u16),
+    Max(u16),
+    Exact(u16),
+}
+
+impl From<u16> for SizeHint {
+    fn from(value: u16) -> Self {
+        SizeHint::Exact(value)
     }
 }
 
@@ -205,23 +220,36 @@ impl<A: ActionExt> OverlayUI<A> {
     }
 }
 
-pub fn default_area(
-    [mut w, mut h]: [u16; 2],
-    layout: &OverlayLayoutSettings,
-    ui_area: &Rect,
-) -> Rect {
-    // compute preferred size from percentage then clamp to min/max
-    if w == 0 {
-        w = layout.percentage[0].compute_clamped(ui_area.width, layout.min[0], layout.max[0]);
+pub fn default_area(size: [SizeHint; 2], layout: &OverlayLayoutSettings, ui_area: &Rect) -> Rect {
+    let computed_w =
+        layout.percentage[0].compute_clamped(ui_area.width, layout.min[0], layout.max[0]);
+
+    let computed_h =
+        layout.percentage[1].compute_clamped(ui_area.height, layout.min[1], layout.max[1]);
+
+    let mut w = match size[0] {
+        SizeHint::Exact(v) => v,
+        SizeHint::Min(v) => v.max(computed_w),
+        SizeHint::Max(v) => v.min(computed_w),
     }
-    if h == 0 {
-        h = layout.percentage[1].compute_clamped(ui_area.height, layout.min[1], layout.max[1]);
-        h = h.clamp(layout.min[1], layout.max[1]);
+    .min(ui_area.width);
+
+    let mut h = match size[1] {
+        SizeHint::Exact(v) => v,
+        SizeHint::Min(v) => v.max(computed_h),
+        SizeHint::Max(v) => v.min(computed_h),
+    }
+    .min(ui_area.height);
+
+    if w == 0 && !matches!(size[0], SizeHint::Max(_)) {
+        w = computed_w;
+    }
+    if h == 0 && !matches!(size[1], SizeHint::Max(_)) {
+        h = computed_h;
     }
 
-    // center within ui_area
     let x = ui_area.x + (ui_area.width.saturating_sub(w)) / 2;
-    let y = ui_area.y + (ui_area.height.saturating_sub(h + 8)) / 2; // bump up 4 lines nearer to top
+    let y = ui_area.y + (ui_area.height.saturating_sub(h + 8)) / 2;
 
     Rect {
         x,

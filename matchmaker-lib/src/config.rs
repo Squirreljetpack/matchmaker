@@ -269,7 +269,7 @@ impl Default for OverlayLayoutSettings {
     fn default() -> Self {
         Self {
             percentage: [Percentage::new(60), Percentage::new(30)],
-            min: [10, 5],
+            min: [10, 10],
             max: [200, 30],
         }
     }

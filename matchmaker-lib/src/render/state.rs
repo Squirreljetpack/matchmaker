@@ -23,7 +23,7 @@ pub struct State {
     pub(crate) preview_visible: bool,
     pub(crate) layout: [Rect; 4], //preview, input, status, results
     pub(crate) overlay_index: Option<usize>,
-    pub(crate) synced: bool,
+    pub(crate) synced: [bool; 2], // ran, synced
 
     pub(crate) events: Event,
 
@@ -60,7 +60,7 @@ impl State {
 
             input: String::new(),
             iterations: 0,
-            synced: true,
+            synced: [false; 2],
 
             events: Event::empty(),
             should_quit: false,
@@ -177,12 +177,13 @@ impl State {
         self.col = picker_ui.results.col();
 
         let status = &picker_ui.results.status;
+        self.synced[1] |= status.running;
         if status.changed {
-            // add a synced event
-            if !picker_ui.results.status.running {
-                if !self.synced {
+            // add a synced event when worker stops running
+            if !picker_ui.results.status.running && self.synced[1] {
+                if !self.synced[0] {
                     self.insert(Event::Synced);
-                    self.synced = true;
+                    self.synced[0] = true;
                 } else {
                     self.insert(Event::Resynced);
                 }
@@ -310,6 +311,11 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
             self.picker_ui.input.input.clone(),
             self.picker_ui.results.index(),
         )
+    }
+
+    pub fn restart_worker(&mut self) {
+        self.picker_ui.worker.restart(false);
+        self.state.synced = [false; 2];
     }
 
     pub fn make_env_vars(&self) -> EnvVars {

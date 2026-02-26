@@ -122,7 +122,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             if !matches!(event, RenderCommand::Tick) {
                 info!("Recieved {event:?}");
             } else {
-                trace!("Recieved {event:?}");
+                // trace!("Recieved {event:?}");
             }
 
             match event {
@@ -482,6 +482,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 }
                 Interrupt::Reload => {
                     picker_ui.worker.restart(false);
+                    state.synced = [false; 2];
                 }
                 Interrupt::Become => {
                     tui.exit();

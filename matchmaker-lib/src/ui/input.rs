@@ -163,6 +163,8 @@ impl InputUI {
         self.cursor = 0;
         self.before = 0;
     }
+
+    /// Restore prompt from config
     pub fn reset_prompt(&mut self) {
         self.prompt = Span::from(self.config.prompt.clone());
     }

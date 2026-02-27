@@ -237,7 +237,6 @@ mod tests {
 
         // Case 2: Explicit override
         // We don't include Default here to prove it only emits what we asked
-        #[partial]
         #[partial(derive(Clone, PartialEq, Debug))]
         struct Explicit {
             id: i32,

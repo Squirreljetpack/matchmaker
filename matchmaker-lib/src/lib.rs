@@ -1,3 +1,5 @@
+#![allow(irrefutable_let_patterns)]
+
 // event
 pub mod action;
 pub use action::{Action, Actions};

@@ -152,7 +152,7 @@ impl State {
 
     /// Emit PreviewChange event on change to visible
     pub(crate) fn update_preview_visible(&mut self, preview_ui: &PreviewUI) -> bool {
-        let visible = preview_ui.is_show();
+        let visible = preview_ui.visible();
         let changed = self.preview_visible.cmp_replace(visible);
         if changed && visible {
             self.insert(Event::PreviewChange);
@@ -300,7 +300,7 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
     }
 
     pub fn preview_visible(&self) -> bool {
-        self.preview_ui.as_ref().is_some_and(|s| s.is_show())
+        self.preview_ui.as_ref().is_some_and(|s| s.visible())
     }
 
     pub fn get_content_and_index(&self) -> (String, u32) {
@@ -332,9 +332,10 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
     /// Some(s) -> Save current visibility, set visibility to s
     /// None -> Restore saved visibility
     pub fn stash_preview_visibility(&mut self, show: Option<bool>) {
+        log::trace!("Called stash_preview_visibility with {show:?}");
         let p = unwrap!(self.preview_ui);
         if let Some(s) = show {
-            self.state.stashed_preview_visibility = Some(p.is_show());
+            self.state.stashed_preview_visibility = Some(p.visible());
             p.show(s);
         } else if let Some(s) = self.state.stashed_preview_visibility.take() {
             p.show(s);

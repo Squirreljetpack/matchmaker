@@ -80,9 +80,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
     let mut click = Click::None;
 
     // place the initial command in the state where the preview listener can access
-    if let Some(ref p) = preview_ui
-        && p.is_show()
-    {
+    if let Some(ref p) = preview_ui {
         state.update_preview(p.get_initial_command());
     }
 
@@ -576,15 +574,18 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     && footer_ui.config.row_connection_style == RowConnectionStyle::Full;
 
                 let mut footer =
-                    if full_width_footer || preview_ui.as_ref().is_none_or(|p| !p.is_show()) {
+                    if full_width_footer || preview_ui.as_ref().is_none_or(|p| !p.visible()) {
                         split(&mut _area, footer_ui.height(), picker_ui.reverse())
                     } else {
                         Rect::default()
                     };
 
                 let [preview, picker_area, footer] = if let Some(preview_ui) = preview_ui.as_mut()
-                    && let Some(layout) = preview_ui.layout()
+                    && preview_ui.visible()
+                    && let Some(setting) = preview_ui.setting()
                 {
+                    let layout = &setting.layout;
+
                     let [preview, mut picker_area] = layout.split(_area);
 
                     if state.iterations == 0 && picker_area.width <= 5 {
@@ -632,7 +633,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 render_results(frame, results, &mut picker_ui, &mut click);
                 render_display(frame, header, &mut picker_ui.header, &picker_ui.results);
                 render_display(frame, footer, &mut footer_ui, &picker_ui.results);
-                if let Some(preview_ui) = preview_ui.as_mut() {
+                if let Some(preview_ui) = preview_ui.as_mut()
+                    && preview_ui.visible()
+                {
                     state.update_preview_visible(preview_ui);
                     if did_resize {
                         preview_ui.update_dimensions(&preview);
@@ -739,9 +742,7 @@ fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {
     //     let widget = ui.make_preview();
     //     frame.render_widget(widget, area);
     // }
-    if !ui.is_show() {
-        return;
-    }
+    assert!(ui.visible()); // don't call if not visible.
     let widget = ui.make_preview();
     frame.render_widget(widget, area);
 }

@@ -260,6 +260,10 @@ p3.clear();
 assert_eq!(p3.name, None);
 ```
 
+### Other
+
+- `#[partial(attr(clear)]` on the struct will clear all (non-partial) field attributes
+
 # Deserializer
 
 Set fills values from `&[String]` by using a simple data deserializer.

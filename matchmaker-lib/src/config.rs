@@ -263,6 +263,9 @@ pub struct OverlayLayoutSettings {
     pub min: [u16; 2],
     /// w, h
     pub max: [u16; 2],
+
+    /// y_offset as a percentage of total height: 50 for neutral, (default: 55)
+    pub y_offset: Percentage,
 }
 
 impl Default for OverlayLayoutSettings {
@@ -271,6 +274,7 @@ impl Default for OverlayLayoutSettings {
             percentage: [Percentage::new(60), Percentage::new(30)],
             min: [10, 10],
             max: [200, 30],
+            y_offset: Percentage::new(55),
         }
     }
 }
@@ -498,7 +502,7 @@ impl Default for DisplayConfig {
 ///         PreviewSetting {
 ///             layout: PreviewLayout::default(),
 ///             command: String::new(),
-///             ..Default::default
+///             ..Default::default()
 ///         }
 ///     ],
 ///     ..Default::default()

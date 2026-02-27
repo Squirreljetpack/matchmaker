@@ -6,7 +6,7 @@ use ratatui::{
 };
 
 use crate::{
-    config::{BorderSetting, PreviewConfig, PreviewLayout, ShowCondition, Side},
+    config::{BorderSetting, PreviewConfig, PreviewSetting, ShowCondition, Side},
     preview::Preview,
     utils::text::wrapped_line_height,
 };
@@ -15,7 +15,7 @@ use crate::{
 pub struct PreviewUI {
     pub view: Preview,
     pub config: PreviewConfig,
-    pub layout_idx: usize,
+    layout_idx: usize,
     /// content area
     pub(crate) area: Rect,
     pub scroll: [u16; 2],
@@ -23,7 +23,7 @@ pub struct PreviewUI {
     target: Option<usize>,
     attained_target: bool,
 
-    pub show: bool,
+    show: bool,
 }
 
 impl PreviewUI {
@@ -51,6 +51,13 @@ impl PreviewUI {
             ShowCondition::Bool(x) => x,
         };
 
+        // enforce invariant of valid index
+        if config.layout.is_empty() {
+            let mut s = PreviewSetting::default();
+            s.layout.max = 0;
+            config.layout.push(s);
+        }
+
         Self {
             view,
             config,
@@ -77,14 +84,20 @@ impl PreviewUI {
     pub fn reevaluate_show_condition(&mut self, [ui_width, ui_height]: [u16; 2], hide: bool) {
         match self.config.show {
             ShowCondition::Free(x) => {
-                if let Some(l) = self.layout() {
+                if let Some(setting) = self.setting() {
+                    let l = &setting.layout;
+
                     let show = match l.side {
                         Side::Bottom | Side::Top => ui_height >= x,
                         _ => ui_width >= x,
                     };
+                    log::debug!(
+                        "Evaluated ShowCondition(Free({x})) against {ui_width}x{ui_height} => {show}"
+                    );
                     if !hide && !show {
                         return;
                     }
+
                     self.show(show);
                 };
             }
@@ -98,29 +111,28 @@ impl PreviewUI {
     }
 
     // -------- Layout -----------
-    /// None if not show
-    pub fn layout(&self) -> Option<&PreviewLayout> {
-        if self.show
-            && let Some(ret) = self.config.layout.get(self.layout_idx)
+    /// None if not show OR if max = 0 (disabled layour)
+    pub fn setting(&self) -> Option<&PreviewSetting> {
+        // if let Some(ret) = self.config.layout.get(self.layout_idx)
+        if let ret = &self.config.layout[self.layout_idx]
             && ret.layout.max != 0
         {
-            Some(&ret.layout)
+            Some(&ret)
         } else {
             None
         }
     }
+
+    pub fn visible(&self) -> bool {
+        self.setting().is_some() && self.show
+    }
+
     pub fn command(&self) -> &str {
-        self.config
-            .layout
-            .get(self.layout_idx)
-            .map(|x| x.command.as_str())
-            .unwrap_or("")
+        self.setting().map(|x| x.command.as_str()).unwrap_or("")
     }
 
     pub fn border(&self) -> &BorderSetting {
-        self.config
-            .layout
-            .get(self.layout_idx)
+        self.setting()
             .and_then(|s| s.border.as_ref())
             .unwrap_or(&self.config.border)
     }
@@ -155,15 +167,14 @@ impl PreviewUI {
     }
 
     // ----- config && getters ---------
-    pub fn is_show(&self) -> bool {
-        self.layout().is_some()
-    }
-    // cheap show toggle + change tracking
+
     pub fn show(&mut self, show: bool) -> bool {
-        let previous = self.show;
+        log::trace!("toggle preview with: {show}");
+        let changed = self.show != show;
         self.show = show;
-        previous != show
+        changed
     }
+
     pub fn toggle_show(&mut self) {
         self.show = !self.show;
     }
@@ -280,8 +291,6 @@ impl PreviewUI {
     // --------------------------
 
     pub fn make_preview(&mut self) -> Paragraph<'_> {
-        assert!(self.is_show());
-
         let results = self.view.results();
         let rl = results.lines.len();
         let height = self.area.height as usize;

@@ -46,6 +46,14 @@ impl<A: ActionExt> BindMap<A> {
             key!(ctrl-']') => Action::TogglePreviewWrap,
             key!(shift-right) => Action::HScroll(1),
             key!(shift-left) => Action::HScroll(-1),
+            key!(PageDown) => Action::PageDown,
+            key!(PageUp) => Action::PageUp,
+            key!(Home) => Action::Pos(0),
+            key!(End) => Action::Pos(-1),
+            key!(shift-PageDown) => Action::PreviewHalfPageDown,
+            key!(shift-PageUp) => Action::PreviewHalfPageUp,
+            key!(shift-Home) => Action::PreviewJump,
+            key!(shift-End) => Action::PreviewJump,
         );
 
         #[cfg(target_os = "macos")]

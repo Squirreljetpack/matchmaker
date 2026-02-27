@@ -33,6 +33,7 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut manual_derives: Option<proc_macro2::TokenStream> = None;
     let mut manual_attrs: Vec<proc_macro2::TokenStream> = Vec::new();
     let mut has_manual_attrs = false;
+    let mut no_field_mirror = false;
 
     // --- 1. Parse macro arguments (Top level: #[partial(path, recurse, derive, attr)]) ---
     if !attr.is_empty() {
@@ -65,7 +66,11 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                             let content;
                             syn::parenthesized!(content in input);
                             let inner: Meta = content.parse()?;
-                            manual_attrs.push(quote! { #[#inner] });
+                            if inner.path().is_ident("clear") {
+                                no_field_mirror = true;
+                            } else {
+                                manual_attrs.push(quote! { #[#inner] });
+                            }
                         }
                     } else {
                         // Error on unknown attributes
@@ -87,56 +92,6 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
         if let Err(e) = parser {
             return e.to_compile_error().into();
         }
-    }
-
-    // --- 2. Remove any #[partial] attributes from the struct & check for 'path' ---
-    let mut attr_errors = Vec::new();
-    input.attrs.retain(|attr| {
-        if attr.path().is_ident("partial") {
-            let res = attr.parse_nested_meta(|meta| {
-                if meta.path.is_ident("recurse") {
-                    struct_recurse = true;
-                } else if meta.path.is_ident("unwrap") {
-                    struct_unwrap = true;
-                } else if meta.path.is_ident("path") {
-                    generate_path_setter = true;
-                } else if meta.path.is_ident("merge") {
-                    enable_merge = true; // Mark as merge-enabled from struct attribute
-                } else if meta.path.is_ident("derive") {
-                    if meta.input.peek(syn::token::Paren) {
-                        let content;
-                        syn::parenthesized!(content in meta.input);
-                        let paths = content.parse_terminated(Path::parse, Token![,]).unwrap();
-                        manual_derives = Some(quote! { #[derive(#paths)] });
-                    }
-                } else if meta.path.is_ident("attr") {
-                    has_manual_attrs = true;
-                    if meta.input.peek(syn::token::Paren) {
-                        let content;
-                        syn::parenthesized!(content in meta.input);
-                        let inner: Meta = content.parse().unwrap();
-                        manual_attrs.push(quote! { #[#inner] });
-                    }
-                } else {
-                    return Err(meta.error(format!(
-                        "unknown partial attribute: {}",
-                        meta.path.to_token_stream()
-                    )));
-                }
-                Ok(())
-            });
-
-            if let Err(e) = res {
-                attr_errors.push(e);
-            }
-            false
-        } else {
-            true
-        }
-    });
-
-    if let Some(err) = attr_errors.first() {
-        return err.to_compile_error().into();
     }
 
     // --- 3. Build final struct attributes ---
@@ -265,6 +220,8 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
 
             // --- 4b. Handle #[serde] attributes ---
+            // the attributes which specify drop are not mirrored
+
             if attr.path().is_ident("serde") {
                 // todo: this is even more fishy
                 let should_recurse =
@@ -314,7 +271,10 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
 
             // Keep the attribute and mirror it if it's not a #[partial]
-            field_attrs_for_mirror.push(attr.to_token_stream());
+
+            if !no_field_mirror {
+                field_attrs_for_mirror.push(attr.to_token_stream());
+            }
             true
         });
 

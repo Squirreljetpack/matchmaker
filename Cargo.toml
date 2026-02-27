@@ -1,23 +1,23 @@
 [workspace]
-    resolver = "3"
-    members = [
-        "matchmaker-lib",
-        "matchmaker-cli",
-        "matchmaker-partial",
-        "matchmaker-partial-macros",
-    ]
+resolver = "3"
+members = [
+    "matchmaker-lib",
+    "matchmaker-cli",
+    "matchmaker-partial",
+    "matchmaker-partial-macros",
+]
 
 [patch.crates-io]
-    matchmaker-lib            = { path = "./matchmaker-lib" }
-    matchmaker-partial        = { path = "./matchmaker-partial" }
-    matchmaker-partial-macros = { path = "./matchmaker-partial-macros" }
-    nucleo                    = { git = "https://github.com/Squirreljetpack/nucleo", branch = "mm" }
+matchmaker-lib = { path = "./matchmaker-lib" }
+matchmaker-partial = { path = "./matchmaker-partial" }
+matchmaker-partial-macros = { path = "./matchmaker-partial-macros" }
+nucleo = { git = "https://github.com/Squirreljetpack/nucleo", branch = "mm" }
 
 [workspace.dependencies]
-    matchmaker-lib             = { version = "0.0.8" }
-    matchmaker-partial         = { version = "0.0.8" }
-    matchmaker-partial-macros  = { version = "0.0.7", default-features = false }
-    cli_boilerplate_automation = { version = "0.0.*" }
+matchmaker-lib = { version = "0.0.8" }
+matchmaker-partial = { version = "0.0.8" }
+matchmaker-partial-macros = { version = "0.0.7", default-features = false }
+cli_boilerplate_automation = { version = "0.0.*" }
 
 [workspace.lints.clippy]
-    single_match = "allow"
+single_match = "allow"

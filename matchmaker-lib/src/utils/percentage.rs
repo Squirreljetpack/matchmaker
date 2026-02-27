@@ -4,7 +4,7 @@ use cli_boilerplate_automation::define_restricted_wrapper;
 use serde::{Deserialize, Deserializer};
 
 define_restricted_wrapper!(
-    #[derive(Clone, serde::Serialize)]
+    #[derive(Clone, Copy, serde::Serialize, PartialOrd, Eq, Ord)]
     #[serde(transparent)]
     Percentage: u16 = 100
 );
@@ -13,6 +13,7 @@ impl Percentage {
         if value <= 100 { Self(value) } else { Self(100) }
     }
 
+    /// Rounds up
     pub fn compute_clamped(&self, total: u16, min: u16, max: u16) -> u16 {
         let pct_height = (total * self.inner()).div_ceil(100);
         pct_height.clamp(min, if max == 0 { total } else { max })
@@ -20,6 +21,10 @@ impl Percentage {
 
     pub fn complement(&self) -> Self {
         Self(100 - self.0)
+    }
+
+    pub fn saturating_sub(&self, other: u16) -> Self {
+        Self(self.0.saturating_sub(other))
     }
 }
 

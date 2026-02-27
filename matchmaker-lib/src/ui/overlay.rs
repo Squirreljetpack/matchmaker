@@ -6,6 +6,7 @@ use crate::config::OverlayLayoutSettings;
 use crate::ui::{Frame, Rect};
 
 use crate::config::OverlayConfig;
+use crate::utils::Percentage;
 
 #[derive(Debug, Default)]
 pub enum OverlayEffect {
@@ -248,8 +249,23 @@ pub fn default_area(size: [SizeHint; 2], layout: &OverlayLayoutSettings, ui_area
         h = computed_h;
     }
 
+    let available_h = ui_area.height.saturating_sub(h);
+    let offset = if layout.y_offset < Percentage::new(50) {
+        let o = layout
+            .y_offset
+            .compute_clamped(available_h.saturating_sub(h), 0, 0);
+
+        (available_h / 2).saturating_sub(o)
+    } else {
+        available_h / 2
+            + layout
+                .y_offset
+                .saturating_sub(50)
+                .compute_clamped(available_h, 0, 0)
+    };
+
     let x = ui_area.x + (ui_area.width.saturating_sub(w)) / 2;
-    let y = ui_area.y + (ui_area.height.saturating_sub(h + 8)) / 2;
+    let y = ui_area.y + offset;
 
     Rect {
         x,

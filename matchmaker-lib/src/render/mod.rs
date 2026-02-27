@@ -21,7 +21,7 @@ use crate::event::EventSender;
 use crate::message::{Event, Interrupt, RenderCommand};
 use crate::tui::Tui;
 use crate::ui::{DisplayUI, InputUI, OverlayUI, PickerUI, PreviewUI, ResultsUI, UI};
-use crate::{ActionAliaser, ActionExtHandler, MatchError, SSS, Selection};
+use crate::{ActionAliaser, ActionExtHandler, Initializer, MatchError, SSS, Selection};
 
 fn apply_aliases<T: SSS, S: Selection, A: ActionExt>(
     buffer: &mut Vec<RenderCommand<A>>,
@@ -61,11 +61,22 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
     dynamic_handlers: DynamicHandlers<T, S>,
     mut ext_handler: Option<ActionExtHandler<T, S, A>>,
     mut ext_aliaser: Option<ActionAliaser<T, S, A>>,
-    #[cfg(feature = "bracketed-paste")] mut paste_handler: Option<PasteHandler<T, S>>,
+    initializer: Option<Initializer<T, S>>,
+    #[cfg(feature = "bracketed-paste")] //
+    mut paste_handler: Option<PasteHandler<T, S>>,
 ) -> Result<Vec<S>, MatchError> {
-    let mut buffer = Vec::with_capacity(256);
-
     let mut state = State::new();
+
+    if let Some(handler) = initializer {
+        handler(&mut state.dispatcher(
+            &mut ui,
+            &mut picker_ui,
+            &mut footer_ui,
+            &mut preview_ui,
+            &controller_tx,
+        ));
+    }
+
     let mut click = Click::None;
 
     // place the initial command in the state where the preview listener can access
@@ -74,6 +85,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
     {
         state.update_preview(p.get_initial_command());
     }
+
+    let mut buffer = Vec::with_capacity(256);
 
     while render_rx.recv_many(&mut buffer, 256).await > 0 {
         if state.iterations == 0 {

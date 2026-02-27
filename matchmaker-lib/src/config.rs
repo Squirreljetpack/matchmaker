@@ -114,7 +114,7 @@ pub struct ExitConfig {
 /// The ui config.
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-#[partial(recurse, path, derive(Debug, Deserialize))]
+#[partial(recurse, path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct RenderConfig {
     /// The default overlay style
     pub ui: UiConfig,
@@ -295,6 +295,8 @@ pub struct ResultsConfig {
     // text styles
     #[serde(deserialize_with = "camelcase_normalized")]
     pub fg: Color,
+    #[serde(deserialize_with = "camelcase_normalized")]
+    pub bg: Color,
     // #[serde(deserialize_with = "transform_uppercase")]
     pub modifier: Modifier,
 
@@ -312,6 +314,7 @@ pub struct ResultsConfig {
     /// modifier of the current item.
     // #[serde(deserialize_with = "transform_uppercase")]
     pub current_modifier: Modifier,
+
     /// How the current_* styles are applied across the row.
     #[serde(deserialize_with = "camelcase_normalized")]
     pub row_connection_style: RowConnectionStyle,
@@ -368,6 +371,7 @@ impl Default for ResultsConfig {
 
             fg: Default::default(),
             modifier: Default::default(),
+            bg: Default::default(),
             match_fg: Color::Green,
             match_modifier: Modifier::ITALIC,
 
@@ -639,6 +643,7 @@ pub struct BorderSetting {
     pub title: String,
     // #[serde(deserialize_with = "transform_uppercase")]
     pub title_modifier: Modifier,
+    pub modifier: Modifier,
     #[serde(deserialize_with = "camelcase_normalized")]
     pub bg: Color,
 }
@@ -647,7 +652,7 @@ impl BorderSetting {
     pub fn as_block(&self) -> ratatui::widgets::Block<'_> {
         let mut ret = ratatui::widgets::Block::default()
             .padding(self.padding.0)
-            .style(Style::default().bg(self.bg));
+            .style(Style::default().bg(self.bg).add_modifier(self.modifier));
 
         if !self.title.is_empty() {
             let title = Span::styled(
@@ -681,7 +686,7 @@ impl BorderSetting {
     pub fn as_static_block(&self) -> ratatui::widgets::Block<'static> {
         let mut ret = ratatui::widgets::Block::default()
             .padding(self.padding.0)
-            .style(Style::default().bg(self.bg));
+            .style(Style::default().bg(self.bg).add_modifier(self.modifier));
 
         if !self.title.is_empty() {
             let title: Span<'static> = Span::styled(

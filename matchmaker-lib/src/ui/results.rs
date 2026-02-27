@@ -677,7 +677,8 @@ impl ResultsUI {
         )
         .column_spacing(self.config.column_spacing.0)
         .style(self.config.fg)
-        .add_modifier(self.config.modifier);
+        .add_modifier(self.config.modifier)
+        .bg(self.config.bg);
 
         table = table.block(self.config.border.as_static_block());
         table

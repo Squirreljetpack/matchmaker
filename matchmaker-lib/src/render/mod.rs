@@ -8,7 +8,7 @@ pub use state::*;
 
 use std::io::Write;
 
-use log::{info, trace, warn};
+use log::{info, warn};
 use ratatui::Frame;
 use ratatui::layout::{Position, Rect};
 use tokio::sync::mpsc;
@@ -122,7 +122,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             if !matches!(event, RenderCommand::Tick) {
                 info!("Recieved {event:?}");
             } else {
-                // trace!("Recieved {event:?}");
+                // log::trace!("Recieved {event:?}");
             }
 
             match event {
@@ -549,6 +549,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         }
 
         let mut overlay_ui_ref = overlay_ui.as_mut();
+        let mut cursor_y_offset = 0;
+
         tui.terminal
             .draw(|frame| {
                 let mut area = frame.area();
@@ -612,7 +614,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     }
                 };
 
-                render_input(frame, input, &mut picker_ui.input);
+                cursor_y_offset = render_input(frame, input, &mut picker_ui.input).y;
                 render_status(frame, status, &picker_ui.results, ui.area.width);
                 render_results(frame, results, &mut picker_ui, &mut click);
                 render_display(frame, header, &mut picker_ui.header, &picker_ui.results);
@@ -633,6 +635,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         // useful to clear artifacts
         if did_resize && tui.config.redraw_on_resize && !did_exit {
             tui.redraw();
+            tui.cursor_y_offset = Some(cursor_y_offset)
         }
         buffer.clear();
 
@@ -749,14 +752,18 @@ fn render_results<T: SSS, S: Selection>(
     frame.render_widget(widget, area);
 }
 
-fn render_input(frame: &mut Frame, area: Rect, ui: &mut InputUI) {
+/// Returns the offset of the cursor against the drawing area
+fn render_input(frame: &mut Frame, area: Rect, ui: &mut InputUI) -> Position {
     ui.scroll_to_cursor();
     let widget = ui.make_input();
+    let p = ui.cursor_offset(&area);
     if let CursorSetting::Default = ui.config.cursor {
-        frame.set_cursor_position(ui.cursor_offset(&area))
+        frame.set_cursor_position(p)
     };
 
     frame.render_widget(widget, area);
+
+    p
 }
 
 fn render_status(frame: &mut Frame, area: Rect, ui: &ResultsUI, full_width: u16) {

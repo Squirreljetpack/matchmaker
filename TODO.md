@@ -30,7 +30,7 @@
 - Too many execute can sometimes crash event loop
 - Preview sometimes disappears?
 - Indexing can break?
-
+- When the cursor is not near the top (horizontal preview), the cursor doesn't get restored, and the stuff ater not cleared
 ### Low priority
 
 - refactor to better fit components into specific ratatui roles so the ui can be embedded?

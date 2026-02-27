@@ -1,4 +1,4 @@
-use cli_boilerplate_automation::{broc::EnvVars, env_vars, unwrap};
+use cli_boilerplate_automation::{bait::TransformExt, broc::EnvVars, env_vars, unwrap};
 
 use crate::{
     SSS, Selection, Selector,
@@ -111,18 +111,16 @@ impl State {
 
     // ------- updates --------------
     pub(crate) fn update_input(&mut self, new_input: &str) -> bool {
-        let changed = self.input != new_input;
+        let changed = self.input.cmp_replace(new_input.to_string());
         if changed {
-            self.input = new_input.to_string();
             self.insert(Event::QueryChange);
         }
         changed
     }
 
     pub(crate) fn update_preview(&mut self, context: &str) -> bool {
-        let changed = self.preview_payload != context;
+        let changed = self.preview_payload.cmp_replace(context.into());
         if changed {
-            self.preview_payload = context.into();
             self.insert(Event::PreviewChange);
         }
         changed
@@ -130,36 +128,35 @@ impl State {
 
     pub(crate) fn update_preview_set(&mut self, context: String) -> bool {
         let next = Some(context);
-        let changed = self.preview_set_payload != next;
+        let changed = self.preview_set_payload.cmp_replace(next);
         if changed {
-            self.preview_set_payload = next;
             self.insert(Event::PreviewSet);
         }
         changed
     }
 
     pub(crate) fn update_preview_unset(&mut self) {
-        self.preview_set_payload = None;
-        self.insert(Event::PreviewSet);
+        let changed = self.preview_set_payload.cmp_replace(None);
+        if changed {
+            self.insert(Event::PreviewSet);
+        }
     }
 
     pub(crate) fn update_layout(&mut self, new_layout: [Rect; 4]) -> bool {
-        let changed = self.layout != new_layout;
+        let changed = self.layout.cmp_replace(new_layout);
         if changed {
             self.insert(Event::Resize);
-            self.layout = new_layout;
         }
         changed
     }
 
     /// Emit PreviewChange event on change to visible
     pub(crate) fn update_preview_visible(&mut self, preview_ui: &PreviewUI) -> bool {
-        let changed = self.preview_visible != preview_ui.is_show();
-        // todo: cache to make up for this?
-        if changed && preview_ui.is_show() {
+        let visible = preview_ui.is_show();
+        let changed = self.preview_visible.cmp_replace(visible);
+        if changed && visible {
             self.insert(Event::PreviewChange);
-            self.preview_visible = true;
-        };
+        }
         changed
     }
 

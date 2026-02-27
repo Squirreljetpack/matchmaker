@@ -242,7 +242,7 @@ impl PreviewUI {
 
         self.offset = if index >= results.len() {
             self.attained_target = false;
-            results.len() - self.area.height as usize / 2
+            results.len().saturating_sub(self.area.height as usize / 2)
         } else {
             self.attained_target = true;
             self.target_to_offset(index, &results)

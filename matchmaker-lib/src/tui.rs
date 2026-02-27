@@ -24,6 +24,7 @@ where
     pub terminal: ratatui::Terminal<CrosstermBackend<W>>,
     pub area: Rect,
     pub config: TerminalConfig,
+    pub cursor_y_offset: Option<u16>,
     pub fullscreen: bool, // initially fullscreen
 }
 
@@ -45,7 +46,9 @@ where
 
         let (width, height) = Self::full_size().unwrap_or_default();
         let area = if let Some(ref layout) = config.layout {
-            let request = layout.percentage.compute_clamped(height, 0, layout.max);
+            let request = layout
+                .percentage
+                .compute_clamped(height, layout.min, layout.max);
 
             let cursor_y = Self::get_cursor_y(config.sleep_ms).unwrap_or_else(|e| {
                 error!("Failed to read cursor: {e}");
@@ -97,6 +100,7 @@ where
         Ok(Self {
             terminal,
             fullscreen: config.layout.is_none(),
+            cursor_y_offset: None,
             config,
             area,
         })
@@ -184,10 +188,13 @@ where
             execute!(backend, PopKeyboardEnhancementFlags)._elog();
         }
 
+        let move_up = self.cursor_y_offset.unwrap_or(1);
+        log::debug!("Moving up by: {move_up}");
+
         if self.config.clear_on_exit && !cfg!(debug_assertions) {
             execute!(
                 backend,
-                crossterm::cursor::MoveUp(1),
+                crossterm::cursor::MoveUp(move_up),
                 crossterm::terminal::Clear(ClearType::FromCursorDown)
             )
             ._elog();

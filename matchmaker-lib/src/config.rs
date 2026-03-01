@@ -3,8 +3,6 @@
 
 use matchmaker_partial_macros::partial;
 
-use std::fmt;
-
 pub use crate::config_types::*;
 pub use crate::utils::{Percentage, serde::StringOrVec};
 
@@ -23,10 +21,7 @@ use ratatui::{
     widgets::{BorderType, Borders},
 };
 
-use serde::{
-    Deserialize, Deserializer, Serialize,
-    de::{self, IntoDeserializer, Visitor},
-};
+use serde::{Deserialize, Serialize};
 
 /// Settings unrelated to event loop/picker_ui.
 ///
@@ -529,7 +524,6 @@ pub struct PreviewConfig {
     /// Can either be a boolean or a number which the relevant dimension of the available ui area must exceed.
     pub show: ShowCondition,
 
-    // todo
     pub reevaluate_show_on_resize: bool,
 }
 
@@ -788,7 +782,6 @@ pub struct PreviewSetting {
 pub struct PreviewLayout {
     pub side: Side,
     /// Percentage of total rows/columns to occupy.
-
     #[serde(alias = "p")]
     // we need serde here since its specified inside the value but i don't think there's another case for it.
     pub percentage: Percentage,
@@ -808,7 +801,6 @@ impl Default for PreviewLayout {
 }
 
 use crate::utils::serde::bounded_usize;
-// todo: pass filter and hidden to mm
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
@@ -838,54 +830,6 @@ impl Default for ColumnsConfig {
             max_columns: 6,
         }
     }
-}
-
-// --------- Deserialize Helpers ------------
-pub fn deserialize_string_or_char_as_double_width<'de, D, T>(deserializer: D) -> Result<T, D::Error>
-where
-    D: Deserializer<'de>,
-    T: From<String>,
-{
-    struct GenericVisitor<T> {
-        _marker: std::marker::PhantomData<T>,
-    }
-
-    impl<'de, T> Visitor<'de> for GenericVisitor<T>
-    where
-        T: From<String>,
-    {
-        type Value = T;
-
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("a string or single character")
-        }
-
-        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            let s = if v.chars().count() == 1 {
-                let mut s = String::with_capacity(2);
-                s.push(v.chars().next().unwrap());
-                s.push(' ');
-                s
-            } else {
-                v.to_string()
-            };
-            Ok(T::from(s))
-        }
-
-        fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            self.visit_str(&v)
-        }
-    }
-
-    deserializer.deserialize_string(GenericVisitor {
-        _marker: std::marker::PhantomData,
-    })
 }
 
 // ----------- Nucleo config helper
@@ -940,18 +884,5 @@ impl<'de> Deserialize<'de> for NucleoMatcherConfig {
         }
 
         Ok(NucleoMatcherConfig(config))
-    }
-}
-
-pub fn deserialize_option_auto<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    let opt = Option::<String>::deserialize(deserializer)?;
-    match opt.as_deref() {
-        Some("auto") => Ok(None),
-        Some(s) => Ok(Some(T::deserialize(s.into_deserializer())?)),
-        None => Ok(None),
     }
 }

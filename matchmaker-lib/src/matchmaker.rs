@@ -55,7 +55,6 @@ pub struct Matchmaker<T: SSS, S: Selection = T> {
 
 // ----------- MAIN -----------------------
 
-// defined for lack of a better way to expose these fns, i.e. to allow clients to request new injectors in case of worker restart
 pub struct OddEnds {
     pub formatter: Arc<RenderFn<ConfigMMItem>>,
     pub splitter: SplitterFn<Either<String, Text<'static>>>,
@@ -150,8 +149,6 @@ impl ConfigMatchmaker {
         let injector = IndexedInjector::new_globally_indexed(injector);
         let injector = SegmentedInjector::new(injector, splitter.clone());
         let injector = AnsiInjector::new(injector, preprocess_config);
-
-        // segment then index. Question: what about ansi sequences?
 
         let selection_set = if render_config.results.multi {
             Selector::new(Indexed::identifier)
@@ -280,7 +277,6 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
             wait = true;
         }
 
-        // note: this part is "crate-specific" since clients likely use their own previewer
         let preview = match previewer {
             Some(Either::Left(view)) => Some(view),
             Some(Either::Right(mut previewer)) => {
@@ -428,10 +424,7 @@ pub struct PickOptions<'a, T: SSS, S: Selection, A: ActionExt = NullActionExt> {
 
     hidden_columns: Vec<bool>,
 
-    /// # Experimental
-    // pub signal_handler: Option<(&'static std::sync::atomic::AtomicUsize, SignalHandler<T, S>)>,
-    /// Initializing code, i.e. to setup context in the running thread. Since render_loop runs on the same thread this isn't actually necessary
-    /// but maybe its a good idea to provide a channel for it anyway?
+    // Initializing code, i.e. to setup state.
     initializer: Option<Initializer<T, S>>,
     pub channel: Option<(
         RenderSender<A>,

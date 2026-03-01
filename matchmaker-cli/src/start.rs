@@ -258,7 +258,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     };
 
     if sync {
-        let _ = handle.await; // ignore the mapreader error?
+        handle.await._wbog(); // warn the mapreader error (?)
     }
 
     mm.pick(options).await.map(|v| {

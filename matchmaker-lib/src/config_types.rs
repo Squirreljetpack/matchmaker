@@ -332,3 +332,51 @@ impl<'de> Deserialize<'de> for ColumnSetting {
         }
     }
 }
+
+// ----------------------------------------------------------------------
+pub fn deserialize_string_or_char_as_double_width<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: From<String>,
+{
+    struct GenericVisitor<T> {
+        _marker: std::marker::PhantomData<T>,
+    }
+
+    impl<'de, T> Visitor<'de> for GenericVisitor<T>
+    where
+        T: From<String>,
+    {
+        type Value = T;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("a string or single character")
+        }
+
+        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            let s = if v.chars().count() == 1 {
+                let mut s = String::with_capacity(2);
+                s.push(v.chars().next().unwrap());
+                s.push(' ');
+                s
+            } else {
+                v.to_string()
+            };
+            Ok(T::from(s))
+        }
+
+        fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            self.visit_str(&v)
+        }
+    }
+
+    deserializer.deserialize_string(GenericVisitor {
+        _marker: std::marker::PhantomData,
+    })
+}

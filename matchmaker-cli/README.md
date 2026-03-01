@@ -41,7 +41,7 @@ The default locations are in order:
 - `~/.config/matchmaker/config.toml` (If the folder exists already).
 - `{PLATFORM_SPECIFIC_CONFIG_DIRECTORY}/matchmaker` (Generally the same as above when on linux)
 
-Matchmaker options are [hierarchical](./matchmaker-lib/src/config.rs) but most categories are flattened to the top level:
+Matchmaker options are hierarchical, although most categories live at the top level:
 
 ```toml
 [preview]
@@ -58,6 +58,8 @@ Matchmaker options are [hierarchical](./matchmaker-lib/src/config.rs) but most c
     max        = 120
 ```
 
+The structure of the config file is defined [here](./matchmaker-cli/src/config.rs)[^1], and the full specification lives [here](./matchmaker-lib/src/config.rs)[^2].
+
 Options can be overridden on the command line, where abbreviations are supported:
 
 ```sh
@@ -69,6 +71,9 @@ mm --config ~/.config/matchmaker/alternate.toml p.l "cmd=[echo {}] p=50 max=20" 
 # 4. Set a preferred percentage of 50 for the preview pane, and a maximum column width of 20 for the preview pane
 # 5. Output the result wrapped in single quotes
 ```
+
+[^1]: Note that the flatten attribute on the render field means that the subfields of RenderConfig should be specified at the top level of the toml (i.e. your toml should specify `[results]` instead of `[render.results]`).
+[^2]: and parts of it [here](./matchmaker-lib/src/config-types.rs).
 
 ### Keybindings
 

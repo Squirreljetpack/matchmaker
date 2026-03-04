@@ -67,7 +67,7 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
     };
 
     // let original = config.clone();
-    config.apply(partial);
+    config.apply(partial); // resolve config.exit first
     // log::debug!("unchanged: {}", original == config);
 
     if cli.last_key {
@@ -92,6 +92,8 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
     if cli.fullscreen {
         config.tui.layout = None;
     }
+
+    resolve_aliases(&config.aliases, &mut config.binds);
 
     if cli.dump_config {
         let contents = toml::to_string_pretty(&config).expect("failed to serialize to TOML");
@@ -137,6 +139,41 @@ pub fn map_reader<E: SSS + std::fmt::Display>(
     })
 }
 
+use cli_boilerplate_automation::wbog;
+use matchmaker::{Actions, binds::Trigger};
+use std::collections::HashMap;
+pub fn resolve_aliases(
+    aliases: &HashMap<String, Trigger>,
+    binds: &mut HashMap<Trigger, Actions<MMAction>>,
+) {
+    let mut to_insert = Vec::new();
+
+    // Retain only non-alias triggers
+    binds.retain(|trigger, actions| {
+        if let Trigger::Semantic(name) = trigger {
+            match aliases.get(name) {
+                Some(Trigger::Semantic(_)) => {
+                    wbog!("skipped recursive alias `{name}`.");
+                }
+                Some(resolved) => {
+                    to_insert.push((resolved.clone(), actions.clone()));
+                }
+                None => {
+                    wbog!("skipped bind for missing alias `{name}`.");
+                }
+            }
+            false
+        } else {
+            true
+        }
+    });
+
+    // Insert the resolved triggers
+    for (trigger, actions) in to_insert {
+        binds.insert(trigger, actions);
+    }
+}
+
 pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let Config {
         render,
@@ -144,6 +181,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         previewer,
         matcher: MatcherConfig { matcher, worker },
         binds,
+        aliases: _,
         start:
             StartConfig {
                 input_separator,

@@ -52,6 +52,11 @@ pub struct Config {
     #[serde(default)]
     #[partial(attr, alias = "e")]
     pub exit: ExitConfig,
+
+    // semantic aliases
+    #[serde(default)]
+    #[partial(skip)]
+    pub aliases: HashMap<String, Trigger>,
 }
 
 // -----------------------

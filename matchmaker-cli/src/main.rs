@@ -67,20 +67,21 @@ fn get_partial(config_args: Vec<String>) -> anyhow::Result<PartialConfig> {
     log::trace!("{split:?}");
     let mut partial = PartialConfig::default();
     for (path, val) in split {
-        let parts = match split_whitespace_preserving_nesting(&val, Some(['(', ')']), Some(['[', ']'])) {
-            Ok(mut parts) => {
-                let is_binds = parts.len() == 1 && ["binds", "b"].contains(&parts[0].as_ref());
-                try_split_kv(&mut parts, is_binds)?;
-                parts
-            }
-            Err(n) => {
-                if n > 0 {
-                    bail!("Encountered {} unclosed parentheses", n)
-                } else {
-                    bail!("Extra closing parenthesis at index {}", -n)
+        let parts =
+            match split_whitespace_preserving_nesting(&val, Some(['(', ')']), Some(['[', ']'])) {
+                Ok(mut parts) => {
+                    let is_binds = parts.len() == 1 && ["binds", "b"].contains(&parts[0].as_ref());
+                    try_split_kv(&mut parts, is_binds)?;
+                    parts
                 }
-            }
-        };
+                Err(n) => {
+                    if n > 0 {
+                        bail!("Encountered {} unclosed parentheses", n)
+                    } else {
+                        bail!("Extra closing parenthesis at index {}", -n)
+                    }
+                }
+            };
 
         log::trace!("{parts:?}");
 

@@ -41,6 +41,7 @@ impl<A: ActionExt> BindMap<A> {
             key!(ctrl-left) => Action::BackwardWord,
             key!(ctrl-h) => Action::DeleteWord,
             key!(ctrl-u) => Action::Cancel,
+            key!(alt-a) => Action::QueryPos(0),
             key!(alt-h) => Action::Help("".to_string()),
             key!(ctrl-'[') => Action::ToggleWrap,
             key!(ctrl-']') => Action::TogglePreviewWrap,
@@ -54,6 +55,7 @@ impl<A: ActionExt> BindMap<A> {
             key!(shift-PageUp) => Action::PreviewHalfPageUp,
             key!(shift-Home) => Action::PreviewJump,
             key!(shift-End) => Action::PreviewJump,
+            key!('?') => Action::SwitchPreview(None)
         );
 
         #[cfg(target_os = "macos")]
@@ -75,31 +77,34 @@ pub enum Trigger {
     Key(KeyCombination),
     Mouse(SimpleMouseEvent),
     Event(Event),
+    /// A "semantic" trigger, such as `Open`, which should be resolved or rejected before starting the picker.
+    /// This is serialized/deserialized with a `::` prefix, such as "::Open" = "Execute(open {})"
+    Semantic(String),
 }
 
-impl Ord for Trigger {
-    fn cmp(&self, other: &Self) -> Ordering {
-        use Trigger::*;
+// impl Ord for Trigger {
+//     fn cmp(&self, other: &Self) -> Ordering {
+//         use Trigger::*;
 
-        match (self, other) {
-            (Key(a), Key(b)) => a.to_string().cmp(&b.to_string()),
-            (Mouse(a), Mouse(b)) => a.cmp(b),
-            (Event(a), Event(b)) => a.cmp(b),
+//         match (self, other) {
+//             (Key(a), Key(b)) => a.to_string().cmp(&b.to_string()),
+//             (Mouse(a), Mouse(b)) => a.cmp(b),
+//             (Event(a), Event(b)) => a.cmp(b),
 
-            // define variant order
-            (Key(_), _) => Ordering::Less,
-            (Mouse(_), Key(_)) => Ordering::Greater,
-            (Mouse(_), Event(_)) => Ordering::Less,
-            (Event(_), _) => Ordering::Greater,
-        }
-    }
-}
+//             // define variant order
+//             (Key(_), _) => Ordering::Less,
+//             (Mouse(_), Key(_)) => Ordering::Greater,
+//             (Mouse(_), Event(_)) => Ordering::Less,
+//             (Event(_), _) => Ordering::Greater,
+//         }
+//     }
+// }
 
-impl PartialOrd for Trigger {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
+// impl PartialOrd for Trigger {
+//     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+//         Some(self.cmp(other))
+//     }
+// }
 
 /// Crossterm mouse event without location
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
@@ -177,6 +182,7 @@ impl ser::Serialize for Trigger {
                 serializer.serialize_str(&s)
             }
             Trigger::Event(event) => serializer.serialize_str(&event.to_string()),
+            Trigger::Semantic(alias) => serializer.serialize_str(&format!("::{alias}")),
         }
     }
 }
@@ -198,6 +204,9 @@ impl FromStr for Trigger {
     type Err = String;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if let Some(s) = value.strip_prefix("::") {
+            return Ok(Trigger::Semantic(s.to_string()));
+        }
         // 1. Try KeyCombination
         if let Ok(key) = KeyCombination::from_str(value) {
             return Ok(Trigger::Key(key));

@@ -20,6 +20,7 @@
 - Offload large previews to disk
 - better hr styling (dim etc.)
 - Previewer debouncing
+- read/write state which integrates with shell outputs and set_ actions
 
 # Bugs
 
@@ -32,9 +33,6 @@
 
 - refactor to better fit components into specific ratatui roles so the ui can be embedded?
 - sometimes preview leaks (on invalid unicode), better autorefresh?
-- input_rhs_prompt
-- status template substitution via shell command
-- find out why previewchange event doesn't seem to fire as often as it should
 - partial should be under #[cfg] but that breaks field level attributes, i don't think there is a solution as we cannot use derive macro
 - case insensitive bitflags deserialization (probably requires ratatui pr)
 - a better design for horizontal result scrolling?

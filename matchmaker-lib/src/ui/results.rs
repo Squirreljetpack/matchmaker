@@ -16,7 +16,7 @@ use crate::{
     render::Click,
     utils::{
         string::{fit_width, substitute_escaped},
-        text::{clip_text_lines, expand_indents, prefix_text},
+        text::{apply_to_lines, clip_text_lines, expand_indents, hscroll_line, prefix_text},
     },
 };
 
@@ -25,6 +25,8 @@ pub struct ResultsUI {
     cursor: u16,
     bottom: u32,
     col: Option<usize>,
+    /// y, x
+    pub scroll: [u16; 2],
 
     /// available height
     height: u16,
@@ -54,6 +56,7 @@ impl ResultsUI {
             cursor: 0,
             bottom: 0,
             col: None,
+            scroll: [0, 0],
 
             widths: Vec::new(),
             height: 0, // uninitialized, so be sure to call update_dimensions
@@ -92,6 +95,10 @@ impl ResultsUI {
             + self.config.border.width()
     }
 
+    pub fn height(&self) -> u16 {
+        self.height
+    }
+
     // ------ config -------
     pub fn reverse(&self) -> bool {
         self.config.reverse == Some(true)
@@ -106,6 +113,8 @@ impl ResultsUI {
     // ----- columns --------
     // todo: support cooler things like only showing/outputting a specific column/cycling columns
     pub fn toggle_col(&mut self, col_idx: usize) -> bool {
+        self.hscroll(0);
+
         if self.col == Some(col_idx) {
             self.col = None
         } else {
@@ -114,6 +123,8 @@ impl ResultsUI {
         self.col.is_some()
     }
     pub fn cycle_col(&mut self) {
+        self.hscroll(0);
+
         self.col = match self.col {
             None => self.widths.is_empty().then_some(0),
             Some(c) => {
@@ -153,6 +164,8 @@ impl ResultsUI {
     //     }
     // }
     pub fn cursor_prev(&mut self) {
+        self.hscroll(0);
+
         log::trace!("cursor_prev: {self:?}");
         if self.cursor_above <= self.scroll_padding() && self.bottom > 0 {
             self.bottom -= 1;
@@ -164,6 +177,8 @@ impl ResultsUI {
         }
     }
     pub fn cursor_next(&mut self) {
+        self.hscroll(0);
+
         if self.cursor_disabled {
             self.cursor_disabled = false
         }
@@ -186,6 +201,8 @@ impl ResultsUI {
     }
 
     pub fn cursor_jump(&mut self, index: u32) {
+        self.hscroll(0);
+
         self.cursor_disabled = false;
         self.bottom_clip = None;
 
@@ -199,6 +216,18 @@ impl ResultsUI {
         }
         self.cursor = (index - self.bottom) as u16;
         log::debug!("cursor jumped to {}: {index}, end: {end}", self.cursor);
+    }
+
+    pub fn hscroll(&mut self, x: i8) {
+        let value = &mut self.scroll[1];
+        *value = if x.is_negative() {
+            value.saturating_sub(x.unsigned_abs() as u16)
+        } else if x.is_positive() {
+            value.saturating_add(x as u16)
+        } else {
+            0
+        };
+        log::debug!("hscrol:: {value}");
     }
 
     // ------- RENDERING ----------
@@ -550,7 +579,7 @@ impl ResultsUI {
                 break;
             }
 
-            // set prefix
+            // determine prefix
             let prefix = if selector.contains(item) {
                 self.config.multi_prefix.clone().to_string()
             } else {
@@ -558,6 +587,20 @@ impl ResultsUI {
             };
 
             if hz {
+                if self.is_current(i) && self.scroll[0] > 0 {
+                    for (x, t) in row.iter_mut().enumerate().filter(|(i, _)| widths[*i] != 0) {
+                        if self.col.is_none() || self.col() == Some(x) {
+                            let scroll = self.scroll[0] as usize;
+
+                            if scroll < t.lines.len() {
+                                t.lines = t.lines.split_off(scroll);
+                            } else {
+                                t.lines.clear();
+                            }
+                        }
+                    }
+                }
+
                 let mut height = row
                     .iter()
                     .map(|t| t.height() as u16)
@@ -573,8 +616,6 @@ impl ResultsUI {
                 }
                 remaining_height -= height;
 
-                prefix_text(&mut row[0], prefix);
-
                 // same as above
                 let last_visible = widths
                     .iter()
@@ -588,8 +629,8 @@ impl ResultsUI {
                     .cloned()
                     // highlight
                     .enumerate()
-                    .map(|(x, t)| {
-                        if self.is_current(i)
+                    .map(|(x, mut t)| {
+                        let mut t = if self.is_current(i)
                             && (self.col.is_none()
                                 && matches!(
                                     self.config.row_connection_style,
@@ -597,10 +638,33 @@ impl ResultsUI {
                                 )
                                 || self.col == Some(x))
                         {
-                            t.style(self.current_style())
+                            if self.col.is_none() || self.col == Some(x) {
+                                if self.scroll[1] > 0 {
+                                    apply_to_lines(&mut t, |line| {
+                                        hscroll_line(line, self.scroll[1])
+                                    });
+                                }
+                                if self.col.is_none()
+                                    && !matches!(
+                                        self.config.row_connection_style,
+                                        RowConnectionStyle::Disjoint
+                                    )
+                                {
+                                    t
+                                } else {
+                                    t.style(self.current_style())
+                                }
+                            } else {
+                                t
+                            }
                         } else {
                             t
-                        }
+                        };
+                        // prefix after hscroll
+                        if x == 0 {
+                            prefix_text(&mut t, prefix.clone());
+                        };
+                        t
                     })
                     .collect();
 
@@ -636,15 +700,32 @@ impl ResultsUI {
                     }
                     remaining_height -= height;
 
-                    prefix_text(&mut col, prefix.clone());
+                    if self.is_current(i)
+                        && self.scroll[1] > 0
+                        && (self.col.is_none() || self.col() == Some(x))
+                    {
+                        apply_to_lines(&mut col, |line| hscroll_line(line, self.scroll[1]));
+                    }
+                    if self.is_current(i)
+                        && self.scroll[0] > 0
+                        && (self.col.is_none() || self.col() == Some(x))
+                    {
+                        let scroll = self.scroll[0] as usize;
 
-                    // push
-                    let mut row = Row::new(vec![col]).height(height);
-
-                    if self.is_current(i) && (self.col.is_none() || self.col == Some(x)) {
-                        row = row.style(self.current_style())
+                        if scroll < col.lines.len() {
+                            col.lines = col.lines.split_off(scroll);
+                        } else {
+                            col.lines.clear();
+                        }
                     }
 
+                    prefix_text(&mut col, prefix.clone());
+                    if self.is_current(i) && (self.col.is_none() || self.col == Some(x)) {
+                        col = col.style(self.current_style())
+                    }
+
+                    // push
+                    let row = Row::new(vec![col]).height(height);
                     push.push(row);
                 }
                 rows.extend(push);

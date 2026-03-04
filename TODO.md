@@ -17,20 +17,17 @@
 - benchmarks (what kinds of speed matter?)
 - Add support for nucleo::Pattern in the matcher config
 - Adaptable percentage (higher on smaller)
-- status template
-- case insensitive bitflags deserialization?
 - Offload large previews to disk
-- (automatic) horizontal scrolling of results
 - better hr styling (dim etc.)
-- partial should be under #[cfg] but that breaks field level attributes, is there a solution?
 - Previewer debouncing
 
 # Bugs
 
-- Too many execute can sometimes crash event loop
-- Preview sometimes disappears?
+- Too many execute can sometimes crash event loop (cannot replicate)
+- Preview sometimes disappears (cannot replicate)
 - Indexing can break?
 - When the cursor is not near the top (horizontal preview), the cursor doesn't get restored, and the stuff ater not cleared
+
 ### Low priority
 
 - refactor to better fit components into specific ratatui roles so the ui can be embedded?
@@ -38,3 +35,9 @@
 - input_rhs_prompt
 - status template substitution via shell command
 - find out why previewchange event doesn't seem to fire as often as it should
+- partial should be under #[cfg] but that breaks field level attributes, i don't think there is a solution as we cannot use derive macro
+- case insensitive bitflags deserialization (probably requires ratatui pr)
+- a better design for horizontal result scrolling?
+  - better reset
+  - better determination of where it applies
+  - autohscroll interferes with manual scroll: better for results to return, per text, the first match index on each line (!)

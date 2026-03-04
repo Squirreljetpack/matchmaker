@@ -87,6 +87,8 @@ pub fn prefix_text<'a, 'b: 'a>(
     *original = Text::from(new_lines);
 }
 
+/// Clip text to a given number of lines.
+/// reverse: take from the end
 pub fn clip_text_lines<'a, 'b: 'a>(original: &'a mut Text<'b>, max_lines: u16, reverse: bool) {
     let max = max_lines as usize;
 
@@ -366,6 +368,63 @@ pub fn expand_indents<'a>(input: Line<'a>, placeholder: &str, target_width: usiz
     }
 
     Line::from(new_spans)
+}
+
+/// Scrolls a single Line by skipping graphemes until the visual width
+/// consumed matches the `scroll_offset`.
+pub fn hscroll_line(line: Line<'_>, scroll_offset: u16) -> Line<'_> {
+    let mut current_width = 0;
+    let mut new_spans = Vec::new();
+
+    for span in line.spans {
+        let span_width = span.content.width();
+
+        // Case 1: The entire span is hidden behind the scroll offset
+        if current_width + span_width <= scroll_offset as usize {
+            current_width += span_width;
+            continue;
+        }
+
+        // Case 2: The scroll offset sits somewhere inside this span
+        if current_width < scroll_offset as usize {
+            let to_skip = scroll_offset as usize - current_width;
+            let mut skipped_so_far = 0;
+            let mut start_index = 0;
+
+            // Iterate over graphemes to find the cut-off point
+            for (i, c) in span.content.char_indices() {
+                let char_w = unicode_width::UnicodeWidthChar::width(c).unwrap_or(0);
+                if skipped_so_far >= to_skip {
+                    start_index = i;
+                    break;
+                }
+                skipped_so_far += char_w;
+                // If we reach the end of the string but haven't hit to_skip
+                // (e.g. wide char), we'll just start at the next span.
+                start_index = span.content.len();
+            }
+
+            if start_index < span.content.len() {
+                new_spans.push(Span::styled(
+                    span.content[start_index..].to_string(),
+                    span.style,
+                ));
+            }
+            current_width += span_width;
+        } else {
+            // Case 3: Span is fully visible (already past the scroll offset)
+            new_spans.push(span);
+        }
+    }
+
+    Line::from(new_spans)
+}
+
+pub fn apply_to_lines(text: &mut Text<'_>, transform: impl Fn(Line<'_>) -> Line<'_>) {
+    for line in text.lines.iter_mut() {
+        let owned_line = std::mem::take(line);
+        *line = transform(owned_line);
+    }
 }
 
 #[cfg(test)]

@@ -41,6 +41,9 @@ pub enum Action<A: ActionExt = NullActionExt> {
     PageDown,
     // TODO
     PageUp,
+    /// Horizontally scroll (the active column of) the results.
+    /// 0 to reset.
+    HScroll(i8),
 
     // Preview
     /// Cycle preview layouts
@@ -69,9 +72,6 @@ pub enum Action<A: ActionExt = NullActionExt> {
     /// Scroll preview half page down in rows.
     /// If wrapping is enabled, the visual distance may exceed half a page.
     PreviewHalfPageDown,
-    /// Horizontally scroll either results or preview based on mouse location and wrapping configuration. (TODO)
-    /// 0 to reset.
-    HScroll(i8),
 
     // experimental
     /// Persistent horizontal scroll

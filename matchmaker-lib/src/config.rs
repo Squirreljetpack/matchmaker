@@ -299,6 +299,14 @@ pub struct ResultsConfig {
     // #[serde(deserialize_with = "transform_uppercase")]
     pub modifier: Modifier,
 
+    // inactive_col styles
+    #[serde(deserialize_with = "camelcase_normalized")]
+    pub inactive_fg: Color,
+    #[serde(deserialize_with = "camelcase_normalized")]
+    pub inactive_bg: Color,
+    // #[serde(deserialize_with = "transform_uppercase")]
+    pub inactive_modifier: Modifier,
+
     #[serde(deserialize_with = "camelcase_normalized")]
     pub match_fg: Color,
     // #[serde(deserialize_with = "transform_uppercase")]
@@ -356,12 +364,6 @@ pub struct ResultsConfig {
     pub horizontal_separator: HorizontalSeparator,
 }
 
-// #[derive(Default, Deserialize)]
-// pub enum HorizontalSeperator {
-//     None,
-
-// }
-
 impl Default for ResultsConfig {
     fn default() -> Self {
         ResultsConfig {
@@ -374,6 +376,11 @@ impl Default for ResultsConfig {
             fg: Default::default(),
             modifier: Default::default(),
             bg: Default::default(),
+
+            inactive_fg: Default::default(),
+            inactive_modifier: Default::default(),
+            inactive_bg: Default::default(),
+
             match_fg: Color::Green,
             match_modifier: Modifier::ITALIC,
 

@@ -697,7 +697,8 @@ pub fn make_previewer<T: SSS, S: Selection>(
             }
 
             state.preview_set_payload = None;
-        });
+        }
+    );
 
     mm.register_event_handler(Event::PreviewSet, move |state, _event| {
         if state.preview_visible {

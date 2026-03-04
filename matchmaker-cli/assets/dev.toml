@@ -6,7 +6,7 @@
     max        = 120
 
 [ui]
-    border = { color = "blue", bg = "#282828" }
+    border    = { color = "blue", bg = "#282828" }
     tick_rate = 30
 
 [input]
@@ -34,8 +34,8 @@
     scroll_wrap = true
 
 [status]
-    fg        = "Green"
-    modifier  = "ITALIC"
+    fg       = "Green"
+    modifier = "ITALIC"
 
 [previewer]
     try_lossy = false
@@ -88,6 +88,8 @@
     "shift-down"      = "PreviewDown"
     "ctrl-shift-up"   = "PreviewHalfPageUp"
     "ctrl-shift-down" = "PreviewHalfPageDown"
+    "shift-right"     = "HScroll(1)"
+    "shift-left"      = "HScroll(-1)"
 
     "shift+scrollup"   = "PreviewUp"
     "shift+scrolldown" = "PreviewDown"
@@ -109,11 +111,11 @@
     trim                = true
     columns.split       = '\s+'
     columns.max_columns = 5
-    sort_threshold = 1
+    sort_threshold      = 1
 
 [start]
     command = "fd"
-    output = "{}"
+    output  = "{}"
 
 [exit]
-    select_1            = false
+    select_1 = false

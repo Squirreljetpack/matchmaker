@@ -310,14 +310,27 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             };
                             input.set(None, pos);
                         }
-                        Action::HScroll(_n) => {
-                            // todo
+                        Action::HScroll(n) => {
+                            if let Some(p) = &mut preview_ui
+                                && !p.config.wrap
+                                && false
+                            // track mouse location?
+                            {
+                                p.scroll(true, n);
+                            } else {
+                                results.hscroll(n);
+                            }
                         }
-                        Action::PageDown => {
-                            // todo
-                        }
-                        Action::PageUp => {
-                            // todo
+                        Action::PageDown | Action::PageUp => {
+                            let x = results.height();
+                            let next = matches!(action, Action::Down(_)) ^ results.reverse();
+                            for _ in 0..x.into() {
+                                if next {
+                                    results.cursor_next();
+                                } else {
+                                    results.cursor_prev();
+                                }
+                            }
                         }
 
                         // Preview Navigation

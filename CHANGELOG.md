@@ -1,3 +1,21 @@
+## [0.0.9] - 2026-03-07
+
+### 🚀 Features
+
+- Auto-scroll to first match index
+- Hscroll
+- Semantic aliases in keybinds
+- Previewer pausing
+
+### 💼 Other
+
+- matchmaker-partial: support attr(clear) to clear all field attributes.
+- various bugfixes
+
+### 🚜 Refactor
+
+- Switch to hashmaps for binds + value sort for display
+
 ## [0.0.8] - 2026-02-24
 
 ### 🚀 Features

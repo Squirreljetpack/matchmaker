@@ -1131,7 +1131,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-cli"
-version = "0.0.9"
+version = "0.0.10"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
@@ -1157,7 +1157,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-lib"
-version = "0.0.9"
+version = "0.0.10"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
@@ -1197,7 +1197,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-partial"
-version = "0.0.9"
+version = "0.0.10"
 dependencies = [
  "matchmaker-partial-macros",
  "serde",
@@ -1207,7 +1207,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-partial-macros"
-version = "0.0.9"
+version = "0.0.10"
 dependencies = [
  "proc-macro2",
  "quote",

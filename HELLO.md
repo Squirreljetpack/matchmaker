@@ -13,7 +13,7 @@ Future goals include reaching full feature-parity with fzf, enhanced multi-colum
 
 This has been a solo project so far, but contributions are very welcome! Anything from sample configurations, to documentation, feature suggestions, bug reports, even just your opinions on it will be very much appreciated.
 
-Here is an example configuration file to give you a sense of what matchmaker supports. Of course, there's nothing stopping you from just trying it!
+Here is an example configuration file to give you a sense of what matchmaker supports. Of course, a better course of action is just to download and try it!
 
 ```toml
 [tui]

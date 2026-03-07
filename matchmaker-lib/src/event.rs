@@ -275,10 +275,7 @@ impl<A: ActionExt> EventLoop<A> {
                                                 },
                                                 key!(up) => self.send_action(Action::Up(1)),
                                                 key!(down) => self.send_action(Action::Down(1)),
-                                                key!(enter) => {
-                                                    self.record_key(key.to_string());
-                                                    self.send_action(Action::Accept)
-                                                }
+                                                key!(enter) => self.send_action(Action::Accept),
                                                 key!(right) => self.send_action(Action::ForwardChar),
                                                 key!(left) => self.send_action(Action::BackwardChar),
                                                 key!(ctrl-right) => self.send_action(Action::ForwardWord),

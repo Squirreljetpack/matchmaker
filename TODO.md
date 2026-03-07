@@ -22,6 +22,8 @@
 - Previewer debouncing
 - read/write state which integrates with shell outputs and set_ actions
 
+- https://github.com/saghen/frizbee
+
 # Bugs
 
 - Too many execute can sometimes crash event loop (cannot replicate)

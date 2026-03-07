@@ -1,17 +1,28 @@
-# m&m [![Crates.io](https://img.shields.io/crates/v/matchmaker-cli)](https://crates.io/crates/matchmaker-cli) [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://github.com/squirreljetpack/matchmaker/blob/main/matchmaker-cli/LICENSE)
+# Matchmaker [![Crates.io](https://img.shields.io/crates/v/matchmaker-cli)](https://crates.io/crates/matchmaker-cli) [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://github.com/squirreljetpack/matchmaker/blob/main/matchmaker-cli/LICENSE)
 
-Matchmaker is a fuzzy searcher, powered by nucleo and written in rust.
+Matchmaker is fast, configurable and intuitive fuzzy searcher.
+
+It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and design, but reimagines the user experience. Built from the ground up in Rust using modern libraries, it provides a maximally cohesive, performant and versatile experience, in a minimal amount of code. It's simple to get started, give it a try! [^10]
 
 ![screen1](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/screen1.png)
 
 ## Features
 
 - Matching with [nucleo](https://github.com/helix-editor/nucleo).
-- Declarative configuration which can be sourced from a [toml file](./matchmaker-cli/assets/config.toml), or overridden using an intuitive [syntax](./matchmaker-cli/assets/docs/options.md) for specifying command line options.
-- Interactive preview supports color, scrolling, wrapping, multiple layouts, and even entering into an interactive view.
-- [FZF](https://github.com/junegunn/fzf)-inspired actions.
+- _Fully_ configurable via a type-checked [toml file](./matchmaker-cli/assets/config.toml). [^11]
+- A minimal yet powerful [syntax](./matchmaker-cli/assets/docs/options.md) for overriding the configuration on the command line.
+- Interactive preview supports color, scrolling, wrapping, multiple layouts, and even maximizing.
+- Most of the familiar actions from [fzf](https://github.com/junegunn/fzf), as well as several new ones[^12].
+- Mouse scrolling (results and preview)! Horizontal scrolling! Grapheme-aware input wrapping!
 - Column support: Split input lines into multiple columns, that you can dynamically search, filter, highlight, return etc.
+- Dynamically bind keys and modify the configuration.
+- `mm --last-key` gives you the last key that was pressed in a previous run of the program.[^13]
 - Available as a rust library to use in your own code.
+
+[^10]: Sample configurations are on the roadmap, and contributions are very welcome!
+[^11]: The benefits of a structured, hierarchical, global baseline configuration are many, including but not limited to the fact that toml strings make it much easier to bind keys to complex shell scripts.
+[^12]: Custom exit codes, Cycle select all, PageUp/Down, Show Help, Cycle columns (soon), Cycle inputs (soon), etc. etc. ...
+[^13]: This is useful for when you want to write a shell script that dispatches different actions on the output of matchmaker based on the key that was pressed.
 
 ## Installation
 
@@ -79,7 +90,7 @@ mm --config ~/.config/matchmaker/alternate.toml p.l "cmd=[echo {}] p=50 max=20" 
 
 Actions can be defined in your `config.toml` or on the command line.
 
-The list of currently supported actions can be found [here](./matchmaker-lib/src/action.rs) or from `mm --options`.
+The list of currently supported actions can be found [here](./matchmaker-lib/src/action.rs) and [here](./matchmaker-cli/src/action.rs) or from `mm --options`.
 
 To get the names of keys, type `mm --test-keys`.
 

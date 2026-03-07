@@ -87,8 +87,15 @@ impl<'de> Deserializer<'de> for &mut SimpleDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        if self.start >= self.input.len() {
-            return visitor.visit_unit();
+        let remaining = self.input.len() - self.start;
+
+        let is_key_context = match self.consuming {
+            Some(Err(_fields)) => true,
+            _ => false,
+        };
+
+        if remaining > 1 && !is_key_context {
+            return self.deserialize_seq(visitor);
         }
 
         let s = &self.input[self.start];
@@ -105,6 +112,7 @@ impl<'de> Deserializer<'de> for &mut SimpleDeserializer<'de> {
         } else {
             visitor.visit_str(s)?
         };
+
         self.start += 1;
         Ok(val)
     }
@@ -166,6 +174,13 @@ impl<'de> Deserializer<'de> for &mut SimpleDeserializer<'de> {
         let val = visitor.visit_string(self.expect_single()?.to_string())?;
         self.start += 1;
         Ok(val)
+    }
+
+    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_str(visitor)
     }
 
     fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -289,7 +304,7 @@ impl<'de> Deserializer<'de> for &mut SimpleDeserializer<'de> {
     impl_number!(deserialize_f32, f32, visit_f32, "an f32");
     impl_number!(deserialize_f64, f64, visit_f64, "an f64");
 
-    forward_to_deserialize_any! { bytes byte_buf identifier ignored_any }
+    forward_to_deserialize_any! { bytes byte_buf ignored_any }
 }
 
 // === Implement SeqAccess, MapAccess, EnumAccess, VariantAccess ===
@@ -341,7 +356,7 @@ impl<'de> MapAccess<'de> for &mut SimpleDeserializer<'de> {
                 seed.deserialize(key.clone().into_deserializer())?
             }
         } else {
-            self.with_sub(|s| seed.deserialize(s), None)?
+            self.with_sub(|s| seed.deserialize(s), Err(&[][..]))?
         };
 
         Ok(Some(key))
@@ -351,7 +366,7 @@ impl<'de> MapAccess<'de> for &mut SimpleDeserializer<'de> {
     where
         V: DeserializeSeed<'de>,
     {
-        let val = self.with_sub(|s| seed.deserialize(s), None)?;
+        let val = self.with_sub(|s| seed.deserialize(s), Err(&[][..]))?;
         Ok(val)
     }
 }
@@ -364,7 +379,7 @@ impl<'de> EnumAccess<'de> for &mut SimpleDeserializer<'de> {
     where
         V: DeserializeSeed<'de>,
     {
-        let val = self.with_sub(|s| seed.deserialize(s), None)?;
+        let val = self.with_sub(|s| seed.deserialize(s), Err(&[][..]))?;
         Ok((val, self))
     }
 }

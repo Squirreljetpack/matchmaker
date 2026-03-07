@@ -15,6 +15,7 @@ static ALIASES: &[(&str, &str)] = &[
     ("o", "start.output_template"),
     ("x", "start.command"),
     ("cmd", "start.command"),
+    ("command", "start.command"),
     ("a", "start.ansi"),
     ("t", "start.trim"),
     //
@@ -53,6 +54,29 @@ pub fn get_pairs(pairs: Vec<String>) -> Result<Vec<(ArrayVec<String, 10>, String
         if let Some((_, expanded)) = ALIASES.iter().find(|(a, _)| *a == path_str) {
             path_str = (*expanded).to_string();
         }
+
+        let mut peek_iter = path_str.split('.');
+        if let (Some("b" | "binds"), Some(comp), y) =
+            (peek_iter.next(), peek_iter.next(), peek_iter.next())
+        {
+            if !valid_key(comp, true) {
+                return Err(ParseError::InvalidPath {
+                    path: path_str.clone(),
+                    component: comp.to_string(),
+                });
+            } else if let Some(comp) = y {
+                return Err(ParseError::InvalidPath {
+                    path: path_str.clone(),
+                    component: comp.to_string(),
+                });
+            } else {
+                result.push((
+                    ArrayVec::from_iter(["binds".to_string(), comp.to_string()]),
+                    value,
+                ));
+                continue;
+            }
+        };
 
         let mut components = ArrayVec::<String, 10>::new();
         for comp in path_str.split('.') {

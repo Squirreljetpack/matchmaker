@@ -18,7 +18,7 @@ use start::*;
 use utils::*;
 
 use cli_boilerplate_automation::{
-    bait::ResultExt, bog::BogOkExt, bring::split::split_whitespace_preserving_nesting, ebog,
+    _dbg, bait::ResultExt, bog::BogOkExt, bring::split::split_whitespace_preserving_nesting, ebog,
 };
 use matchmaker::MatchError;
 
@@ -70,7 +70,7 @@ fn get_partial(config_args: Vec<String>) -> anyhow::Result<PartialConfig> {
         let parts =
             match split_whitespace_preserving_nesting(&val, Some(['(', ')']), Some(['[', ']'])) {
                 Ok(mut parts) => {
-                    let is_binds = parts.len() == 1 && ["binds", "b"].contains(&parts[0].as_ref());
+                    let is_binds = path.len() == 1 && ["binds", "b"].contains(&path[0].as_ref());
                     try_split_kv(&mut parts, is_binds)?;
                     parts
                 }
@@ -85,6 +85,7 @@ fn get_partial(config_args: Vec<String>) -> anyhow::Result<PartialConfig> {
 
         log::trace!("{parts:?}");
 
+        _dbg!(&path, &parts);
         partial
             .set(path.as_slice(), &parts)
             .prefix(format!("Invalid value for {}", path.join(".")))?;

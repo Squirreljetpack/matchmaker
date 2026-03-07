@@ -36,11 +36,11 @@ A few contrived examples:
 ```bash
 # Example:
 # If you started with one preview layout, the following overrides the first preview layout, and adds two new ones. It also sets 3 binds.
-mm p.l command=hi p.l "x=bye min=3" b "ctrl-c=Quit ?=preview(echo hi)" b.ctrl-a "cancel"
+mm p.l command=ls p.l "x=bye min=3" b "ctrl-c=Quit ?=preview(echo hi)" b.ctrl-a cancel
 
 # Example:
 # Setting the column splitting delimiter
-mm m.c.split "\w+ /\w+" # Sets the field: matcher.split = Split::Regexes([Regex('\w'), Regex('/\w+')])
+mm m.split "\w+ /\w+" # Sets the field: matcher.split = Split::Regexes([Regex('\w'), Regex('/\w+')])
 # or even shorter, using the absolute alias
 mm d "[ ]" # split on space
 

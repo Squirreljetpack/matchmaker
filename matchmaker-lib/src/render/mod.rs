@@ -445,8 +445,82 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         }
 
                         // Columns
-                        Action::ColumnNext(context) => {
-                            // move cursor to input end, if last char is not ' ', push ' '. Then push '%next_col_name ' to input.
+                        Action::SwitchColumn(col_name) => {
+                            if worker.columns.iter().any(|c| *c.name == col_name) {
+                                input.prepare_column_change();
+                                input.push_str(&format!("%{} ", col_name));
+                            } else {
+                                log::warn!("Column {} not found in worker columns", col_name);
+                            }
+                        }
+                        Action::NextColumn | Action::PrevColumn => {
+                            let cursor_byte = input.byte_index(input.cursor() as usize);
+                            let active_col_name = worker.query.active_column(cursor_byte);
+                            let active_idx = active_col_name.and_then(|name| {
+                                worker.columns.iter().position(|c| c.name == *name)
+                            });
+
+                            let num_columns = worker.columns.len();
+                            if num_columns > 0 {
+                                input.prepare_column_change();
+
+                                let mut next_idx = match action {
+                                    Action::NextColumn => active_idx.map(|x| x + 1).unwrap_or(0),
+                                    Action::PrevColumn => active_idx
+                                        .map(|x| (x + num_columns - 1) % num_columns)
+                                        .unwrap_or(num_columns - 1),
+                                    _ => unreachable!(),
+                                } % num_columns;
+
+                                loop {
+                                    if next_idx < results.hidden_columns.len()
+                                        && results.hidden_columns[next_idx]
+                                    {
+                                        next_idx = match action {
+                                            Action::NextColumn => (next_idx + 1) % num_columns,
+                                            Action::PrevColumn => {
+                                                (next_idx + num_columns - 1) % num_columns
+                                            }
+                                            _ => unreachable!(),
+                                        };
+                                    } else {
+                                        break;
+                                    }
+                                }
+
+                                let col_name = &worker.columns[next_idx].name;
+                                input.push_str(&format!("%{} ", col_name));
+                            }
+                        }
+
+                        Action::ToggleColumn(col_name) => {
+                            let index = if let Some(name) = col_name {
+                                worker.columns.iter().position(|c| *c.name == name)
+                            } else {
+                                let cursor_byte = input.byte_index(input.cursor() as usize);
+                                Some(worker.query.active_column_index(cursor_byte))
+                            };
+
+                            if let Some(idx) = index {
+                                if idx >= results.hidden_columns.len() {
+                                    results.hidden_columns.resize(idx + 1, false);
+                                }
+                                results.hidden_columns[idx] = !results.hidden_columns[idx];
+                            }
+                        }
+
+                        Action::ShowColumn(col_name) => {
+                            if let Some(name) = col_name {
+                                if let Some(idx) = worker.columns.iter().position(|c| *c.name == name) {
+                                    if idx < results.hidden_columns.len() {
+                                        results.hidden_columns[idx] = false;
+                                    }
+                                }
+                            } else {
+                                for val in results.hidden_columns.iter_mut() {
+                                    *val = false;
+                                }
+                            }
                         }
 
                         Action::ScrollLeft => {}

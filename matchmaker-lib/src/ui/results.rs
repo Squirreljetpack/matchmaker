@@ -258,9 +258,10 @@ impl ResultsUI {
         let mut scale_total = 0;
 
         let mut widths = vec![u16::MAX; self.widths.len().max(self.hidden_columns.len())];
+
         let mut total = 0; // total current width
         for i in 0..widths.len() {
-            if i < self.hidden_columns.len() && self.hidden_columns[i] || widths[i] == 0 {
+            if i < self.hidden_columns.len() && self.hidden_columns[i] {
                 widths[i] = 0;
             } else if let Some(&w) = self.widths.get(i) {
                 total += w;
@@ -314,6 +315,7 @@ impl ResultsUI {
     // some janky wrapping is implemented, dunno whats causing flickering, padding is fixed going down only
     pub fn make_table<'a, T: SSS>(
         &mut self,
+        active_column: usize,
         worker: &'a mut Worker<T>,
         selector: &mut Selector<T, impl Selection>,
         matcher: &mut nucleo::Matcher,
@@ -635,26 +637,42 @@ impl ResultsUI {
                     // highlight
                     .enumerate()
                     .map(|(x, mut t)| {
-                        let mut t = if self.is_current(i)
-                            && (self.col.is_none() || self.col == Some(x))
-                        {
+                        let is_active_col = active_column == x;
+                        let is_current_row = self.is_current(i);
+
+                        if is_current_row && is_active_col {
                             if self.scroll[1] > 0 {
                                 apply_to_lines(&mut t, |line| hscroll_line(line, self.scroll[1]));
                             }
+                        }
 
-                            if self.col.is_none()
-                                && matches!(
-                                    self.config.row_connection_style,
-                                    RowConnectionStyle::Disjoint
-                                )
-                            {
-                                t.style(self.current_style())
-                            } else {
-                                t
+                        match self.config.row_connection_style {
+                            RowConnectionStyle::Disjoint => {
+                                if is_active_col {
+                                    t = t.style(if is_current_row {
+                                        self.current_style()
+                                    } else {
+                                        self.active_style()
+                                    });
+                                } else {
+                                    t = t.style(if is_current_row {
+                                        self.inactive_current_style()
+                                    } else {
+                                        self.inactive_style()
+                                    });
+                                }
                             }
-                        } else {
-                            t
-                        };
+                            RowConnectionStyle::Capped => {
+                                if is_active_col {
+                                    t = t.style(if is_current_row {
+                                        self.current_style()
+                                    } else {
+                                        self.active_style()
+                                    });
+                                }
+                            }
+                            RowConnectionStyle::Full => {}
+                        }
 
                         // prefix after hscroll
                         if x == 0 {
@@ -671,14 +689,14 @@ impl ResultsUI {
                 // push
                 let mut row = Row::new(row_texts).height(height);
 
-                if self.is_current(i)
-                    && self.col.is_none()
-                    && !matches!(
-                        self.config.row_connection_style,
-                        RowConnectionStyle::Disjoint
-                    )
-                {
-                    row = row.style(self.current_style())
+                if self.is_current(i) {
+                    match self.config.row_connection_style {
+                        RowConnectionStyle::Capped => {
+                            row = row.style(self.inactive_current_style())
+                        }
+                        RowConnectionStyle::Full => row = row.style(self.current_style()),
+                        _ => {}
+                    }
                 }
 
                 rows.push(row);
@@ -696,16 +714,10 @@ impl ResultsUI {
                     }
                     remaining_height -= height;
 
-                    if self.is_current(i)
-                        && self.scroll[1] > 0
-                        && (self.col.is_none() || self.col() == Some(x))
-                    {
+                    if self.is_current(i) && self.scroll[1] > 0 && active_column == x {
                         apply_to_lines(&mut col, |line| hscroll_line(line, self.scroll[1]));
                     }
-                    if self.is_current(i)
-                        && self.scroll[0] > 0
-                        && (self.col.is_none() || self.col() == Some(x))
-                    {
+                    if self.is_current(i) && self.scroll[0] > 0 && active_column == x {
                         let scroll = self.scroll[0] as usize;
 
                         if scroll < col.lines.len() {
@@ -716,12 +728,49 @@ impl ResultsUI {
                     }
 
                     prefix_text(&mut col, prefix.clone());
-                    if self.is_current(i) && (self.col.is_none() || self.col == Some(x)) {
-                        col = col.style(self.current_style())
+
+                    let is_active_col = active_column == x;
+                    let is_current_row = self.is_current(i);
+
+                    match self.config.row_connection_style {
+                        RowConnectionStyle::Disjoint => {
+                            if is_active_col {
+                                col = col.style(if is_current_row {
+                                    self.current_style()
+                                } else {
+                                    self.active_style()
+                                });
+                            } else {
+                                col = col.style(if is_current_row {
+                                    self.inactive_current_style()
+                                } else {
+                                    self.inactive_style()
+                                });
+                            }
+                        }
+                        RowConnectionStyle::Capped => {
+                            if is_active_col {
+                                col = col.style(if is_current_row {
+                                    self.current_style()
+                                } else {
+                                    self.active_style()
+                                });
+                            }
+                        }
+                        RowConnectionStyle::Full => {}
                     }
 
                     // push
-                    let row = Row::new(vec![col]).height(height);
+                    let mut row = Row::new(vec![col]).height(height);
+                    if is_current_row {
+                        match self.config.row_connection_style {
+                            RowConnectionStyle::Capped => {
+                                row = row.style(self.inactive_current_style())
+                            }
+                            RowConnectionStyle::Full => row = row.style(self.current_style()),
+                            _ => {}
+                        }
+                    }
                     push.push(row);
                 }
                 rows.extend(push);
@@ -758,10 +807,13 @@ impl ResultsUI {
                 vec![self.width]
             },
         )
-        .column_spacing(self.config.column_spacing.0)
-        .style(self.config.fg)
-        .add_modifier(self.config.modifier)
-        .bg(self.config.bg);
+        .column_spacing(self.config.column_spacing.0);
+
+        table = match self.config.row_connection_style {
+            RowConnectionStyle::Full => table.style(self.active_style()),
+            RowConnectionStyle::Capped => table.style(self.inactive_style()),
+            _ => table,
+        };
 
         table = table.block(self.config.border.as_static_block());
         table
@@ -832,6 +884,24 @@ impl ResultsUI {
         Style::from(self.config.current_fg)
             .bg(self.config.current_bg)
             .add_modifier(self.config.current_modifier)
+    }
+
+    fn active_style(&self) -> Style {
+        Style::from(self.config.fg)
+            .bg(self.config.bg)
+            .add_modifier(self.config.modifier)
+    }
+
+    fn inactive_style(&self) -> Style {
+        Style::from(self.config.inactive_fg)
+            .bg(self.config.inactive_bg)
+            .add_modifier(self.config.inactive_modifier)
+    }
+
+    fn inactive_current_style(&self) -> Style {
+        Style::from(self.config.inactive_current_fg)
+            .bg(self.config.inactive_current_bg)
+            .add_modifier(self.config.inactive_current_modifier)
     }
 
     fn is_current(&self, i: usize) -> bool {

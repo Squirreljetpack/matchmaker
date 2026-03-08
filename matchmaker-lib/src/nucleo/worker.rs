@@ -76,11 +76,11 @@ where
     /// The inner `Nucleo` fuzzy matcher.
     pub(crate) nucleo: nucleo::Nucleo<T>,
     /// The last pattern that was matched against.
-    pub(super) query: PickerQuery,
+    pub query: PickerQuery,
     /// A pre-allocated buffer used to collect match indices when fetching the results
     /// from the matcher. This avoids having to re-allocate on each pass.
-    pub(super) col_indices_buffer: Vec<u32>,
-    pub(crate) columns: Arc<[Column<T>]>,
+    pub col_indices_buffer: Vec<u32>,
+    pub columns: Arc<[Column<T>]>,
 
     // Background tasks which push to the injector check their version matches this or exit
     pub(super) version: Arc<AtomicU32>,

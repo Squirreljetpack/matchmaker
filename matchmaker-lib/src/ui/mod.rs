@@ -169,9 +169,12 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
 
 impl<'a, T: SSS, O: Selection> PickerUI<'a, T, O> {
     pub fn make_table(&mut self, click: &mut Click) -> (Table<'_>, u16) {
+        let cursor_byte = self.input.byte_index(self.input.cursor() as usize);
+        let active_column = self.worker.query.active_column_index(cursor_byte);
+
         let table =
             self.results
-                .make_table(&mut self.worker, &mut self.selector, self.matcher, click);
+                .make_table(active_column, &mut self.worker, &mut self.selector, self.matcher, click);
         let width = self.results.table_width();
         (table, width)
     }

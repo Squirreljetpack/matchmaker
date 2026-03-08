@@ -310,6 +310,14 @@ pub struct ResultsConfig {
     // #[serde(deserialize_with = "transform_uppercase")]
     pub inactive_modifier: Modifier,
 
+    // inactive_col styles on the current item
+    #[serde(deserialize_with = "camelcase_normalized")]
+    pub inactive_current_fg: Color,
+    #[serde(deserialize_with = "camelcase_normalized")]
+    pub inactive_current_bg: Color,
+    // #[serde(deserialize_with = "transform_uppercase")]
+    pub inactive_current_modifier: Modifier,
+
     #[serde(deserialize_with = "camelcase_normalized")]
     pub match_fg: Color,
     // #[serde(deserialize_with = "transform_uppercase")]
@@ -328,10 +336,6 @@ pub struct ResultsConfig {
     /// How the current_* styles are applied across the row.
     #[serde(deserialize_with = "camelcase_normalized")]
     pub row_connection_style: RowConnectionStyle,
-
-    // pub selected_fg: Color,
-    // pub selected_bg: Color,
-    // pub selected_modifier: Color,
 
     // scroll
     #[partial(alias = "c")]
@@ -380,9 +384,13 @@ impl Default for ResultsConfig {
             modifier: Default::default(),
             bg: Default::default(),
 
-            inactive_fg: Default::default(),
-            inactive_modifier: Default::default(),
+            inactive_fg: Color::Blue,
+            inactive_modifier: Modifier::DIM,
             inactive_bg: Default::default(),
+
+            inactive_current_fg: Default::default(),
+            inactive_current_modifier: Default::default(),
+            inactive_current_bg: Default::default(),
 
             match_fg: Color::Green,
             match_modifier: Modifier::ITALIC,

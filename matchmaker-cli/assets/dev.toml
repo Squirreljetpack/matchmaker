@@ -98,7 +98,8 @@
     "shift-?"          = "SwitchPreview(0)"
     "ctrl-shift-/"     = "CyclePreview"     # ctrl-shift-/
 
-    "alt-1" = "Column(0)"
+    # Columns
+    "ctrl-." = "ColumnNext"
 
     "ctrl-t"    = "Execute(echo ----; read v; echo $v; echo ----)"
     "ctrl-l"    = "Execute(eval $FZF_PREVIEW_COMMAND | $PAGER)"

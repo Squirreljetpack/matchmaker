@@ -52,7 +52,7 @@ impl InputUI {
             .collect();
     }
 
-    fn byte_index(&self, grapheme_idx: usize) -> usize {
+    pub fn byte_index(&self, grapheme_idx: usize) -> usize {
         self.graphemes
             .get(grapheme_idx)
             .map(|(idx, _)| *idx)
@@ -162,6 +162,25 @@ impl InputUI {
         self.graphemes.clear();
         self.cursor = 0;
         self.before = 0;
+    }
+
+    pub fn prepare_column_change(&mut self) {
+        let trimmed = self.input.trim_end();
+        if let Some(pos) = trimmed.rfind(' ') {
+            let last_word = &trimmed[pos + 1..];
+            if last_word.starts_with('%') {
+                let bytes = trimmed[..pos].len();
+                self.input.truncate(bytes);
+            }
+        } else if trimmed.starts_with('%') {
+            self.input.clear();
+        }
+
+        if !self.input.is_empty() && !self.input.ends_with(' ') {
+            self.input.push(' ');
+        }
+        self.recompute_graphemes();
+        self.cursor = self.graphemes.len();
     }
 
     /// Restore prompt from config

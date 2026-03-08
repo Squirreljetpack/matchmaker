@@ -33,13 +33,8 @@
   - {col}/{+col}/{=col} specific column content
   - {col1,col2}, {col1,..}: col slicing
 
-  - current_column is currently both a worker and a ui state, we should remove ui navigation controls in favor of forcing the %col syntax.
-  - result styles should distinguish between filtering and non-filtering-columns: current and default
-  - RowConnection::Full means to ignore non-filtering-column styles
-
   - problems:
-    - no option for a set of non-exclusive columns: if the default query matches the default column or any in this set, include this result
-    - hidden columns is a ui state, we need to expose it to the formatter, maybe just use atomics
+    
 
   - (fist: lowpri): execute: use of {*} in place of {+}: execute once for each selected
 
@@ -60,3 +55,4 @@
   - better reset
   - better determination of where it applies
   - autohscroll interferes with manual scroll: better for results to return, per text, the first match index on each line (!)
+- no option for a set of non-exclusive columns: if the default query matches the default column or any in this set, include this result (wip)

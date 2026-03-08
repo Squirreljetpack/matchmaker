@@ -62,12 +62,15 @@
     "ctrl-shift-up"   = "PreviewHalfPageUp"
     "ctrl-shift-down" = "PreviewHalfPageDown"
 
+    # Columns
+    "ctrl-." = "ColumnNext"
+
     # Preview
     "shift+scrollup"   = "PreviewUp"
     "shift+scrolldown" = "PreviewDown"
     "?"                = "SwitchPreview"
     "shift-?"          = "SwitchPreview"
-    "ctrl-shift-/"     = "CyclePreview" # cycle preview layouts
+    "ctrl-shift-/"     = "CyclePreview"  # cycle preview layouts
     "alt-h"            = "Help"
     "alt-1"            = "Pos(0)"
 

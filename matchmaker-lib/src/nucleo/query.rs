@@ -172,4 +172,12 @@ impl PickerQuery {
             .filter(|(range, _field)| cursor >= range.start && cursor <= range.end)
             .and_then(|(_range, field)| field.as_ref())
     }
+
+    /// Finds the index of the column which the cursor is 'within' in the last parse.
+    /// Returns the primary column index if no specific column is active at the cursor.
+    pub fn active_column_index(&self, cursor: usize) -> usize {
+        self.active_column(cursor)
+            .and_then(|name| self.column_names.iter().position(|c| c == name))
+            .unwrap_or(self.primary_column)
+    }
 }

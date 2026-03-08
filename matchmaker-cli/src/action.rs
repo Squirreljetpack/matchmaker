@@ -29,8 +29,6 @@ pub enum MMAction {
     // state
     /// Toggle refiltering of results by query.
     Filtering(Option<bool>),
-    /// Toggle visibility of column (TODO)
-    ToggleColumn(Option<usize>),
     /// Cycle result sorting between None, Partial, and Full
     CycleSort,
     ReloadNext(Option<usize>),
@@ -87,9 +85,6 @@ pub fn action_handler(
             } else {
                 state.filtering = !state.filtering
             }
-        }
-        MMAction::ToggleColumn(s) => {
-            // todo
         }
 
         // history
@@ -208,7 +203,7 @@ enum_from_str_display! {
     ;
 
     options:
-    SetPrompt, SetHeader, SetFooter, SetStatus, ToggleColumn, Filtering, ReloadNext;
+    SetPrompt, SetHeader, SetFooter, SetStatus, Filtering, ReloadNext;
 
     lossy:
     ;

@@ -89,7 +89,15 @@ pub enum Action<A: ActionExt = NullActionExt> {
     PreviewJump,
 
     /// Cycle columns
-    ColumnNext(Option<String>),
+    NextColumn,
+    /// Cycle columns backwards
+    PrevColumn,
+    /// Switch to a specific column
+    SwitchColumn(String),
+    /// Toggle visibility of a column
+    ToggleColumn(Option<String>),
+    /// Unhide a column, or all columns if None
+    ShowColumn(Option<String>),
     ScrollLeft,
     ScrollRight,
 
@@ -335,17 +343,17 @@ enum_from_str_display!(
 
     PreviewHalfPageUp, PreviewHalfPageDown,
 
-    ForwardChar,BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord, DeleteLineStart, DeleteLineEnd, Cancel, Redraw;
+    ForwardChar,BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord, DeleteLineStart, DeleteLineEnd, Cancel, Redraw, NextColumn, PrevColumn;
 
     tuples:
     Execute, Become, Reload, Preview,
-    SetQuery, Pos, QueryPos;
+    SetQuery, Pos, QueryPos, SwitchColumn;
 
     defaults:
     (Up, 1), (Down, 1), (PreviewUp, 1), (PreviewDown, 1), (Quit, 1), (Overlay, 0), (Print, String::new()), (Help, String::new()), (PreviewScroll, 1), (PreviewHScroll, 1), (HScroll, 0), (VScroll, 0);
 
     options:
-    SwitchPreview, SetPreview, ColumnNext
+    SwitchPreview, SetPreview, ToggleColumn, ShowColumn
 );
 
 macro_rules! enum_from_str_display {

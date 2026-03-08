@@ -6,14 +6,14 @@ use std::{
 };
 
 use serde::{
-    Deserializer, Serialize,
+    Deserializer,
     de::{self, Visitor},
     ser,
 };
 
 use crate::{
     action::{Action, ActionExt, Actions, NullActionExt},
-    config::TomlColorConfig,
+    config::HelpColorConfig,
     message::Event,
 };
 
@@ -151,39 +151,43 @@ impl From<Event> for Trigger {
 }
 // ------------ SERDE
 
+impl Display for Trigger {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Trigger::Key(key) => write!(f, "{}", key),
+            Trigger::Mouse(event) => {
+                if event.modifiers.contains(KeyModifiers::SHIFT) {
+                    write!(f, "shift+")?;
+                }
+                if event.modifiers.contains(KeyModifiers::CONTROL) {
+                    write!(f, "ctrl+")?;
+                }
+                if event.modifiers.contains(KeyModifiers::ALT) {
+                    write!(f, "alt+")?;
+                }
+                if event.modifiers.contains(KeyModifiers::SUPER) {
+                    write!(f, "super+")?;
+                }
+                if event.modifiers.contains(KeyModifiers::HYPER) {
+                    write!(f, "hyper+")?;
+                }
+                if event.modifiers.contains(KeyModifiers::META) {
+                    write!(f, "meta+")?;
+                }
+                write!(f, "{}", mouse_event_kind_as_str(event.kind))
+            }
+            Trigger::Event(event) => write!(f, "{}", event),
+            Trigger::Semantic(alias) => write!(f, "::{alias}"),
+        }
+    }
+}
+
 impl ser::Serialize for Trigger {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: ser::Serializer,
     {
-        match self {
-            Trigger::Key(key) => serializer.serialize_str(&key.to_string()),
-            Trigger::Mouse(event) => {
-                let mut s = String::new();
-                if event.modifiers.contains(KeyModifiers::SHIFT) {
-                    s.push_str("shift+");
-                }
-                if event.modifiers.contains(KeyModifiers::CONTROL) {
-                    s.push_str("ctrl+");
-                }
-                if event.modifiers.contains(KeyModifiers::ALT) {
-                    s.push_str("alt+");
-                }
-                if event.modifiers.contains(KeyModifiers::SUPER) {
-                    s.push_str("super+");
-                }
-                if event.modifiers.contains(KeyModifiers::HYPER) {
-                    s.push_str("hyper+");
-                }
-                if event.modifiers.contains(KeyModifiers::META) {
-                    s.push_str("meta+");
-                }
-                s.push_str(mouse_event_kind_as_str(event.kind));
-                serializer.serialize_str(&s)
-            }
-            Trigger::Event(event) => serializer.serialize_str(&event.to_string()),
-            Trigger::Semantic(alias) => serializer.serialize_str(&format!("::{alias}")),
-        }
+        serializer.serialize_str(&self.to_string())
     }
 }
 
@@ -282,113 +286,75 @@ impl<'de> serde::Deserialize<'de> for Trigger {
 
 use ratatui::style::Style;
 use ratatui::text::{Line, Span, Text};
-use regex::Regex;
 
-// random ai toml coloring cuz i dont wanna use bat just for this
 pub fn display_binds<A: ActionExt + Display>(
     binds: &BindMap<A>,
-    cfg: Option<&TomlColorConfig>,
+    cfg: Option<&HelpColorConfig>,
 ) -> Text<'static> {
-    let toml_string = toml::to_string(&BindFmtWrapper { binds }).unwrap();
+    // Collect trigger and action strings
+    let mut entries: Vec<(String, String)> = binds
+        .iter()
+        .map(|(trigger, actions)| {
+            let value_str = if actions.len() == 1 {
+                actions[0].to_string()
+            } else {
+                let inner = actions
+                    .iter()
+                    .map(|a| a.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("[{inner}]")
+            };
+            (trigger.to_string(), value_str)
+        })
+        .collect();
 
+    // Sort by trigger string
+    entries.sort_by(|a, b| a.1.cmp(&b.1));
+
+    // Build output
     let Some(cfg) = cfg else {
-        return Text::from(toml_string);
+        // fallback plain text
+        let mut text = Text::default();
+        for (trigger, value) in entries {
+            text.extend(Text::from(format!("{trigger} = {value}\n")));
+        }
+        return text;
     };
-
-    let section_re = Regex::new(r"^\s*\[.*\]").unwrap();
-    let key_re = Regex::new(r"^(\s*[\w_-]+)(\s*=\s*)").unwrap();
-    let string_re = Regex::new(r#""[^"]*""#).unwrap();
-    let number_re = Regex::new(r"\b\d+(\.\d+)?\b").unwrap();
 
     let mut text = Text::default();
 
-    for line in toml_string.lines() {
-        if section_re.is_match(line) {
-            let mut style = Style::default().fg(cfg.section);
-            if cfg.section_bold {
-                style = style.add_modifier(ratatui::style::Modifier::BOLD);
+    for (trigger, value) in entries {
+        let mut spans = vec![];
+
+        // Trigger
+        spans.push(Span::styled(trigger, Style::default().fg(cfg.key)));
+        spans.push(Span::raw(" = "));
+
+        // Value
+        if value.starts_with('[') {
+            // multi-action list: color each item
+            spans.push(Span::raw("["));
+            let inner = &value[1..value.len() - 1];
+            for (i, item) in inner.split(", ").enumerate() {
+                if i > 0 {
+                    spans.push(Span::raw(", "));
+                }
+                spans.push(Span::styled(
+                    item.to_string(),
+                    Style::default().fg(cfg.value),
+                ));
             }
-            text.extend(Text::from(Span::styled(line.to_string(), style)));
+            spans.push(Span::raw("]"));
         } else {
-            let mut spans = vec![];
-            let mut remainder = line.to_string();
-
-            // Highlight key
-            if let Some(cap) = key_re.captures(&remainder) {
-                let key = &cap[1];
-                let eq = &cap[2];
-                spans.push(Span::styled(key.to_string(), Style::default().fg(cfg.key)));
-                spans.push(Span::raw(eq.to_string()));
-                remainder = remainder[cap[0].len()..].to_string();
-            }
-
-            // Highlight strings
-            let mut last_idx = 0;
-            for m in string_re.find_iter(&remainder) {
-                if m.start() > last_idx {
-                    spans.push(Span::raw(remainder[last_idx..m.start()].to_string()));
-                }
-                spans.push(Span::styled(
-                    m.as_str().to_string(),
-                    Style::default().fg(cfg.string),
-                ));
-                last_idx = m.end();
-            }
-
-            // Highlight numbers
-            let remainder = &remainder[last_idx..];
-            let mut last_idx = 0;
-            for m in number_re.find_iter(remainder) {
-                if m.start() > last_idx {
-                    spans.push(Span::raw(remainder[last_idx..m.start()].to_string()));
-                }
-                spans.push(Span::styled(
-                    m.as_str().to_string(),
-                    Style::default().fg(cfg.number),
-                ));
-                last_idx = m.end();
-            }
-
-            if last_idx < remainder.len() {
-                spans.push(Span::raw(remainder[last_idx..].to_string()));
-            }
-
-            text.extend(Text::from(Line::from(spans)));
+            spans.push(Span::styled(value, Style::default().fg(cfg.value)));
         }
+
+        spans.push(Span::raw("\n"));
+        text.extend(Text::from(Line::from(spans)));
     }
 
     text
-}
-
-struct BindFmtWrapper<'a, A: ActionExt + Display> {
-    binds: &'a BindMap<A>,
-}
-
-use serde::ser::{SerializeMap, Serializer};
-
-impl<'a, A> Serialize for BindFmtWrapper<'a, A>
-where
-    A: ActionExt + Display,
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut entries: Vec<_> = self.binds.iter().collect();
-
-        // Sort by value.to_string()
-        entries.sort_by(|(_, v1), (_, v2)| {
-            v1.0.iter()
-                .map(ToString::to_string)
-                .cmp(v2.0.iter().map(ToString::to_string))
-        });
-
-        let mut map = serializer.serialize_map(Some(entries.len()))?;
-        for (k, v) in entries {
-            map.serialize_entry(k, v)?;
-        }
-        map.end()
-    }
 }
 
 #[cfg(test)]

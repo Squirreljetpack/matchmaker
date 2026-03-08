@@ -191,6 +191,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 output_template,
                 ansi,
                 trim,
+                additional_commands,
             },
         mut exit,
     } = config;
@@ -260,6 +261,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
 
     let mut action_context = ActionContext {
         bind_tx: event_loop.bind_controller(),
+        additional_commands: (additional_commands, 0),
     };
 
     let mut options = PickOptions::new()

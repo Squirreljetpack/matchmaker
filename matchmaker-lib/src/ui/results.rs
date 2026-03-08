@@ -113,7 +113,7 @@ impl ResultsUI {
     // ----- columns --------
     // todo: support cooler things like only showing/outputting a specific column/cycling columns
     pub fn toggle_col(&mut self, col_idx: usize) -> bool {
-        self.hscroll(0);
+        self.reset_current_scroll();
 
         if self.col == Some(col_idx) {
             self.col = None
@@ -123,7 +123,7 @@ impl ResultsUI {
         self.col.is_some()
     }
     pub fn cycle_col(&mut self) {
-        self.hscroll(0);
+        self.reset_current_scroll();
 
         self.col = match self.col {
             None => self.widths.is_empty().then_some(0),
@@ -164,7 +164,7 @@ impl ResultsUI {
     //     }
     // }
     pub fn cursor_prev(&mut self) {
-        self.hscroll(0);
+        self.reset_current_scroll();
 
         log::trace!("cursor_prev: {self:?}");
         if self.cursor_above <= self.scroll_padding() && self.bottom > 0 {
@@ -177,7 +177,7 @@ impl ResultsUI {
         }
     }
     pub fn cursor_next(&mut self) {
-        self.hscroll(0);
+        self.reset_current_scroll();
 
         if self.cursor_disabled {
             self.cursor_disabled = false
@@ -201,7 +201,7 @@ impl ResultsUI {
     }
 
     pub fn cursor_jump(&mut self, index: u32) {
-        self.hscroll(0);
+        self.reset_current_scroll();
 
         self.cursor_disabled = false;
         self.bottom_clip = None;
@@ -218,8 +218,8 @@ impl ResultsUI {
         log::debug!("cursor jumped to {}: {index}, end: {end}", self.cursor);
     }
 
-    pub fn hscroll(&mut self, x: i8) {
-        let value = &mut self.scroll[1];
+    pub fn current_scroll(&mut self, x: i8, horizontal: bool) {
+        let value = &mut self.scroll[horizontal as usize];
         *value = if x.is_negative() {
             value.saturating_sub(x.unsigned_abs() as u16)
         } else if x.is_positive() {
@@ -228,6 +228,10 @@ impl ResultsUI {
             0
         };
         // log::trace!("hscroll:: {value}");
+    }
+
+    pub fn reset_current_scroll(&mut self) {
+        self.scroll = [0, 0]
     }
 
     // ------- RENDERING ----------

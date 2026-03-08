@@ -318,7 +318,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             };
                             input.set(None, pos);
                         }
-                        Action::HScroll(n) => {
+                        Action::HScroll(n) | Action::VScroll(n) => {
                             if let Some(p) = &mut preview_ui
                                 && !p.config.wrap
                                 && false
@@ -326,7 +326,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             {
                                 p.scroll(true, n);
                             } else {
-                                results.hscroll(n);
+                                results.current_scroll(n, matches!(action, Action::HScroll(_)));
                             }
                         }
                         Action::PageDown | Action::PageUp => {
@@ -445,14 +445,10 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         }
 
                         // Columns
-                        Action::Column(context) => {
-                            results.toggle_col(context);
+                        Action::ColumnNext(context) => {
+                            // move cursor to input end, if last char is not ' ', push ' '. Then push '%next_col_name ' to input.
                         }
-                        Action::CycleColumn => {
-                            results.cycle_col();
-                        }
-                        Action::ColumnLeft => {}
-                        Action::ColumnRight => {}
+
                         Action::ScrollLeft => {}
                         Action::ScrollRight => {}
 

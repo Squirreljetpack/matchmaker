@@ -80,6 +80,9 @@ pub struct StartConfig {
     /// Default command to execute when stdin is not being read.
     #[partial(alias = "cmd", alias = "x")]
     pub command: String,
+    /// (cli only) Additional command which can be cycled through using Action::ReloadNext
+    #[partial(alias = "ax")]
+    pub additional_commands: Vec<String>,
     pub sync: bool,
 
     /// Whether to parse ansi sequences from input
@@ -476,10 +479,7 @@ pub struct DisplayConfig {
     #[serde(deserialize_with = "camelcase_normalized")]
     pub row_connection_style: RowConnectionStyle,
 
-    /// This setting controls how many lines are read from the input for display with the header.
-    ///
-    /// # Note
-    /// This only affects the header and is only implemented in the binary.
+    /// (cli only) This setting controls how many lines are read from the input for display with the header.
     #[partial(alias = "h")]
     pub header_lines: usize,
 }
@@ -593,31 +593,26 @@ pub struct PreviewerConfig {
     // todo
     pub cache: u8,
 
-    pub help_colors: TomlColorConfig,
+    pub help_colors: HelpColorConfig,
 }
 
 /// Help coloring
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TomlColorConfig {
+pub struct HelpColorConfig {
     #[serde(deserialize_with = "camelcase_normalized")]
     pub section: Color,
     #[serde(deserialize_with = "camelcase_normalized")]
     pub key: Color,
     #[serde(deserialize_with = "camelcase_normalized")]
-    pub string: Color,
-    #[serde(deserialize_with = "camelcase_normalized")]
-    pub number: Color,
-    pub section_bold: bool,
+    pub value: Color,
 }
 
-impl Default for TomlColorConfig {
+impl Default for HelpColorConfig {
     fn default() -> Self {
         Self {
             section: Color::Blue,
-            key: Color::Yellow,
-            string: Color::Green,
-            number: Color::Cyan,
-            section_bold: true,
+            key: Color::Green,
+            value: Color::White,
         }
     }
 }

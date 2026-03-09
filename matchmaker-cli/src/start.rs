@@ -262,6 +262,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         if !cmd.is_empty() {
             let vars = state.make_env_vars();
             debug!("Reloading: {cmd}");
+            state.picker_ui.selector.clear();
             if let Some(stdout) = Command::from_script(&cmd).envs(vars).spawn_piped()._elog() {
                 map_reader(
                     stdout,

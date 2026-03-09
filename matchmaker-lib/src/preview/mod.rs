@@ -7,7 +7,7 @@ use arc_swap::ArcSwap;
 use std::sync::Arc;
 
 /// Append-only Vec supporting concurrent writes
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct AppendOnly<T>(Arc<ArcSwap<boxcar::Vec<T>>>);
 
 impl<T> AppendOnly<T> {
@@ -44,5 +44,11 @@ impl<T> AppendOnly<T> {
         F: FnMut(&T) -> U,
     {
         self.0.load().iter().map(move |(_i, v)| f(v)).collect()
+    }
+}
+
+impl<T> Default for AppendOnly<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }

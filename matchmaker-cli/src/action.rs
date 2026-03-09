@@ -54,7 +54,7 @@ pub enum MMAction {
     /// History down (TODO)
     HistoryDown,
     /// [`matchmaker::Action::Execute`] but silent (TODO)
-    ExecuteSilent(String),
+    ExecuteAsync(String),
 }
 
 pub struct ActionContext {
@@ -211,8 +211,8 @@ pub fn action_handler(
                 .set_status_line(s.as_deref().map(StatusUI::parse_template_to_status_line));
         }
 
-        MMAction::ExecuteSilent(s) => {
-            // todo
+        MMAction::ExecuteAsync(s) => {
+            state.set_interrupt(Interrupt::ExecuteSilent, s);
         }
     }
 }
@@ -225,7 +225,7 @@ enum_from_str_display! {
 
 
     tuples:
-    Bind, Unbind, PushBind, PopBind, ExecuteSilent;
+    Bind, Unbind, PushBind, PopBind, ExecuteAsync;
 
     defaults:
     ;

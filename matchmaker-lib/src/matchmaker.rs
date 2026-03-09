@@ -619,6 +619,7 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
     /// - not intended for direct use.
     /// - Assumes preview and cmd formatter are the same.
     pub fn register_execute_handler(&mut self, formatter: AttachmentFormatter<T, S>) {
+        let _formatter = formatter.clone();
         self.register_interrupt_handler(Interrupt::Execute, move |state| {
             let template = state.payload().clone();
             if !template.is_empty() {
@@ -630,6 +631,38 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
 
                 let preview_template = state.preview_payload().clone();
                 let preview_cmd = use_formatter(&formatter, state, &preview_template, None);
+                let extra = env_vars!(
+                    "FZF_PREVIEW_COMMAND" => preview_cmd,
+                );
+                vars.extend(extra);
+
+                if let Some(mut child) = Command::from_script(&cmd)
+                    .envs(vars)
+                    .stdin(maybe_tty())
+                    ._spawn()
+                {
+                    match child.wait() {
+                        Ok(i) => {
+                            info!("Command [{cmd}] exited with {i}")
+                        }
+                        Err(e) => {
+                            info!("Failed to wait on command [{cmd}]: {e}")
+                        }
+                    }
+                }
+            };
+        });
+        self.register_interrupt_handler(Interrupt::ExecuteSilent, move |state| {
+            let template = state.payload().clone();
+            if !template.is_empty() {
+                let cmd = use_formatter(&_formatter, state, &template, None);
+                if cmd.is_empty() {
+                    return;
+                }
+                let mut vars = state.make_env_vars();
+
+                let preview_template = state.preview_payload().clone();
+                let preview_cmd = use_formatter(&_formatter, state, &preview_template, None);
                 let extra = env_vars!(
                     "FZF_PREVIEW_COMMAND" => preview_cmd,
                 );

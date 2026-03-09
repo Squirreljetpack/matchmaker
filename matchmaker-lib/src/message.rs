@@ -41,6 +41,7 @@ pub enum Interrupt {
     None,
     Become,
     Execute,
+    ExecuteSilent,
     Print,
     Reload,
     Custom,

@@ -104,6 +104,8 @@ pub enum Action<A: ActionExt = NullActionExt> {
     // Programmable
     /// Execute command and continue
     Execute(String),
+    /// Execute command without leaving the UI
+    ExecuteSilent(String),
     /// Exit and become
     Become(String),
     /// Reload matcher/worker
@@ -346,7 +348,7 @@ enum_from_str_display!(
     ForwardChar,BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord, DeleteLineStart, DeleteLineEnd, Cancel, Redraw, NextColumn, PrevColumn;
 
     tuples:
-    Execute, Become, Preview,
+    Execute, ExecuteSilent, Become, Preview,
     SetQuery, Pos, QueryPos, SwitchColumn;
 
     defaults:

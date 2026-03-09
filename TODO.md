@@ -10,10 +10,10 @@
 - Add support for nucleo::Pattern in the matcher config
 - Adaptable percentage (higher on smaller)
 - better hr styling (dim etc.)
-- ExecuteSilent, ExecuteDetached.
 - The former is important in that it allows executing commands without breaking tui layout
 - vscroll has a bind but is not implemented in results
 - status/header click events
+- ExecuteAsync: support chaining actions without blocking ui
 
 # Previewer
 

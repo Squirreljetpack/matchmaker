@@ -1,4 +1,5 @@
 use cli_boilerplate_automation::bath::shell_quote_impl;
+use cli_boilerplate_automation::unwrap;
 use matchmaker::nucleo::Indexed;
 use matchmaker::render::MMState;
 use matchmaker::{ConfigMMInnerItem, ConfigMMItem};
@@ -103,6 +104,7 @@ fn process_key(
     state: &ConfigMMState<'_, '_>,
     item_override: Option<&ConfigMMInnerItem>,
 ) -> String {
+    log::info!("{key}");
     let mut key = key;
     let mut quote = true;
     let mut multi = false;
@@ -119,14 +121,7 @@ fn process_key(
         key = &key[1..];
     }
 
-    let mut use_column = false;
-    if key.ends_with('!') {
-        use_column = true;
-        key = &key[..key.len() - 1];
-    }
-
     // Handle ranges
-
     if key.contains("..") {
         return handle_range(key, state, quote, multi, item_override);
     }
@@ -134,7 +129,7 @@ fn process_key(
     if multi {
         state
             .map_selected_to_vec(|item| {
-                let val = get_val(key, item, state, use_column);
+                let val = get_val(key, item, state);
                 if quote {
                     shell_quote_impl(&val)
                 } else {
@@ -144,14 +139,14 @@ fn process_key(
             .join(" ")
     } else {
         if let Some(item) = item_override {
-            let val = get_val(key, item, state, use_column);
+            let val = get_val(key, item, state);
             if quote {
                 shell_quote_impl(&val)
             } else {
                 val.into_owned()
             }
         } else if let Some(item) = state.current_raw() {
-            let val = get_val(key, &item.inner, state, use_column);
+            let val = get_val(key, &item.inner, state);
             if quote {
                 shell_quote_impl(&val)
             } else {
@@ -167,9 +162,9 @@ fn get_val<'a>(
     key: &str,
     item: &'a ConfigMMInnerItem,
     state: &ConfigMMState<'_, '_>,
-    use_column: bool,
 ) -> Cow<'a, str> {
-    if use_column {
+    if key == "!" {
+        // current column
         let col_idx = if key.is_empty() {
             let cursor_byte = state
                 .picker_ui
@@ -245,48 +240,42 @@ fn handle_range<'a, 'b>(
     let start_idx = if start_key.is_empty() {
         0
     } else {
-        start_key
-            .parse::<usize>()
-            .ok()
-            .or_else(|| {
-                state
-                    .picker_ui
-                    .worker
-                    .columns
-                    .iter()
-                    .position(|c| c.name.as_ref() == start_key)
-            })
-            .unwrap_or(usize::MAX)
+        let ret = state
+            .picker_ui
+            .worker
+            .columns
+            .iter()
+            .position(|c| c.name.as_ref() == start_key);
+        unwrap!(ret)
     };
 
     let end_idx = if end_key.is_empty() {
         state.picker_ui.worker.columns.len()
     } else {
-        end_key
-            .parse::<usize>()
-            .ok()
-            .or_else(|| {
-                state
-                    .picker_ui
-                    .worker
-                    .columns
-                    .iter()
-                    .position(|c| c.name.as_ref() == end_key)
-            })
-            .unwrap_or(0) // Exclusive
+        let ret = state
+            .picker_ui
+            .worker
+            .columns
+            .iter()
+            .position(|c| c.name.as_ref() == end_key);
+        unwrap!(ret)
     };
 
     if start_idx >= state.picker_ui.worker.columns.len()
         || (end_idx == 0 && !end_key.is_empty())
         || start_idx > end_idx
     {
+        log::error!(
+            "Multi-format indexing error: start: {start_idx}, end: {end_idx}, columns: {}",
+            state.picker_ui.worker.columns.len()
+        );
         return String::new();
     }
 
     let columns_to_join: Vec<usize> = (start_idx..end_idx)
         .filter(|&i| {
-            i < state.picker_ui.results.hidden_columns.len()
-                && !state.picker_ui.results.hidden_columns[i]
+            i >= state.picker_ui.results.hidden_columns.len()
+                || !state.picker_ui.results.hidden_columns[i]
         })
         .collect();
 
@@ -466,6 +455,10 @@ mod tests {
             let result = format_cli(&mut mm_state, "echo {..} {col2..} {..col2}", None);
             // ..col2 is exclusive
             assert_eq!(result, "echo 'a b c' 'b c' 'a'");
+
+            let result = format_cli(&mut mm_state, "echo {=col2..} {-..col2}", None);
+            // ..col2 is exclusive
+            assert_eq!(result, "echo b c a");
         }
     }
 

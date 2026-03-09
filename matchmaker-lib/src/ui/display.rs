@@ -178,8 +178,6 @@ impl DisplayUI {
             self.height += self.header.len() as u16;
         }
 
-        log::debug!("{}", self.height);
-
         let widths = if self.single() {
             vec![Constraint::Percentage(100)]
         } else {

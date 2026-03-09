@@ -8,15 +8,26 @@ Overrides follow the pattern `path=value` or `path value`.
 
 - **Hierarchical Paths**: Use dot notation to navigate the configuration structure (e.g., `results.fg`).
 - **Flattened Fields**: Several major configuration blocks are "flattened," meaning their children can be accessed as top-level keys.
-- **Shortcuts**: Many common paths have short aliases:
+- **Shortcuts**: Many common fields have short aliases:
   - `b` -> `binds`
   - `p` -> `preview`
   - `h.h` -> `header.header_lines`
   - `r.r` -> `results.reverse`
   - `r.w` -> `results.wrap`
   - `p.l` -> `preview.layout`
-  - `px` -> `preview.layout.command` (Absolute alias)
-  - `o` -> `start.output_template` (Absolute alias)
+
+- **Absolute Aliases**: The following common paths can be accessed directly:
+  - `px` -> `preview.layout.command`
+  - `i` -> `start.input_separator`
+  - `o` -> `start.output_template`
+  - `x` -> `start.command`
+  - `cmd` -> `start.command`
+  - `command` -> `start.command`
+  - `a` -> `start.ansi`
+  - `t` -> `start.trim`
+  - `d` -> `matcher.split`
+  - `l` -> `preview.layout`
+  - `h` -> `header.content`
 
 ### Collections (Lists/Vectors)
 
@@ -56,6 +67,16 @@ Individual values within the word specifying the leaf are split by whitespace.
 - Braces within can be escaped from contributing to the nesting level with `\`.
 
 For example, `(( )) [one word] [\[]` splits into `(( ))`, `one word`, `[`.
+
+### Beware!
+
+1. All values are split following the above rule. If you are setting a single value with whitespaces, make sure to encapsulate it with `[..]`!
+
+```shell
+ls -l | mm d "[ +]" h.h 1 px "[echo 'Metadata: {=..3}']" # Set the delimiter, header_lines, and preview command
+```
+
+2. When declaring a bind, it's recommended to use `mm b.ctrl-x "ExecuteSilent(rm {+}) Reload"` over `mm b "ctrl-x=ExecuteSilent(rm {+})"`, since the second format doesn't support chained actions.
 
 ## Available Options
 

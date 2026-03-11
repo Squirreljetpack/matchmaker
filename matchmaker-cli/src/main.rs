@@ -104,14 +104,13 @@ fn display_doc(cli: &Cli) {
     use termimad::crossterm::style::Color;
 
     let mut md = String::new();
-    if cli.options {
-        md.push_str(include_str!("../assets/docs/options.md"));
-    }
-    if cli.binds {
-        md.push_str(include_str!("../assets/docs/binds.md"));
-    }
-    if cli.template {
-        md.push_str(include_str!("../assets/docs/template.md"));
+    if let Some(doc) = &cli.doc {
+        match doc {
+            Doc::Options => md.push_str(include_str!("../assets/docs/options.md")),
+            Doc::Binds => md.push_str(include_str!("../assets/docs/binds.md")),
+            Doc::Template => md.push_str(include_str!("../assets/docs/template.md")),
+            Doc::Other => md.push_str(include_str!("../assets/docs/Other.md")),
+        }
     }
 
     if !md.is_empty() {

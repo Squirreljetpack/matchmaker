@@ -16,9 +16,6 @@
 - vscroll has a bind but is not implemented in results
 - status/header click events
 - ExecuteAsync: support chaining actions without blocking ui
-- smart autoscroll even withotu wrapping
-
-- rename to SetStyledStatus, SetStyledPrompt for greater safety
 
 # Previewer
 

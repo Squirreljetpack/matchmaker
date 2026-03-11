@@ -93,7 +93,7 @@ Matchmaker options are hierarchical, although most categories live at the top le
     max        = 120
 ```
 
-The structure of the config file is defined [here](./matchmaker-cli/src/config.rs)[^1], and the full specification lives [here](./matchmaker-lib/src/config.rs)[^2].
+The structure of the config file is defined [here](./matchmaker-cli/src/config.rs)[^1], and the full specification lives [here](./matchmaker-lib/src/config.rs)[^2]. You can also view your current config using `mm --dump-config | cat`[^30].
 
 Options can be overridden on the command line, where abbreviations are supported:
 
@@ -111,11 +111,13 @@ mm --config ~/.config/matchmaker/alternate.toml p.l "cmd=echo {}|||p=50|||max=20
 
 [^2]: and parts of it [here](./matchmaker-lib/src/config-types.rs).
 
+[^30]: Beware that without piping, this overwrites your config location with the default config!
+
 ### Keybindings
 
 Actions can be defined in your `config.toml` or on the command line.
 
-The list of currently supported actions can be found [here](./matchmaker-lib/src/action.rs) and [here](./matchmaker-cli/src/action.rs) or from `mm --options`.
+The list of currently supported actions can be found [here](./matchmaker-lib/src/action.rs) and [here](./matchmaker-cli/src/action.rs) or from `mm --doc options`.
 
 To get the names of keys, type `mm --test-keys`.
 

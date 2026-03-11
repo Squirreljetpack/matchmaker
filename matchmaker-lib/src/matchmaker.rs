@@ -72,6 +72,7 @@ pub type ConfigMMInnerItem = Segmented<Either<String, Text<'static>>>;
 pub type ConfigMMItem = Indexed<ConfigMMInnerItem>;
 
 impl ConfigMatchmaker {
+    #[allow(unused)]
     /// Creates a new Matchmaker from a config::BaseConfig.
     pub fn new_from_config(
         render_config: RenderConfig,
@@ -86,7 +87,6 @@ impl ConfigMatchmaker {
         let cc = columns_config;
         let hidden_columns = cc.names.iter().map(|x| x.hidden).collect();
         // "hack" because we cannot make the results stable in the worker as our current hack uses the identifier
-        #[allow(unused_mut)]
         let init = !cc.names_from_zero as usize;
         let mut worker: Worker<ConfigMMItem> = match cc.split {
             Split::Delimiter(_) | Split::Regexes(_) => {

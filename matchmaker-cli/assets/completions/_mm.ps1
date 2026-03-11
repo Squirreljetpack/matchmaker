@@ -22,6 +22,7 @@ Register-ArgumentCompleter -Native -CommandName 'mm' -ScriptBlock {
     $completions = @(switch ($command) {
         'mm' {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config')
+            [CompletionResult]::new('--doc', '--doc', [CompletionResultType]::ParameterName, 'Display documentation')
             [CompletionResult]::new('--dump-config', '--dump-config', [CompletionResultType]::ParameterName, 'dump-config')
             [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'F')
             [CompletionResult]::new('--test-keys', '--test-keys', [CompletionResultType]::ParameterName, 'test-keys')
@@ -29,9 +30,6 @@ Register-ArgumentCompleter -Native -CommandName 'mm' -ScriptBlock {
             [CompletionResult]::new('--no-read', '--no-read', [CompletionResultType]::ParameterName, 'Force the default command to run')
             [CompletionResult]::new('-q', '-q', [CompletionResultType]::ParameterName, 'Reduce the verbosity level')
             [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Increase the verbosity level')
-            [CompletionResult]::new('--options', '--options', [CompletionResultType]::ParameterName, 'Display options doc')
-            [CompletionResult]::new('--binds', '--binds', [CompletionResultType]::ParameterName, 'binds')
-            [CompletionResult]::new('--template', '--template', [CompletionResultType]::ParameterName, 'template')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             break

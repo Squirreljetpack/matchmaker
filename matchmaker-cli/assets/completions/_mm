@@ -16,6 +16,7 @@ _mm() {
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" : \
 '--config=[]:CONFIG:_files' \
+'--doc=[Display documentation]:DOC:(options binds template other)' \
 '--dump-config[]' \
 '-F[]' \
 '--test-keys[]' \
@@ -23,9 +24,6 @@ _mm() {
 '--no-read[Force the default command to run]' \
 '(-v)*-q[Reduce the verbosity level]' \
 '(-q)*-v[Increase the verbosity level]' \
-'--options[Display options doc]' \
-'--binds[]' \
-'--template[]' \
 '-h[Print help]' \
 '--help[Print help]' \
 && ret=0

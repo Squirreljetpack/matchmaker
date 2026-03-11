@@ -190,7 +190,7 @@ Actions are the operations performed when a trigger is activated.
 | `SetStyledPrompt(s)` | Update the input prompt.*  |
 | `SetStyledStatus(s)` | Update the status line.*   |
 
-\* See --templates
+\* See --doc template
 
 ### Programmable
 

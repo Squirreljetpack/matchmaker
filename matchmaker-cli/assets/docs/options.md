@@ -247,4 +247,4 @@ Most UI components have a `border` block:
 
 ### Key Binds (`binds.`, `b`)
 
-See [webpage](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/binds.md) or `--binds`.
+See [webpage](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/binds.md) or `--doc binds`.

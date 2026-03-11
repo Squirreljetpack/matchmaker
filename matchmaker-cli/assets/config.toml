@@ -53,14 +53,17 @@
     "alt-a"      = "QueryPos(0)"
 
     # Navigation
-    "up"              = "Up"
-    "down"            = "Down"
-    "pageup"          = "Up(10)"
-    "pagedown"        = "Down(10)"
-    "shift-up"        = "PreviewUp"
-    "shift-down"      = "PreviewDown"
-    "ctrl-shift-up"   = "PreviewHalfPageUp"
-    "ctrl-shift-down" = "PreviewHalfPageDown"
+    "up"               = "Up"
+    "down"             = "Down"
+    "pageup"           = "Up(10)"
+    "pagedown"         = "Down(10)"
+    "shift-up"         = "PreviewHalfPageUp"
+    "shift-down"       = "PreviewHalfPageDown"
+    "ctrl-shift-up"    = "VScroll(1)"
+    "ctrl-shift-down"  = "VScroll(-1)"
+    "ctrl-shift-left"  = "HScroll(-1)"
+    "ctrl-shift-right" = "HScroll(1)"
+
 
     # Columns
     "ctrl-." = "NextColumn"

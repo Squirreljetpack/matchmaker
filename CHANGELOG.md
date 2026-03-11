@@ -1,3 +1,10 @@
+## [0.0.14] - 2026-03-11
+
+- Regex capture groups
+- `--doc` to display comprehensive help
+- Improve (finalized) width sizing and autoscrolling
+- Improved rg example and column switching
+
 ## [0.0.13] - 2026-03-11
 
 ### 🚀 Features

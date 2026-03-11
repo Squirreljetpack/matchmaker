@@ -12,7 +12,7 @@ use crate::{
 };
 use crate::{config::Config, paths::default_config_path};
 use cba::{
-    bait::{OptionExt, ResultExt},
+    bait::{OptionExt, ResultExt, TransformExt},
     bo::{
         MapReaderError, load_type_or_default, map_chunks, map_reader_lines, read_to_chunks,
         write_str,
@@ -24,7 +24,7 @@ use cba::{bo::load_type, broc::CommandExt};
 use log::debug;
 use matchmaker::{
     Action, ConfigInjector, MatchError, Matchmaker, OddEnds, PickOptions, SSS,
-    binds::{BindMapExt, display_binds},
+    binds::{BindMap, BindMapExt, display_binds},
     config::{MatcherConfig, StartConfig},
     event::{EventLoop, RenderSender},
     make_previewer,
@@ -109,6 +109,7 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
     }
 
     // check binds
+    config.binds = BindMap::default_binds().modify(|x| x.extend(config.binds));
     config.binds.check_cycles().map_err(anyhow::Error::msg)?;
 
     for actions in config.binds.values() {

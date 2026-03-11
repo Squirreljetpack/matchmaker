@@ -350,16 +350,15 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                 p.down(n)
                             }
                         }
-                        Action::PreviewHalfPageUp => {
-                            let n = (ui.area().height + 1) / 2;
+                        Action::PreviewHalfPageUp | Action::PreviewHalfPageDown => {
                             if let Some(p) = preview_ui.as_mut() {
-                                p.down(n)
-                            }
-                        }
-                        Action::PreviewHalfPageDown => {
-                            let n = (ui.area().height + 1) / 2;
-                            if let Some(p) = preview_ui.as_mut() {
-                                p.down(n)
+                                let n = (p.area.height + 1) / 2;
+
+                                if matches!(action, Action::PreviewHalfPageUp) {
+                                    p.up(n)
+                                } else {
+                                    p.down(n)
+                                }
                             }
                         }
 

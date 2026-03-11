@@ -16,6 +16,7 @@
 - vscroll has a bind but is not implemented in results
 - status/header click events
 - ExecuteAsync: support chaining actions without blocking ui
+- improve wrap_text and hscroll on non filtering
 
 # Previewer
 

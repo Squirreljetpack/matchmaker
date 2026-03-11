@@ -249,10 +249,15 @@ impl ResultsUI {
     /// Adapt the stored widths (initialized by [`Worker::results`]) to the fit within the available width (self.width)
     /// widths <= min_wrap_width don't shrink and aren't wrapped
     pub fn max_widths(&self) -> Vec<u16> {
-        let mut base_widths: Vec<u16> = self.widths.clone();
+        let mut base_widths = self.widths.clone();
+
+        if base_widths.is_empty() {
+            return base_widths;
+        }
+        base_widths.resize(self.hidden_columns.len(), 0);
 
         for (i, is_hidden) in self.hidden_columns.iter().enumerate() {
-            if i < base_widths.len() && *is_hidden {
+            if *is_hidden {
                 base_widths[i] = 0;
             }
         }
@@ -300,10 +305,14 @@ impl ResultsUI {
     }
 
     pub fn table_width(&self) -> u16 {
-        self.widths.iter().sum::<u16>()
-            + self.config.border.width()
-            + self.indentation() as u16
-            + self.column_spacing_width()
+        if self.config.stacked_columns {
+            self.width
+        } else {
+            self.widths.iter().sum::<u16>()
+                + self.config.border.width()
+                + self.indentation() as u16
+                + self.column_spacing_width()
+        }
     }
 
     // this updates the internal status, so be sure to call make_status afterward
@@ -323,7 +332,7 @@ impl ResultsUI {
         let width_limits = if hz {
             self.max_widths()
         } else {
-            let default = self.width;
+            let default = self.width.saturating_sub(self.indentation() as u16);
 
             (0..worker.columns.len())
                 .map(|i| {
@@ -352,7 +361,14 @@ impl ResultsUI {
             self.hscroll,
         );
 
-        // log::debug!("widths: {width_limits:?}, {widths:?}");
+        widths[0] += self.indentation() as u16;
+        // should generally be true already, but act as a safeguard
+        for x in widths.iter_mut().zip(&self.hidden_columns) {
+            if *x.1 {
+                *x.0 = 0
+            }
+        }
+        let widths = widths;
 
         let match_count = status.matched_count;
         self.status = status;
@@ -362,9 +378,6 @@ impl ResultsUI {
         } else {
             self.cursor = self.cursor.min(results.len().saturating_sub(1) as u16)
         }
-
-        widths[0] += self.indentation() as u16;
-        let widths = widths;
 
         let mut rows = vec![];
         let mut total_height = 0;
@@ -817,6 +830,8 @@ impl ResultsUI {
         } else {
             vec![self.width]
         };
+
+        // log::debug!("widths: {width_limits:?}, {widths:?}, {table_widths:?}, {:?}", self.widths);
 
         // why does the row highlight apply beyond the table width?
         let mut table = Table::new(rows, table_widths).column_spacing(self.config.column_spacing.0);

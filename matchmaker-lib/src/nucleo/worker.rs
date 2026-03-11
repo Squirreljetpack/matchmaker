@@ -329,6 +329,7 @@ impl<T: SSS> Worker<T> {
                                 autoscroll,
                                 hscroll_offset,
                             )
+                        // todo: hscroll on non filtering
                         } else if wrap {
                             let (cell, wrapped) = wrap_text(cell, width_limit.saturating_sub(1));
 
@@ -466,8 +467,9 @@ fn render_cell<T: SSS>(
         // 2: Calculate where to start rendering this line
         let mut start_idx;
 
-        if let Some((preserved, context)) = autoscroll {
-            let first_idx = first_match_idx.unwrap_or(0);
+        if let Some((preserved, context)) = autoscroll
+            && let Some(first_idx) = first_match_idx
+        {
             start_idx = (first_idx as i32 + hscroll_offset as i32 - context as i32).max(0) as usize;
 
             let mut tail_width: usize = line_graphemes[start_idx..]

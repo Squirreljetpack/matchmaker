@@ -14,6 +14,7 @@ It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and
 - Interactive preview supports color, scrolling, wrapping, multiple layouts, and even maximizing.
 - Most of the familiar actions from [fzf](https://github.com/junegunn/fzf), as well as several new ones[^12].
 - Mouse (location aware) scrolling! Horizontal scrolling! Grapheme-aware input wrapping!
+- Extremely intelligent[^18] input wrapping and width sizing.
 - Split input lines into multiple columns, that you can individually filter on (`%col query`[^17]), hide, and highlight.[^14]
 - Define `Execute/Preview/Print/Accept` actions with [templates](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md) which _safely_ inject the current item(s) (yes, columns are supported here too).
 - All the dynamic UI support you could hope for: preview offsets, styled status lines, responsive header tables, wrapped footers, active and inactive column colors, stacked columns, multiple preview layouts[^15]... even overlays! (in the library).
@@ -40,6 +41,8 @@ On the way:
 [^16]: you can't do this yet
 
 [^17]: (See)[https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/query.md]
+
+[^18]: I'm not saying it's Phd level, but if there was one for input wrapping and width sizing...
 
 ## Installation
 
@@ -131,7 +134,7 @@ Matchmaker aims to achieve feature-parity with fzf (though not necessarily by th
 
 ## Examples
 
-Examples can be found [here](https://github.com/Squirreljetpack/matchmaker/tree/main/matchmaker-cli/assets) (toml configurations), and [here](https://github.com/Squirreljetpack/matchmaker/tree/main/matchmaker-lib/examples) (library use).
+Examples can be found [here](https://github.com/Squirreljetpack/matchmaker/tree/main/matchmaker-cli/assets) (toml files), and [here](https://github.com/Squirreljetpack/matchmaker/tree/main/matchmaker-lib/examples) (library use).
 
 Currently, the first includes an example for interactively performing a full text search with [ripgrep](https://github.com/BurntSushi/ripgrep):
 
@@ -142,8 +145,6 @@ Currently, the first includes an example for interactively performing a full tex
 - `ctrl-.` to cycle between columns.
 
 ![ripgrep](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/ripgrep.png)
-
-
 
 ## Library
 

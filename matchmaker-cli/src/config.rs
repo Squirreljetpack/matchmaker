@@ -1,9 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use matchmaker_partial_macros::partial;
-
-use matchmaker::binds::{BindMap, BindMapExt};
 use matchmaker::config::*;
+use matchmaker_partial_macros::partial;
 
 use matchmaker::action::Actions;
 use matchmaker::binds::Trigger;
@@ -22,7 +20,7 @@ pub struct Config {
     pub render: RenderConfig,
 
     // configure binds ( keypress/mouseevent/event => Actions )
-    #[serde(default = "BindMap::default_binds")]
+    #[serde(default)]
     #[partial(attr)]
     #[partial(alias = "b")]
     #[partial(recurse = "", unwrap)]

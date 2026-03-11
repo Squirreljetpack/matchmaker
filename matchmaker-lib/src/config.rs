@@ -431,7 +431,7 @@ impl Default for ResultsConfig {
             reverse: Default::default(),
 
             wrap: Default::default(),
-            min_wrap_width: 6,
+            min_wrap_width: 4,
 
             autoscroll: true,
             autoscroll_initial_preserved: 0,

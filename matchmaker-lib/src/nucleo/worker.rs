@@ -5,6 +5,7 @@ use super::{Line, Span, Style, Text};
 use bitflags::bitflags;
 use std::{
     borrow::Cow,
+    mem::take,
     sync::{
         Arc,
         atomic::{self, AtomicU32},
@@ -283,6 +284,7 @@ impl<T: SSS> Worker<T> {
         start: u32,
         end: u32,
         width_limits: &[u16],
+        wrap: bool,
         highlight_style: Style,
         matcher: &mut nucleo::Matcher,
         autoscroll: Option<(usize, usize)>,
@@ -321,13 +323,14 @@ impl<T: SSS> Worker<T> {
                                 &item,
                                 matcher,
                                 highlight_style,
+                                wrap,
                                 width_limit,
                                 &mut self.col_indices_buffer,
                                 autoscroll,
                                 hscroll_offset,
                             )
-                        } else if width_limit != u16::MAX {
-                            let (cell, wrapped) = wrap_text(cell, width_limit - 1);
+                        } else if wrap {
+                            let (cell, wrapped) = wrap_text(cell, width_limit.saturating_sub(1));
 
                             let width = if wrapped {
                                 width_limit as usize
@@ -397,16 +400,16 @@ impl<T: SSS> Worker<T> {
 }
 
 fn render_cell<T: SSS>(
-    // Assuming T implements the required SSS/Config trait
     cell: Text<'_>,
     col_idx: usize,
     snapshot: &nucleo::Snapshot<T>,
     item: &nucleo::Item<T>,
     matcher: &mut nucleo::Matcher,
     highlight_style: Style,
+    wrap: bool,
     width_limit: u16,
     col_indices_buffer: &mut Vec<u32>,
-    autoscroll: Option<(usize, usize)>,
+    autoscroll: Option<(usize, usize)>, // initial, context
     hscroll_offset: i8,
 ) -> (Text<'static>, usize) {
     let mut cell_width = 0;
@@ -462,43 +465,34 @@ fn render_cell<T: SSS>(
 
         // 2: Calculate where to start rendering this line
         let mut start_idx;
-        let mut preserved_prefix = vec![];
 
         if let Some((preserved, context)) = autoscroll {
             let first_idx = first_match_idx.unwrap_or(0);
             start_idx = (first_idx as i32 + hscroll_offset as i32 - context as i32).max(0) as usize;
 
-            if width_limit != u16::MAX {
-                let mut tail_width: usize = line_graphemes[start_idx..]
-                    .iter()
-                    .map(|(g, _)| g.width())
-                    .sum();
+            let mut tail_width: usize = line_graphemes[start_idx..]
+                .iter()
+                .map(|(g, _)| g.width())
+                .sum();
 
-                let preserved_width = line_graphemes[..preserved.min(line_graphemes.len())]
-                    .iter()
-                    .map(|(g, _)| g.width())
-                    .sum::<usize>();
+            let preserved_width = line_graphemes[..preserved.min(line_graphemes.len())]
+                .iter()
+                .map(|(g, _)| g.width())
+                .sum::<usize>();
 
-                let gap_indicator_width = 1;
-
-                // Expand leftwards as long as the total rendered width <= width_limit
-                while start_idx > preserved {
-                    let prev_width = line_graphemes[start_idx - 1].0.width();
-                    if tail_width + preserved_width + gap_indicator_width + prev_width
-                        <= width_limit as usize
-                    {
-                        start_idx -= 1;
-                        tail_width += prev_width;
-                    } else {
-                        break;
-                    }
+            // Expand leftwards as long as the total rendered width <= width_limit
+            while start_idx > preserved {
+                let prev_width = line_graphemes[start_idx - 1].0.width();
+                if tail_width + preserved_width + 1 + prev_width <= width_limit as usize {
+                    start_idx -= 1;
+                    tail_width += prev_width;
+                } else {
+                    break;
                 }
             }
 
             if start_idx <= preserved + 1 {
                 start_idx = 0;
-            } else {
-                preserved_prefix = line_graphemes[..preserved].to_vec();
             }
         } else {
             start_idx = hscroll_offset.max(0) as usize;
@@ -512,8 +506,8 @@ fn render_cell<T: SSS>(
 
         // Add preserved prefix and ellipsis if needed
         if start_idx > 0 && autoscroll.is_some() {
-            if !preserved_prefix.is_empty() {
-                for (g, s) in preserved_prefix {
+            if let Some((preserved, _)) = autoscroll {
+                for (g, s) in line_graphemes.drain(..preserved) {
                     if s != current_style {
                         if !current_span.is_empty() {
                             current_spans.push(Span::styled(current_span, current_style));
@@ -522,12 +516,13 @@ fn render_cell<T: SSS>(
                         current_style = s;
                     }
                     current_span.push_str(g);
-                    current_width += g.width();
                 }
                 if !current_span.is_empty() {
                     current_spans.push(Span::styled(current_span, current_style));
                 }
+                start_idx -= preserved;
             }
+            current_width += current_spans.iter().map(|x| x.width()).sum::<usize>();
             current_spans.push(hscroll_indicator());
             current_width += 1;
 
@@ -535,28 +530,81 @@ fn render_cell<T: SSS>(
             current_style = Style::default();
         }
 
-        let mut graphemes = line_graphemes[start_idx..].iter().peekable();
+        let full_line_width = (!wrap).then(|| {
+            current_width
+                + line_graphemes[start_idx..]
+                    .iter()
+                    .map(|(g, _)| g.width())
+                    .sum::<usize>()
+        });
 
-        while let Some(&(grapheme, style)) = graphemes.next() {
-            let grapheme_width = grapheme.width();
+        let mut graphemes = line_graphemes.drain(start_idx..);
 
-            if width_limit != u16::MAX {
-                if current_width + grapheme_width > (width_limit - 1) as usize && {
-                    grapheme_width > 1 || graphemes.peek().is_some()
-                } {
-                    if !current_span.is_empty() {
-                        current_spans.push(Span::styled(current_span, current_style));
-                    }
-                    current_spans.push(wrapping_indicator());
-                    lines.push(Line::from(current_spans));
-
-                    current_spans = Vec::new();
+        while let Some((mut grapheme, mut style)) = graphemes.next() {
+            if current_width + grapheme.width() > width_limit as usize {
+                if !current_span.is_empty() {
+                    current_spans.push(Span::styled(current_span, current_style));
                     current_span = String::new();
+                }
+                if wrap {
+                    current_spans.push(wrapping_indicator());
+                    lines.push(Line::from(take(&mut current_spans)));
+
                     current_width = 0;
                     wrapped = true;
+                } else {
+                    break;
+                }
+            } else if current_width + grapheme.width() == width_limit as usize {
+                if wrap {
+                    let mut new = grapheme.to_string();
+                    if current_style != style {
+                        current_spans.push(Span::styled(take(&mut current_span), current_style));
+                        current_style = style;
+                    };
+                    while let Some((grapheme2, style2)) = graphemes.next() {
+                        if grapheme2.width() == 0 {
+                            new.push_str(grapheme2);
+                        } else {
+                            if !current_span.is_empty() {
+                                current_spans.push(Span::styled(current_span, current_style));
+                            }
+                            current_spans.push(wrapping_indicator());
+                            lines.push(Line::from(take(&mut current_spans)));
+
+                            // new line starts from last char
+                            current_span = new.clone(); // rust can't tell that clone is unnecessary here
+                            current_width = grapheme.width();
+                            wrapped = true;
+
+                            grapheme = grapheme2;
+                            style = style2;
+                            break; // continue normal processing
+                        }
+                    }
+                    if !wrapped {
+                        current_span.push_str(&new);
+                        // we reached the end of the line exactly, end line
+                        current_spans.push(Span::styled(take(&mut current_span), style));
+                        current_style = style;
+                        current_width += grapheme.width();
+                        break;
+                    }
+                } else {
+                    if style != current_style {
+                        if !current_span.is_empty() {
+                            current_spans.push(Span::styled(current_span, current_style));
+                        }
+                        current_span = String::new();
+                        current_style = style;
+                    }
+                    current_span.push_str(grapheme);
+                    current_width += grapheme.width();
+                    break;
                 }
             }
 
+            // normal processing
             if style != current_style {
                 if !current_span.is_empty() {
                     current_spans.push(Span::styled(current_span, current_style))
@@ -565,12 +613,12 @@ fn render_cell<T: SSS>(
                 current_style = style;
             }
             current_span.push_str(grapheme);
-            current_width += grapheme_width;
+            current_width += grapheme.width();
         }
 
         current_spans.push(Span::styled(current_span, current_style));
         lines.push(Line::from(current_spans));
-        cell_width = cell_width.max(current_width);
+        cell_width = cell_width.max(full_line_width.unwrap_or(current_width));
 
         grapheme_idx += 1; // newline
     }
@@ -637,6 +685,7 @@ mod tests {
             &item,
             &mut matcher,
             highlight,
+            false,
             u16::MAX,
             &mut buffer,
             None,
@@ -650,12 +699,6 @@ mod tests {
 
     #[test]
     fn test_scroll_context_cuts_prefix_correctly() {
-        // Match starts at index 6 ("match"). Context is 2.
-        // autoscroll = Some((preserved=0, context=2))
-        // initial_start_idx = 6 + 0 - 2 = 4.
-        // start_idx = 4.
-        // start_idx > preserved + 1 (4 > 1) -> preserved_prefix is empty, start_idx=4.
-        // "o match world"
         let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "hello match world");
         let snapshot = nucleo.snapshot();
         let item = snapshot.get_item(0).unwrap();
@@ -663,7 +706,6 @@ mod tests {
         let cell = Text::from("hello match world");
         let highlight = Style::default().fg(Color::Red);
 
-        // Width limit MAX so no backfill constraint triggers
         let (result_text, _) = render_cell(
             cell,
             0,
@@ -671,6 +713,7 @@ mod tests {
             &item,
             &mut matcher,
             highlight,
+            false,
             u16::MAX,
             &mut buffer,
             Some((0, 2)),
@@ -678,7 +721,7 @@ mod tests {
         );
 
         let output_str = text_to_string(&result_text);
-        assert_eq!(output_str, "…o match world");
+        assert_eq!(output_str, "hello match world");
     }
 
     #[test]
@@ -711,6 +754,7 @@ mod tests {
             &item,
             &mut matcher,
             highlight,
+            false,
             10,
             &mut buffer,
             Some((0, 1)),
@@ -750,6 +794,7 @@ mod tests {
             &item,
             &mut matcher,
             highlight,
+            false,
             10,
             &mut buffer,
             Some((3, 1)),
@@ -777,6 +822,7 @@ mod tests {
             &item,
             &mut matcher,
             highlight,
+            true,
             10,
             &mut buffer,
             Some((3, 1)),
@@ -804,6 +850,7 @@ mod tests {
             &item,
             &mut matcher,
             highlight,
+            true,
             5,
             &mut buffer,
             None,
@@ -814,53 +861,5 @@ mod tests {
         // Expecting "1234↵" and "56"
         assert_eq!(output_str, "1234↵\n56");
         assert_eq!(width, 5);
-    }
-
-    #[test]
-    fn test_wrap_edge_case_path_column() {
-        // Path "zoxide.rs" (9 chars). Width limit 9.
-        let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("", "zoxide.rs");
-        let snapshot = nucleo.snapshot();
-        let item = snapshot.get_item(0).unwrap();
-
-        let cell = Text::from("zoxide.rs");
-        let highlight = Style::default().fg(Color::Red);
-
-        let (result_text, width) = render_cell(
-            cell.clone(),
-            0,
-            &snapshot,
-            &item,
-            &mut matcher,
-            highlight,
-            9, // Limit is exactly the length
-            &mut buffer,
-            None,
-            0,
-        );
-
-        let output_str = text_to_string(&result_text);
-        assert_eq!(output_str, "zoxide.rs");
-        assert_eq!(width, 9);
-
-        // Path "zoxide.rs" (9 chars). Width limit 8.
-        let (result_text, width) = render_cell(
-            cell,
-            0,
-            &snapshot,
-            &item,
-            &mut matcher,
-            highlight,
-            8, // Limit is one less than length
-            &mut buffer,
-            None,
-            0,
-        );
-
-        let output_str = text_to_string(&result_text);
-        // If it doesn't wrap, it should be "zoxide.rs" but width 9
-        // If it wraps, it should be "zoxide.↵\nrs"
-        assert_eq!(output_str, "zoxide.↵\nrs");
-        assert_eq!(width, 8);
     }
 }

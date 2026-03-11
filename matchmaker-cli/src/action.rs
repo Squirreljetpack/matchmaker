@@ -4,7 +4,7 @@ use cba::{
     StringError, bait::ResultExt, bring::split::split_on_unescaped_delimiter, broc::CommandExt,
     unwrap,
 };
-use log::{debug, error, warn};
+use log::{debug, error};
 use matchmaker::{
     Action, Actions, ConfigMMInnerItem, ConfigMMItem,
     binds::Trigger,
@@ -208,8 +208,7 @@ pub fn action_handler(
         MMAction::Transform(payload) => {
             let cmd = format_cli(state, &payload, None);
             if cmd.is_empty() {
-                // lowpri: sometimes spuriously issued at startup?
-                warn!("Failed to format transform command: {payload}");
+                error!("Failed to format transform command: {payload}");
                 return;
             }
             let vars = state.make_env_vars();

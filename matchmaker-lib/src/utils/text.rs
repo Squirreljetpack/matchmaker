@@ -156,7 +156,7 @@ pub fn wrap_text<'a>(text: Text<'a>, max_width: u16) -> (Text<'a>, bool) {
                 {
                     let grapheme_width = UnicodeWidthStr::width(*grapheme);
 
-                    if current_line_width + grapheme_width > (max_width - 1) as usize {
+                    if current_line_width + grapheme_width >= max_width as usize {
                         let is_last_in_span = current_grapheme_start_idx + i + 1 == graphemes.len();
                         if !is_last_in_span {
                             break;

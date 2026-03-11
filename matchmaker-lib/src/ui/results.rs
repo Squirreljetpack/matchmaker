@@ -13,7 +13,7 @@ use crate::{
     nucleo::{Status, Worker},
     render::Click,
     utils::{
-        string::{fit_width, substitute_escaped},
+        string::{allocate_widths, fit_width, substitute_escaped},
         text::{clip_text_lines, expand_indents, prefix_text},
     },
 };
@@ -84,12 +84,6 @@ impl ResultsUI {
         self.width = area.width.saturating_sub(bw);
         self.height = area.height.saturating_sub(bh);
         log::debug!("Updated results dimensions: {}x{}", self.width, self.height);
-    }
-
-    pub fn table_width(&self) -> u16 {
-        self.config.column_spacing.0 * self.widths().len().saturating_sub(1) as u16
-            + self.widths.iter().sum::<u16>()
-            + self.config.border.width()
     }
 
     pub fn height(&self) -> u16 {
@@ -251,68 +245,54 @@ impl ResultsUI {
     pub fn widths(&self) -> &Vec<u16> {
         &self.widths
     }
-    // results width
-    pub fn width(&self) -> u16 {
-        self.width.saturating_sub(self.indentation() as u16)
-    }
 
     /// Adapt the stored widths (initialized by [`Worker::results`]) to the fit within the available width (self.width)
     /// widths <= min_wrap_width don't shrink and aren't wrapped
     pub fn max_widths(&self) -> Vec<u16> {
-        let mut scale_total = 0;
+        let mut base_widths: Vec<u16> = self.widths.clone();
 
-        let mut widths = vec![u16::MAX; self.widths.len().max(self.hidden_columns.len())];
+        for (i, is_hidden) in self.hidden_columns.iter().enumerate() {
+            if i < base_widths.len() && *is_hidden {
+                base_widths[i] = 0;
+            }
+        }
 
-        let mut total = 0; // total current width
-        for i in 0..widths.len() {
-            if i < self.hidden_columns.len() && self.hidden_columns[i] {
-                widths[i] = 0;
-            } else if let Some(&w) = self.widths.get(i) {
-                total += w;
-                if w >= self.config.min_wrap_width {
-                    scale_total += w;
-                    widths[i] = w;
+        if self.config.wrap {
+            let target = self.content_width();
+            let sum: u16 = base_widths.iter().sum();
+
+            if sum < target {
+                if let Some(last) = base_widths.iter_mut().rfind(|w| **w > 0) {
+                    *last += target - sum;
                 }
             }
         }
 
-        if !self.config.wrap || scale_total == 0 {
-            for x in &mut widths {
-                if *x != 0 {
-                    *x = u16::MAX
-                }
-            }
-            return widths;
+        match allocate_widths(
+            &base_widths,
+            self.content_width(),
+            self.config.min_wrap_width,
+        ) {
+            Ok(s) | Err(s) => s,
         }
+    }
 
-        let mut last_scalable = None;
-        let available = self.width().saturating_sub(total - scale_total); //
+    pub fn content_width(&self) -> u16 {
+        self.width
+            .saturating_sub(self.indentation() as u16)
+            .saturating_sub(self.column_spacing_width())
+    }
 
-        let mut used_total = 0;
-        for (i, x) in widths.iter_mut().enumerate() {
-            if *x == 0 {
-                continue;
-            }
-            if *x == u16::MAX
-                && let Some(w) = self.widths.get(i)
-            {
-                used_total += w;
-                continue;
-            }
-            let new_w = *x * available / scale_total;
-            *x = new_w.max(self.config.min_wrap_width);
-            used_total += *x;
-            last_scalable = Some(x);
-        }
+    pub fn column_spacing_width(&self) -> u16 {
+        let pos = self.widths.iter().rposition(|&x| x != 0);
+        self.config.column_spacing.0 * (pos.unwrap_or_default() as u16)
+    }
 
-        // give remainder to the last scalable column
-        if used_total < self.width()
-            && let Some(last) = last_scalable
-        {
-            *last += self.width() - used_total;
-        }
-
-        widths
+    pub fn table_width(&self) -> u16 {
+        self.widths.iter().sum::<u16>()
+            + self.config.border.width()
+            + self.indentation() as u16
+            + self.column_spacing_width()
     }
 
     // this updates the internal status, so be sure to call make_status afterward
@@ -332,11 +312,7 @@ impl ResultsUI {
         let width_limits = if hz {
             self.max_widths()
         } else {
-            let default = if self.config.wrap {
-                self.width
-            } else {
-                u16::MAX
-            };
+            let default = self.width;
 
             (0..worker.columns.len())
                 .map(|i| {
@@ -358,6 +334,7 @@ impl ResultsUI {
             offset,
             end,
             &width_limits,
+            self.config.wrap,
             self.match_style(),
             matcher,
             autoscroll,
@@ -376,6 +353,7 @@ impl ResultsUI {
         }
 
         widths[0] += self.indentation() as u16;
+        let widths = widths;
 
         let mut rows = vec![];
         let mut total_height = 0;
@@ -793,30 +771,44 @@ impl ResultsUI {
             }
         }
 
-        // up to the last nonempty row position
+        // ratatui column_spacing eats into the constraints
+        let table_widths = if hz {
+            // first 0 element after which all is 0
+            let pos = widths.iter().rposition(|&x| x != 0);
+            // column_spacing eats into the width
+            let mut widths: Vec<_> = widths[..pos.map_or(0, |x| x + 1)].to_vec();
+            if let Some(pos) = pos
+                && pos > 0
+                && self.config.right_align_last
+            {
+                let used = widths.iter().take(widths.len() - 1).sum();
+                widths[pos] = self.width.saturating_sub(used);
+            }
+            if let Some(s) = widths.get_mut(0) {
+                *s -= self.indentation() as u16
+            }
+            self.widths = widths.clone();
 
-        if hz {
-            self.widths = {
-                let pos = widths.iter().rposition(|&x| x != 0).map_or(0, |p| p + 1);
-                let mut widths = widths[..pos].to_vec();
-                if pos > 2 && self.config.right_align_last {
-                    let used = widths.iter().take(widths.len() - 1).sum();
-                    widths[pos - 1] = self.width().saturating_sub(used);
-                }
+            if !self.config.wrap {
                 widths
-            };
-        }
+                    .iter_mut()
+                    .zip(width_limits.iter())
+                    .for_each(|(w, &limit)| {
+                        *w = (*w).min(limit);
+                    });
+            }
+
+            if let Some(s) = widths.get_mut(0) {
+                *s += self.indentation() as u16;
+            }
+
+            widths
+        } else {
+            vec![self.width]
+        };
 
         // why does the row highlight apply beyond the table width?
-        let mut table = Table::new(
-            rows,
-            if hz {
-                self.widths.clone()
-            } else {
-                vec![self.width]
-            },
-        )
-        .column_spacing(self.config.column_spacing.0);
+        let mut table = Table::new(rows, table_widths).column_spacing(self.config.column_spacing.0);
 
         table = match self.config.row_connection {
             RowConnectionStyle::Full => table.style(self.active_style()),

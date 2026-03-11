@@ -257,22 +257,33 @@ impl ResultsUI {
             }
         }
 
-        if self.config.wrap {
-            let target = self.content_width();
-            let sum: u16 = base_widths.iter().sum();
+        let target = self.content_width();
+        let sum: u16 = base_widths
+            .iter()
+            .map(|x| {
+                (*x != 0)
+                    .then_some(*x.max(&self.config.min_wrap_width))
+                    .unwrap_or_default()
+            })
+            .sum();
 
-            if sum < target {
-                if let Some(last) = base_widths.iter_mut().rfind(|w| **w > 0) {
-                    *last += target - sum;
+        if sum < target {
+            let nonzero_count = base_widths.iter().filter(|w| **w > 0).count();
+            if nonzero_count > 0 {
+                let extra_per_column = (target - sum) / nonzero_count as u16;
+                let mut remainder = (target - sum) % nonzero_count as u16;
+
+                for w in base_widths.iter_mut().filter(|w| **w > 0) {
+                    *w += extra_per_column;
+                    if remainder > 0 {
+                        *w += 1;
+                        remainder -= 1;
+                    }
                 }
             }
         }
 
-        match allocate_widths(
-            &base_widths,
-            self.content_width(),
-            self.config.min_wrap_width,
-        ) {
+        match allocate_widths(&base_widths, target, self.config.min_wrap_width) {
             Ok(s) | Err(s) => s,
         }
     }

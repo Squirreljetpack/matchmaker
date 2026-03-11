@@ -450,9 +450,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
                         // Columns
                         Action::SwitchColumn(col_name) => {
-                            let cursor_byte = input.byte_index(input.cursor() as usize);
-
-                            if worker.query.active_column_name(cursor_byte) != &col_name
+                            if worker.query.active_column_name(input.str_at_cursor()) != col_name
                                 && worker.columns.iter().any(|c| *c.name == col_name)
                             {
                                 input.prepare_column_change();

@@ -58,6 +58,10 @@ impl InputUI {
             .unwrap_or(self.input.len())
     }
 
+    pub fn str_at_cursor(&self) -> &str {
+        &self.input[..self.byte_index(self.cursor)]
+    }
+
     // ---------- GETTERS ---------
 
     pub fn len(&self) -> usize {

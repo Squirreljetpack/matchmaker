@@ -57,15 +57,28 @@ impl PickerQuery {
     }
 
     pub fn parse(&mut self, input: &str) -> HashMap<Arc<str>, Arc<str>> {
-        let mut fields: HashMap<Arc<str>, String> = HashMap::new();
+        let (new_inner, new_ranges) = self.parse_impl(input);
+        self.column_ranges = new_ranges;
+        mem::replace(&mut self.inner, new_inner)
+    }
+
+    fn parse_impl(
+        &self,
+        input: &str,
+    ) -> (
+        HashMap<Arc<str>, Arc<str>>,
+        Vec<(std::ops::Range<usize>, Option<Arc<str>>)>,
+    ) {
+        let mut fields: std::collections::HashMap<Arc<str>, String> =
+            std::collections::HashMap::new();
         let primary_field = &self.column_names[self.primary_column];
+        let mut column_ranges: Vec<(std::ops::Range<usize>, Option<Arc<str>>)> =
+            vec![(0..usize::MAX, Some(primary_field.clone()))];
+
         let mut escaped = false;
         let mut in_field = false;
         let mut field = None;
         let mut text = String::new();
-        self.column_ranges.clear();
-        self.column_ranges
-            .push((0..usize::MAX, Some(primary_field.clone())));
 
         macro_rules! finish_field {
             () => {
@@ -104,16 +117,16 @@ impl PickerQuery {
                     if !text.is_empty() {
                         finish_field!();
                     }
-                    let (range, _field) = self
-                        .column_ranges
-                        .last_mut()
-                        .expect("column_ranges is non-empty");
-                    range.end = idx;
+                    // Update the last column range end
+                    if let Some((range, _)) = column_ranges.last_mut() {
+                        range.end = idx;
+                    }
                     in_field = true;
                 }
                 ' ' if in_field => {
                     text.clear();
                     in_field = false;
+                    // If the text is empty and self.empty_column is set, pick an empty column
                     if text.is_empty() && self.empty_column {
                         field = self.column_names.iter().find(|x| x.is_empty());
                     }
@@ -130,30 +143,30 @@ impl PickerQuery {
                         .min_by_key(|col| col.len());
 
                     // Update the column range for this column.
-                    if let Some((_range, current_field)) = self
-                        .column_ranges
+                    if let Some((_range, current_field)) = column_ranges
                         .last_mut()
                         .filter(|(range, _)| range.end == usize::MAX)
                     {
                         *current_field = field.cloned();
                     } else {
-                        self.column_ranges.push((idx..usize::MAX, field.cloned()));
+                        column_ranges.push((idx..usize::MAX, field.cloned()));
                     }
                 }
                 _ => text.push(ch),
             }
         }
 
+        // Finish the last field if we're not in a field and there's leftover text
         if !in_field && !text.is_empty() {
             finish_field!();
         }
 
-        let new_inner: HashMap<_, _> = fields
+        let new_fields: HashMap<Arc<str>, Arc<str>> = fields
             .into_iter()
-            .map(|(field, query)| (field, query.as_str().into()))
+            .map(|(field, query)| (field, query.into()))
             .collect();
 
-        mem::replace(&mut self.inner, new_inner)
+        (new_fields, column_ranges)
     }
 
     /// Finds the column which the cursor is 'within' in the last parse.
@@ -173,14 +186,28 @@ impl PickerQuery {
             .and_then(|(_range, field)| field.as_ref())
     }
 
-    pub fn active_column_name(&self, cursor: usize) -> &str {
-        self.current_column(cursor)
-            .map(|s| s.as_ref())
-            .unwrap_or_else(|| self.column_names[self.primary_column].as_ref())
+    pub fn active_column_name(&self, input: &str) -> String {
+        let (_, ranges) = self.parse_impl(input);
+        ranges
+            .last()
+            .and_then(|x| x.1.as_deref())
+            .unwrap_or(self.column_names[self.primary_column].as_ref())
+            .to_string()
     }
 
     /// Finds the index of the column which the cursor is 'within' in the last parse.
     /// Returns the primary column index if no specific column is active at the cursor.
+    // pub fn active_column_index(&mut self, input: &str) -> usize {
+    //     self.trial_parse(input);
+    //     self.column_ranges
+    //         .last()
+    //         .and_then(|x| {
+    //             x.1.as_ref()
+    //                 .and_then(|name| self.column_names.iter().position(|c| c == name))
+    //         })
+    //         .unwrap_or(self.primary_column)
+    // }
+
     pub fn active_column_index(&self, cursor: usize) -> usize {
         self.current_column(cursor)
             .and_then(|name| self.column_names.iter().position(|c| c == name))

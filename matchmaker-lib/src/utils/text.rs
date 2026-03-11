@@ -18,7 +18,6 @@ pub fn apply_style_at(mut text: Text<'_>, start: usize, len: usize, style: Style
 
     for line in text.lines.iter_mut() {
         let mut new_spans = Vec::new();
-        // Take the spans to avoid borrow checker issues while rebuilding the Vec
         let old_spans = std::mem::take(&mut line.spans);
 
         for span in old_spans {
@@ -358,7 +357,6 @@ pub fn expand_indents<'a>(
         let mut parts = span.content.split(placeholder).peekable();
 
         while let Some(part) = parts.next() {
-            // Safely push the segment (preserves graphemes naturally)
             new_content.push_str(part);
 
             // Add the distributed spaces if there is a next part
@@ -374,7 +372,7 @@ pub fn expand_indents<'a>(
             }
         }
 
-        // Reconstruct the span with the expanded String content (becomes Cow::Owned)
+        // Reconstruct the span with the expanded String content
         new_spans.push(Span::styled(new_content, span.style));
     }
 

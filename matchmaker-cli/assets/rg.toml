@@ -30,11 +30,12 @@ scroll.index = 2
 '''Bind(QueryChange = Reload)''',
 # Prompt indicator (
 '''Transform(
-    [[ -n "$MM_QUERY" ]] &&
-    prompt="($MM_QUERY)" ||
-    prompt="rg>"
+    if [[ -n "$MM_QUERY" ]]; then
+        echo "SetStyledPrompt({blue,italic:(${MM_QUERY#\%1 } )} )"
+    else
+        echo "SetPrompt(rg> )"
+    fi
 
-    echo "SetStyledPrompt($prompt )"
     echo "SetQuery($MM_STORE)"
     echo "Store($MM_QUERY)"
 )''',
@@ -44,11 +45,12 @@ scroll.index = 2
 "Filtering(true)",
 "Unbind(QueryChange)",
 '''Transform(
-	[[ -n "$MM_QUERY" ]] &&
-	prompt="($MM_QUERY)" ||
-	prompt="mm"
+    if [[ -n "$MM_QUERY" ]]; then
+        echo "SetPrompt(($MM_QUERY) )"
+    else
+        echo "SetStyledPrompt({blue,italic:mm> })"
+    fi
 
-    echo "SetStyledPrompt({blue,italic:$prompt })"
     echo "SetQuery($MM_STORE)"
     echo "Store($MM_QUERY)"
     echo "SwitchColumn(1)"
@@ -61,5 +63,5 @@ scroll.index = 2
 
 # Navigation
 "ctrl-." = "NextColumn"
-"enter" = "Become($EDITOR [3])"
+"enter" = "Become($EDITOR [1])"
 "?" = "SwitchPreview"

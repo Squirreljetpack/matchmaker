@@ -129,6 +129,22 @@ See [here](./matchmaker-cli/assets/docs/options.md) for the command-line syntax.
 
 Matchmaker aims to achieve feature-parity with fzf (though not necessarily by the same means). If there's any specific feature that you'd like to see, open an issue!
 
+## Examples
+
+Examples can be found [here](https://github.com/Squirreljetpack/matchmaker/tree/main/matchmaker-cli/assets) (toml configurations), and [here](https://github.com/Squirreljetpack/matchmaker/tree/main/matchmaker-lib/examples) (library use).
+
+Currently, the first includes an example for interactively performing a full text search with [ripgrep](https://github.com/BurntSushi/ripgrep):
+
+- Toggle between ripgrep and mm with `ctrl-r`
+- The displayed preview autoscrolls to matched line: `?` to toggle.
+- `Enter` opens the file in your editor.
+- Previous queries in each mode are stashed and restored upon switching.
+- `ctrl-.` to cycle between columns.
+
+![ripgrep](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/ripgrep.png)
+
+
+
 ## Library
 
 Matchmaker can also be used as a library.

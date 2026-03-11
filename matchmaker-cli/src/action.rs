@@ -10,6 +10,7 @@ use matchmaker::{
     binds::Trigger,
     event::BindSender,
     message::{BindDirective, Interrupt, RenderCommand},
+    nucleo::Line,
     ui::StatusUI,
 };
 
@@ -197,10 +198,10 @@ pub fn action_handler(
                 .set_status_line(Some(StatusUI::parse_template_to_status_line(&s)));
         }
         MMAction::SetStatus(s) => {
-            state.picker_ui.results.set_status_line(s.map(Into::into));
+            state.picker_ui.results.set_status_line(s.map(Line::raw));
         }
         MMAction::SetPrompt(s) => {
-            state.picker_ui.input.set_prompt(s.map(Into::into));
+            state.picker_ui.input.set_prompt(s.map(Line::raw));
         }
         MMAction::ExecuteAsync(s) => {
             state.set_interrupt(Interrupt::ExecuteSilent, s);

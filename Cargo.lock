@@ -289,7 +289,7 @@ checksum = "3a822ea5bc7590f9d40f1ba12c0dc3c2760f3482c6984db1573ad11031420831"
 
 [[package]]
 name = "cli_boilerplate_automation"
-version = "0.0.20"
+version = "0.0.21"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -1134,7 +1134,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-cli"
-version = "0.0.12"
+version = "0.0.13"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
@@ -1161,7 +1161,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-lib"
-version = "0.0.12"
+version = "0.0.13"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
@@ -1202,7 +1202,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-partial"
-version = "0.0.12"
+version = "0.0.13"
 dependencies = [
  "matchmaker-partial-macros",
  "serde",

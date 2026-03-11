@@ -42,9 +42,14 @@ On the way:
 ## Installation
 
 ```sh
+# requires cargo
 cargo install matchmaker-cli
+```
 
-# or grab a release from the releases page with bonus features.
+Or grab it from the releases page with extra features:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/install.sh | sh
 ```
 
 Pass it some items:

@@ -1,3 +1,14 @@
+## [0.0.13] - 2026-03-11
+
+### 🚀 Features
+
+- Span template shrinkers, doc updates
+- Reworked semantic triggers now behave like action aliases
+- new actions: Transform, PrintKey, Store
+- new example: ripgrep (in options.md)
+- cli values now split on ||| instead of nesting level
+- support StatusLine template in SetPrompt
+
 ## [0.0.12] - 2026-03-09
 
 ### 🚀 Features

@@ -109,7 +109,7 @@ fn display_doc(cli: &Cli) {
             Doc::Options => md.push_str(include_str!("../assets/docs/options.md")),
             Doc::Binds => md.push_str(include_str!("../assets/docs/binds.md")),
             Doc::Template => md.push_str(include_str!("../assets/docs/template.md")),
-            Doc::Other => md.push_str(include_str!("../assets/docs/Other.md")),
+            Doc::Other => md.push_str(include_str!("../assets/docs/other.md")),
         }
     }
 

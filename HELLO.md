@@ -88,7 +88,7 @@ max = 50
 "alt-1" = "Pos(0)"
 
 # Programmable
-"ctrl-l" = "Execute(eval $FZF_PREVIEW_COMMAND | $PAGER)"
+"ctrl-l" = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)"
 "ctrl-o" = "Execute($EDITOR [])"
 "alt-o" = "Become($EDITOR [])"
 "ctrl-r" = "Reload(find . -type f)"

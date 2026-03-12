@@ -117,12 +117,18 @@ impl InputUI {
         self.cursor += 1;
     }
 
-    pub fn push_str(&mut self, content: &str) {
+    pub fn insert_str(&mut self, content: &str) {
         let byte_idx = self.byte_index(self.cursor);
         self.input.insert_str(byte_idx, content);
         let added_graphemes = content.graphemes(true).count();
         self.recompute_graphemes();
         self.cursor += added_graphemes;
+    }
+
+    pub fn push_str(&mut self, content: &str) {
+        self.input.push_str(content);
+        self.recompute_graphemes();
+        self.cursor = self.graphemes.len();
     }
 
     pub fn scroll_to_cursor(&mut self) {

@@ -714,7 +714,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
                     let preview_template = state.preview_payload().clone();
                     let preview_cmd = use_formatter(&formatter, state, &preview_template, None);
                     let extra = env_vars!(
-                        "FZF_PREVIEW_COMMAND" => preview_cmd,
+                        "MM_PREVIEW_COMMAND" => preview_cmd,
                     );
                     vars.extend(extra);
                     
@@ -746,7 +746,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
                     let preview_template = state.preview_payload().clone();
                     let preview_cmd = use_formatter(&_formatter, state, &preview_template, None);
                     let extra = env_vars!(
-                        "FZF_PREVIEW_COMMAND" => preview_cmd,
+                        "MM_PREVIEW_COMMAND" => preview_cmd,
                     );
                     vars.extend(extra);
                     
@@ -785,7 +785,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
                     let preview_template = state.preview_payload().clone();
                     let preview_cmd = use_formatter(&formatter, state, &preview_template, None);
                     let extra = env_vars!(
-                        "FZF_PREVIEW_COMMAND" => preview_cmd,
+                        "MM_PREVIEW_COMMAND" => preview_cmd,
                     );
                     vars.extend(extra);
                     debug!("Becoming: {cmd}");

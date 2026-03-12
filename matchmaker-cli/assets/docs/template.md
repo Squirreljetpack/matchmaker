@@ -12,11 +12,13 @@ Templates use `[]` placeholders with various modifiers to inject item data.
 | `[+]`    | All selected items (shell-quoted, space-separated) |
 | `[-]`    | All selected items (no quotes, space-separated)    |
 
+_Note: This outputs the original line (after possible trimming and ansi processing), and is not the same as [..] below._
+
 ## Column Specifics
 
-You can specify a column by its name or its index (**1-indexed**).
+You can specify a column by its name.
 
-Note that when no columns.names are given in the configuration, columns.max column names (1..n) are auto-generated.
+Note that the default column names (when `columns.names` is unspecified) are `1` … `columns.max`.
 
 | Placeholder | Description                                       |
 | ----------- | ------------------------------------------------- |
@@ -29,16 +31,9 @@ Note that when no columns.names are given in the configuration, columns.max colu
 
 The active column is the one under the cursor in the input field (contolled via `%column_name` in the query).
 
-| Placeholder | Description                                        |
-| ----------- | -------------------------------------------------- |
-| `[!]`       | Active column of current item (shell-quoted)       |
-| `[=!]`      | Active column of current item (raw)                |
-| `[+!]`      | Active column of all selected items (shell-quoted) |
-| `[-!]`      | Active column of all selected items (raw)          |
-
 ## Ranges
 
-Ranges allow you to conveniently join multiple columns together.
+Column ranges can be specified.
 
 | Placeholder    | Description                                                |
 | -------------- | ---------------------------------------------------------- |
@@ -47,11 +42,7 @@ Ranges allow you to conveniently join multiple columns together.
 | `[..col]`      | From the first column to `col` (exclusive)                 |
 | `[..]`         | All visible columns                                        |
 
-Modifiers (`=`, `+`, `-`) can also be applied to ranges:
-
-- `[=..]`: All visible columns of current item (no quotes)
-- `[+..]`: All visible columns of all selected items (shell-quoted per item)
-- `[-..]`: All visible columns of all selected items (no quotes)
+Modifiers (`=`, `+`, `-`) also apply to ranges.
 
 ## Rules
 

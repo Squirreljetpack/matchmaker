@@ -2,7 +2,7 @@
 
 Matchmaker is fast, configurable and intuitive fuzzy searcher.
 
-It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and design, but reimagines the user experience. Built from the ground up in Rust using modern libraries, it provides a maximally cohesive, performant and versatile experience whith only minimal complexity, clutter and code.[^10]
+It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and design, but reimagines the user experience. Built from the ground up in Rust, it brings a fully robust, modern and elegant search[^10] experience to the console.
 
 ![screen1](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/screen1.png)
 
@@ -14,11 +14,12 @@ It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and
 - Interactive preview supports color, scrolling, wrapping, multiple layouts, and even maximizing.
 - Most of the familiar actions from [fzf](https://github.com/junegunn/fzf), as well as several new ones[^12].
 - Mouse (location aware) scrolling! Horizontal scrolling! Grapheme-aware input wrapping!
-- Extremely intelligent[^18] input wrapping and width sizing.
+- Extremely intelligent[^18] text wrapping and width sizing.
 - Split input lines into multiple columns, that you can individually filter on (`%col query`[^17]), hide, and highlight.[^14]
 - Define `Execute/Preview/Print/Accept` actions with [templates](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md) which _safely_ inject the current item(s) (yes, columns are supported here too).
 - All the dynamic UI support you could hope for: preview offsets, styled status lines, responsive header tables, wrapped footers, active and inactive column colors, stacked columns, multiple preview layouts[^15]... even overlays! (in the library).
 - Bind keys to multiple actions, bind actions to mouse triggers, bind actions to event triggers, bind keys to rebind keys, bind keys to modify the configuration, bind keys to run a shell script and use its output to more keys[^16], bind keys to set the header, footer, status, input, bind keys to semantic triggers, bind semantic triggers to actions, bind keys to -- wait nope thats about it.
+- Comprehensive logging in case you need to debug applications.
 - oh yeah, and `mm --last-key` gives you the last key that was pressed in a previous run of the program.[^13]
 - Available as a rust library to use in your own code!
 
@@ -26,7 +27,7 @@ On the way:
 
 - Matching with [frizbee](https://github.com/saghen/frizbee), a faster, typo-resistant matching algorithm.
 
-[^10]: Sample configurations beyond the default are on the roadmap, and contributions are very welcome!
+[^10]: not dining, definitely not.
 
 [^11]: The benefits of a structured, hierarchical, global baseline configuration are many, including but not limited to the fact that toml strings make it much easier to bind keys to complex shell scripts.
 
@@ -42,7 +43,7 @@ On the way:
 
 [^17]: (See)[https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/query.md]
 
-[^18]: I'm not saying it's Phd level, but if there was one for input wrapping and width sizing...
+[^18]: There isn't a phd for text wrapping and width sizing, but if there was, I'd for sure claim it had one.
 
 ## Installation
 
@@ -195,8 +196,9 @@ For more information, check out the [examples](./matchmaker-lib/examples/) and [
 
 - [junegunn/fzf](https://github.com/junegunn/fzf)
 - [helix-editor/nucleo](https://github.com/helix-editor/nucleo)
+- [ratatui](https://github.com/ratatui/ratatui)
+- [Canop/crokey](https://github.com/Canop/crokey)
 - [skim-rs/skim](https://github.com/skim-rs/skim)
 - [autobib/nucleo-picker](https://github.com/autobib/nucleo-picker)
 - [alexpasmantier/television](https://github.com/alexpasmantier/television)
 - [helix-editor/helix](https://github.com/helix-editor/helix)
-- [Canop/crokey](https://github.com/Canop/crokey)

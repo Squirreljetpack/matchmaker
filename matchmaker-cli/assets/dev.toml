@@ -102,7 +102,7 @@
     "ctrl-." = "NextColumn"
 
     "ctrl-t"    = "Execute(echo ----; read v; echo $v; echo ----)"
-    "ctrl-l"    = "Execute(eval $FZF_PREVIEW_COMMAND | $PAGER)"
+    "ctrl-l"    = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)"
     "ctrl-o"    = "Execute(micro {})"
     "alt-o"     = "Become(micro {})"
     "ctrl-r"    = "Reload(fd -u)"

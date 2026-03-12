@@ -78,10 +78,10 @@
     "alt-1"            = "Pos(0)"
 
     # Programmable
-    "ctrl-l" = "Execute(eval $FZF_PREVIEW_COMMAND | $PAGER)" # "maximize" the preview
+    "ctrl-l" = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)" # "maximize" the preview
     "ctrl-o" = "Execute($EDITOR {})"
     "alt-o"  = "Become($EDITOR {})"
-    "ctrl-r" = "Reload(find . -type f)"
+    "ctrl-r" = "Reload"
 
 [start]
     command = "fd --strip-cwd-prefix"

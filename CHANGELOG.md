@@ -1,3 +1,10 @@
+## [0.0.17] - 2026-03-13
+
+### 🚀 Features
+
+- Rename alias prefix :: -> @.
+- Update configs to work with newer syntax.
+
 ## [0.0.16] - 2026-03-13
 
 ### 🚀 Features

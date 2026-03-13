@@ -150,6 +150,29 @@ curl -L https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchm
 mm --config ~/.config/matchmaker/presets/rg.toml
 ```
 
+### Migrating from fzf
+
+Migrating from **`mm`** to **`fzf`** is conceptually straightforward because the two tools are almost fully feature-compatible. You can continue using familiar actions, like `execute`, and they will function the same way.  
+
+The main difference is **syntax**. For example, opening a selected file in your editor:  
+
+- In `fzf`:
+
+```bash
+fzf --bind "ctrl-o:execute($EDITOR {+})"
+```
+
+- In `mm`:
+
+```text
+b.ctrl-o=Execute($EDITOR [+])
+```
+
+>[!NOTE]
+> The braces are changed to `[]` because templating and column splitting is slightly more powerful in mm. Since `[]` templates cannot contain whitespace, this wont interfere with shell conditionals.
+
+For quick reference, `mm --doc` provides fairly readable and comprehensive guides to various topics.
+
 ## Library
 
 Matchmaker can also be used as a library.

@@ -80,8 +80,8 @@
     # Navigation
     "up"              = "Up"
     "down"            = "Down"
-    "pageup"          = "Up(10)"
-    "pagedown"        = "Down(10)"
+    "pageup"          = "HalfPageDown"
+    "pagedown"        = "HalfPageUp"
     "ctrl-p"          = "Up(10)"
     "ctrl-n"          = "Down(10)"
     "shift-up"        = "PreviewUp"
@@ -109,12 +109,12 @@
     "alt-enter" = "Print({1})"
 
 [matcher]
-    trim                = true
-    sort_threshold      = 1
+    trim           = true
+    sort_threshold = 1
 
 [columns]
-split       = '\s+'
-max = 8
+    split = '\s+'
+    max   = 8
 
 [start]
     command = "fd"

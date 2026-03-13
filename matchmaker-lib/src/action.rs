@@ -38,9 +38,9 @@ pub enum Action<A: ActionExt = NullActionExt> {
     Down(u16),
     Pos(i32),
     // TODO
-    PageDown,
+    HalfPageDown,
     // TODO
-    PageUp,
+    HalfPageUp,
     /// Horizontally scroll (the active column of) the current result.
     /// 0 to reset.
     HScroll(i8),
@@ -345,7 +345,7 @@ enum_from_str_display!(
     units:
     Select, Deselect, Toggle, CycleAll, ClearSelections, Accept,
 
-    PageDown, PageUp, ScrollLeft, ScrollRight,
+    HalfPageDown, HalfPageUp, ScrollLeft, ScrollRight,
 
     ToggleWrap, TogglePreviewWrap, CyclePreview, PreviewJump,
 

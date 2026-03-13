@@ -116,16 +116,16 @@ Actions are the operations performed when a trigger is activated.
 
 ### Navigation
 
-| Action       | Description                                                  |
-| ------------ | ------------------------------------------------------------ |
-| `Up(n)`      | Move selection cursor up by `n` lines (default: 1).          |
-| `Down(n)`    | Move selection cursor down by `n` lines (default: 1).        |
-| `Pos(idx)`   | Move selection cursor to absolute index `idx`. `-1` for end. |
-| `PageUp`     | Scroll the results list up by one page.                      |
-| `PageDown`   | Scroll the results list down by one page.                    |
-| `HScroll(n)` | Horizontally scroll the active column by `n`. `0` to reset.  |
-| `VScroll(n)` | Vertically scroll the current result by `n`. `0` to reset.   |
-| `ToggleWrap` | Toggle line wrapping for the results list.                   |
+| Action         | Description                                                          |
+| -------------- | -------------------------------------------------------------------- |
+| `Up(n)`        | Move selection cursor up by `n` lines (default: 1).                  |
+| `Down(n)`      | Move selection cursor down by `n` lines (default: 1).                |
+| `Pos(idx)`     | Move selection cursor to absolute index `idx`. `-1` for end.         |
+| `HalfPageUp`   | Scroll the results list up by half the height of the results pane.   |
+| `HalfPageDown` | Scroll the results list down by half the height of the results pane. |
+| `HScroll(n)`   | Horizontally scroll the active column by `n`. `0` to reset.          |
+| `VScroll(n)`   | Vertically scroll the current result by `n`. `0` to reset.           |
+| `ToggleWrap`   | Toggle line wrapping for the results list.                           |
 
 ### Preview
 
@@ -186,9 +186,9 @@ Actions are the operations performed when a trigger is activated.
 | `SetHeader(s)`       | Update the header content. |
 | `SetFooter(s)`       | Update the footer content. |
 | `SetPrompt(s)`       | Update the input prompt.   |
-| `SetStatus(s)`       | Update the status line.*   |
-| `SetStyledPrompt(s)` | Update the input prompt.*  |
-| `SetStyledStatus(s)` | Update the status line.*   |
+| `SetStatus(s)`       | Update the status line.\*  |
+| `SetStyledPrompt(s)` | Update the input prompt.\* |
+| `SetStyledStatus(s)` | Update the status line.\*  |
 
 \* See --doc template
 

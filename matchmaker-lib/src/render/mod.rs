@@ -327,9 +327,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                 results.current_scroll(n, matches!(action, Action::HScroll(_)));
                             }
                         }
-                        Action::PageDown | Action::PageUp => {
-                            let x = results.height();
-                            let next = matches!(action, Action::Down(_)) ^ results.reverse();
+                        Action::HalfPageDown | Action::HalfPageUp => {
+                            let x = (results.height() + 1) / 2;
+                            let next = matches!(action, Action::HalfPageDown) ^ results.reverse();
                             for _ in 0..x.into() {
                                 if next {
                                     results.cursor_next();

@@ -55,8 +55,8 @@
     # Navigation
     "up"               = "Up"
     "down"             = "Down"
-    "pageup"           = "Up(10)"
-    "pagedown"         = "Down(10)"
+    "pageup"           = "HalfPageDown"
+    "pagedown"         = "HalfPageUp"
     "shift-up"         = "PreviewHalfPageUp"
     "shift-down"       = "PreviewHalfPageDown"
     "ctrl-shift-up"    = "VScroll(1)"

@@ -115,7 +115,7 @@ pub enum Trigger {
     Mouse(SimpleMouseEvent),
     Event(Event),
     /// A "semantic" trigger, such as `Open`, which should be resolved or rejected before starting the picker.
-    /// This is serialized/deserialized with a `::` prefix, such as "::Open" = "Execute(open {})"
+    /// This is serialized/deserialized with a `@` prefix, such as "@Open" = "Execute(open {})"
     Semantic(String),
 }
 
@@ -214,7 +214,7 @@ impl Display for Trigger {
                 write!(f, "{}", mouse_event_kind_as_str(event.kind))
             }
             Trigger::Event(event) => write!(f, "{}", event),
-            Trigger::Semantic(alias) => write!(f, "::{alias}"),
+            Trigger::Semantic(alias) => write!(f, "@{alias}"),
         }
     }
 }
@@ -246,7 +246,7 @@ impl FromStr for Trigger {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         // try semantic
-        if let Some(s) = value.strip_prefix("::") {
+        if let Some(s) = value.strip_prefix("@") && !s.is_empty() {
             return Ok(Trigger::Semantic(s.to_string()));
         }
 
@@ -427,6 +427,23 @@ mod test {
             modifiers: KeyModifiers::SHIFT,
         });
         assert!(!bind_map.contains_key(&shift_trigger));
+    }
+
+    #[test]
+    fn test_semantic_parsing() {
+        assert_eq!(
+            Trigger::from_str("@foo").unwrap(),
+            Trigger::Semantic("foo".into())
+        );
+        let trigger = Trigger::from_str("@").unwrap();
+        // "@" itself is a valid key, but should NOT be parsed as a Semantic trigger.
+        assert!(matches!(trigger, Trigger::Key(_)));
+
+        assert_eq!(
+            Action::<NullActionExt>::from_str("@foo").unwrap(),
+            Action::Semantic("foo".into())
+        );
+        assert!(Action::<NullActionExt>::from_str("@").is_err());
     }
 
     #[test]

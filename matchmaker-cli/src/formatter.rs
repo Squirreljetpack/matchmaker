@@ -414,7 +414,7 @@ mod tests {
                 &event_tx,
             );
 
-            let result = format_cli(&mut mm_state, "echo {col1} {=col2} {col3}", None);
+            let result = format_cli(&mut mm_state, "echo [col1] [=col2] [col3]", None);
             assert_eq!(result, "echo 'a' b 'c'");
         }
     }
@@ -451,11 +451,11 @@ mod tests {
                 &event_tx,
             );
 
-            let result = format_cli(&mut mm_state, "echo {..} {col2..} {..col2}", None);
+            let result = format_cli(&mut mm_state, "echo [..] [col2..] [..col2]", None);
             // ..col2 is exclusive
             assert_eq!(result, "echo 'a b c' 'b c' 'a'");
 
-            let result = format_cli(&mut mm_state, "echo {=col2..} {-..col2}", None);
+            let result = format_cli(&mut mm_state, "echo [=col2..] [-..col2]", None);
             // ..col2 is exclusive
             assert_eq!(result, "echo b c a");
         }
@@ -504,11 +504,11 @@ mod tests {
             mm_state.picker_ui.input.set(Some("%col2 ".to_string()), 6);
             mm_state.picker_ui.update();
 
-            let result = format_cli(&mut mm_state, "echo {+} {-col1} {-!} {+!}", None);
-            // {+} -> 'a,b,c' '1,2,3'
-            // {-col1} -> a 1
-            // {-!} -> b 2 (active col is col2 because of %col2 )
-            // {+!} -> 'b' '2'
+            let result = format_cli(&mut mm_state, "echo [+] [-col1] [-!] [+!]", None);
+            // [+] -> 'a,b,c' '1,2,3'
+            // [-col1] -> a 1
+            // [-!] -> b 2 (active col is col2 because of %col2 )
+            // [+!] -> 'b' '2'
             assert_eq!(result, "echo 'a,b,c' '1,2,3' a 1 b 2 'b' '2'");
         }
     }

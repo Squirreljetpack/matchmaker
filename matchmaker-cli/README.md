@@ -117,7 +117,7 @@ mm p.l "cmd=echo []|||p=50|||max=20" cmd "ls" o "[=]"
 
 Actions can be defined in your `config.toml` or on the command line.
 
-The list of currently supported actions can be found [here](./matchmaker-lib/src/action.rs) and [here](./matchmaker-cli/src/action.rs) or from `mm --doc options`.
+The list of currently supported actions can be found [here](./matchmaker-lib/src/action.rs) and [here](./matchmaker-cli/src/action.rs) or from `mm --doc binds`.
 
 To get the names of keys, type `mm --test-keys`.
 

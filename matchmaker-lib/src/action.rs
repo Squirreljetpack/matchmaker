@@ -401,7 +401,7 @@ macro_rules! enum_from_str_display {
                         write!(f, "{c}")
                     }
                     Self::Semantic(s) => {
-                        write!(f, "{}", s)
+                        write!(f, "@{s}")
                     }
                 }
             }
@@ -416,7 +416,7 @@ macro_rules! enum_from_str_display {
                     return Ok(Self::Custom(x))
                 }
 
-                if let Some(rest) = s.strip_prefix("::") {
+                if let Some(rest) = s.strip_prefix("@") && !rest.is_empty() {
                     return Ok(Self::Semantic(rest.to_string()));
                 }
 

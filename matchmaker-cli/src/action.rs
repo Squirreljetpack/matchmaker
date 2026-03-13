@@ -466,7 +466,7 @@ mod tests {
         }
 
         let push_inner =
-            match Action::<MMAction>::from_str("PushBind(ctrl-r = ::enter_mm)").unwrap() {
+            match Action::<MMAction>::from_str("PushBind(ctrl-r = @enter_mm)").unwrap() {
                 Action::Custom(MMAction::PushBind(s)) => s,
                 _ => panic!(),
             };

@@ -47,7 +47,14 @@
     wrap        = true
 
 [[preview.layout]]
-    command    = "bat --color=always {} || eza --color=always --color=always -T -L 2 {}"
+    command = '''
+if [ -d [] ]; then
+    cd [] &&
+    find . -maxdepth 2 | sed 's|[^/]*/|  |g'
+else
+    cat []
+fi
+'''
     side       = "right"
     percentage = 40
     min        = 30
@@ -103,10 +110,10 @@
 
     "ctrl-t"    = "Execute(echo ----; read v; echo $v; echo ----)"
     "ctrl-l"    = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)"
-    "ctrl-o"    = "Execute(micro {})"
-    "alt-o"     = "Become(micro {})"
+    "ctrl-o"    = "Execute(micro [])"
+    "alt-o"     = "Become(micro [])"
     "ctrl-r"    = "Reload(fd -u)"
-    "alt-enter" = "Print({1})"
+    "alt-enter" = "Print([1])"
 
 [matcher]
     trim           = true
@@ -117,8 +124,14 @@
     max   = 8
 
 [start]
-    command = "fd"
-    output  = "{}"
+    command = '''
+if command -v fd >/dev/null 2>&1; then
+    fd
+else
+    find .
+fi
+'''
+    output  = "[]"
 
 [exit]
     select_1 = false

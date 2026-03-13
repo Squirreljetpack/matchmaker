@@ -15,7 +15,20 @@
     wrap = true
 
 [[preview.layout]]
-    command    = "bat --binary no-printing --color=always {} || eza --color=always --color=always -T -L 2 {}"
+    command = '''
+if command -v bat >/dev/null 2>&1; then
+    bat --binary no-printing --color=always []
+elif command -v eza >/dev/null 2>&1; then
+    eza --color=always -T -L 2 []
+else
+    if [ -d [] ]; then
+        cd [] &&
+        find . -maxdepth 2 | sed 's|[^/]*/|  |g'
+    else
+        cat []
+    fi
+fi
+'''
     side       = "right"
     percentage = 40
     min        = 30
@@ -79,9 +92,15 @@
 
     # Programmable
     "ctrl-l" = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)" # "maximize" the preview
-    "ctrl-o" = "Execute($EDITOR {})"
-    "alt-o"  = "Become($EDITOR {})"
+    "ctrl-o" = "Execute($EDITOR [])"
+    "alt-o"  = "Become($EDITOR [])"
     "ctrl-r" = "Reload"
 
 [start]
-    command = "fd --strip-cwd-prefix"
+    command = '''
+if command -v fd >/dev/null 2>&1; then
+    fd --strip-cwd-prefix
+else
+    find .
+fi
+'''

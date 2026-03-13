@@ -33,34 +33,32 @@ Mouse events can be bound with modifiers:
 
 ### Semantic Triggers
 
-Semantic triggers (prefixed with `::`) act as named aliases for a group of actions. They allow you to define a sequence of operations once and trigger it from multiple keys or events, or even from other actions.
+Semantic triggers (prefixed with `@`) act as named aliases for a group of actions. They allow you to define a sequence of operations once and trigger it from multiple keys or events, or even from other actions.
 
 **Defining a Semantic Trigger:**
 You define a semantic trigger by binding it to one or more actions in your configuration:
 
 ```toml
 [binds]
-"::my_macro" = [
+"@my_macro" = [
     "ExecuteSilent(echo 'Starting...')",
-    "Filtering(false)",
+    "Filtering(true)",
     "SetPrompt(working> )"
 ]
 ```
 
 **Using a Semantic Trigger:**
-You can then "call" this trigger by using it as an action for a key or event:
+This trigger then becomes a valid action:
 
 ```toml
 [binds]
-"ctrl-x" = "::my_macro"
-"Start"  = "::my_macro"
+"ctrl-x" = "@my_macro"
+"Start"  = "@my_macro"
 ```
 
 When sharing a command-line matchmaker command, you can also define your actions using these semantic triggers, allowing consumers to use their preferred binds for similar actions across different applications.
 
-For an advanced example, scroll to the bottom.
-
-_Note: You can also dynamically rebind semantic triggers at runtime using the `Bind` action._
+_Note_: You can also dynamically rebind semantic triggers at runtime using the `Bind` action. For an advanced example, scroll to the bottom.
 
 ### Events
 
@@ -175,7 +173,7 @@ Actions are the operations performed when a trigger is activated.
 | Action                  | Description                                  |
 | ----------------------- | -------------------------------------------- |
 | `Bind(trigger=actions)` | Define or overwrite a binding at runtime.    |
-| `Unbind(trigger)`       | Remove a binding. Use `@` prefix for events. |
+| `Unbind(trigger)`       | Remove a binding.                            |
 | `PushBind(t=a)`         | Append an action to an existing binding.     |
 | `PopBind(t)`            | Remove the last action from a binding.       |
 
@@ -203,7 +201,7 @@ Actions are the operations performed when a trigger is activated.
 | `ReloadNext(n)`    | Cycle through `additional_commands` defined at startup.      |
 | `Transform(cmd)`   | Run command and parse its output as a stream of Actions.     |
 | `Print(s)`         | Print a string to stdout on exit.                            |
-| `::name`           | Execute the actions associated with semantic trigger `name`. |
+| `@name`           | Execute the actions associated with semantic trigger `name`. |
 
 ### UI & Display
 
@@ -221,8 +219,8 @@ Actions are the operations performed when a trigger is activated.
 | `Execute(cmd)`   | Run a shell command and continue.              |
 | `Become(cmd)`    | Replace Matchmaker with the specified command. |
 | `Reload(cmd)`    | Reload items by running the specified command. |
-| `Print(str)`     | Print the specified string to stdout on exit.  |
-| `PrintKey`       | Print the key string to stdout on exit.        |
+| `Print(str)`     | Print the specified string to stdout.          |
+| `PrintKey`       | Print the activating key.                      |
 | `Store(str)`     | Store a string in the state (`MM_STORE`).      |
 | `Transform(cmd)` | Run command and parse output as actions.       |
 
@@ -243,7 +241,7 @@ Actions are the operations performed when a trigger is activated.
 Multiple actions can be executed in sequence by using an array:
 
 - **TOML**: `ctrl-x = ["Cancel", "Quit"]`
-- **CLI**: `mm b "ctrl-x=Cancel Quit"`
+- **CLI**: `mm b "ctrl-x=Cancel|||Quit"`
 
 ### CLI Overrides
 
@@ -254,7 +252,7 @@ When overriding binds from the command line, use the `b` (or `binds`) prefix:
 mm b 'alt-enter=Accept'
 
 # Bind multiple actions to one key:
-mm b.ctrl-s='Select Down'
+mm b.ctrl-s='Select|||Down'
 
 # Some action parameters are optional
 mm b.ctrl-q 'SwitchPreview'
@@ -269,12 +267,12 @@ You can mimic `fzf`'s [ripgrep example](https://github.com/junegunn/fzf/blob/mas
 prompt_fg = "Red"
 
 [start]
-command = '''rg --column --line-number --no-heading --color=always --smart-case "$FZF_QUERY"'''
+command = 'rg --column --line-number --no-heading --color=always --smart-case "$FZF_QUERY"'
 ansi = true
 
 [binds]
-"Start" = "::enter_rg"
-"::enter_rg" = [ # Reload on query change, disable reparsing, update bind
+"Start" = "@enter_rg"
+"@enter_rg" = [ # Reload on query change, disable reparsing, update bind
 "Filtering(false)",
 '''Bind(QueryChange = Reload)''',
 # Prompt indicator (
@@ -287,9 +285,9 @@ ansi = true
     echo "SetQuery($MM_STORE)"
     echo "Store($MM_QUERY)"
 )''',
-"Bind(::reload = ::enter_mm)",
+"Bind(@reload = @enter_mm)",
 ]
-"::enter_mm" = [
+"@enter_mm" = [
 "Filtering(true)",
 "Unbind(QueryChange)",
 '''Transform(
@@ -302,10 +300,10 @@ ansi = true
     echo "Store($MM_QUERY)"
 )
 ''',
-"Bind(::reload = ::enter_rg)"
+"Bind(@reload = @enter_rg)"
 ]
 
-"ctrl-r" = "::reload"
+"ctrl-r" = "@reload"
 ```
 
-This example is simplified to demonstrate the special Bind/Store/Transform/Semantic actions. You can find a more powerful version [here](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/rg.toml).
+This example is simplified to demonstrate the special actions `Bind`, `Store`, `Transform`, and `Semantic`. You can find the full version at https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/rg.toml

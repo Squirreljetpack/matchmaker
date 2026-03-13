@@ -172,6 +172,12 @@ ls -l | mm d "[ +]" h.h 1 px "echo 'Metadata: [=..3]'" # Set the delimiter, head
 - `right_align_last`: (bool) Right-align the last column.
 - `v`, `vertical`, `stacked_columns`: (bool) Display columns stacked vertically instead of across.
 - `hr`, `horizontal_separator`: (none, empty, light, normal, heavy, dashed): Show a seperator between rows (Currently only limited to one column).
+- `autoscroll`: Control how the results table scrolls horizontally to keep matches in view.
+  - Alias: `a`.
+  - `enabled`: (bool) Enable/disable horizontal autoscroll.
+  - `initial_preserved`: (number) Number of characters at the start of the line to always keep visible.
+  - `context`: (number) Number of characters to show around the match.
+  - `end`: (bool) Whether to autoscroll to the end of the line.
 - `right_align_last`: (bool) Right-align the last column.
 - `border`: [Border Settings](#border-settings).
 

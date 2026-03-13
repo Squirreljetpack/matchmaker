@@ -42,9 +42,8 @@ pub struct MatcherConfig {
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct WorkerConfig {
     /// How "stable" the results are. Higher values prioritize the initial ordering.
+    #[serde(alias = "sort")]
     pub sort_threshold: u32,
-    /// The name of the default column
-
     /// TODO: Enable raw mode where non-matching items are also displayed in a dimmed color.
     #[partial(alias = "r")]
     pub raw: bool,
@@ -299,6 +298,35 @@ impl Default for OverlayLayoutSettings {
 // pub struct OverlaySize
 
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct AutoscrollSettings {
+    /// Number of characters at the start of the line to always keep visible.
+    #[partial(alias = "i")]
+    pub initial_preserved: usize,
+    /// Enable/disable horizontal autoscroll.
+    #[partial(alias = "a")]
+    pub enabled: bool,
+    /// Number of characters to show around the match.
+    #[partial(alias = "c")]
+    pub context: usize,
+    /// Whether to autoscroll to the end of the line.
+    #[partial(alias = "e")]
+    pub end: bool,
+}
+
+impl Default for AutoscrollSettings {
+    fn default() -> Self {
+        Self {
+            initial_preserved: 0,
+            enabled: true,
+            context: 4,
+            end: false,
+        }
+    }
+}
+
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ResultsConfig {
@@ -374,9 +402,8 @@ pub struct ResultsConfig {
     pub min_wrap_width: u16,
 
     // autoscroll
-    pub autoscroll_initial_preserved: usize,
-    pub autoscroll: bool,
-    pub autoscroll_context: usize,
+    #[partial(recurse, alias = "a")]
+    pub autoscroll: AutoscrollSettings,
 
     // ------------
     // experimental
@@ -433,9 +460,7 @@ impl Default for ResultsConfig {
             wrap: Default::default(),
             min_wrap_width: 4,
 
-            autoscroll: true,
-            autoscroll_initial_preserved: 0,
-            autoscroll_context: 4,
+            autoscroll: Default::default(),
 
             column_spacing: Default::default(),
             current_prefix: Default::default(),

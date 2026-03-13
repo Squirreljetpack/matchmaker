@@ -345,11 +345,6 @@ impl ResultsUI {
                 .collect()
         };
 
-        let autoscroll = self.config.autoscroll.then_some((
-            self.config.autoscroll_initial_preserved,
-            self.config.autoscroll_context,
-        ));
-
         let (mut results, mut widths, status) = worker.results(
             offset,
             end,
@@ -357,7 +352,7 @@ impl ResultsUI {
             self.config.wrap,
             self.match_style(),
             matcher,
-            autoscroll,
+            self.config.autoscroll,
             self.hscroll,
         );
 

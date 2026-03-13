@@ -87,7 +87,6 @@ impl<'de> Deserializer<'de> for &mut SimpleDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        dbg!(&self);
         let remaining = self.input.len() - self.start;
 
         let no_sequences = match self.consuming {

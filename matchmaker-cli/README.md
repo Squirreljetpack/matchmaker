@@ -152,9 +152,9 @@ mm --config ~/.config/matchmaker/presets/rg.toml
 
 ### Migrating from fzf
 
-Migrating from **`mm`** to **`fzf`** is conceptually straightforward because the two tools are almost fully feature-compatible. You can continue using familiar actions, like `execute`, and they will function the same way.  
+Migrating from `fzf` to `mm` is conceptually straightforward because the two tools are almost fully feature-compatible. You can continue using familiar actions, like `execute`, and they will function the same way.
 
-The main difference is **syntax**. For example, opening a selected file in your editor:  
+The main difference is **syntax**. For example, opening a selected file in your editor:
 
 - In `fzf`:
 
@@ -168,8 +168,55 @@ fzf --bind "ctrl-o:execute($EDITOR {+})"
 b.ctrl-o=Execute($EDITOR [+])
 ```
 
->[!NOTE]
+> [!NOTE]
 > The braces are changed to `[]` because templating and column splitting is slightly more powerful in mm. Since `[]` templates cannot contain whitespace, this wont interfere with shell conditionals.
+
+Here is a second demonstration, taken from [zoxide](https://github.com/ajeetdsouza/zoxide/blob/main/src/cmd/query.rs).
+
+- In `fzf`:
+
+```shell
+fzf \
+  --exact \
+  --no-sort \
+  --bind=ctrl-z:ignore,btab:up,tab:down \
+  --cycle \
+  --keep-right \
+  --border=sharp \
+  --height=45% \
+  --info=inline \
+  --layout=reverse \
+  --tabstop=1 \
+  --exit-0
+```
+
+- In `mm`:
+
+```shell
+mm \
+  matcher.sort_threshold=0 \
+  binds.Shift-BackTab=Up \
+  binds.BackTab=Up \
+  binds.Tab=Down \
+  ui.border.type=Plain \
+  tui.percentage=45 \
+  results.reverse=true \
+  results.wrap=false \
+  results.autoscroll.end=true \
+  results.autoscroll.context=0 \
+  exit.abort_empty=true
+
+# Notes:
+# - in mm, results.scroll_wrap is by default true, and results.wrap is true in the default config.
+# - in mm --multi (from fzf) is always true. It can be disabled by not binding the Select actions, as is done here.
+# - matcher.sort is not available on the cargo version and requires the installer.
+# - results.autoscroll.context=0 is a setting which does not appear in fzf but which is 4 by default in mm.
+
+# short version, (with some omissions)
+mm m.sort=0 b.Shift-BackTab=Up b.BackTab=Up \
+b.Tab=Down ui.border.type=Plain tui.p=45 \
+r.r= r.a.e= r.w=false e.abort_empty=
+```
 
 For quick reference, `mm --doc` provides fairly readable and comprehensive guides to various topics.
 

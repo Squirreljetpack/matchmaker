@@ -17,6 +17,7 @@ use unicode_width::UnicodeWidthStr;
 use super::{injector::WorkerInjector, query::PickerQuery};
 use crate::{
     SSS,
+    config::AutoscrollSettings,
     nucleo::Render,
     utils::text::{hscroll_indicator, text_to_string, wrap_text, wrapping_indicator},
 };
@@ -287,7 +288,7 @@ impl<T: SSS> Worker<T> {
         wrap: bool,
         highlight_style: Style,
         matcher: &mut nucleo::Matcher,
-        autoscroll: Option<(usize, usize)>,
+        autoscroll: AutoscrollSettings,
         hscroll_offset: i8,
     ) -> (WorkerResults<'_, T>, Vec<u16>, Status) {
         let (snapshot, status) = Self::new_snapshot(&mut self.nucleo);
@@ -410,9 +411,12 @@ fn render_cell<T: SSS>(
     wrap: bool,
     width_limit: u16,
     col_indices_buffer: &mut Vec<u32>,
-    autoscroll: Option<(usize, usize)>, // initial, context
+    mut autoscroll: AutoscrollSettings,
     hscroll_offset: i8,
 ) -> (Text<'static>, usize) {
+    // disable right autoscroll if wrap
+    autoscroll.end &= !wrap;
+
     let mut cell_width = 0;
     let mut wrapped = false;
 
@@ -432,10 +436,12 @@ fn render_cell<T: SSS>(
     let mut next_highlight_idx = indices.next().unwrap_or(u32::MAX);
     let mut grapheme_idx = 0u32;
 
+    let mut line_graphemes = Vec::new();
+
     for line in &cell {
-        // 1: Collect graphemes, compute styles, and find the first match on this line.
-        let mut line_graphemes = Vec::new();
-        let mut first_match_idx = None;
+        // 1: Collect graphemes, compute styles, and find the relevant match on this line.
+        line_graphemes.clear();
+        let mut match_idx = None;
 
         for span in line {
             // this looks like a bug on first glance, we are iterating
@@ -443,9 +449,7 @@ fn render_cell<T: SSS>(
             // this is correct is that nucleo will only ever consider the first char
             // of a grapheme (and discard the rest of the grapheme) so the indices
             // returned by nucleo are essentially grapheme indecies
-            let mut graphemes = span.content.graphemes(true).peekable();
-
-            while let Some(grapheme) = graphemes.next() {
+            for grapheme in span.content.graphemes(true) {
                 let is_match = grapheme_idx == next_highlight_idx;
 
                 let style = if is_match {
@@ -455,8 +459,8 @@ fn render_cell<T: SSS>(
                     span.style
                 };
 
-                if is_match && first_match_idx.is_none() {
-                    first_match_idx = Some(line_graphemes.len());
+                if is_match && (autoscroll.end || match_idx.is_none()) {
+                    match_idx = Some(line_graphemes.len());
                 }
 
                 line_graphemes.push((grapheme, style));
@@ -465,40 +469,63 @@ fn render_cell<T: SSS>(
         }
 
         // 2: Calculate where to start rendering this line
-        let mut start_idx;
+        let mut i; // start_idx
 
-        if let Some((preserved, context)) = autoscroll
-            && let Some(first_idx) = first_match_idx
+        if autoscroll.enabled && autoscroll.end {
+            i = match_idx.unwrap_or(line_graphemes.len());
+
+            let target_width = if match_idx.is_some() {
+                (width_limit as usize).saturating_sub(autoscroll.context)
+            } else {
+                width_limit as usize
+            }
+            .saturating_sub(1);
+
+            let mut current_width = 0;
+
+            while i > 0 {
+                let w = line_graphemes[i - 1].0.width();
+                if current_width + w > target_width {
+                    break;
+                }
+                i -= 1;
+                current_width += w;
+            }
+            if i > 1 {
+                i += 1;
+            } else {
+                i = 0;
+            }
+        } else if autoscroll.enabled
+            && let Some(m_idx) = match_idx
         {
-            start_idx = (first_idx as i32 + hscroll_offset as i32 - context as i32).max(0) as usize;
+            i = (m_idx as i32 + hscroll_offset as i32 - autoscroll.context as i32).max(0) as usize;
 
-            let mut tail_width: usize = line_graphemes[start_idx..]
-                .iter()
-                .map(|(g, _)| g.width())
-                .sum();
+            let mut tail_width: usize = line_graphemes[i..].iter().map(|(g, _)| g.width()).sum();
 
-            let preserved_width = line_graphemes[..preserved.min(line_graphemes.len())]
+            let preserved_width = line_graphemes
+                [..autoscroll.initial_preserved.min(line_graphemes.len())]
                 .iter()
                 .map(|(g, _)| g.width())
                 .sum::<usize>();
 
             // Expand leftwards as long as the total rendered width <= width_limit
-            while start_idx > preserved {
-                let prev_width = line_graphemes[start_idx - 1].0.width();
+            while i > autoscroll.initial_preserved {
+                let prev_width = line_graphemes[i - 1].0.width();
                 if tail_width + preserved_width + 1 + prev_width <= width_limit as usize {
-                    start_idx -= 1;
+                    i -= 1;
                     tail_width += prev_width;
                 } else {
                     break;
                 }
             }
 
-            if start_idx <= preserved + 1 {
-                start_idx = 0;
+            if i <= autoscroll.initial_preserved + 1 {
+                i = 0;
             }
         } else {
-            start_idx = hscroll_offset.max(0) as usize;
-        }
+            i = hscroll_offset.max(0) as usize;
+        };
 
         // 3: Apply the standard wrapping and Span generation logic to the visible slice
         let mut current_spans = Vec::new();
@@ -507,23 +534,23 @@ fn render_cell<T: SSS>(
         let mut current_width = 0;
 
         // Add preserved prefix and ellipsis if needed
-        if start_idx > 0 && autoscroll.is_some() {
-            if let Some((preserved, _)) = autoscroll {
-                for (g, s) in line_graphemes.drain(..preserved) {
-                    if s != current_style {
-                        if !current_span.is_empty() {
-                            current_spans.push(Span::styled(current_span, current_style));
-                        }
-                        current_span = String::new();
-                        current_style = s;
+        if i > 0 && autoscroll.enabled {
+            let preserved = autoscroll.initial_preserved;
+            for (g, s) in line_graphemes.drain(..preserved) {
+                if s != current_style {
+                    if !current_span.is_empty() {
+                        current_spans.push(Span::styled(current_span, current_style));
                     }
-                    current_span.push_str(g);
+                    current_span = String::new();
+                    current_style = s;
                 }
-                if !current_span.is_empty() {
-                    current_spans.push(Span::styled(current_span, current_style));
-                }
-                start_idx -= preserved;
+                current_span.push_str(g);
             }
+            if !current_span.is_empty() {
+                current_spans.push(Span::styled(current_span, current_style));
+            }
+            i -= preserved;
+
             current_width += current_spans.iter().map(|x| x.width()).sum::<usize>();
             current_spans.push(hscroll_indicator());
             current_width += 1;
@@ -534,13 +561,13 @@ fn render_cell<T: SSS>(
 
         let full_line_width = (!wrap).then(|| {
             current_width
-                + line_graphemes[start_idx..]
+                + line_graphemes[i..]
                     .iter()
                     .map(|(g, _)| g.width())
                     .sum::<usize>()
         });
 
-        let mut graphemes = line_graphemes.drain(start_idx..);
+        let mut graphemes = line_graphemes.drain(i..);
 
         while let Some((mut grapheme, mut style)) = graphemes.next() {
             if current_width + grapheme.width() > width_limit as usize {
@@ -690,7 +717,10 @@ mod tests {
             false,
             u16::MAX,
             &mut buffer,
-            None,
+            AutoscrollSettings {
+                enabled: false,
+                ..Default::default()
+            },
             0,
         );
 
@@ -718,7 +748,11 @@ mod tests {
             false,
             u16::MAX,
             &mut buffer,
-            Some((0, 2)),
+            AutoscrollSettings {
+                initial_preserved: 0,
+                context: 2,
+                ..Default::default()
+            },
             0,
         );
 
@@ -759,7 +793,11 @@ mod tests {
             false,
             10,
             &mut buffer,
-            Some((0, 1)),
+            AutoscrollSettings {
+                initial_preserved: 0,
+                context: 1,
+                ..Default::default()
+            },
             0,
         );
 
@@ -799,7 +837,11 @@ mod tests {
             false,
             10,
             &mut buffer,
-            Some((3, 1)),
+            AutoscrollSettings {
+                initial_preserved: 3,
+                context: 1,
+                ..Default::default()
+            },
             0,
         );
 
@@ -827,7 +869,11 @@ mod tests {
             true,
             10,
             &mut buffer,
-            Some((3, 1)),
+            AutoscrollSettings {
+                initial_preserved: 3,
+                context: 1,
+                ..Default::default()
+            },
             -2,
         );
 
@@ -855,7 +901,10 @@ mod tests {
             true,
             5,
             &mut buffer,
-            None,
+            AutoscrollSettings {
+                enabled: false,
+                ..Default::default()
+            },
             0,
         );
 
@@ -863,5 +912,64 @@ mod tests {
         // Expecting "1234↵" and "56"
         assert_eq!(output_str, "1234↵\n56");
         assert_eq!(width, 5);
+    }
+
+    #[test]
+    fn test_autoscroll_end() {
+        // Query "match". "abcdefghijmatch"
+        // width_limit = 10. context = 2. end = true.
+        // last_match_idx = 14 (at 'h' in "match").
+        // target_width = 10 - 2 = 8.
+        // From index 14, we go back 8 units.
+        // "jmatch" is 6 units.
+        // "ijmatch" is 7.
+        // "hijmatch" is 8.
+        // start_idx = 14 - 8 + 1 = 7. Wait, indices are 0..14.
+        // "abcdefghijmatch"
+        //  012345678901234
+        // matches are 10,11,12,13,14.
+        // last_match_idx = 14.
+        // target_width = 8.
+        // start_idx starts at 14.
+        // idx 14: 'h', current_width 1.
+        // idx 13: 'c', current_width 2.
+        // idx 12: 't', current_width 3.
+        // idx 11: 'a', current_width 4.
+        // idx 10: 'm', current_width 5.
+        // idx 9: 'j', current_width 6.
+        // idx 8: 'i', current_width 7.
+        // idx 7: 'h', current_width 8.
+        // idx 6: 'g', current_width 9 > 8 (STOP).
+        // Result start_idx = 6. "ghijmatch".
+        // Output should be "…ghijmatch" (since start_idx > 0)
+
+        let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "abcdefghijmatch");
+        let snapshot = nucleo.snapshot();
+        let item = snapshot.get_item(0).unwrap();
+
+        let cell = Text::from("abcdefghijmatch");
+        let highlight = Style::default().fg(Color::Red);
+
+        let (result_text, width) = render_cell(
+            cell,
+            0,
+            &snapshot,
+            &item,
+            &mut matcher,
+            highlight,
+            false,
+            10,
+            &mut buffer,
+            AutoscrollSettings {
+                end: true,
+                context: 2,
+                ..Default::default()
+            },
+            0,
+        );
+
+        let output_str = text_to_string(&result_text);
+        assert_eq!(output_str, "…ghijmatch");
+        assert_eq!(width, 10);
     }
 }

@@ -2,7 +2,7 @@
 
 Matchmaker is fast, configurable and intuitive fuzzy searcher.
 
-It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and design, but reimagines the user experience. Built from the ground up in Rust, it brings a fully robust, modern and elegant search[^10] experience to the console.
+It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and design, but reimagines the user experience. Built from the ground up in Rust, it brings a fully robust, modern and elegant search experience to the console.
 
 ![screen1](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/screen1.png)
 
@@ -26,8 +26,6 @@ It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and
 On the way:
 
 - Matching with [frizbee](https://github.com/saghen/frizbee), a faster, typo-resistant matching algorithm.
-
-[^10]: not dining, definitely not.
 
 [^11]: The benefits of a structured, hierarchical, global baseline configuration are many, including but not limited to the fact that toml strings make it much easier to bind keys to complex shell scripts.
 

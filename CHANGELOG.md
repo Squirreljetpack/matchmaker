@@ -1,3 +1,14 @@
+## [0.0.15] - 2026-03-13
+
+### 🚀 Features
+
+- PageUp -> HalfPageUp for more flexibility
+
+### 🐛 Bug Fixes
+
+- Fix panic in PreviewLayout
+- Fix bug causing width sizer to not run
+
 ## [0.0.14] - 2026-03-11
 
 - Regex capture groups

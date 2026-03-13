@@ -177,9 +177,9 @@ Here is a second demonstration, taken from [zoxide](https://github.com/ajeetdsou
 
 ```shell
 fzf \
+  --bind=ctrl-z:ignore,btab:up,tab:down \
   --exact \
   --no-sort \
-  --bind=ctrl-z:ignore,btab:up,tab:down \
   --cycle \
   --keep-right \
   --border=sharp \
@@ -194,28 +194,28 @@ fzf \
 
 ```shell
 mm \
-  matcher.sort_threshold=0 \
   binds.Shift-BackTab=Up \
   binds.BackTab=Up \
   binds.Tab=Down \
-  ui.border.type=Plain \
-  tui.percentage=45 \
-  results.reverse=true \
+  matcher.sort_threshold=0 \
+  results.scroll_wrap=true \
   results.wrap=false \
   results.autoscroll.end=true \
   results.autoscroll.context=0 \
+  ui.border.type=Plain \
+  tui.percentage=45 \
+  results.reverse=true \
   exit.abort_empty=true
 
 # Notes:
-# - in mm, results.scroll_wrap is by default true, and results.wrap is true in the default config.
+# - in mm, results.scroll_wrap is by default true, while results.wrap = true is included in the default config.
 # - in mm --multi (from fzf) is always true. It can be disabled by not binding the Select actions, as is done here.
 # - matcher.sort is not available on the cargo version and requires the installer.
 # - results.autoscroll.context=0 is a setting which does not appear in fzf but which is 4 by default in mm.
 
-# short version, (with some omissions)
-mm m.sort=0 b.Shift-BackTab=Up b.BackTab=Up b.Tab=Down \
-ui.border.type=Plain tui.p=45 \
-r.r= r.w=false r.a.e= e.abort_empty=
+# short version, omitting defaults
+mm m.sort=0 ui.border.type=Plain tui.p=45 r.r= r.w=false \
+b.Shift-BackTab=Up b.BackTab=Up b.Tab=Down
 ```
 
 For quick reference, `mm --doc` provides fairly readable and comprehensive guides to various topics.

@@ -88,7 +88,7 @@ pub struct StartConfig {
 }
 
 /// Exit conditions of the render loop.
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct ExitConfig {
@@ -101,6 +101,17 @@ pub struct ExitConfig {
     /// Last processed key is written here.
     /// Set to an empty path to disable.
     pub last_key_path: Option<std::path::PathBuf>,
+}
+
+impl Default for ExitConfig {
+    fn default() -> Self {
+        Self {
+            select_1: false,
+            allow_empty: false,
+            abort_empty: true,
+            last_key_path: None,
+        }
+    }
 }
 
 /// The ui config.
@@ -708,8 +719,8 @@ pub struct BorderSetting {
     /// `sides = "ALL"`
     /// When omitted, this either ALL or the side that sits between results and the corresponding layout if either padding or type are specified, otherwise NONE.
     ///
-    /// An empty string enforces no sides:
-    /// `sides = ""`
+    /// A single space enforces no sides:
+    /// `sides = " "`
     // #[serde(deserialize_with = "uppercase_normalized_option")] // need ratatui bitflags to use transparent
     pub sides: Option<Borders>,
     /// Supply as either 1, 2, or 4 numbers for:

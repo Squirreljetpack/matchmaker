@@ -6,6 +6,7 @@ use std::collections::HashMap;
 fn de<T: DeserializeOwned>(input: &[&str]) -> T {
     let data: Vec<String> = input.iter().map(|s| s.to_string()).collect();
     let mut de = SimpleDeserializer::from_slice(&data);
+    de.option_hatch = Some("null");
     T::deserialize(&mut de).unwrap()
 }
 

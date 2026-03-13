@@ -274,5 +274,5 @@ Set fills values from `&[String]` by using a simple data deserializer.
 - Struct deserialization ends when the next word is not a field name.
 - Tuple deserialization ends when the requisite number of values have been deserialized.
 - Otherwise, maps and sequence types consume the input until exhausted.
-- Options are transparent to their inner type unless the word list is exhausted, or the following word is "null". (This last behavior may be subject to change).
+- Options are transparent to their inner type unless the word list is exhausted, or if `option_hatch` is set on the Deserializer and the current word is equal to it.
 - Unit structs expect "" or "()".

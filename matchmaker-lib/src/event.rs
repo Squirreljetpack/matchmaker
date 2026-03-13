@@ -411,7 +411,7 @@ async fn cleanup_tmp_files(path: &Path) -> Result<()> {
     while let Some(entry) = entries.next_entry().await? {
         let entry_path = entry.path();
 
-        if let Ok(filename) = entry_path._filename()
+        if let Ok(filename) = entry_path.filename()
             && let Some(e) = filename.strip_prefix(name)
             && e.starts_with('.')
             && e.ends_with(".tmp")
@@ -431,7 +431,7 @@ pub async fn write_to_file(path: PathBuf, content: String) -> Result<()> {
         .unwrap()
         .as_nanos();
 
-    let tmp_path = path.with_file_name(format!("{}.{}.tmp", path._filename()?, suffix));
+    let tmp_path = path.with_file_name(format!("{}.{}.tmp", path.filename()?, suffix));
 
     // Write temp file
     fs::write(&tmp_path, &content).await?;

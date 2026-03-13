@@ -11,6 +11,9 @@ pub struct SimpleDeserializer<'de> {
     start: usize,
     // Ok(len) for tuple, Err(field_names) for struct
     consuming: Option<Result<usize, &'static [&'static str]>>,
+
+    // configurable
+    pub option_hatch: Option<&'de str>,
 }
 
 pub fn deserialize<'de, T>(input: &'de [String]) -> Result<T, SimpleError>
@@ -33,6 +36,7 @@ impl<'de> SimpleDeserializer<'de> {
             input,
             start: 0,
             consuming: None,
+            option_hatch: None,
         }
     }
 
@@ -55,6 +59,7 @@ impl<'de> SimpleDeserializer<'de> {
             input: &self.input[self.start..],
             start: 0,
             consuming: None,
+            option_hatch: self.option_hatch,
         };
         sub.consuming = consuming.into();
         let ret = f(&mut sub)?;
@@ -232,7 +237,7 @@ impl<'de> Deserializer<'de> for &mut SimpleDeserializer<'de> {
     {
         if self.start >= self.input.len() {
             visitor.visit_none()
-        } else if self.input[self.start] == "null" {
+        } else if self.option_hatch == Some(&self.input[self.start]) {
             self.start += 1;
             visitor.visit_none()
         } else {

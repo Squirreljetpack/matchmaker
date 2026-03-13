@@ -32,42 +32,41 @@ Overrides follow the pattern `path=value` or `path value`.
 
 ### Collections (Lists/Vectors)
 
-Fields that are collections (like `preview.layout` or `binds`) are treated as **additive leaf nodes**.
+Fields that are collections (like `preview.layout` or `binds`) are consumed additively:
 
 1. **Adding Elements**: Each time a collection path is specified, a new partial element is added to that collection.
 2. **Merging**: When the configuration is finalized:
    - The first $N$ overrides for a collection are merged into the first $N$ elements of the base configuration (from your config file). (Or in the case of of binds, existing keys are overridden).
    - Any additional overrides are appended as new elements.
 
-### Leaf values
+### Values
 
-If a "leaf" value contains multiple settings (like a [border](#border-settings) or a bind with multiple actions), you can specify them within a single string using `key=value` pairs or nested dot notation.
+If a "leaf" value contains multiple settings (like a [border](#border-settings) or a bind with multiple actions), you can specify them within a single string joined by `|||`.
 
-A few contrived examples:
+A few illustrative (but not very practical) examples:
 
 ```bash
 # Example:
 # If you started with one preview layout, the following overrides the first preview layout, and adds two new ones. It also sets 3 binds.
-mm p.l command=ls p.l "x=bye min=3" b "ctrl-c=Quit ?=preview(echo hi)" b.ctrl-a cancel
+mm p.l command=ls p.l "x=bye|||min=3" b "ctrl-c=Quit|||?=preview(echo hi)" b.ctrl-a cancel
 
 # Example:
 # Setting the column splitting delimiter
-mm m.c.split "\w+ /\w+" # Sets the field: columns.split = Split::Regexes([Regex('\w'), Regex('/\w+')])
-# or even shorter, using the absolute alias
-mm d "[ ]" # split on space
+mm m.c.split "\w+|||/\w+" # Sets the field: columns.split = Split::Regexes([Regex('\w'), Regex('/\w+')])
+# Note that the same effect is NOT achieved by specifying mm m.c.split "\w+" m.c.split "/\w+" in this case:
+# both declare a single (delimiter) regex, and the second command overwrites the first.
 
-# Example:
-# Enable wrapping
-mm p.w= r.r= # bool values are specified with true, false, or "" (true).
+# or even shorter, using the absolute alias
+mm d " " # split on space
 ```
 
-Individual values within the word specifying the leaf are split by whitespace.
+Bool values can be specified with true, false, or "".
 
-- Whitespace splitting is disabled by a single level of parenthesis `()`, or brackets `{}`, and continues until the opening token is matched.
-- The opening bracket `{}` is not included in the final output, while `()` is.
-- Braces within can be escaped from contributing to the nesting level with `\`.
-
-For example, `(( )) [one word] [\{}` splits into `(( ))`, `one word`, `[`.
+```bash
+# Example:
+# Enable result wrapping and scroll wrapping
+mm p.w= r.r=
+```
 
 ### Beware!
 

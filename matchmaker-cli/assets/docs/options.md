@@ -63,21 +63,28 @@ mm p.w= r.r= # bool values are specified with true, false, or "" (true).
 
 Individual values within the word specifying the leaf are split by whitespace.
 
-- Whitespace splitting is disabled by a single level of parenthesis `()`, or brackets `[]`, and continues until the opening token is matched.
-- The opening bracket `[]` is not included in the final output, while `()` is.
+- Whitespace splitting is disabled by a single level of parenthesis `()`, or brackets `{}`, and continues until the opening token is matched.
+- The opening bracket `{}` is not included in the final output, while `()` is.
 - Braces within can be escaped from contributing to the nesting level with `\`.
 
-For example, `(( )) [one word] [\[]` splits into `(( ))`, `one word`, `[`.
+For example, `(( )) [one word] [\{}` splits into `(( ))`, `one word`, `[`.
 
 ### Beware!
 
-1. All values are split following the above rule. If you are setting a single value with whitespaces, make sure to encapsulate it with `[..]`!
+1. All values are split following the above rule. If you are setting a single value with whitespaces, make sure to encapsulate it with `{..}`!
 
 ```shell
-ls -l | mm d "[ +]" h.h 1 px "echo 'Metadata: [=..3]'" # Set the delimiter, header_lines, and preview command
+ls -l | mm d "[ +]" h.h 1 px "echo 'Metadata: {=..3}'" # Set the delimiter, header_lines, and preview command
 ```
 
-2. When declaring a bind, it's recommended to use `mm b.ctrl-x "ExecuteSilent(rm [+]) Reload"` over `mm b "ctrl-x=ExecuteSilent(rm [+])"`, since the second format doesn't support chained actions.
+2. When declaring a bind, it's recommended to use `mm b.ctrl-x "ExecuteSilent(rm {+}) Reload"` over `mm b "ctrl-x=ExecuteSilent(rm {+})"`, since the second format doesn't support chained actions.
+
+## Colors and Modifiers
+
+All colors and modifiers come from ratatui:
+
+- https://ratatui.rs/examples/style/colors/
+- https://docs.rs/ratatui/latest/ratatui/style/struct.Modifier.html
 
 ## Available Options
 
@@ -202,7 +209,7 @@ ls -l | mm d "[ +]" h.h 1 px "echo 'Metadata: [=..3]'" # Set the delimiter, head
 - `wrap`: (bool) Enable line wrapping in preview.
 - `layout`: List of preview settings. This path overrides the existing preview layouts in order.
   - Absolute alias: `l`.
-  - `x`, `command`: Command to run for preview. `[]` is replaced by the item.
+  - `x`, `command`: Command to run for preview. `{}` is replaced by the item.
     - Absolute alias: `px`.
   - `layout` _(flattened)_:
     - `side`: `top`, `bottom`, `left`, `right`.
@@ -244,7 +251,7 @@ ls -l | mm d "[ +]" h.h 1 px "echo 'Metadata: [=..3]'" # Set the delimiter, head
 
 Most UI components have a `border` block:
 
-- `type`: `Plain`, `Rounded`, `Double`, `Thick`, `Sextant`, etc.
+- `type`: See https://docs.rs/matetui/latest/matetui/ratatui/widgets/enum.BorderType.html.
 - `color`: CSS-style colors or named colors (e.g., `blue`, `red`, `#ff0000`).
 - `bg`: Background color of the bordered area.
 - `sides`: Which sides to show (e.g., `TOP | BOTTOM | LEFT | RIGHT`). Empty string for none.

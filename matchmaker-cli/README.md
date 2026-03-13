@@ -98,7 +98,7 @@ The structure of the config file is defined [here](./matchmaker-cli/src/config.r
 Options can be overridden on the command line, where abbreviations are supported:
 
 ```sh
-mm p.l "cmd=echo []|||p=50|||max=20" cmd "ls" o "[=]"
+mm p.l "cmd=echo {}|||p=50|||max=20" cmd "ls" o "{=}"
 
 # 1. Start mm with the following overrides:
 # 2. List the contents of the current directory by executing `ls`
@@ -165,11 +165,11 @@ fzf --bind "ctrl-o:execute($EDITOR {+})"
 - In `mm`:
 
 ```text
-mm b.ctrl-o="Execute($EDITOR [+])"
+mm b.ctrl-o="Execute($EDITOR {+})"
 ```
 
 > [!NOTE]
-> The braces are changed to `[]` because templating and column splitting is slightly more powerful in mm. Since [templates](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md) only replace valid keys, this won't interfere with shell conditionals or regexes.
+> Note that [templates](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md) can be named in matchmaker, but they only replace valid keys.
 
 Here is a second demonstration, taken from [zoxide](https://github.com/ajeetdsouza/zoxide/blob/main/src/cmd/query.rs).
 

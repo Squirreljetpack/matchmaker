@@ -48,11 +48,11 @@
 
 [[preview.layout]]
     command = '''
-if [ -d [] ]; then
-    cd [] &&
+if [ -d {} ]; then
+    cd {} &&
     find . -maxdepth 2 | sed 's|[^/]*/|  |g'
 else
-    cat []
+    cat {}
 fi
 '''
     side       = "right"
@@ -110,10 +110,10 @@ fi
 
     "ctrl-t"    = "Execute(echo ----; read v; echo $v; echo ----)"
     "ctrl-l"    = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)"
-    "ctrl-o"    = "Execute(micro [])"
-    "alt-o"     = "Become(micro [])"
+    "ctrl-o"    = "Execute(micro {})"
+    "alt-o"     = "Become(micro {})"
     "ctrl-r"    = "Reload(fd -u)"
-    "alt-enter" = "Print([1])"
+    "alt-enter" = "Print({1})"
 
 [matcher]
     trim           = true
@@ -131,7 +131,7 @@ else
     find .
 fi
 '''
-    output  = "[]"
+    output  = "{}"
 
 [exit]
     select_1 = false

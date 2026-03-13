@@ -16,17 +16,17 @@
 
 [[preview.layout]]
     command = '''
-if [ -d [] ]; then
+if [ -d {} ]; then
     if command -v eza >/dev/null 2>&1; then
-        eza --color=always -T -L 2 []
+        eza --color=always -T -L 2 {}
     else
-        find [] -maxdepth 2 | sed 's|[^/]*/|  |g'
+        find {} -maxdepth 2 | sed 's|[^/]*/|  |g'
     fi
 else
     if command -v bat >/dev/null 2>&1; then
-        bat --binary no-printing --color=always []
+        bat --binary no-printing --color=always {}
     else
-        cat []
+        cat {}
     fi
 fi
 '''
@@ -93,8 +93,8 @@ fi
 
     # Programmable
     "ctrl-l" = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)" # "maximize" the preview
-    "ctrl-o" = "Execute($EDITOR [])"
-    "alt-o"  = "Become($EDITOR [])"
+    "ctrl-o" = "Execute($EDITOR {})"
+    "alt-o"  = "Become($EDITOR {})"
     "ctrl-r" = "Reload"
 
 [start]

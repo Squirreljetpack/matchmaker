@@ -14,11 +14,11 @@ default = 3
 
 [[preview.layout]]
 command = '''
-line=[2]
+line={2}
 if command -v bat >/dev/null 2>&1; then
-    bat --color=always --highlight-line ${line%%:*} [1]
+    bat --color=always --highlight-line ${line%%:*} {1}
 else
-    cat [1]
+    cat {1}
 fi
 '''
 border = { type = "LightDoubleDashed", color = "DarkGray" }
@@ -70,5 +70,5 @@ scroll.index = 2
 
 # Navigation
 "ctrl-." = "NextColumn"
-"enter" = "Become($EDITOR [1])"
+"enter" = "Become($EDITOR {1})"
 "?" = "SwitchPreview"

@@ -70,9 +70,9 @@ fn format_cli_inner(
     'outer: while let Some((_, c)) = chars.next() {
         if c == '\\' {
             if let Some(&(_, next)) = chars.peek() {
-                if next == '[' {
+                if next == '{' {
                     chars.next();
-                    result.push('[');
+                    result.push('{');
                     continue;
                 }
             }
@@ -80,25 +80,25 @@ fn format_cli_inner(
             continue;
         }
 
-        if c == '[' {
+        if c == '{' {
             // no more chars
             let Some(&(start, _)) = chars.peek() else {
-                result.push('[');
+                result.push('{');
                 break;
             };
 
             while let Some(&(j, nc)) = chars.peek() {
-                if nc == '[' {
-                    // Nested '[' found: push what we have so far as literal
-                    // and let the outer loop consume the new '['
-                    result.push('[');
+                if nc == '{' {
+                    // Nested '{' found: push what we have so far as literal
+                    // and let the outer loop consume the new '{'
+                    result.push('{');
                     result.push_str(&template[start..j]);
                     continue 'outer;
                 }
 
                 chars.next();
 
-                if nc == ']' {
+                if nc == '}' {
                     let key = &template[start..j];
 
                     if is_valid_content(key)
@@ -107,16 +107,16 @@ fn format_cli_inner(
                         result.push_str(&s);
                     } else {
                         // Invalid key
-                        result.push('[');
+                        result.push('{');
                         result.push_str(key);
-                        result.push(']');
+                        result.push('}');
                     }
                     continue 'outer;
                 }
             }
 
             // No closing brace
-            result.push('[');
+            result.push('{');
             result.push_str(&template[start..]);
             break;
         }
@@ -133,26 +133,26 @@ fn any_non_multi(template: &str) -> bool {
     'outer: while let Some((_, c)) = chars.next() {
         if c == '\\' {
             if let Some(&(_, next)) = chars.peek() {
-                if next == '[' {
+                if next == '{' {
                     chars.next();
                 }
             }
             continue;
         }
 
-        if c == '[' {
+        if c == '{' {
             let Some(&(start, _)) = chars.peek() else {
                 break;
             };
 
             while let Some(&(j, nc)) = chars.peek() {
-                if nc == '[' {
+                if nc == '{' {
                     continue 'outer;
                 }
 
                 chars.next();
 
-                if nc == ']' {
+                if nc == '}' {
                     let key = &template[start..j];
 
                     // Check valid content and slice match for prefixes
@@ -455,20 +455,20 @@ mod tests {
                 &event_tx,
             );
 
-            let result = format_cli(&mut mm_state, "echo [col1] [=col2] [col3]", None);
+            let result = format_cli(&mut mm_state, "echo {col1} {=col2} {col3}", None);
             assert_eq!(result, "echo 'a' b 'c'");
 
-            let result = format_cli(&mut mm_state, "echo [] [=]", None);
+            let result = format_cli(&mut mm_state, "echo {} {=}", None);
             assert_eq!(result, "echo 'a,b,c' a,b,c");
 
-            let result = format_cli(&mut mm_state, "echo [[col1]] [[=col2]]", None);
-            assert_eq!(result, "echo ['a'] [b]");
+            let result = format_cli(&mut mm_state, "echo {{col1}} {{=col2}}", None);
+            assert_eq!(result, "echo {'a'} {b}");
 
-            let result = format_cli(&mut mm_state, "echo [col1 ] [col1:val]", None);
-            assert_eq!(result, "echo [col1 ] [col1:val]");
+            let result = format_cli(&mut mm_state, "echo {col1 } {col1:val}", None);
+            assert_eq!(result, "echo {col1 } {col1:val}");
 
-            let result = format_cli(&mut mm_state, "echo [ [] ]", None);
-            assert_eq!(result, "echo [ 'a,b,c' ]");
+            let result = format_cli(&mut mm_state, "echo { {} }", None);
+            assert_eq!(result, "echo { 'a,b,c' }");
         }
     }
 
@@ -504,11 +504,11 @@ mod tests {
                 &event_tx,
             );
 
-            let result = format_cli(&mut mm_state, "echo [..] [col2..] [..col2]", None);
+            let result = format_cli(&mut mm_state, "echo {..} {col2..} {..col2}", None);
             // ..col2 is exclusive
             assert_eq!(result, "echo 'a b c' 'b c' 'a'");
 
-            let result = format_cli(&mut mm_state, "echo [=col2..] [-..col2]", None);
+            let result = format_cli(&mut mm_state, "echo {=col2..} {-..col2}", None);
             // ..col2 is exclusive
             assert_eq!(result, "echo b c a");
         }
@@ -557,11 +557,11 @@ mod tests {
             mm_state.picker_ui.input.set(Some("%col2 ".to_string()), 6);
             mm_state.picker_ui.update();
 
-            let result = format_cli(&mut mm_state, "echo [+] [-col1] [-!] [+!]", None);
-            // [+] -> 'a,b,c' '1,2,3'
-            // [-col1] -> a 1
-            // [-!] -> b 2 (active col is col2 because of %col2 )
-            // [+!] -> 'b' '2'
+            let result = format_cli(&mut mm_state, "echo {+} {-col1} {-!} {+!}", None);
+            // {+} -> 'a,b,c' '1,2,3'
+            // {-col1} -> a 1
+            // {-!} -> b 2 (active col is col2 because of %col2 )
+            // {+!} -> 'b' '2'
             assert_eq!(result, "echo 'a,b,c' '1,2,3' a 1 b 2 'b' '2'");
         }
     }
@@ -598,8 +598,8 @@ mod tests {
                 &event_tx,
             );
 
-            let result = format_cli(&mut mm_state, "echo [invalid] [=also_invalid]", None);
-            assert_eq!(result, "echo [invalid] [=also_invalid]");
+            let result = format_cli(&mut mm_state, "echo {missing} {=also_invalid}", None);
+            assert_eq!(result, "echo {missing} {=also_invalid}");
         }
     }
 }

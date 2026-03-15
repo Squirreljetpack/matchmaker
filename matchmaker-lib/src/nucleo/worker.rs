@@ -311,12 +311,9 @@ impl<T: SSS> Worker<T> {
                         let max_width = widths.next().unwrap();
                         let cell = column.format(item.data);
 
-                        // 0 represents hide
-                        if width_limit == 0 {
-                            return Text::default();
-                        }
-
-                        let (cell, width) = if column.filter {
+                        let (cell, width) = if width_limit == 0 {
+                            (Default::default(), if wrap { 1 } else { cell.width() })
+                        } else if column.filter {
                             render_cell(
                                 cell,
                                 col_idx,

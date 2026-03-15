@@ -1167,7 +1167,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-cli"
-version = "0.0.19"
+version = "0.0.20"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
@@ -1194,7 +1194,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-lib"
-version = "0.0.19"
+version = "0.0.20"
 dependencies = [
  "ansi-to-tui",
  "anyhow",

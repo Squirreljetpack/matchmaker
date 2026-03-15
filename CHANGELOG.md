@@ -1,3 +1,9 @@
+## [0.0.20] - 2026-03-15
+
+### 🐛 Bug Fixes
+
+- Invisible columns
+
 ## [0.0.19] - 2026-03-14
 
 ### 🚀 Features

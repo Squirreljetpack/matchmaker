@@ -329,6 +329,7 @@ fn inject_line(
     let mut remaining = header_lines;
     let injector = injector;
 
+    // For each row, take the first line of each segmented column, building a Vec<Vec<Line>>
     move |line: String| {
         if remaining > 0 {
             let item = injector.wrap(line).unwrap();

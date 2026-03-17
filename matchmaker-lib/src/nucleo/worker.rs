@@ -329,7 +329,7 @@ impl<T: SSS> Worker<T> {
                             )
                         // todo: hscroll on non filtering
                         } else if wrap {
-                            let (cell, wrapped) = wrap_text(cell, width_limit.saturating_sub(1));
+                            let (cell, wrapped) = wrap_text(cell, width_limit);
 
                             let width = if wrapped {
                                 width_limit as usize

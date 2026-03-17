@@ -8,7 +8,10 @@ use ratatui::{
 
 use crate::{
     config::{DisplayConfig, RowConnectionStyle},
-    utils::{serde::StringOrVec, text::wrap_text},
+    utils::{
+        serde::StringOrVec,
+        text::{wrap_line, wrap_text, wrapping_indicator},
+    },
 };
 pub type HeaderTable = Vec<Vec<Line<'static>>>;
 #[derive(Debug)]
@@ -50,14 +53,7 @@ impl DisplayUI {
     pub fn update_width(&mut self, width: u16) {
         let border_w = self.config.border.width();
         let new_w = width.saturating_sub(border_w);
-        if new_w != self.width {
-            self.width = new_w;
-            // only rewrap of single cell is supported for now
-            if self.config.wrap && self.single() {
-                let text = wrap_text(self.text[0].clone(), self.width).0;
-                self.text[0] = text;
-            }
-        }
+        self.width = new_w;
     }
 
     pub fn height(&self) -> u16 {
@@ -72,9 +68,8 @@ impl DisplayUI {
 
     /// Set text and visibility. Compute wrapped height.
     pub fn set(&mut self, text: impl Into<Text<'static>>) {
-        let (text, _) = wrap_text(text.into(), self.config.wrap as u16 * self.width);
-
-        self.text = vec![text];
+        // let (text, _) = wrap_text(text.into(), self.config.wrap as u16 * self.width);
+        self.text = vec![text.into()];
 
         self.show = true;
     }
@@ -130,31 +125,31 @@ impl DisplayUI {
         let (cells, height) = if self.single() {
             // Single Cell (Full Width)
             // reflow is handled in update_width
-            let cells = if self.text.len() > 1 {
-                vec![]
-            } else {
-                vec![Cell::from(self.text[0].clone())]
-            };
+            let text = wrap_text(
+                self.text[0].clone(),
+                if self.config.wrap { self.width } else { 0 },
+            )
+            .0;
+            let cells = vec![Cell::from(text)];
             let height = self.text[0].height() as u16;
 
             (cells, height)
-        } else {
+        } else
+        // Multiple (multi-line) columns
+        {
             let mut height = 0;
-            // todo: lowpri: is this wrapping behavior good enough?
+            // wrap text according to result column widths
             let cells = self
                 .text
                 .iter()
                 .cloned()
                 .zip(widths.iter().copied())
                 .map(|(text, width)| {
-                    let ret = wrap_text(text, width).0;
+                    let ret = wrap_text(text, if self.config.wrap { width } else { 0 }).0;
                     height = height.max(ret.height() as u16);
 
                     Cell::from(ret.transform_if(
-                        matches!(
-                            self.config.row_connection,
-                            RowConnectionStyle::Disjoint
-                        ),
+                        matches!(self.config.row_connection, RowConnectionStyle::Disjoint),
                         |r| r.style(style),
                     ))
                 })
@@ -169,9 +164,25 @@ impl DisplayUI {
 
         // add header cells
         if !self.header.is_empty() {
-            // todo: support wrapping
+            // todo: support wrapping on header lines
             rows.extend(self.header.iter().map(|row| {
-                let cells: Vec<Cell> = row.iter().cloned().map(Cell::from).collect();
+                let cells: Vec<Cell> = row
+                    .iter()
+                    .cloned()
+                    .enumerate()
+                    .map(|(i, l)| {
+                        wrap_line(
+                            l,
+                            self.config
+                                .wrap
+                                .then_some(widths.get(i).cloned())
+                                .flatten()
+                                .unwrap_or_default(),
+                            &wrapping_indicator(),
+                        )
+                    })
+                    .map(Cell::from)
+                    .collect();
                 Row::new(cells)
             }));
 
@@ -188,10 +199,7 @@ impl DisplayUI {
             .block(block)
             .column_spacing(col_spacing)
             .transform_if(
-                !matches!(
-                    self.config.row_connection,
-                    RowConnectionStyle::Disjoint
-                ),
+                !matches!(self.config.row_connection, RowConnectionStyle::Disjoint),
                 |t| t.style(style),
             )
     }

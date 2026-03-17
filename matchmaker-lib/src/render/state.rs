@@ -294,6 +294,8 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
         self.picker_ui.worker.injector()
     }
 
+    /// Result column widths
+    /// Note that the first width doesn't include the indentation.
     pub fn widths(&self) -> &Vec<u16> {
         self.picker_ui.results.widths()
     }

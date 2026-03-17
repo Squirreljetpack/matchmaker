@@ -2,7 +2,6 @@
 
 use std::{borrow::Cow, ops::Range};
 
-use log::error;
 use ratatui::{
     style::{Color, Modifier, Style, Stylize},
     text::{Line, Span, Text},
@@ -117,80 +116,100 @@ pub fn hscroll_indicator<'a>() -> Span<'a> {
     Span::styled("…", Style::default().fg(Color::DarkGray))
 }
 
+// todo: lowpri: refactor to support configuring the wrapping_indicator
+/// Helper to slice Cow strings without forcing an allocation if it's currently Borrowed.
+/// Helper to slice Cow strings without forcing an allocation if it's currently Borrowed.
+fn slice_cow<'a>(cow: &Cow<'a, str>, start: usize, end: usize) -> Cow<'a, str> {
+    match cow {
+        Cow::Borrowed(s) => Cow::Borrowed(&s[start..end]),
+        Cow::Owned(s) => Cow::Owned(s[start..end].to_owned()),
+    }
+}
+
+/// Wrap a line if it exceeds max_width, with an indicator as the final line character
+/// Any grapheme which doesn't fit in max_width is forced onto a new line.
+pub fn wrap_line<'a>(line: Line<'a>, max_width: u16, indicator: &Span<'a>) -> Vec<Line<'a>> {
+    if max_width == 0 || line.width() as u16 <= max_width {
+        return vec![line];
+    }
+
+    let available_width = max_width.saturating_sub(indicator.width() as u16);
+
+    let mut wrapped_lines = Vec::new();
+    let mut current_spans = Vec::new();
+    let mut current_line_width = 0;
+
+    for span in line.spans {
+        let mut slice_start = 0;
+
+        // Using grapheme_indices gives us the byte offset directly
+        for (idx, grapheme) in span.content.grapheme_indices(true) {
+            let g_width = grapheme.width() as u16;
+
+            // Ignore 0-width graphemes in our width calculations;
+            // the slicing logic will naturally bundle them with the preceding characters.
+            if g_width == 0 {
+                continue;
+            }
+
+            // Wrap condition: Exceeds width AND it's not the first grapheme on the line
+            // (The `> 0` check safely forces an oversized grapheme onto the line to prevent infinite loops)
+            if current_line_width + g_width > available_width && current_line_width > 0 {
+                // 1. Flush the progress of the current span up to this byte index
+                if idx > slice_start {
+                    let cow = slice_cow(&span.content, slice_start, idx);
+                    current_spans.push(Span::styled(cow, span.style));
+                }
+
+                // 2. Append the wrapping indicator and finalize the line
+                current_spans.push(indicator.clone());
+                wrapped_lines.push(Line::from(std::mem::take(&mut current_spans)));
+
+                // 3. Reset states for the new line
+                slice_start = idx;
+                current_line_width = 0;
+            }
+
+            current_line_width += g_width;
+        }
+
+        // Flush any remaining text in the span after the loop
+        let span_len = span.content.len();
+        if span_len > slice_start {
+            let cow = slice_cow(&span.content, slice_start, span_len);
+            current_spans.push(Span::styled(cow, span.style));
+        }
+    }
+
+    if !current_spans.is_empty() {
+        wrapped_lines.push(Line::from(current_spans));
+    }
+
+    wrapped_lines
+}
+
+/// Convenience wrapper around line wrapper
 pub fn wrap_text<'a>(text: Text<'a>, max_width: u16) -> (Text<'a>, bool) {
-    // todo: lowpri: refactor to support configuring
     let wrapping_span = wrapping_indicator();
 
     if max_width == 0 {
         return (text, false);
     }
-    if max_width <= 1 {
-        error!("Invalid width for text: {text:?}");
-        return (text, false);
-    }
+    // if max_width <= 1 {
+    //     error!("Invalid width for text: {text:?}");
+    //     return (text, false);
+    // }
 
     let mut new_lines = Vec::new();
-    let mut wrapped = false;
+    let mut did_wrap_any = false;
 
     for line in text.lines {
-        let mut current_line_spans = Vec::new();
-        let mut current_line_width = 0;
-
-        if line.spans.is_empty() {
-            new_lines.push(line);
-            continue;
-        }
-
-        for span in line.spans {
-            let graphemes: Vec<&str> = span.content.graphemes(true).collect();
-            let mut current_grapheme_start_idx = 0;
-
-            while current_grapheme_start_idx < graphemes.len() {
-                let mut graphemes_in_chunk = 0;
-
-                for (i, grapheme) in graphemes
-                    .iter()
-                    .skip(current_grapheme_start_idx)
-                    .enumerate()
-                {
-                    let grapheme_width = UnicodeWidthStr::width(*grapheme);
-
-                    if current_line_width + grapheme_width >= max_width as usize {
-                        let is_last_in_span = current_grapheme_start_idx + i + 1 == graphemes.len();
-                        if !is_last_in_span {
-                            break;
-                        }
-                    }
-
-                    current_line_width += grapheme_width;
-                    graphemes_in_chunk += 1;
-                }
-
-                if graphemes_in_chunk > 0 {
-                    let chunk_end_idx = current_grapheme_start_idx + graphemes_in_chunk;
-                    let chunk_content =
-                        graphemes[current_grapheme_start_idx..chunk_end_idx].concat();
-                    current_line_spans.push(Span::styled(chunk_content, span.style));
-                    current_grapheme_start_idx += graphemes_in_chunk;
-                }
-
-                if current_grapheme_start_idx < graphemes.len() {
-                    // line wrapped
-                    wrapped = true;
-                    current_line_spans.push(wrapping_span.clone());
-                    new_lines.push(Line::from(current_line_spans));
-                    current_line_spans = Vec::new();
-                    current_line_width = 0;
-                }
-            }
-        }
-
-        if !current_line_spans.is_empty() {
-            new_lines.push(Line::from(current_line_spans));
-        }
+        let new = wrap_line(line, max_width, &wrapping_span);
+        did_wrap_any |= new.len() > 1;
+        new_lines.extend(new);
     }
 
-    (Text::from(new_lines), wrapped)
+    (Text::from(new_lines), did_wrap_any)
 }
 
 /// Convert `Text` into lines of plain `String`s

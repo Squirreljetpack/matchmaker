@@ -31,7 +31,7 @@ pub struct ResultsUI {
     /// available width
     width: u16,
     // column widths.
-    // Note that the first width includes the indentation.
+    // Note that the first width doesn't include the indentation.
     widths: Vec<u16>,
 
     pub hidden_columns: Vec<bool>,
@@ -241,7 +241,7 @@ impl ResultsUI {
     }
 
     /// Column widths.
-    /// Note that the first width includes the indentation.
+    /// Note that the first width doesn't include the indentation.
     pub fn widths(&self) -> &Vec<u16> {
         &self.widths
     }

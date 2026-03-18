@@ -1,7 +1,10 @@
 use std::fmt;
 
 use cba::{bird::one_or_many, define_transparent_wrapper};
-use ratatui::widgets::Borders;
+use ratatui::{
+    style::{Color, Modifier, Style},
+    widgets::Borders,
+};
 
 use regex::Regex;
 
@@ -10,6 +13,20 @@ use serde::{
     de::{self, Visitor},
     ser::SerializeSeq,
 };
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct StyleSetting {
+    pub fg: Color,
+    pub bg: Color,
+    pub modifier: Modifier,
+}
+
+impl From<StyleSetting> for Style {
+    fn from(s: StyleSetting) -> Style {
+        Style::default().fg(s.fg).bg(s.bg).add_modifier(s.modifier)
+    }
+}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum HorizontalSeparator {

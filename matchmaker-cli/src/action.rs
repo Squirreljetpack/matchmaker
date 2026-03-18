@@ -188,7 +188,7 @@ pub fn action_handler(
         MMAction::SetStyledPrompt(s) => {
             state
                 .picker_ui
-                .input
+                .query
                 .set_prompt(Some(StatusUI::parse_template_to_status_line(&s)));
         }
         MMAction::SetStyledStatus(s) => {
@@ -201,7 +201,7 @@ pub fn action_handler(
             state.picker_ui.results.set_status_line(s.map(Line::raw));
         }
         MMAction::SetPrompt(s) => {
-            state.picker_ui.input.set_prompt(s.map(Line::raw));
+            state.picker_ui.query.set_prompt(s.map(Line::raw));
         }
         MMAction::ExecuteAsync(s) => {
             state.set_interrupt(Interrupt::ExecuteSilent, s);
@@ -465,11 +465,11 @@ mod tests {
             _ => panic!(),
         }
 
-        let push_inner =
-            match Action::<MMAction>::from_str("PushBind(ctrl-r = @enter_mm)").unwrap() {
-                Action::Custom(MMAction::PushBind(s)) => s,
-                _ => panic!(),
-            };
+        let push_inner = match Action::<MMAction>::from_str("PushBind(ctrl-r = @enter_mm)").unwrap()
+        {
+            Action::Custom(MMAction::PushBind(s)) => s,
+            _ => panic!(),
+        };
 
         let (_trigger, action) = parse_push_bind_parts(&push_inner).unwrap();
         assert_eq!(action, Action::Semantic("enter_mm".into()));

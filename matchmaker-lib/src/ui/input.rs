@@ -1,3 +1,5 @@
+use std::ops::{Deref, DerefMut};
+
 use ratatui::{
     layout::{Position, Rect},
     text::{Line, Span},
@@ -6,40 +8,21 @@ use ratatui::{
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
-use crate::config::InputConfig;
+use crate::config::QueryConfig;
 
-#[derive(Debug)]
+#[derive(Debug, Default, Clone)]
 pub struct InputUI {
-    cursor: usize,     // index into graphemes, can = graphemes.len()
+    pub cursor: usize, // index into graphemes, can = graphemes.len()
     pub input: String, // remember to call recompute_graphemes() after modifying directly
     /// (byte_index, width)
-    graphemes: Vec<(usize, u16)>,
-    prompt: Line<'static>,
-    before: usize, // index into graphemes of the first visible grapheme
-    width: u16,    // only relevant to cursor scrolling
-
-    pub config: InputConfig,
+    pub graphemes: Vec<(usize, u16)>,
+    pub before: usize, // index into graphemes of the first visible grapheme
+    pub width: u16,    // only relevant to cursor scrolling
 }
 
 impl InputUI {
-    pub fn new(config: InputConfig) -> Self {
-        let mut ui = Self {
-            cursor: 0,
-            input: "".into(),
-            graphemes: Vec::new(),
-            prompt: Line::styled(config.prompt.clone(), config.prompt_style()),
-            config,
-            before: 0,
-            width: 0,
-        };
-
-        if !ui.config.initial.is_empty() {
-            ui.input = ui.config.initial.clone();
-            ui.recompute_graphemes();
-            ui.cursor = ui.graphemes.len();
-        }
-
-        ui
+    pub fn new() -> Self {
+        Self::default()
     }
 
     // -------- UTILS -----------
@@ -76,32 +59,7 @@ impl InputUI {
         self.cursor as u16
     }
 
-    pub fn left(&self) -> u16 {
-        self.config.border.left() + self.prompt.width() as u16
-    }
-
-    /// Given a rect the widget is rendered with, produce the absolute position the cursor is rendered at.
-    pub fn cursor_offset(&self, rect: &Rect) -> Position {
-        let top = self.config.border.top();
-
-        let offset_x: u16 = self.graphemes[self.before..self.cursor]
-            .iter()
-            .map(|(_, w)| *w)
-            .sum();
-
-        Position::new(rect.x + self.left() + offset_x, rect.y + top)
-    }
-
     // ------------ SETTERS ---------------
-    pub fn update_width(&mut self, width: u16) {
-        let text_width = width
-            .saturating_sub(self.prompt.width() as u16)
-            .saturating_sub(self.config.border.width());
-        if self.width != text_width {
-            self.width = text_width;
-        }
-    }
-
     pub fn set(&mut self, input: impl Into<Option<String>>, cursor: u16) {
         if let Some(input) = input.into() {
             self.input = input;
@@ -131,11 +89,10 @@ impl InputUI {
         self.cursor = self.graphemes.len();
     }
 
-    pub fn scroll_to_cursor(&mut self) {
+    pub fn scroll_to_cursor(&mut self, padding: usize) {
         if self.width == 0 {
             return;
         }
-        let padding = self.config.scroll_padding as usize;
 
         // when cursor moves behind or on start, display grapheme before cursor as the first visible,
         if self.before >= self.cursor {
@@ -307,7 +264,8 @@ impl InputUI {
 
     // ---------------------------------------
     // remember to call scroll_to_cursor beforehand
-    pub fn make_input(&self) -> Paragraph<'_> {
+
+    pub fn render(&self) -> &str {
         let mut visible_width = 0;
         let mut end_idx = self.before;
 
@@ -324,8 +282,88 @@ impl InputUI {
         let end_byte = self.byte_index(end_idx);
         let visible_input = &self.input[start_byte..end_byte];
 
+        visible_input
+    }
+
+    pub fn cursor_rel_offset(&self) -> u16 {
+        self.graphemes[self.before..self.cursor]
+            .iter()
+            .map(|(_, w)| *w)
+            .sum()
+    }
+}
+
+#[derive(Debug)]
+pub struct QueryUI {
+    pub state: InputUI,
+    prompt: Line<'static>,
+    pub config: QueryConfig,
+}
+
+impl Deref for QueryUI {
+    type Target = InputUI;
+    fn deref(&self) -> &Self::Target {
+        &self.state
+    }
+}
+
+impl DerefMut for QueryUI {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.state
+    }
+}
+
+impl QueryUI {
+    pub fn new(config: QueryConfig) -> Self {
+        let mut ui = Self {
+            state: InputUI::new(),
+            prompt: Line::styled(config.prompt.clone(), config.prompt_style()),
+            config,
+        };
+
+        if !ui.config.initial.is_empty() {
+            ui.input = ui.config.initial.clone();
+            ui.recompute_graphemes();
+            ui.cursor = ui.graphemes.len();
+        }
+
+        ui
+    }
+
+    pub fn left(&self) -> u16 {
+        self.config.border.left() + self.prompt.width() as u16
+    }
+
+    /// Given a rect the widget is rendered with, produce the absolute position the cursor is rendered at.
+    pub fn cursor_offset(&self, rect: &Rect) -> Position {
+        let top = self.config.border.top();
+        Position::new(
+            rect.x + self.left() + self.cursor_rel_offset(),
+            rect.y + top,
+        )
+    }
+
+    // ------------ SETTERS ---------------
+    pub fn update_width(&mut self, width: u16) {
+        let text_width = width
+            .saturating_sub(self.prompt.width() as u16)
+            .saturating_sub(self.config.border.width());
+        if self.width != text_width {
+            self.width = text_width;
+        }
+    }
+
+    pub fn scroll_to_cursor(&mut self) {
+        let padding = self.config.scroll_padding as usize;
+        self.state.scroll_to_cursor(padding);
+    }
+
+    // ---------------------------------------
+    // remember to call scroll_to_cursor beforehand
+
+    pub fn make_input(&self) -> Paragraph<'_> {
         let mut line = self.prompt.clone();
-        line.push_span(Span::styled(visible_input, self.config.text_style()));
+        line.push_span(Span::styled(self.state.render(), self.config.text_style()));
 
         Paragraph::new(line).block(self.config.border.as_block())
     }

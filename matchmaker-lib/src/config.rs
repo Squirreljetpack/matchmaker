@@ -122,8 +122,8 @@ pub struct RenderConfig {
     /// The default overlay style
     pub ui: UiConfig,
     /// The input bar style
-    #[partial(alias = "i")]
-    pub input: InputConfig,
+    #[partial(alias = "q")]
+    pub query: QueryConfig,
     /// The results table style
     #[partial(alias = "r")]
     pub results: ResultsConfig,
@@ -203,7 +203,7 @@ impl Default for UiConfig {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
-pub struct InputConfig {
+pub struct QueryConfig {
     #[partial(recurse)]
     pub border: BorderSetting,
 
@@ -234,7 +234,7 @@ pub struct InputConfig {
     pub scroll_padding: bool,
 }
 
-impl Default for InputConfig {
+impl Default for QueryConfig {
     fn default() -> Self {
         Self {
             border: Default::default(),
@@ -253,7 +253,7 @@ impl Default for InputConfig {
     }
 }
 
-impl InputConfig {
+impl QueryConfig {
     pub fn text_style(&self) -> Style {
         Style::default()
             .fg(self.fg)

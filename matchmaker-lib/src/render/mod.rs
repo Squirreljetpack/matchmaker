@@ -20,7 +20,7 @@ use crate::config::{CursorSetting, ExitConfig, RowConnectionStyle};
 use crate::event::EventSender;
 use crate::message::{Event, Interrupt, RenderCommand};
 use crate::tui::Tui;
-use crate::ui::{DisplayUI, InputUI, OverlayUI, PickerUI, PreviewUI, ResultsUI, UI};
+use crate::ui::{DisplayUI, QueryUI, OverlayUI, PickerUI, PreviewUI, ResultsUI, UI};
 use crate::{ActionAliaser, ActionExtHandler, Initializer, MatchError, SSS, Selection};
 
 fn apply_aliases<T: SSS, S: Selection, A: ActionExt>(
@@ -160,7 +160,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                     x.handle_input(c);
                                 }
                             } else {
-                                picker_ui.input.push_str(&content);
+                                picker_ui.query.push_str(&content);
                             }
                         }
                     }
@@ -187,13 +187,13 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                 click = Click::ResultPos(mouse.row - result.top());
                             } else if input.contains(pos) {
                                 // The X offset of the start of the visible text relative to the terminal
-                                let text_start_x = input.x + picker_ui.input.left();
+                                let text_start_x = input.x + picker_ui.query.left();
 
                                 if pos.x >= text_start_x {
                                     let visual_offset = pos.x - text_start_x;
-                                    picker_ui.input.set_at_visual_offset(visual_offset);
+                                    picker_ui.query.set_at_visual_offset(visual_offset);
                                 } else {
-                                    picker_ui.input.set(None, 0);
+                                    picker_ui.query.set(None, 0);
                                 }
                             } else if status.contains(pos) {
                                 // todo
@@ -240,7 +240,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         }
                     }
                     let PickerUI {
-                        input,
+                        query: input,
                         results,
                         worker,
                         selector: selections,
@@ -568,7 +568,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                 );
                             }
                         }
-                        Action::Char(c) => picker_ui.input.push_char(c),
+                        Action::Char(c) => picker_ui.query.push_char(c),
 
                         // unreachable
                         Action::PrintKey => {}
@@ -712,7 +712,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
                 if did_resize {
                     picker_ui.results.update_dimensions(&results);
-                    picker_ui.input.update_width(input.width);
+                    picker_ui.query.update_width(input.width);
                     footer_ui.update_width(
                         if footer_ui.config.row_connection == RowConnectionStyle::Capped {
                             area.width
@@ -728,7 +728,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     }
                 };
 
-                cursor_y_offset = render_input(frame, input, &mut picker_ui.input).y;
+                cursor_y_offset = render_input(frame, input, &mut picker_ui.query).y;
                 render_status(frame, status, &picker_ui.results, ui.area().width);
                 render_results(frame, results, &mut picker_ui, &mut click);
                 render_display(frame, header, &mut picker_ui.header, &picker_ui.results);
@@ -864,7 +864,7 @@ fn render_results<T: SSS, S: Selection>(
 }
 
 /// Returns the offset of the cursor against the drawing area
-fn render_input(frame: &mut Frame, area: Rect, ui: &mut InputUI) -> Position {
+fn render_input(frame: &mut Frame, area: Rect, ui: &mut QueryUI) -> Position {
     ui.scroll_to_cursor();
     let widget = ui.make_input();
     let p = ui.cursor_offset(&area);

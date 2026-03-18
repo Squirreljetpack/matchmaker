@@ -13,6 +13,7 @@ pub enum OverlayEffect {
     #[default]
     None,
     Disable,
+    UpdateArea(Option<u16>, Option<u16>),
 }
 
 pub trait Overlay {
@@ -200,6 +201,7 @@ impl<A: ActionExt> OverlayUI<A> {
         if let Some(x) = self.current_mut() {
             match x.handle_input(action) {
                 OverlayEffect::None => {}
+                OverlayEffect::UpdateArea(w, h) => self.update_area(w, h),
                 OverlayEffect::Disable => self.disable(),
             }
             true
@@ -212,12 +214,29 @@ impl<A: ActionExt> OverlayUI<A> {
         if let Some(inner) = self.current_mut() {
             match inner.handle_action(action) {
                 OverlayEffect::None => {}
+                OverlayEffect::UpdateArea(w, h) => self.update_area(w, h),
                 OverlayEffect::Disable => self.disable(),
             }
             true
         } else {
             false
         }
+    }
+
+    fn update_area(&mut self, w: Option<u16>, h: Option<u16>) {
+        let center_x = self.cached_area.x + self.cached_area.width / 2;
+        let center_y = self.cached_area.y + self.cached_area.height / 2;
+
+        if let Some(new_w) = w {
+            self.cached_area.width = new_w;
+        }
+        if let Some(new_h) = h {
+            self.cached_area.height = new_h;
+        }
+
+        // recenter
+        self.cached_area.x = center_x.saturating_sub(self.cached_area.width / 2);
+        self.cached_area.y = center_y.saturating_sub(self.cached_area.height / 2);
     }
 }
 

@@ -173,7 +173,7 @@ impl State {
         }
         self.iterations += 1;
 
-        self.update_input(&picker_ui.input.input);
+        self.update_input(&picker_ui.query.input);
         self.col = picker_ui.results.col();
 
         let status = &picker_ui.results.status;
@@ -315,7 +315,7 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
 
     pub fn get_content_and_index(&self) -> (String, u32) {
         (
-            self.picker_ui.input.input.clone(),
+            self.picker_ui.query.input.clone(),
             self.picker_ui.results.index(),
         )
     }

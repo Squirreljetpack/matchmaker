@@ -18,7 +18,7 @@ pub use ratatui::{
 use crate::{
     SSS, Selection, Selector,
     config::{
-        DisplayConfig, InputConfig, PreviewLayout, RenderConfig, ResultsConfig, StatusConfig,
+        DisplayConfig, PreviewLayout, QueryConfig, RenderConfig, ResultsConfig, StatusConfig,
         TerminalLayoutSettings, UiConfig,
     },
     nucleo::Worker,
@@ -75,7 +75,7 @@ impl UI {
         let mut picker = PickerUI::new(
             config.results,
             config.status,
-            config.input,
+            config.query,
             config.header,
             matcher,
             worker,
@@ -134,7 +134,7 @@ impl UI {
 
 pub struct PickerUI<'a, T: SSS, S: Selection> {
     pub results: ResultsUI,
-    pub input: InputUI,
+    pub query: QueryUI,
     pub header: DisplayUI,
     pub matcher: &'a mut nucleo::Matcher,
     pub selector: Selector<T, S>,
@@ -145,7 +145,7 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
     pub fn new(
         results_config: ResultsConfig,
         status_config: StatusConfig,
-        input_config: InputConfig,
+        input_config: QueryConfig,
         header_config: DisplayConfig,
         matcher: &'a mut nucleo::Matcher,
         worker: Worker<T>,
@@ -153,7 +153,7 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
     ) -> Self {
         Self {
             results: ResultsUI::new(results_config, status_config),
-            input: InputUI::new(input_config),
+            query: QueryUI::new(input_config),
             header: DisplayUI::new(header_config),
             matcher,
             selector: selections,
@@ -163,14 +163,14 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
 
     pub fn layout(&self, area: Rect) -> [Rect; 4] {
         let PickerUI {
-            input,
+            query,
             header,
             results,
             ..
         } = self;
 
         let mut constraints = [
-            Constraint::Length(1 + input.config.border.height()), // input
+            Constraint::Length(1 + query.config.border.height()), // input
             Constraint::Length(results.status_config.show as u16), // status
             Constraint::Length(header.height()),
             Constraint::Fill(1), // results
@@ -197,7 +197,7 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
 
 impl<'a, T: SSS, O: Selection> PickerUI<'a, T, O> {
     pub fn make_table(&mut self, click: &mut Click) -> (Table<'_>, u16) {
-        let cursor_byte = self.input.byte_index(self.input.cursor() as usize);
+        let cursor_byte = self.query.byte_index(self.query.cursor() as usize);
         let active_column = self.worker.query.active_column_index(cursor_byte);
 
         let table = self.results.make_table(
@@ -212,10 +212,10 @@ impl<'a, T: SSS, O: Selection> PickerUI<'a, T, O> {
     }
 
     pub fn update(&mut self) {
-        self.worker.find(&self.input.input);
+        self.worker.find(&self.query.input);
     }
     pub fn tick(&mut self) {
-        self.worker.find(&self.input.input);
+        self.worker.find(&self.query.input);
     }
 
     // creation from UI ensures Some

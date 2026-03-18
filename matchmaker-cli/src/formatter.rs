@@ -227,8 +227,8 @@ fn get_val<'a>(
         // current column
         let cursor_byte = state
             .picker_ui
-            .input
-            .byte_index(state.picker_ui.input.cursor() as usize);
+            .query
+            .byte_index(state.picker_ui.query.cursor() as usize);
         let idx = state
             .picker_ui
             .worker
@@ -554,7 +554,7 @@ mod tests {
             );
 
             // Set query to select col2
-            mm_state.picker_ui.input.set(Some("%col2 ".to_string()), 6);
+            mm_state.picker_ui.query.set(Some("%col2 ".to_string()), 6);
             mm_state.picker_ui.update();
 
             let result = format_cli(&mut mm_state, "echo {+} {-col1} {-!} {+!}", None);

@@ -112,6 +112,10 @@ pub fn wrapping_indicator<'a>() -> Span<'a> {
     Span::raw("↵").fg(Color::DarkGray).dim()
 }
 
+pub fn truncation_indicator<'a>() -> Span<'a> {
+    Span::styled(" …", Style::default().fg(Color::DarkGray))
+}
+
 pub fn hscroll_indicator<'a>() -> Span<'a> {
     Span::styled("…", Style::default().fg(Color::DarkGray))
 }
@@ -195,10 +199,6 @@ pub fn wrap_text<'a>(text: Text<'a>, max_width: u16) -> (Text<'a>, bool) {
     if max_width == 0 {
         return (text, false);
     }
-    // if max_width <= 1 {
-    //     error!("Invalid width for text: {text:?}");
-    //     return (text, false);
-    // }
 
     let mut new_lines = Vec::new();
     let mut did_wrap_any = false;

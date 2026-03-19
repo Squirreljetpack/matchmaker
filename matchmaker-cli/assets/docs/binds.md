@@ -41,9 +41,9 @@ You define a semantic trigger by binding it to one or more actions in your confi
 ```toml
 [binds]
 "@my_macro" = [
-    "ExecuteSilent(echo 'Starting...')",
-    "Filtering(true)",
-    "SetPrompt(working> )"
+  "ExecuteSilent(echo 'Starting...')",
+  "Filtering(true)",
+  "SetPrompt(working> )",
 ]
 ```
 
@@ -53,7 +53,7 @@ This trigger then becomes a valid action:
 ```toml
 [binds]
 "ctrl-x" = "@my_macro"
-"Start"  = "@my_macro"
+"Start" = "@my_macro"
 ```
 
 When sharing a command-line matchmaker command, you can also define your actions using these semantic triggers, allowing consumers to use their preferred binds for similar actions across different applications.
@@ -122,7 +122,7 @@ Actions are the operations performed when a trigger is activated.
 | `HalfPageUp`   | Scroll the results list up by half the height of the results pane.   |
 | `HalfPageDown` | Scroll the results list down by half the height of the results pane. |
 | `HScroll(n)`   | Horizontally scroll the active column by `n`. `0` to reset.          |
-| `VScroll(n)`   | Vertically scroll the current result by `n`. `0` to reset.           |
+| `VScroll(n)`   | Vertically scroll down the current result by `n`. `0` to reset.      |
 | `ToggleWrap`   | Toggle line wrapping for the results list.                           |
 
 ### Preview
@@ -170,12 +170,12 @@ Actions are the operations performed when a trigger is activated.
 
 ### Binds (Dynamic)
 
-| Action                  | Description                                  |
-| ----------------------- | -------------------------------------------- |
-| `Bind(trigger=actions)` | Define or overwrite a binding at runtime.    |
-| `Unbind(trigger)`       | Remove a binding.                            |
-| `PushBind(t=a)`         | Append an action to an existing binding.     |
-| `PopBind(t)`            | Remove the last action from a binding.       |
+| Action                  | Description                               |
+| ----------------------- | ----------------------------------------- |
+| `Bind(trigger=actions)` | Define or overwrite a binding at runtime. |
+| `Unbind(trigger)`       | Remove a binding.                         |
+| `PushBind(t=a)`         | Append an action to an existing binding.  |
+| `PopBind(t)`            | Remove the last action from a binding.    |
 
 ### UI Customization
 
@@ -201,7 +201,7 @@ Actions are the operations performed when a trigger is activated.
 | `ReloadNext(n)`    | Cycle through `additional_commands` defined at startup.      |
 | `Transform(cmd)`   | Run command and parse its output as a stream of Actions.     |
 | `Print(s)`         | Print a string to stdout on exit.                            |
-| `@name`           | Execute the actions associated with semantic trigger `name`. |
+| `@name`            | Execute the actions associated with semantic trigger `name`. |
 
 ### UI & Display
 
@@ -273,10 +273,10 @@ ansi = true
 [binds]
 "Start" = "@enter_rg"
 "@enter_rg" = [ # Reload on query change, disable reparsing, update bind
-"Filtering(false)",
-'''Bind(QueryChange = Reload)''',
-# Prompt indicator (
-'''Transform(
+  "Filtering(false)",
+  '''Bind(QueryChange = Reload)''',
+  # Prompt indicator (
+  '''Transform(
     [[ -n "$MM_QUERY" ]] &&
     prompt="($MM_QUERY)" ||
     prompt="rg>"
@@ -285,12 +285,12 @@ ansi = true
     echo "SetQuery($MM_STORE)"
     echo "Store($MM_QUERY)"
 )''',
-"Bind(@reload = @enter_mm)",
+  "Bind(@reload = @enter_mm)",
 ]
 "@enter_mm" = [
-"Filtering(true)",
-"Unbind(QueryChange)",
-'''Transform(
+  "Filtering(true)",
+  "Unbind(QueryChange)",
+  '''Transform(
 	[[ -n "$MM_QUERY" ]] &&
 	prompt="($MM_QUERY)" ||
 	prompt="mm"
@@ -300,7 +300,7 @@ ansi = true
     echo "Store($MM_QUERY)"
 )
 ''',
-"Bind(@reload = @enter_rg)"
+  "Bind(@reload = @enter_rg)",
 ]
 
 "ctrl-r" = "@reload"

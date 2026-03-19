@@ -19,7 +19,7 @@ pub struct DisplayUI {
     width: u16,
     height: u16,
     text: Vec<Text<'static>>,
-    header: HeaderTable, // lines from input
+    lines: HeaderTable, // lines from input
     pub show: bool,
     pub config: DisplayConfig,
 }
@@ -44,7 +44,7 @@ impl DisplayUI {
             height,
             width: 0,
             show: config.content.is_some() || config.header_lines > 0,
-            header: Vec::new(),
+            lines: Vec::new(),
             text,
             config,
         }
@@ -66,9 +66,8 @@ impl DisplayUI {
         height
     }
 
-    /// Set text and visibility. Compute wrapped height.
+    /// Set text (single column) and show. The base style is applied "under" the text's styling.
     pub fn set(&mut self, text: impl Into<Text<'static>>) {
-        // let (text, _) = wrap_text(text.into(), self.config.wrap as u16 * self.width);
         self.text = vec![text.into()];
 
         self.show = true;
@@ -76,9 +75,9 @@ impl DisplayUI {
 
     pub fn clear(&mut self, keep_header: bool) {
         if !keep_header {
-            self.header.clear();
+            self.lines.clear();
             self.show = false;
-        } else if self.header.is_empty() {
+        } else if self.lines.is_empty() {
             self.show = false;
         }
 
@@ -86,22 +85,22 @@ impl DisplayUI {
     }
 
     /// Whether this is table has just one column
-    pub fn single(&self) -> bool {
+    pub fn is_single_column(&self) -> bool {
         self.text.len() == 1
     }
 
     pub fn header_table(&mut self, table: HeaderTable) {
-        self.header = table
+        self.lines = table
     }
 
-    // todo: lowpri: cache texts to not have to always rewrap?
+    // lowpri: how much to be gained by caching texts to not have to always rewrap?
     pub fn make_display(
         &mut self,
         result_indentation: u16,
         mut widths: Vec<u16>,
         col_spacing: u16,
     ) -> Table<'_> {
-        if self.text.is_empty() && self.header.is_empty() || widths.is_empty() {
+        if self.text.is_empty() && self.lines.is_empty() || widths.is_empty() {
             return Table::default();
         }
 
@@ -122,9 +121,8 @@ impl DisplayUI {
             .fg(self.config.fg)
             .add_modifier(self.config.modifier);
 
-        let (cells, height) = if self.single() {
+        let (cells, height) = if self.is_single_column() {
             // Single Cell (Full Width)
-            // reflow is handled in update_width
             let text = wrap_text(
                 self.text[0].clone(),
                 if self.config.wrap { self.width } else { 0 },
@@ -150,7 +148,7 @@ impl DisplayUI {
 
                     Cell::from(ret.transform_if(
                         matches!(self.config.row_connection, RowConnectionStyle::Disjoint),
-                        |r| r.style(style),
+                        |t| t.style(style),
                     ))
                 })
                 .collect();
@@ -163,9 +161,9 @@ impl DisplayUI {
         self.height = height;
 
         // add header_line cells
-        if !self.header.is_empty() {
+        if !self.lines.is_empty() {
             // todo: support wrapping on header lines
-            rows.extend(self.header.iter().map(|row| {
+            rows.extend(self.lines.iter().map(|row| {
                 let cells: Vec<Cell> = row
                     .iter()
                     .cloned()
@@ -186,10 +184,10 @@ impl DisplayUI {
                 Row::new(cells)
             }));
 
-            self.height += self.header.len() as u16;
+            self.height += self.lines.len() as u16;
         }
 
-        let widths = if self.single() {
+        let widths = if self.is_single_column() {
             vec![Constraint::Percentage(100)]
         } else {
             widths.into_iter().map(Constraint::Length).collect()

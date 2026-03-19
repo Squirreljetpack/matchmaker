@@ -670,7 +670,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
                 let mut _area = area;
 
-                let full_width_footer = footer_ui.single()
+                let full_width_footer = footer_ui.is_single_column()
                     && footer_ui.config.row_connection == RowConnectionStyle::Full;
 
                 let mut footer =
@@ -901,7 +901,7 @@ fn render_display(frame: &mut Frame, area: Rect, ui: &mut DisplayUI, results_ui:
 
     frame.render_widget(widget, area);
 
-    if ui.single() {
+    if ui.is_single_column() {
         let widget = ui.make_full_width_row(results_ui.indentation() as u16);
         frame.render_widget(widget, area);
     }

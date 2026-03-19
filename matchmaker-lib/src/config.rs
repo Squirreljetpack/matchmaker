@@ -411,6 +411,9 @@ pub struct ResultsConfig {
     #[partial(alias = "w")]
     pub wrap: bool,
     pub min_wrap_width: u16,
+    /// Maximum row height.
+    /// VScroll/Preview can still be used to view the whole result.
+    pub max_height: usize,
 
     // autoscroll
     #[partial(recurse, alias = "a")]
@@ -432,7 +435,10 @@ pub struct ResultsConfig {
 
     #[serde(alias = "hr")]
     #[serde(deserialize_with = "camelcase_normalized")]
-    pub horizontal_separator: HorizontalSeparator,
+    pub separator: HorizontalSeparator,
+
+    #[serde(deserialize_with = "camelcase_normalized")]
+    pub separator_style: StyleSetting,
 }
 
 impl Default for ResultsConfig {
@@ -470,6 +476,7 @@ impl Default for ResultsConfig {
 
             wrap: Default::default(),
             min_wrap_width: 4,
+            max_height: 0,
 
             autoscroll: Default::default(),
 
@@ -477,7 +484,8 @@ impl Default for ResultsConfig {
             current_prefix: Default::default(),
             right_align_last: false,
             stacked_columns: false,
-            horizontal_separator: Default::default(),
+            separator: Default::default(),
+            separator_style: Default::default(),
         }
     }
 }
@@ -503,12 +511,15 @@ pub struct StatusConfig {
     /// - `\m` -> match count
     /// - `\t` -> total count
     /// - `\s` -> available whitespace / # appearances
+    /// - `\S` -> Increment # appearances for `\s`
+    ///
+    /// For example: `r#"\m/\t"#.to_string()`
     #[partial(alias = "t")]
     pub template: String,
 
     /// - Full: available whitespace is computed using the full ui width when replacing `\s` in the template.
     /// - Disjoint: no effect.
-    /// - Capped: no effect.
+    /// - Capped: no effect. (Since, unlike [`DisplayConfig`], status line can not display over the preview).
     pub row_connection: RowConnectionStyle,
 }
 impl Default for StatusConfig {
@@ -519,7 +530,7 @@ impl Default for StatusConfig {
             modifier: Modifier::ITALIC,
             show: true,
             match_indent: true,
-            template: r#"\m/\t"#.to_string(),
+            template: String::new(),
             row_connection: RowConnectionStyle::Full,
         }
     }
@@ -558,7 +569,8 @@ pub struct DisplayConfig {
     /// - Full: Effective width is the full ui width.
     /// - Capped: Effective width is the full ui width, but
     ///   any width exceeding the width of the Results UI is occluded by the preview pane.
-    /// - Disjoint: Effective width is same as the Results UI.
+    /// - Disjoint: Same as capped. Additionally, the (bg) style is applied to individual
+    /// columns instead of uniformly on the row.
     ///
     /// # Note
     /// The width effect only applies on the footer, and when the content is singular.

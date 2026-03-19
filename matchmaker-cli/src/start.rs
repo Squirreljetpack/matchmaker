@@ -69,6 +69,10 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
 
     // let original = config.clone();
 
+    if config.render.status.template.is_empty() {
+        config.render.status.template = r#"\m/\t"#.to_string();
+    }
+
     for p in cli.r#override {
         let o = load_type(p, |s| toml::from_str(s))?;
         config.apply(o);

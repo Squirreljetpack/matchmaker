@@ -368,7 +368,7 @@ impl QueryUI {
         Paragraph::new(line).block(self.config.border.as_block())
     }
 
-    /// Set the input ui prefix. The prompt style from the config is used as the base style.
+    /// Set the input ui prefix. The prompt style from the config overrides the Line style (but not the span styles).
     pub fn set_prompt(&mut self, template: Option<Line<'static>>) {
         let line = template
             .unwrap_or_else(|| self.config.prompt.clone().into())

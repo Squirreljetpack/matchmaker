@@ -220,9 +220,9 @@ impl ResultsUI {
             self.vscroll = if x == 0 {
                 0
             } else if x.is_negative() {
-                self.vscroll.saturating_sub(x.unsigned_abs())
+                self.vscroll.saturating_add(x.unsigned_abs())
             } else {
-                self.vscroll.saturating_add(x as u8)
+                self.vscroll.saturating_sub(x as u8)
             };
         }
     }
@@ -350,6 +350,7 @@ impl ResultsUI {
             end,
             &width_limits,
             self.config.wrap,
+            self.config.max_height,
             self.match_style(),
             matcher,
             self.config.autoscroll,
@@ -880,6 +881,7 @@ impl ResultsUI {
         Paragraph::new(expanded)
     }
 
+    /// The style from the config overrides the Line style (but not the span styles).
     pub fn set_status_line(&mut self, template: Option<Line<'static>>) {
         let status_config = &self.status_config;
         log::trace!("status line: {template:?}");
@@ -940,7 +942,7 @@ impl ResultsUI {
     }
 
     fn hr(&self) -> Option<Row<'static>> {
-        let sep = self.config.horizontal_separator;
+        let sep = self.config.separator;
 
         if matches!(sep, HorizontalSeparator::None) {
             return None;
@@ -952,14 +954,14 @@ impl ResultsUI {
         // todo: support non_stacked properly by doing a seperate rendering pass
         if !self.config.stacked_columns && self.widths.len() > 1 {
             // Some(Row::new(vec![vec![]]))
-            Some(Row::new(vec![line; self.widths().len()]))
+            Some(Row::new(vec![line; self.widths().len()]).style(self.config.separator_style))
         } else {
             Some(Row::new(vec![line]))
         }
     }
 
     fn _hr(&self) -> u16 {
-        !matches!(self.config.horizontal_separator, HorizontalSeparator::None) as u16
+        !matches!(self.config.separator, HorizontalSeparator::None) as u16
     }
 }
 

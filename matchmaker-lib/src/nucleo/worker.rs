@@ -19,7 +19,9 @@ use crate::{
     SSS,
     config::AutoscrollSettings,
     nucleo::Render,
-    utils::text::{hscroll_indicator, text_to_string, wrap_text, wrapping_indicator},
+    utils::text::{
+        hscroll_indicator, text_to_string, truncation_indicator, wrap_text, wrapping_indicator,
+    },
 };
 
 type ColumnFormatFn<T> = Box<dyn for<'a> Fn(&'a T) -> Text<'a> + Send + Sync>;
@@ -286,6 +288,7 @@ impl<T: SSS> Worker<T> {
         end: u32,
         width_limits: &[u16],
         wrap: bool,
+        max_height: usize,
         highlight_style: Style,
         matcher: &mut nucleo::Matcher,
         autoscroll: AutoscrollSettings,
@@ -309,7 +312,14 @@ impl<T: SSS> Worker<T> {
                     .zip(width_limits.iter().chain(std::iter::repeat(&u16::MAX)))
                     .map(|((col_idx, column), &width_limit)| {
                         let max_width = widths.next().unwrap();
-                        let cell = column.format(item.data);
+                        let mut cell = column.format(item.data);
+
+                        if max_height > 0 && cell.lines.len() > max_height {
+                            cell.lines.truncate(max_height);
+                            if let Some(last_line) = cell.lines.last_mut() {
+                                last_line.spans.push(truncation_indicator());
+                            }
+                        }
 
                         let (cell, width) = if width_limit == 0 {
                             (Default::default(), if wrap { 1 } else { cell.width() })
@@ -327,7 +337,7 @@ impl<T: SSS> Worker<T> {
                                 autoscroll,
                                 hscroll_offset,
                             )
-                        // todo: hscroll on non filtering
+                            // todo: hscroll on non filtering
                         } else if wrap {
                             let (cell, wrapped) = wrap_text(cell, width_limit);
 

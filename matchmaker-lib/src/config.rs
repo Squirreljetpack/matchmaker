@@ -208,17 +208,11 @@ pub struct QueryConfig {
     pub border: BorderSetting,
 
     // text styles
-    #[serde(deserialize_with = "camelcase_normalized")]
-    pub fg: Color,
-    pub bg: Color,
-    // #[serde(deserialize_with = "transform_uppercase")]
-    pub modifier: Modifier,
+    #[partial(recurse)]
+    pub style: StyleSetting,
 
-    #[serde(deserialize_with = "camelcase_normalized")]
-    pub prompt_fg: Color,
-    pub prompt_bg: Color,
-    // #[serde(deserialize_with = "transform_uppercase")]
-    pub prompt_modifier: Modifier,
+    #[partial(recurse)]
+    pub prompt_style: StyleSetting,
 
     /// The prompt prefix.
     #[serde(deserialize_with = "deserialize_string_or_char_as_double_width")]
@@ -238,12 +232,8 @@ impl Default for QueryConfig {
     fn default() -> Self {
         Self {
             border: Default::default(),
-            fg: Default::default(),
-            bg: Default::default(),
-            modifier: Default::default(),
-            prompt_fg: Default::default(),
-            prompt_bg: Default::default(),
-            prompt_modifier: Default::default(),
+            style: Default::default(),
+            prompt_style: Default::default(),
             prompt: "> ".to_string(),
             cursor: Default::default(),
             initial: Default::default(),
@@ -253,22 +243,7 @@ impl Default for QueryConfig {
     }
 }
 
-impl QueryConfig {
-    pub fn text_style(&self) -> Style {
-        Style::default()
-            .fg(self.fg)
-            .bg(self.bg)
-            .remove_modifier(Modifier::all())
-            .add_modifier(self.modifier)
-    }
-
-    pub fn prompt_style(&self) -> Style {
-        Style::default()
-            .fg(self.prompt_fg)
-            .bg(self.prompt_bg)
-            .add_modifier(self.prompt_modifier)
-    }
-}
+impl QueryConfig {}
 
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -353,43 +328,23 @@ pub struct ResultsConfig {
     pub multi: bool,
 
     // text styles
-    #[serde(deserialize_with = "camelcase_normalized")]
-    pub fg: Color,
-    #[serde(deserialize_with = "camelcase_normalized")]
-    pub bg: Color,
-    // #[serde(deserialize_with = "transform_uppercase")]
-    pub modifier: Modifier,
+    #[partial(recurse)]
+    pub style: StyleSetting,
 
     // inactive_col styles
-    #[serde(deserialize_with = "camelcase_normalized")]
-    pub inactive_fg: Color,
-    #[serde(deserialize_with = "camelcase_normalized")]
-    pub inactive_bg: Color,
-    // #[serde(deserialize_with = "transform_uppercase")]
-    pub inactive_modifier: Modifier,
+    #[partial(recurse)]
+    pub inactive: StyleSetting,
 
     // inactive_col styles on the current item
-    #[serde(deserialize_with = "camelcase_normalized")]
-    pub inactive_current_fg: Color,
-    #[serde(deserialize_with = "camelcase_normalized")]
-    pub inactive_current_bg: Color,
-    // #[serde(deserialize_with = "transform_uppercase")]
-    pub inactive_current_modifier: Modifier,
+    #[partial(recurse)]
+    pub inactive_current: StyleSetting,
 
-    #[serde(deserialize_with = "camelcase_normalized")]
-    pub match_fg: Color,
-    // #[serde(deserialize_with = "transform_uppercase")]
-    pub match_modifier: Modifier,
+    #[partial(recurse)]
+    pub match_style: StyleSetting,
 
-    /// foreground of the current item.
-    #[serde(deserialize_with = "camelcase_normalized")]
-    pub current_fg: Color,
-    /// background of the current item.
-    #[serde(deserialize_with = "camelcase_normalized")]
-    pub current_bg: Color,
-    /// modifier of the current item.
-    // #[serde(deserialize_with = "transform_uppercase")]
-    pub current_modifier: Modifier,
+    /// current item style
+    #[partial(recurse)]
+    pub current: StyleSetting,
 
     /// How the styles are applied across the row:
     /// Disjoint: Styles are applied per column.
@@ -424,6 +379,9 @@ pub struct ResultsConfig {
     // ------------
     pub column_spacing: Count,
     pub current_prefix: String,
+    pub show_skipped: bool,
+    /// Always false if max_height is set
+    pub vscroll_current_only: bool,
 
     // lowpri: maybe space-around/space-between instead?
     #[partial(alias = "ra")]
@@ -437,7 +395,6 @@ pub struct ResultsConfig {
     #[serde(deserialize_with = "camelcase_normalized")]
     pub separator: HorizontalSeparator,
 
-    #[serde(deserialize_with = "camelcase_normalized")]
     pub separator_style: StyleSetting,
 }
 
@@ -450,24 +407,26 @@ impl Default for ResultsConfig {
             default_prefix: Default::default(),
             multi: true,
 
-            fg: Default::default(),
-            modifier: Default::default(),
-            bg: Default::default(),
+            style: Default::default(),
+            inactive: Default::default(),
+            inactive_current: StyleSetting {
+                fg: Color::DarkGray,
+                bg: Color::Black,
+                ..Default::default()
+            },
 
-            inactive_fg: Default::default(),
-            inactive_modifier: Default::default(),
-            inactive_bg: Default::default(),
+            match_style: StyleSetting {
+                fg: Color::Green,
+                modifier: Modifier::ITALIC,
+                ..Default::default()
+            },
 
-            inactive_current_fg: Color::DarkGray,
-            inactive_current_modifier: Default::default(),
-            inactive_current_bg: Color::Black,
+            current: StyleSetting {
+                bg: Color::Black,
+                modifier: Modifier::BOLD,
+                ..Default::default()
+            },
 
-            match_fg: Color::Green,
-            match_modifier: Modifier::ITALIC,
-
-            current_fg: Default::default(),
-            current_bg: Color::Black,
-            current_modifier: Modifier::BOLD,
             row_connection: RowConnectionStyle::Capped,
 
             scroll_wrap: true,
@@ -486,6 +445,8 @@ impl Default for ResultsConfig {
             stacked_columns: false,
             separator: Default::default(),
             separator_style: Default::default(),
+            show_skipped: true,
+            vscroll_current_only: false,
         }
     }
 }
@@ -494,12 +455,8 @@ impl Default for ResultsConfig {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct StatusConfig {
-    #[serde(deserialize_with = "camelcase_normalized")]
-    pub fg: Color,
-    #[serde(deserialize_with = "camelcase_normalized")]
-    pub bg: Color,
-    // #[serde(deserialize_with = "transform_uppercase")]
-    pub modifier: Modifier,
+    #[partial(recurse)]
+    pub style: StyleSetting,
 
     /// Whether the status is visible.
     pub show: bool,
@@ -525,9 +482,11 @@ pub struct StatusConfig {
 impl Default for StatusConfig {
     fn default() -> Self {
         Self {
-            fg: Color::Green,
-            bg: Default::default(),
-            modifier: Modifier::ITALIC,
+            style: StyleSetting {
+                fg: Color::Green,
+                modifier: Modifier::ITALIC,
+                ..Default::default()
+            },
             show: true,
             match_indent: true,
             template: String::new(),
@@ -536,14 +495,7 @@ impl Default for StatusConfig {
     }
 }
 
-impl StatusConfig {
-    pub fn base_style(&self) -> Style {
-        Style::default()
-            .fg(self.fg)
-            .bg(self.bg)
-            .add_modifier(self.modifier)
-    }
-}
+impl StatusConfig {}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -552,10 +504,8 @@ pub struct DisplayConfig {
     #[partial(recurse)]
     pub border: BorderSetting,
 
-    #[serde(deserialize_with = "camelcase_normalized")]
-    pub fg: Color,
-    // #[serde(deserialize_with = "transform_uppercase")]
-    pub modifier: Modifier,
+    #[partial(recurse)]
+    pub style: StyleSetting,
 
     /// Indent content to match the results table.
     pub match_indent: bool,
@@ -587,10 +537,13 @@ impl Default for DisplayConfig {
         DisplayConfig {
             border: Default::default(),
             match_indent: true,
-            fg: Color::Green,
+            style: StyleSetting {
+                fg: Color::Green,
+                modifier: Modifier::ITALIC,
+                ..Default::default()
+            },
             wrap: false,
             row_connection: Default::default(),
-            modifier: Modifier::ITALIC, // whatever your `deserialize_modifier` default uses
             content: None,
             header_lines: 0,
         }

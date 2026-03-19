@@ -6,7 +6,7 @@ Matchmaker allows you to override any configuration setting directly from the co
 
 Overrides follow the pattern `path=value` or `path value`.
 
-- **Hierarchical Paths**: Use dot notation to navigate the configuration structure (e.g., `results.fg`).
+- **Hierarchical Paths**: Use dot notation to navigate the configuration structure (e.g., `results.style.fg`).
 - **Flattened Fields**: Several major configuration blocks are "flattened," meaning their children can be accessed as top-level keys.
 - **Shortcuts**: Many common fields have short aliases:
   - `binds` -> `b`
@@ -146,14 +146,12 @@ All colors and modifiers come from ratatui:
 - `tick_rate`: (number) Refresh rate of the UI (default 60).
 - `border`: [Border Settings](#border-settings).
 
-#### Input Bar (`input.`, `i`)
+#### Query Bar (`query.`, `q`)
 
 - `prompt`: (string) The prompt prefix (default "> ").
 - `initial`: (string) Initial text in the input bar.
-- `fg`: (color) Foreground color of the input text.
-- `modifier`: (modifier) Style modifier for the input text.
-- `prompt_fg`: (color) Foreground color of the prompt.
-- `prompt_modifier`: (modifier) Style modifier for the prompt.
+- `style`: [Style Settings](#style-settings) for the input text.
+- `prompt_style`: [Style Settings](#style-settings) for the prompt.
 - `cursor`: Cursor style.
 - `border`: [Border Settings](#border-settings).
 
@@ -162,13 +160,11 @@ All colors and modifiers come from ratatui:
 - `multi_prefix`: (string) Prefix for multi-selected items.
 - `default_prefix`: (string) Prefix for normal items.
 - `current_prefix`: (string) Prefix for the currently highlighted item.
-- `fg`: (color) Default foreground color.
-- `modifier`: (modifier) Default style modifier.
-- `match_fg`: (color) Foreground color for matching characters.
-- `match_modifier`: (modifier) Style for matching characters.
-- `current_fg`: (color) Foreground color of the highlighted item.
-- `current_bg`: (color) Background color of the highlighted item.
-- `current_modifier`: (modifier) Style of the highlighted item.
+- `style`: [Style Settings](#style-settings) (default).
+- `inactive`: [Style Settings](#style-settings) for inactive columns.
+- `inactive_current`: [Style Settings](#style-settings) for the current item in inactive columns.
+- `match_style`: [Style Settings](#style-settings) for matching characters.
+- `current`: [Style Settings](#style-settings) for the highlighted item.
 - `row_connection`: `Disjoint`, `Capped`, or `Full`. Controls how current item styles apply across the row.
 - `scroll_wrap`: (bool) Wrap selection when reaching the end of the list.
 - `scroll_padding`: (number) Number of items to keep visible above/below the selection.
@@ -190,8 +186,7 @@ All colors and modifiers come from ratatui:
 
 #### Status Line (`status.`)
 
-- `fg`: (color) Color of the status line.
-- `modifier`: (modifier) Style of the status line.
+- `style`: [Style Settings](#style-settings).
 - `show`: (bool) Show/hide the status line.
 - `template`: (string) The following replacements are available:
   - `\r` -> current index
@@ -226,7 +221,7 @@ All colors and modifiers come from ratatui:
 
 - `content`: (string or list) Static content to display.
   - Absolute alias: `h`.
-- `fg`, `modifier`: Style of the text.
+- `style`: [Style Settings](#style-settings).
 - `match_indent`: (bool) Indent content to match the results table.
 - `wrap`: (bool) Enable line wrapping.
 
@@ -245,6 +240,14 @@ All colors and modifiers come from ratatui:
 - `layout` _(flattened)_: Constraints for non-fullscreen mode.
   - `percentage`: Height of the terminal used.
   - `min`, `max`: Pixel constraints.
+
+### Style Settings
+
+Several UI components have a `style` block (or similar, like `prompt_style`):
+
+- `fg`: (color) Foreground color.
+- `bg`: (color) Background color.
+- `modifier`: (modifier) Style modifier (e.g., `bold`, `italic`, `dim`).
 
 ### Border Settings
 

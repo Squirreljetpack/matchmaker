@@ -263,8 +263,8 @@ mm b.ctrl-q 'SwitchPreview'
 You can mimic `fzf`'s [ripgrep example](https://github.com/junegunn/fzf/blob/master/ADVANCED.md) as follows:
 
 ```toml
-[input]
-prompt_fg = "Red"
+[query]
+prompt_style.fg = "Red"
 
 [start]
 command = 'rg --column --line-number --no-heading --color=always --smart-case "$FZF_QUERY"'

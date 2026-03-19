@@ -9,10 +9,10 @@
     # border    = { color = "blue", bg = "#282828" }
     tick_rate = 30
 
-[input]
-    fg     = "White"
-    cursor = "default"
-    prompt = ">"
+[query]
+    style.fg = "White"
+    cursor   = "default"
+    prompt   = ">"
 
 [header]
     content      = "test"
@@ -23,10 +23,10 @@
     scroll_padding = 2
 
     # border           = { type = "Rounded", sides = "", padding = 0 }
-    fg               = "White"
-    current_bg       = "Black"
-    current_modifier = "BOLD"
-    match_fg         = "Green"
+    style.fg         = "White"
+    current.bg       = "Black"
+    current.modifier = "BOLD"
+    match_style.fg   = "Green"
 
     # reverse = auto
     wrap = true
@@ -34,8 +34,8 @@
     scroll_wrap = true
 
 [status]
-    fg       = "Green"
-    modifier = "ITALIC"
+    style.fg       = "Green"
+    style.modifier = "ITALIC"
 
 [preview]
     # border      = { type = "Rounded", color = "Blue" }

@@ -317,7 +317,7 @@ impl QueryUI {
     pub fn new(config: QueryConfig) -> Self {
         let mut ui = Self {
             state: InputUI::new(),
-            prompt: Line::styled(config.prompt.clone(), config.prompt_style()),
+            prompt: Line::styled(config.prompt.clone(), config.prompt_style),
             config,
         };
 
@@ -363,7 +363,7 @@ impl QueryUI {
 
     pub fn make_input(&self) -> Paragraph<'_> {
         let mut line = self.prompt.clone();
-        line.push_span(Span::styled(self.state.render(), self.config.text_style()));
+        line.push_span(Span::styled(self.state.render(), self.config.style));
 
         Paragraph::new(line).block(self.config.border.as_block())
     }
@@ -372,7 +372,7 @@ impl QueryUI {
     pub fn set_prompt(&mut self, template: Option<Line<'static>>) {
         let line = template
             .unwrap_or_else(|| self.config.prompt.clone().into())
-            .style(self.config.prompt_style());
+            .style(self.config.prompt_style);
         self.set_prompt_line(line);
     }
 

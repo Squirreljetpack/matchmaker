@@ -1,7 +1,6 @@
 use cba::bait::TransformExt;
 use ratatui::{
     layout::Constraint,
-    style::Style,
     text::{Line, Text},
     widgets::{Cell, Paragraph, Row, Table},
 };
@@ -117,10 +116,6 @@ impl DisplayUI {
             }
         };
 
-        let style = Style::default()
-            .fg(self.config.fg)
-            .add_modifier(self.config.modifier);
-
         let (cells, height) = if self.is_single_column() {
             // Single Cell (Full Width)
             let text = wrap_text(
@@ -148,7 +143,7 @@ impl DisplayUI {
 
                     Cell::from(ret.transform_if(
                         matches!(self.config.row_connection, RowConnectionStyle::Disjoint),
-                        |t| t.style(style),
+                        |t| t.style(self.config.style),
                     ))
                 })
                 .collect();
@@ -156,7 +151,7 @@ impl DisplayUI {
             (cells, height)
         };
 
-        let row = Row::new(cells).style(style).height(height);
+        let row = Row::new(cells).style(self.config.style).height(height);
         let mut rows = vec![row];
         self.height = height;
 
@@ -198,16 +193,12 @@ impl DisplayUI {
             .column_spacing(col_spacing)
             .transform_if(
                 !matches!(self.config.row_connection, RowConnectionStyle::Disjoint),
-                |t| t.style(style),
+                |t| t.style(self.config.style),
             )
     }
 
     /// Draw in the same area as display when self.single() to produce a full width row over the table area
     pub fn make_full_width_row(&self, result_indentation: u16) -> Paragraph<'_> {
-        let style = Style::default()
-            .fg(self.config.fg)
-            .add_modifier(self.config.modifier);
-
         // Compute padding
         let left = if self.config.match_indent {
             result_indentation.saturating_sub(self.config.border.left())
@@ -227,6 +218,6 @@ impl DisplayUI {
 
         Paragraph::new(self.text[0].clone())
             .block(block)
-            .style(style)
+            .style(self.config.style)
     }
 }

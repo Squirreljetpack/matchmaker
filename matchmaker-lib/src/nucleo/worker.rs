@@ -293,6 +293,8 @@ impl<T: SSS> Worker<T> {
         matcher: &mut nucleo::Matcher,
         autoscroll: AutoscrollSettings,
         hscroll_offset: i8,
+        vscroll: (u8, bool),
+        show_skipped: bool,
     ) -> (WorkerResults<'_, T>, Vec<u16>, Status) {
         let (snapshot, status) = Self::new_snapshot(&mut self.nucleo);
 
@@ -301,27 +303,57 @@ impl<T: SSS> Worker<T> {
         let iter =
             snapshot.matched_items(start.min(status.matched_count)..end.min(status.matched_count));
 
+        let (vscroll_offset, stacked) = vscroll;
+
         let table = iter
-            .map(|item| {
-                let mut widths = widths.iter_mut();
+            .filter_map(|item| {
+                let mut row = vec![];
 
-                let row = self
-                    .columns
-                    .iter()
-                    .enumerate()
-                    .zip(width_limits.iter().chain(std::iter::repeat(&u16::MAX)))
-                    .map(|((col_idx, column), &width_limit)| {
-                        let max_width = widths.next().unwrap();
-                        let mut cell = column.format(item.data);
-
-                        if max_height > 0 && cell.lines.len() > max_height {
-                            cell.lines.truncate(max_height);
-                            if let Some(last_line) = cell.lines.last_mut() {
+                let mut to_skip = vscroll_offset as usize;
+                let mut skip = !show_skipped;
+                for c in self.columns.iter() {
+                    let mut t = c.format(item.data);
+                    if stacked {
+                        if to_skip >= t.height() {
+                            to_skip -= t.height();
+                            t.lines.clear();
+                        } else {
+                            skip = false;
+                            t.lines.drain(..to_skip);
+                            to_skip = 0;
+                            if max_height > 0 && t.height() > max_height {
+                                t.lines.truncate(max_height);
+                                if let Some(last_line) = t.lines.last_mut() {
+                                    last_line.spans.push(truncation_indicator());
+                                }
+                            }
+                        }
+                    } else {
+                        if t.height() > to_skip {
+                            skip = false;
+                        }
+                        t.lines.drain(..to_skip);
+                        if max_height > 0 && t.height() > max_height {
+                            t.lines.truncate(max_height);
+                            if let Some(last_line) = t.lines.last_mut() {
                                 last_line.spans.push(truncation_indicator());
                             }
                         }
+                    }
+                    row.push(t);
+                }
+                if skip {
+                    return None;
+                }
 
-                        let (cell, width) = if width_limit == 0 {
+                let row: Vec<Text> = row
+                    .into_iter()
+                    .enumerate()
+                    .zip(width_limits.iter().chain(std::iter::repeat(&u16::MAX)))
+                    .map(|((col_idx, cell), &width_limit)| {
+                        let column = &self.columns[col_idx];
+
+                        let (cell, _) = if width_limit == 0 {
                             (Default::default(), if wrap { 1 } else { cell.width() })
                         } else if column.filter {
                             render_cell(
@@ -337,7 +369,6 @@ impl<T: SSS> Worker<T> {
                                 autoscroll,
                                 hscroll_offset,
                             )
-                            // todo: hscroll on non filtering
                         } else if wrap {
                             let (cell, wrapped) = wrap_text(cell, width_limit);
 
@@ -352,15 +383,19 @@ impl<T: SSS> Worker<T> {
                             (cell, width)
                         };
 
-                        // update col width, row height
-                        if width as u16 > *max_width {
-                            *max_width = width as u16;
-                        }
-
                         cell
-                    });
+                    })
+                    .collect();
 
-                (row.collect(), item.data)
+                // update col width, row height
+                for (w, cell) in widths.iter_mut().zip(&row) {
+                    let width = cell.width() as u16;
+                    if width > *w {
+                        *w = width;
+                    }
+                }
+
+                Some((row, item.data))
             })
             .collect();
 

@@ -63,8 +63,7 @@ impl ResultsUI {
             hidden_columns: Default::default(),
 
             status: Default::default(),
-            status_template: Line::from(status_config.template.clone())
-                .style(status_config.base_style()),
+            status_template: Line::from(status_config.template.clone()).style(status_config.style),
             status_config,
             config,
 
@@ -351,10 +350,19 @@ impl ResultsUI {
             &width_limits,
             self.config.wrap,
             self.config.max_height,
-            self.match_style(),
+            self.config.match_style.into(),
             matcher,
             self.config.autoscroll,
             self.hscroll,
+            (
+                if self.config.vscroll_current_only {
+                    0
+                } else {
+                    self.vscroll
+                },
+                hz,
+            ),
+            self.config.show_skipped,
         );
 
         widths[0] += self.indentation() as u16;
@@ -587,7 +595,7 @@ impl ResultsUI {
                 && remaining_height > 0
             {
                 rows.push(hr);
-                remaining_height -= 1;
+                remaining_height -= self._hr();
             }
             if remaining_height == 0 {
                 break;
@@ -602,7 +610,7 @@ impl ResultsUI {
 
             if hz {
                 // scroll down
-                if self.is_current(i) && self.vscroll > 0 {
+                if self.is_current(i) && self.config.vscroll_current_only && self.vscroll > 0 {
                     for (x, t) in row.iter_mut().enumerate().filter(|(i, _)| widths[*i] != 0) {
                         if self.col.is_none() || self.col() == Some(x) {
                             let scroll = self.vscroll as usize;
@@ -656,24 +664,24 @@ impl ResultsUI {
                             RowConnectionStyle::Disjoint => {
                                 if is_active_col {
                                     t = t.style(if is_current_row {
-                                        self.current_style()
+                                        self.config.current
                                     } else {
-                                        self.active_style()
+                                        self.config.style
                                     });
                                 } else {
                                     t = t.style(if is_current_row {
-                                        self.inactive_current_style()
+                                        self.config.inactive_current
                                     } else {
-                                        self.inactive_style()
+                                        self.config.inactive
                                     });
                                 }
                             }
                             RowConnectionStyle::Capped => {
                                 if is_active_col {
                                     t = t.style(if is_current_row {
-                                        self.current_style()
+                                        self.config.current
                                     } else {
-                                        self.active_style()
+                                        self.config.style
                                     });
                                 }
                             }
@@ -697,10 +705,8 @@ impl ResultsUI {
 
                 if self.is_current(i) {
                     match self.config.row_connection {
-                        RowConnectionStyle::Capped => {
-                            row = row.style(self.inactive_current_style())
-                        }
-                        RowConnectionStyle::Full => row = row.style(self.current_style()),
+                        RowConnectionStyle::Capped => row = row.style(self.config.inactive_current),
+                        RowConnectionStyle::Full => row = row.style(self.config.current),
                         _ => {}
                     }
                 }
@@ -708,7 +714,8 @@ impl ResultsUI {
                 rows.push(row);
             } else {
                 let mut push = vec![];
-                let mut vscroll_to_skip = if self.is_current(i) {
+                let mut vscroll_to_skip = if self.is_current(i) && self.config.vscroll_current_only
+                {
                     self.vscroll as usize
                 } else {
                     0
@@ -745,24 +752,24 @@ impl ResultsUI {
                         RowConnectionStyle::Disjoint => {
                             if is_active_col {
                                 col = col.style(if is_current_row {
-                                    self.current_style()
+                                    self.config.current
                                 } else {
-                                    self.active_style()
+                                    self.config.style
                                 });
                             } else {
                                 col = col.style(if is_current_row {
-                                    self.inactive_current_style()
+                                    self.config.inactive_current
                                 } else {
-                                    self.inactive_style()
+                                    self.config.inactive
                                 });
                             }
                         }
                         RowConnectionStyle::Capped => {
                             if is_active_col {
                                 col = col.style(if is_current_row {
-                                    self.current_style()
+                                    self.config.current
                                 } else {
-                                    self.active_style()
+                                    self.config.style
                                 });
                             }
                         }
@@ -774,9 +781,9 @@ impl ResultsUI {
                     if is_current_row {
                         match self.config.row_connection {
                             RowConnectionStyle::Capped => {
-                                row = row.style(self.inactive_current_style())
+                                row = row.style(self.config.inactive_current)
                             }
-                            RowConnectionStyle::Full => row = row.style(self.current_style()),
+                            RowConnectionStyle::Full => row = row.style(self.config.current),
                             _ => {}
                         }
                     }
@@ -837,8 +844,8 @@ impl ResultsUI {
         let mut table = Table::new(rows, table_widths).column_spacing(self.config.column_spacing.0);
 
         table = match self.config.row_connection {
-            RowConnectionStyle::Full => table.style(self.active_style()),
-            RowConnectionStyle::Capped => table.style(self.inactive_style()),
+            RowConnectionStyle::Full => table.style(self.config.style),
+            RowConnectionStyle::Capped => table.style(self.config.inactive),
             _ => table,
         };
 
@@ -876,7 +883,7 @@ impl ResultsUI {
             _ => self.width,
         } as usize;
         let expanded = expand_indents(substituted_line, r"\s", r"\S", effective_width)
-            .style(status_config.base_style());
+            .style(status_config.style);
 
         Paragraph::new(expanded)
     }
@@ -888,7 +895,7 @@ impl ResultsUI {
 
         self.status_template = template
             .unwrap_or(status_config.template.clone().into())
-            .style(status_config.base_style())
+            .style(status_config.style)
             .into()
     }
 }
@@ -907,38 +914,8 @@ impl ResultsUI {
         fit_width(&substituted, self.indentation())
     }
 
-    fn current_style(&self) -> Style {
-        Style::from(self.config.current_fg)
-            .bg(self.config.current_bg)
-            .add_modifier(self.config.current_modifier)
-    }
-
-    fn active_style(&self) -> Style {
-        Style::from(self.config.fg)
-            .bg(self.config.bg)
-            .add_modifier(self.config.modifier)
-    }
-
-    fn inactive_style(&self) -> Style {
-        Style::from(self.config.inactive_fg)
-            .bg(self.config.inactive_bg)
-            .add_modifier(self.config.inactive_modifier)
-    }
-
-    fn inactive_current_style(&self) -> Style {
-        Style::from(self.config.inactive_current_fg)
-            .bg(self.config.inactive_current_bg)
-            .add_modifier(self.config.inactive_current_modifier)
-    }
-
     fn is_current(&self, i: usize) -> bool {
         !self.cursor_disabled && self.cursor == i as u16
-    }
-
-    pub fn match_style(&self) -> Style {
-        Style::default()
-            .fg(self.config.match_fg)
-            .add_modifier(self.config.match_modifier)
     }
 
     fn hr(&self) -> Option<Row<'static>> {
@@ -956,7 +933,7 @@ impl ResultsUI {
             // Some(Row::new(vec![vec![]]))
             Some(Row::new(vec![line; self.widths().len()]).style(self.config.separator_style))
         } else {
-            Some(Row::new(vec![line]))
+            Some(Row::new(vec![line]).style(self.config.separator_style))
         }
     }
 

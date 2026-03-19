@@ -16,8 +16,11 @@ use serde::{
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
+#[matchmaker_partial_macros::partial(path, derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize))]
 pub struct StyleSetting {
+    #[serde(deserialize_with = "cba::serde::transform::camelcase_normalized")]
     pub fg: Color,
+    #[serde(deserialize_with = "cba::serde::transform::camelcase_normalized")]
     pub bg: Color,
     pub modifier: Modifier,
 }

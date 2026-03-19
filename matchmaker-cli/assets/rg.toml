@@ -1,5 +1,5 @@
-[input]
-prompt_fg = "Red"
+[query]
+prompt_style.fg = "Red"
 
 [start]
 command = '''rg --column --line-number --no-heading --color=always --smart-case "$FZF_QUERY"'''

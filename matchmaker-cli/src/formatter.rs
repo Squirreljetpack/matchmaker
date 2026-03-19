@@ -35,6 +35,9 @@ pub fn format_cli(
     template: &str,
     repeat: Option<&dyn Fn(String)>,
 ) -> String {
+    if template.is_empty() {
+        return String::new();
+    }
     if let Some(f) = repeat {
         if any_non_multi(template) {
             state.map_selected_to_vec(|item| {

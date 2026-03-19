@@ -32,10 +32,10 @@ else
     fi
 fi
 '''
-    side       = "right"
+    side = "right"
     percentage = 40
-    min        = 30
-    max        = 120
+    min = 30
+    max = 120
 
 [[preview.layout]]
     side       = "top"
@@ -102,8 +102,9 @@ fi
 [start]
     command = '''
 if command -v fd >/dev/null 2>&1; then
-    fd --strip-cwd-prefix
+    fd --strip-cwd-prefix --null
 else
-    find .
+    find -print0 .
 fi
 '''
+    input_separator = "\\0"

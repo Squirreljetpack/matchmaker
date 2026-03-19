@@ -162,7 +162,7 @@ impl DisplayUI {
         let mut rows = vec![row];
         self.height = height;
 
-        // add header cells
+        // add header_line cells
         if !self.header.is_empty() {
             // todo: support wrapping on header lines
             rows.extend(self.header.iter().map(|row| {

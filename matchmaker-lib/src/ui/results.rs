@@ -1013,6 +1013,7 @@ impl StatusUI {
         for token in style_part.split(',') {
             let token = token.trim();
             if token.is_empty() {
+                fg_set = true;
                 continue;
             }
 

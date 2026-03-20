@@ -186,6 +186,7 @@ impl Default for TerminalConfig {
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct UiConfig {
     #[partial(recurse)]
+    #[partial(alias = "b")]
     pub border: BorderSetting,
     pub tick_rate: u8, // separate from render, but best place ig
 }
@@ -205,6 +206,7 @@ impl Default for UiConfig {
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct QueryConfig {
     #[partial(recurse)]
+    #[partial(alias = "b")]
     pub border: BorderSetting,
 
     // text styles
@@ -250,6 +252,7 @@ impl QueryConfig {}
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct OverlayConfig {
     #[partial(recurse)]
+    #[partial(alias = "b")]
     pub border: BorderSetting,
     pub outer_dim: bool,
     pub layout: OverlayLayoutSettings,
@@ -317,6 +320,7 @@ impl Default for AutoscrollSettings {
 #[serde(default, deny_unknown_fields)]
 pub struct ResultsConfig {
     #[partial(recurse)]
+    #[partial(alias = "b")]
     pub border: BorderSetting,
 
     // prefixes
@@ -366,9 +370,6 @@ pub struct ResultsConfig {
     #[partial(alias = "w")]
     pub wrap: bool,
     pub min_wrap_width: u16,
-    /// Maximum row height.
-    /// VScroll/Preview can still be used to view the whole result.
-    pub max_height: usize,
 
     // autoscroll
     #[partial(recurse, alias = "a")]
@@ -379,6 +380,10 @@ pub struct ResultsConfig {
     // ------------
     pub column_spacing: Count,
     pub current_prefix: String,
+
+    /// Maximum row height.
+    /// VScroll/Preview can still be used to view the whole result.
+    pub max_height: usize,
     pub show_skipped: bool,
     /// Always false if max_height is set
     pub vscroll_current_only: bool,
@@ -386,7 +391,6 @@ pub struct ResultsConfig {
     // lowpri: maybe space-around/space-between instead?
     #[partial(alias = "ra")]
     pub right_align_last: bool,
-
     #[partial(alias = "v")]
     #[serde(alias = "vertical")]
     pub stacked_columns: bool,
@@ -394,7 +398,6 @@ pub struct ResultsConfig {
     #[serde(alias = "hr")]
     #[serde(deserialize_with = "camelcase_normalized")]
     pub separator: HorizontalSeparator,
-
     pub separator_style: StyleSetting,
 }
 
@@ -446,7 +449,7 @@ impl Default for ResultsConfig {
             separator: Default::default(),
             separator_style: Default::default(),
             show_skipped: true,
-            vscroll_current_only: false,
+            vscroll_current_only: true,
         }
     }
 }
@@ -502,6 +505,7 @@ impl StatusConfig {}
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct DisplayConfig {
     #[partial(recurse)]
+    #[partial(alias = "b")]
     pub border: BorderSetting,
 
     #[partial(recurse)]
@@ -570,6 +574,7 @@ impl Default for DisplayConfig {
 #[serde(default, deny_unknown_fields)]
 pub struct PreviewConfig {
     #[partial(recurse)]
+    #[partial(alias = "b")]
     pub border: BorderSetting,
     #[partial(recurse, set = "recurse")]
     #[partial(alias = "l")]

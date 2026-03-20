@@ -53,7 +53,7 @@ Modifiers (`=`, `+`, `-`) also apply to ranges.
 
 #### Custom Preview Command
 
-Use `{}` to pass the current item to a previewer like `bat` or `eza`.
+Use `{}` to pass the current item to a previewer like `bat` or `eza`. 
 
 ```toml
 [[preview.layout]]
@@ -82,12 +82,10 @@ Change how the selected item is printed to stdout when you press enter.
 
 ### Command Line (CLI)
 
-#### Quick Output Wrap
+Output the shell-quoted result.
 
-Wrap the output in single quotes for use in shell scripts.
-
-```bash
-find . | mm o "'{}'"
+```
+find . | mm o "{}"
 ```
 
 #### Multi-Column Preview
@@ -137,7 +135,7 @@ With the `SetStyledStatus` action, it, along with the input prompt (by `SetStyle
 You can style parts of the status line and input prompt using the `{fg,bg,..modifiers:text}` syntax.
 
 - `{red:Error:}` renders "Error:" in red.
-- `{,,blue:Matchmaker}` renders "Matchmaker" in a blue background.
+- `{,blue:Matchmaker}` renders "Matchmaker" in a blue background.
 - `{red,bold,italic:Caution}` renders "Caution" in red, with bold and italic modifiers.
 
 ### Variables

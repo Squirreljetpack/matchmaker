@@ -38,7 +38,7 @@ On the way:
 
 [^15]: I like this so much i had to mention it twice
 
-[^17]: https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/query.md
+[^17]: https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/other.md
 
 ## Installation
 

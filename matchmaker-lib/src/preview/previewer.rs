@@ -138,6 +138,7 @@ impl Previewer {
 
             match &*self.rx.borrow() {
                 PreviewMessage::Run(cmd, variables) => {
+                    // we need the child handle
                     if let Some(mut child) = Command::from_script(cmd)
                         .envs(variables.iter().cloned())
                         .stdout(Stdio::piped())

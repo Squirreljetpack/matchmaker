@@ -1,7 +1,7 @@
 use std::{
     io::Read,
     path::Path,
-    process::{Command, exit},
+    process::{Command, Stdio, exit},
 };
 
 use crate::{
@@ -253,7 +253,12 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             let vars = state.make_env_vars();
             debug!("Reloading: {cmd}");
             state.picker_ui.selector.clear();
-            if let Some(stdout) = Command::from_script(&cmd).envs(vars).spawn_piped()._elog() {
+            if let Some(stdout) = Command::from_script(&cmd)
+                .envs(vars)
+                .stdin(Stdio::null())
+                .spawn_piped()
+                ._elog()
+            {
                 map_reader(
                     stdout,
                     move |line| injector.push(line),

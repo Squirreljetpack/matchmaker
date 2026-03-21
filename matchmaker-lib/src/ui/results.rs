@@ -831,6 +831,17 @@ impl ResultsUI {
                 *s += self.indentation() as u16;
             }
 
+            let surplus = self.width.saturating_sub(widths.iter().sum());
+
+            if surplus > 0 && matches!(self.config.row_connection, RowConnectionStyle::Full)
+                || (matches!(self.config.row_connection, RowConnectionStyle::Disjoint)
+                    && self.config.right_align_last)
+            {
+                if let Some(s) = widths.last_mut() {
+                    *s += surplus;
+                }
+            }
+
             widths
         } else {
             vec![self.width]

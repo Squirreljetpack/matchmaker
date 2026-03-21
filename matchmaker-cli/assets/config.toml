@@ -5,7 +5,7 @@
 
 [ui]
 
-[input]
+[query]
 
 [results]
     wrap = true
@@ -25,7 +25,7 @@ if [ -d {} ]; then
 else
     if command -v bat >/dev/null 2>&1; then
         bat --binary no-printing --color=always {}
-    if command -v $PAGER >/dev/null 2>&1; then
+    elif command -v $PAGER >/dev/null 2>&1; then
         $PAGER {}
     else
         cat {}
@@ -102,9 +102,9 @@ fi
 [start]
     command = '''
 if command -v fd >/dev/null 2>&1; then
-    fd --strip-cwd-prefix --null
+    fd --strip-cwd-prefix --print0
 else
-    find -print0 .
+    find . -print0
 fi
 '''
     input_separator = "\\0"

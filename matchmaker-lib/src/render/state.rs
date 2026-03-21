@@ -121,7 +121,7 @@ impl State {
         changed
     }
 
-    pub(crate) fn update_preview(&mut self, context: &str) -> bool {
+    pub(crate) fn update_preview_payload(&mut self, context: &str) -> bool {
         let changed = self.preview_payload.cmp_replace(context.into());
         if changed {
             self.insert(Event::PreviewChange);

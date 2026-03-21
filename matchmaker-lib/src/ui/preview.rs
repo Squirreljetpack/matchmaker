@@ -110,7 +110,7 @@ impl PreviewUI {
         };
     }
 
-    // -------- Layout -----------
+    // -------- Setting getters -----------
     /// None if not show OR if max = 0 (disabled layour)
     pub fn setting(&self) -> Option<&PreviewSetting> {
         // if let Some(ret) = self.config.layout.get(self.layout_idx)
@@ -151,6 +151,7 @@ impl PreviewUI {
             .unwrap_or("")
     }
 
+    // -------- Layout -----------
     pub fn cycle_layout(&mut self) {
         self.layout_idx = (self.layout_idx + 1) % self.config.layout.len()
     }

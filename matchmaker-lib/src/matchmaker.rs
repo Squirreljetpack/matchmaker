@@ -809,7 +809,7 @@ pub fn make_previewer<T: SSS, S: Selection + 'static>(
     let preview_tx = tx.clone();
 
     // preview handler
-    mm.register_event_handler(Event::CursorChange | Event::PreviewChange, move |state, _| {
+    mm.register_event_handler(Event::CursorChange | Event::PreviewChange | Event::Synced, move |state, _| {
             if state.preview_visible() &&
             let m = state.preview_payload().clone()
             {

@@ -57,7 +57,7 @@ impl<A: ActionExt> BindMap<A> {
             key!(shift-PageUp) => Action::PreviewHalfPageUp,
             key!(shift-Home) => Action::PreviewJump,
             key!(shift-End) => Action::PreviewJump,
-            key!('?') => Action::SwitchPreview(None)
+            key!('?') => Action::SwitchPreview(None),
         );
 
         #[cfg(target_os = "macos")]
@@ -246,7 +246,9 @@ impl FromStr for Trigger {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         // try semantic
-        if let Some(s) = value.strip_prefix("@") && !s.is_empty() {
+        if let Some(s) = value.strip_prefix("@")
+            && !s.is_empty()
+        {
             return Ok(Trigger::Semantic(s.to_string()));
         }
 

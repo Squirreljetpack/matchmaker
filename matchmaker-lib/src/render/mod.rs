@@ -20,7 +20,7 @@ use crate::config::{CursorSetting, ExitConfig, RowConnectionStyle};
 use crate::event::EventSender;
 use crate::message::{Event, Interrupt, RenderCommand};
 use crate::tui::Tui;
-use crate::ui::{DisplayUI, QueryUI, OverlayUI, PickerUI, PreviewUI, ResultsUI, UI};
+use crate::ui::{DisplayUI, OverlayUI, PickerUI, PreviewUI, QueryUI, ResultsUI, UI};
 use crate::{ActionAliaser, ActionExtHandler, Initializer, MatchError, SSS, Selection};
 
 fn apply_aliases<T: SSS, S: Selection, A: ActionExt>(
@@ -81,7 +81,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
     // place the initial command in the state where the preview listener can access
     if let Some(ref p) = preview_ui {
-        state.update_preview(p.get_initial_command());
+        state.update_preview_payload(p.get_initial_command());
     }
 
     let mut buffer = Vec::with_capacity(256);
@@ -377,14 +377,14 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             if let Some(p) = preview_ui.as_mut() {
                                 p.cycle_layout();
                                 if !p.command().is_empty() {
-                                    state.update_preview(p.command());
+                                    state.update_preview_payload(p.command());
                                 }
                             }
                         }
 
                         Action::Preview(context) => {
                             if let Some(p) = preview_ui.as_mut() {
-                                if !state.update_preview(context.as_str()) {
+                                if !state.update_preview_payload(context.as_str()) {
                                     p.toggle_show()
                                 } else {
                                     p.show(true);
@@ -406,14 +406,16 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                 if let Some(idx) = idx {
                                     p.set_layout(idx);
                                 } else {
-                                    state.update_preview(p.command());
+                                    state.update_preview_payload(p.command());
                                 }
                             }
                         }
                         Action::SwitchPreview(idx) => {
                             if let Some(p) = preview_ui.as_mut() {
                                 if let Some(idx) = idx {
-                                    if !p.set_layout(idx) && !state.update_preview(p.command()) {
+                                    if !p.set_layout(idx)
+                                        && !state.update_preview_payload(p.command())
+                                    {
                                         p.toggle_show();
                                     }
                                 } else {
@@ -733,14 +735,14 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 render_results(frame, results, &mut picker_ui, &mut click);
                 render_display(frame, header, &mut picker_ui.header, &picker_ui.results);
                 render_display(frame, footer, &mut footer_ui, &picker_ui.results);
-                if let Some(preview_ui) = preview_ui.as_mut()
-                    && preview_ui.visible()
-                {
+                if let Some(preview_ui) = preview_ui.as_mut() {
                     state.update_preview_visible(preview_ui);
-                    if did_resize {
-                        preview_ui.update_dimensions(&preview);
+                    if preview_ui.visible() {
+                        if did_resize {
+                            preview_ui.update_dimensions(&preview);
+                        }
+                        render_preview(frame, preview, preview_ui);
                     }
-                    render_preview(frame, preview, preview_ui);
                 }
                 if let Some(x) = overlay_ui_ref {
                     x.draw(frame);

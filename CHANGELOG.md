@@ -1,3 +1,16 @@
+## [0.0.23] - 2026-03-22
+
+### 🚀 Features
+
+- Max_height
+- Refactor styles to StyleSetting
+- mimalloc
+
+### 🐛 Bug Fixes
+
+- Previewchange now emits correctly
+- fixed broken config.toml
+
 ## [0.0.22] - 2026-03-18
 
 - deps update

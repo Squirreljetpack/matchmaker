@@ -1,5 +1,5 @@
-use matchmaker_partial::Set;
-use std::process::exit;
+
+
 
 mod action;
 mod clap;
@@ -17,10 +17,19 @@ use paths::*;
 use start::*;
 use utils::*;
 
+use std::process::exit;
+
 use cba::{_dbg, bait::ResultExt, bog::BogOkExt, bring::split::split_on_unescaped_delimiter, ebog};
+
 use matchmaker::MatchError;
+use matchmaker_partial::Set;
 
 use crate::parse::{get_pairs, try_split_kv};
+
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {

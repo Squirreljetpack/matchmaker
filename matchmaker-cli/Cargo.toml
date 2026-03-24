@@ -28,7 +28,7 @@
     thiserror   = "2.0"
     termimad    = "0.34.1"
     regex       = "1"
-    mimalloc = { version = "*", features = ["v3"] }
+    mimalloc = { version = "0.1.48", features = ["v3"] }
 
 [build-dependencies]
     clap          = { version = "4.0", features = [ "derive" ] }

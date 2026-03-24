@@ -62,6 +62,10 @@ pub struct StartConfig {
     #[serde(deserialize_with = "escaped_opt_char")]
     #[partial(alias = "is")]
     pub input_separator: Option<char>,
+    /// Input separator that only applies when not reading from stdin
+    #[serde(deserialize_with = "escaped_opt_char")]
+    #[partial(alias = "ps")]
+    pub command_input_separator: Option<char>,
     #[serde(deserialize_with = "escaped_opt_string")]
     #[partial(alias = "os")]
     pub output_separator: Option<String>,

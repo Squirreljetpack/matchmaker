@@ -111,7 +111,7 @@ mm px "echo 'You are currently filtering on: {!}'"
 Join multiple columns together. `{2..}` joins the 2nd column to the end.
 
 ```bash
-ls -l | mm d "[ +]" h.h 1 px "echo 'Metadata: {=2..}'"
+ls -l | mm d " +" h.h 1 px "echo 'Metadata: {=2..}'"
 ```
 
 *Note: `h.h` is short for `header.header_lines`.*

@@ -68,15 +68,7 @@ Bool values can be specified with true, false, or "".
 mm p.w= r.r=
 ```
 
-### Beware!
-
-1. All values are split following the above rule. If you are setting a single value with whitespaces, make sure to encapsulate it with `{..}`!
-
-```shell
-ls -l | mm d "[ +]" h.h 1 px "echo 'Metadata: {=..3}'" # Set the delimiter, header_lines, and preview command
-```
-
-2. When declaring a bind, it's recommended to use `mm b.ctrl-x "ExecuteSilent(rm {+}) Reload"` over `mm b "ctrl-x=ExecuteSilent(rm {+})"`, since the second format doesn't support chained actions.
+Note that when declaring a bind, prefer to use `mm b.ctrl-x "ExecuteSilent(rm {+}) Reload"` over `mm b "ctrl-x=ExecuteSilent(rm {+})"`, since the second format doesn't support chained actions.
 
 ## Colors and Modifiers
 

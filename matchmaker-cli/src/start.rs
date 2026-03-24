@@ -171,6 +171,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         start:
             StartConfig {
                 input_separator,
+                command_input_separator,
                 command,
                 sync,
                 output_separator,
@@ -262,7 +263,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 map_reader(
                     stdout,
                     move |line| injector.push(line),
-                    input_separator,
+                    command_input_separator.or(input_separator),
                     None,
                 );
             }
@@ -312,7 +313,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         map_reader(
             stdout,
             push_fn,
-            input_separator,
+            command_input_separator.or(input_separator),
             abort_empty.then_some(render_tx),
         )
     } else {

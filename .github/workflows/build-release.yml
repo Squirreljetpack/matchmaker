@@ -35,7 +35,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build Release
-        run: cargo build --release
+        run: cargo build --release -F experimental
 
       - name: Archive Binary (Unix)
         if: matrix.os != 'windows-latest'

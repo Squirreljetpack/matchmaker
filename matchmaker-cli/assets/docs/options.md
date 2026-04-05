@@ -109,9 +109,9 @@ All colors and modifiers come from ratatui:
 - `ignore_case`: (bool) Enable/disable case-insensitive matching.
 - `prefer_prefix`: (bool) Prioritize matches that start with the query.
 
-#### Worker _(flattened)_
+#### Worker *(flattened)*
 
-- `sort_threshold`: (number) Number of items above which sorting is disabled for performance.
+- `sort_threshold`, `sort`: (number) Similarity threshold within which item order is preserved (0 to always sort).
 - `raw`: Enable raw mode where non-matching items are also displayed in a dimmed color. (unimplemented)
 - `track`: Track the current selection when the result list is updated. (unimplemented)
 - `reverse`: Reverse the order of the input (unimplemented)
@@ -121,7 +121,7 @@ All colors and modifiers come from ratatui:
 - `s`, `split`: Defines how the input line is divided into columns. This can be `None`, a single `Delimiter` regex, or a list of `Regexes`.
   - **No Splitting** (`null`): The entire line is treated as a single column.
   - **Delimiter Regex** (`"regex"`):
-    - **No Capture Groups**: The regex is treated as a delimiter. Columns are the segments _between_ matches.
+    - **No Capture Groups**: The regex is treated as a delimiter. Columns are the segments *between* matches.
     - **Unnamed Capture Groups**: If the regex contains capture groups (e.g., `(\d+) (\w+)`), each group's match becomes a column in order.
     - **Named Capture Groups**: If the regex contains named groups (e.g., `(?P<size>\d+) (?P<name>\w+)`), matches are mapped to columns with matching names defined in `columns.names`.
   - **Multiple Regexes** (`"[re1] [re2].."`): Each regex is searched independently; the match becoming the corresponding column.
@@ -197,7 +197,7 @@ All colors and modifiers come from ratatui:
   - Absolute alias: `l`.
   - `x`, `command`: Command to run for preview. `{}` is replaced by the item.
     - Absolute alias: `px`.
-  - `layout` _(flattened)_:
+  - `layout` *(flattened)*:
     - `side`: `top`, `bottom`, `left`, `right`.
     - `percentage`: Percentage of the screen to occupy.
     - `min`, `max`: Pixel constraints for the preview size.
@@ -229,7 +229,7 @@ All colors and modifiers come from ratatui:
 - `extended_keys`: (bool) Enable enhanced keyboard support.
 - `sleep_ms`: (number) Delay in milliseconds before resizing.
 - `clear_on_exit`: (bool) Clear the TUI screen after selection.
-- `layout` _(flattened)_: Constraints for non-fullscreen mode.
+- `layout` *(flattened)*: Constraints for non-fullscreen mode.
   - `percentage`: Height of the terminal used.
   - `min`, `max`: Pixel constraints.
 

@@ -16,18 +16,32 @@ use serde::{
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
-#[matchmaker_partial_macros::partial(path, derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize))]
+#[matchmaker_partial_macros::partial(
+    path,
+    derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)
+)]
 pub struct StyleSetting {
-    #[serde(deserialize_with = "cba::serde::transform::camelcase_normalized")]
-    pub fg: Color,
-    #[serde(deserialize_with = "cba::serde::transform::camelcase_normalized")]
-    pub bg: Color,
+    #[serde(default)]
+    // #[serde(deserialize_with = "cba::serde::transform::camelcase_normalized")]
+    pub fg: Option<Color>,
+    #[serde(default)]
+    // #[serde(deserialize_with = "cba::serde::transform::camelcase_normalized")]
+    pub bg: Option<Color>,
     pub modifier: Modifier,
 }
 
 impl From<StyleSetting> for Style {
     fn from(s: StyleSetting) -> Style {
-        Style::default().fg(s.fg).bg(s.bg).add_modifier(s.modifier)
+        let mut style = Style::default().add_modifier(s.modifier);
+
+        if let Some(fg) = s.fg {
+            style = style.fg(fg);
+        }
+        if let Some(bg) = s.bg {
+            style = style.bg(bg);
+        }
+
+        style
     }
 }
 

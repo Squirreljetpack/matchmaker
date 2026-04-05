@@ -417,19 +417,19 @@ impl Default for ResultsConfig {
             style: Default::default(),
             inactive: Default::default(),
             inactive_current: StyleSetting {
-                fg: Color::DarkGray,
-                bg: Color::Black,
+                fg: Some(Color::DarkGray),
+                bg: Some(Color::Black),
                 ..Default::default()
             },
 
             match_style: StyleSetting {
-                fg: Color::Green,
+                fg: Some(Color::Green),
                 modifier: Modifier::ITALIC,
                 ..Default::default()
             },
 
             current: StyleSetting {
-                bg: Color::Black,
+                bg: Some(Color::Black),
                 modifier: Modifier::BOLD,
                 ..Default::default()
             },
@@ -490,7 +490,7 @@ impl Default for StatusConfig {
     fn default() -> Self {
         Self {
             style: StyleSetting {
-                fg: Color::Green,
+                fg: Some(Color::Green),
                 modifier: Modifier::ITALIC,
                 ..Default::default()
             },
@@ -546,7 +546,7 @@ impl Default for DisplayConfig {
             border: Default::default(),
             match_indent: true,
             style: StyleSetting {
-                fg: Color::Green,
+                fg: Some(Color::Green),
                 modifier: Modifier::ITALIC,
                 ..Default::default()
             },

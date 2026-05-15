@@ -864,7 +864,7 @@ impl Default for PreviewLayout {
             side: Side::Right,
             percentage: Percentage::new(60),
             min: 15,
-            max: i16::MAX,
+            max: 120,
         }
     }
 }

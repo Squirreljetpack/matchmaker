@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 #
 # matchmaker installation script
 # Downloads and installs the latest release from GitHub
@@ -51,7 +51,12 @@ detect_arch() {
 
 # Determine install directory
 get_install_dir() {
-	if command -v cargo >/dev/null 2>&1 && [[ ":$PATH:" == *":$INSTALL_DIR_CARGO:"* ]]; then
+	found_in_path=0
+	case ":$PATH:" in
+		*":$INSTALL_DIR_CARGO:"*) found_in_path=1 ;;
+	esac
+
+	if command -v cargo >/dev/null 2>&1 && [ "$found_in_path" = "1" ]; then
 		echo "$INSTALL_DIR_CARGO"
 	else
 		case "$OS" in
@@ -67,10 +72,9 @@ get_install_dir() {
 
 # Get the latest release version
 get_latest_release() {
-	local url="https://api.github.com/repos/$REPO/releases/latest"
-	local version
-	version=$(curl -s "$url" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-	if [[ -z "$version" ]]; then
+	url="https://api.github.com/repos/$REPO/releases/latest"
+	version=$(curl -s "$url" | grep '"tag_name":' | sed 's/.*"tag_name": "\(.*\)".*/\1/')
+	if [ -z "$version" ]; then
 		error "Failed to fetch latest release version"
 	fi
 	echo "$version"
@@ -87,7 +91,7 @@ main() {
 	info "Install directory: $INSTALL_DIR"
 
 	# Check if we can write to install directory
-	if [[ ! -w "$INSTALL_DIR" ]]; then
+	if [ ! -w "$INSTALL_DIR" ]; then
 		error "Cannot write to $INSTALL_DIR. Please run with appropriate permissions."
 	fi
 
@@ -103,7 +107,8 @@ main() {
 
 	# Create temporary directory
 	TEMP_DIR=$(mktemp -d)
-	trap "rm -rf $TEMP_DIR" EXIT
+	trap 'rm -rf "$TEMP_DIR"' EXIT
+	trap 'rm -rf "$TEMP_DIR"' INT TERM
 
 	# Download and extract
 	if ! curl -sL "$DOWNLOAD_URL" -o "$TEMP_DIR/$ASSET_NAME"; then
@@ -114,18 +119,18 @@ main() {
 
 	# Install binary
 	INSTALL_PATH="$INSTALL_DIR/$BINARY_NAME"
-	if [[ -f "$INSTALL_PATH" ]]; then
+	if [ -f "$INSTALL_PATH" ]; then
 		warn "Existing installation found at $INSTALL_PATH, replacing..."
 		rm -f "$INSTALL_PATH"
 	fi
 
-	if [[ -f "$TEMP_DIR/$BINARY_NAME" ]]; then
+	if [ -f "$TEMP_DIR/$BINARY_NAME" ]; then
 		mv "$TEMP_DIR/$BINARY_NAME" "$INSTALL_DIR/"
-	elif [[ -f "$TEMP_DIR/target/release/$BINARY_NAME" ]]; then
+	elif [ -f "$TEMP_DIR/target/release/$BINARY_NAME" ]; then
 		mv "$TEMP_DIR/target/release/$BINARY_NAME" "$INSTALL_DIR/"
 	else
 		FOUND_BIN=$(find "$TEMP_DIR" -name "$BINARY_NAME" -type f | head -n 1)
-		if [[ -n "$FOUND_BIN" ]]; then
+		if [ -n "$FOUND_BIN" ]; then
 			mv "$FOUND_BIN" "$INSTALL_DIR/"
 		else
 			error "Could not find binary $BINARY_NAME in the downloaded archive"

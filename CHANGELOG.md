@@ -1,3 +1,17 @@
+## [0.0.25] - 2026-05-15
+
+### 🚀 Features
+
+- Enable experimental features (i.e. sort controls) for github build
+- Optional colors
+
+### 🐛 Bug Fixes
+
+- Don't use wildcard versions
+
+### ⚙️ Miscellaneous Tasks
+
+- Add justfile task runner
 ## [0.0.24] - 2026-03-24
 
 ### 🚀 Features

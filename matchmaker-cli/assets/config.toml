@@ -37,17 +37,25 @@ percentage = 40
 min = 30
 max = 120
 
+border.type = "Plain"
+border.padding = [2, 0]
+
 [[preview.layout]]
 side = "top"
 percentage = 50
 min = 5
 max = 50
 
+border.type = "Plain"
+
 [[preview.layout]]
 side = "right"
 percentage = 75
 min = 5
 max = 240
+
+border.type = "Plain"
+border.padding = [2, 0]
 
 [binds]
 # UI

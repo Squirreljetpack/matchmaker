@@ -24,7 +24,6 @@ where
     pub terminal: ratatui::Terminal<CrosstermBackend<W>>,
     pub area: Rect,
     pub config: TerminalConfig,
-    pub cursor_y_offset: Option<u16>,
     pub fullscreen: bool, // initially fullscreen
 }
 
@@ -100,7 +99,6 @@ where
         Ok(Self {
             terminal,
             fullscreen: config.layout.is_none(),
-            cursor_y_offset: None,
             config,
             area,
         })
@@ -188,15 +186,10 @@ where
             execute!(backend, PopKeyboardEnhancementFlags)._elog();
         }
 
-        if self.config.move_up_on_exit {
-            let move_up = self.cursor_y_offset.unwrap_or(1);
-            log::debug!("Moving up by: {move_up}");
-            execute!(backend, crossterm::cursor::MoveUp(move_up))._elog();
-        }
-
         if self.config.clear_on_exit && !cfg!(debug_assertions) {
             execute!(
                 backend,
+                crossterm::cursor::MoveToRow(self.area.y),
                 crossterm::cursor::MoveToColumn(0),
                 crossterm::terminal::Clear(ClearType::FromCursorDown)
             )

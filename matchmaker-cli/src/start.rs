@@ -67,8 +67,6 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
         }
     };
 
-    // let original = config.clone();
-
     if config.render.status.template.is_empty() {
         config.render.status.template = r#"\m/\t"#.to_string();
     }
@@ -79,7 +77,6 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
     }
 
     config.apply(partial); // resolve config.exit first
-    // log::debug!("unchanged: {}", original == config);
 
     if cli.last_key {
         let path = config
@@ -130,7 +127,7 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
         }
     }
 
-    log::debug!("{config:?}");
+    debug!("{config:?}");
 
     Ok(config)
 }

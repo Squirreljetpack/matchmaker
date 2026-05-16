@@ -750,11 +750,13 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             })
             .map_err(|e| MatchError::TUIError(e.to_string()))?;
 
-        // useful to clear artifacts
-        if did_resize && tui.config.redraw_on_resize && !did_exit {
-            tui.redraw();
-            tui.cursor_y_offset = Some(cursor_y_offset)
+        if did_resize {
+            // useful to clear artifacts
+            if tui.config.redraw_on_resize && !did_exit {
+                tui.redraw();
+            }
         }
+
         buffer.clear();
 
         // note: the remainder could be scoped by a conditional on having run?

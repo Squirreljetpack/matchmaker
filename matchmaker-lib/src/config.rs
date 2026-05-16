@@ -165,8 +165,6 @@ pub struct TerminalConfig {
     #[partial(recurse)]
     pub layout: Option<TerminalLayoutSettings>, // None for fullscreen
     pub clear_on_exit: bool,
-    // experimental: makes exits cleaner, but success get joined
-    pub move_up_on_exit: bool,
 }
 
 impl Default for TerminalConfig {
@@ -179,7 +177,6 @@ impl Default for TerminalConfig {
             layout: Option::default(),
             extended_keys: true,
             clear_on_exit: true,
-            move_up_on_exit: false,
         }
     }
 }

@@ -1,6 +1,3 @@
-
-
-
 mod action;
 mod clap;
 mod config;
@@ -74,29 +71,12 @@ fn get_partial(config_args: Vec<String>) -> anyhow::Result<PartialConfig> {
     log::trace!("{split:?}");
     let mut partial = PartialConfig::default();
     for (path, val) in split {
-        let parts = if val == "|||" {
-            vec![]
-        } else {
+        let parts = {
             let mut parts = split_on_unescaped_delimiter(&val, "|||");
             let is_binds = path.len() == 1 && ["binds", "b"].contains(&path[0].as_ref());
             try_split_kv(&mut parts, is_binds)?;
             parts
         };
-        // match split_whitespace_preserving_nesting(&val, Some(['(', ')']), Some(['[', ']'])) {
-        //     Ok(mut parts) => {
-        //         // todo: recommend to prefer b.ctrl-x="Cancel Quit" as that allows correct whitespace splitting into sequences
-        //         let is_binds = path.len() == 1 && ["binds", "b"].contains(&path[0].as_ref());
-        //         try_split_kv(&mut parts, is_binds)?;
-        //         parts
-        //     }
-        //     Err(n) => {
-        //         if n > 0 {
-        //             bail!("Encountered {} unclosed parentheses", n)
-        //         } else {
-        //             bail!("Extra closing parenthesis at index {}", -n)
-        //         }
-        //     }
-        // };
 
         log::trace!("{parts:?}");
         _dbg!(&path, &parts);

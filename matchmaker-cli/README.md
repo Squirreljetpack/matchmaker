@@ -19,7 +19,7 @@ It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and
 - Split input lines by *regex capture groups*.
 - Define `Execute/Preview/Print/Accept` actions with [templates](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md) which *safely* inject the current item(s) (yes, columns are supported here too).
 - All the dynamic UI support you could hope for: preview offsets, styled status lines, responsive header tables, wrapped footers, active and inactive column colors, stacked columns, multiple preview layouts[^15]... even overlays! (in the library).
-- Bind keys to multiple actions, bind actions to mouse triggers, bind actions to event triggers, bind keys to rebind keys, bind keys to modify the configuration, bind keys to run a shell script and use its output to more keys, bind keys to set the header, footer, status, input, bind keys to semantic triggers, bind semantic triggers to actions, bind keys to -- wait nope thats about it.
+- Bind keys to multiple actions, bind actions to mouse triggers, bind actions to event triggers, bind keys to rebind keys, bind keys to modify the configuration, bind keys to run a shell script and use its output to execute actions and bind more keys, bind keys to set the header, footer, status, input, bind semantic triggers to actions, bind keys to semantic triggers, bind keys to -- wait nope thats about it.
 - Comprehensive logging in case you need to debug applications.
 - oh yeah, and `mm --last-key` gives you the last key that was pressed in a previous run of the program.[^13]
 - Available as a rust library to use in your own code!
@@ -126,6 +126,8 @@ In addition to keys, actions can also be bound to Events and Crossterm events (c
 
 See [here](./matchmaker-cli/assets/docs/options.md) for the command-line syntax.
 
+For quick reference, `mm --doc` provides fairly readable and comprehensive guides to various topics. 
+
 Matchmaker aims to achieve feature-parity with fzf (though not necessarily by the same means). If there's any specific feature that you'd like to see, open an issue!
 
 ## Examples
@@ -153,7 +155,7 @@ mm --config ~/.config/matchmaker/presets/rg.toml
 
 Migrating from `fzf` to `mm` is conceptually straightforward because the two tools are almost fully feature-compatible. You can continue using familiar actions, like `execute`, and they will function the same way.
 
-The main difference is **syntax**. For example, opening a selected file in your editor:
+The main difference is **syntax**[^50]. For example, opening a selected file in your editor:
 
 - In `fzf`:
 
@@ -221,8 +223,6 @@ r.r= r.w=false r.a.e= r.a.c=0 \
 b.Shift-BackTab=Up b.BackTab=Up b.Tab=Down
 ```
 
-For quick reference, `mm --doc` provides fairly readable and comprehensive guides to various topics. [^50]
-
 [^50]: More on comparisons: https://github.com/Squirreljetpack/matchmaker/issues/1
 
 ## Library
@@ -230,7 +230,7 @@ For quick reference, `mm --doc` provides fairly readable and comprehensive guide
 Matchmaker can also be used as a library.
 
 ```sh
-cargo add matchmaker
+cargo add matchmaker-lib
 ```
 
 ### Example

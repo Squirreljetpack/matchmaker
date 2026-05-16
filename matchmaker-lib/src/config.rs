@@ -303,6 +303,8 @@ pub struct AutoscrollSettings {
     /// Whether to autoscroll to the end of the line.
     #[partial(alias = "e")]
     pub end: bool,
+    /// Enable autoscroll even when wrap = true. Ignored if enable = false.
+    pub always: bool,
 }
 
 impl Default for AutoscrollSettings {
@@ -312,6 +314,7 @@ impl Default for AutoscrollSettings {
             enabled: true,
             context: 4,
             end: false,
+            always: false,
         }
     }
 }

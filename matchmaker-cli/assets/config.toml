@@ -79,6 +79,10 @@ max = 240
 "ctrl-shift-down" = "VScroll(-1)"
 "ctrl-shift-left" = "HScroll(-1)"
 "ctrl-shift-right" = "HScroll(1)"
+"alt-up" = "VScroll(1)"
+"alt-down" = "VScroll(-1)"
+"alt-left" = "HScroll(-1)"
+"alt-right" = "HScroll(1)"
 
 # Columns
 "ctrl-." = "NextColumn"

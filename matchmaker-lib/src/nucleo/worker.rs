@@ -456,8 +456,9 @@ fn render_cell<T: SSS>(
     mut autoscroll: AutoscrollSettings,
     hscroll_offset: i8,
 ) -> (Text<'static>, usize) {
-    // disable right autoscroll if wrap
-    autoscroll.end &= !wrap;
+    if !autoscroll.always {
+        autoscroll.enabled &= !wrap;
+    }
 
     let mut cell_width = 0;
     let mut wrapped = false;
@@ -516,33 +517,47 @@ fn render_cell<T: SSS>(
         if autoscroll.enabled && autoscroll.end {
             i = match_idx.unwrap_or(line_graphemes.len());
 
+            let preserved_width = line_graphemes
+                [..autoscroll.initial_preserved.min(line_graphemes.len())]
+                .iter()
+                .map(|(g, _)| g.width())
+                .sum::<usize>();
+
             let target_width = if let Some(x) = match_idx {
                 (width_limit as usize)
                     .saturating_sub(autoscroll.context.min(line_graphemes.len() - x - 1))
             } else {
                 width_limit as usize
             }
-            .saturating_sub(1);
+            .saturating_sub(preserved_width);
 
             let mut current_width = 0;
 
-            while i > 0 {
+            while i > autoscroll.initial_preserved {
                 let w = line_graphemes[i - 1].0.width();
-                if current_width + w > target_width {
+                let indicator_width = if i - 1 > autoscroll.initial_preserved {
+                    1
+                } else {
+                    0
+                };
+
+                if current_width + w + indicator_width <= target_width {
+                    i -= 1;
+                    current_width += w;
+                } else {
                     break;
                 }
-                i -= 1;
-                current_width += w;
             }
-            if i > 1 {
-                i += 1;
-            } else {
+
+            i = i.saturating_add_signed(hscroll_offset as isize);
+
+            if i <= autoscroll.initial_preserved {
                 i = 0;
             }
         } else if autoscroll.enabled
             && let Some(m_idx) = match_idx
         {
-            i = (m_idx as i32 + hscroll_offset as i32 - autoscroll.context as i32).max(0) as usize;
+            i = (m_idx as i32 - autoscroll.context as i32).max(0) as usize;
 
             let mut tail_width: usize = line_graphemes[i..].iter().map(|(g, _)| g.width()).sum();
 
@@ -555,7 +570,16 @@ fn render_cell<T: SSS>(
             // Expand leftwards as long as the total rendered width <= width_limit
             while i > autoscroll.initial_preserved {
                 let prev_width = line_graphemes[i - 1].0.width();
-                if tail_width + preserved_width + 1 + prev_width <= width_limit as usize {
+                // Only reserve space for "..." if we aren't reaching the very start
+                let indicator_width = if i - 1 > autoscroll.initial_preserved {
+                    1
+                } else {
+                    0
+                };
+
+                if tail_width + preserved_width + indicator_width + prev_width
+                    <= width_limit as usize
+                {
                     i -= 1;
                     tail_width += prev_width;
                 } else {
@@ -563,7 +587,9 @@ fn render_cell<T: SSS>(
                 }
             }
 
-            if i <= autoscroll.initial_preserved + 1 {
+            i = i.saturating_add_signed(hscroll_offset as isize);
+
+            if i <= autoscroll.initial_preserved {
                 i = 0;
             }
         } else {

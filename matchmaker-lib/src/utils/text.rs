@@ -113,7 +113,7 @@ pub fn wrapping_indicator<'a>() -> Span<'a> {
 }
 
 pub fn truncation_indicator<'a>() -> Span<'a> {
-    Span::styled(" …", Style::default().fg(Color::DarkGray))
+    Span::styled(" ⋮", Style::default().fg(Color::DarkGray))
 }
 
 pub fn hscroll_indicator<'a>() -> Span<'a> {

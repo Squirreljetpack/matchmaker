@@ -1,3 +1,15 @@
+## [0.0.26] - 2026-05-17
+
+### 🚀 Features
+
+- Preliminary windows support windows
+
+### 🐛 Bug Fixes
+
+- Correctly clear screen on exit for all layouts
+- Autoscroll bugs
+- Autoscroll oob panic
+
 ## [0.0.25] - 2026-05-15
 
 ### 🚀 Features

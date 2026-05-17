@@ -93,8 +93,8 @@ if (Get-Command bat -ErrorAction SilentlyContinue) {
     # Navigation
     "up"               = "Up"
     "down"             = "Down"
-    "pageup"           = "HalfPageDown"
-    "pagedown"         = "HalfPageUp"
+    "pageup"           = "HalfPageUp"
+    "pagedown"         = "HalfPageDown"
     "shift-up"         = "PreviewHalfPageUp"
     "shift-down"       = "PreviewHalfPageDown"
     "ctrl-shift-up"    = "VScroll(1)"

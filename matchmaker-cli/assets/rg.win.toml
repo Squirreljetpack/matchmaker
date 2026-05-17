@@ -14,8 +14,8 @@
 
 [[preview.layout]]
     command = '''
-$line = '{2}'
-$file = '{1}'
+$line = {2}
+$file = {1}
 $highlightLine = ($line -split ':')[0]
 
 if (Get-Command bat -ErrorAction SilentlyContinue) {

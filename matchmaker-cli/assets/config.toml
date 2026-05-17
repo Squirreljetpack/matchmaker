@@ -79,8 +79,8 @@ fi
     # Navigation
     "up"               = "Up"
     "down"             = "Down"
-    "pageup"           = "HalfPageDown"
-    "pagedown"         = "HalfPageUp"
+    "pagedown"           = "HalfPageDown"
+    "pageup"         = "HalfPageUp"
     "shift-up"         = "PreviewHalfPageUp"
     "shift-down"       = "PreviewHalfPageDown"
     "ctrl-shift-up"    = "VScroll(1)"

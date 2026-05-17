@@ -80,8 +80,8 @@ if (Test-Path -LiteralPath $p -PathType Container) {
     # Navigation
     "up"               = "Up"
     "down"             = "Down"
-    "pageup"           = "HalfPageDown"
-    "pagedown"         = "HalfPageUp"
+    "pageup"           = "HalfPageUp"
+    "pagedown"         = "HalfPageDown"
     "shift-up"         = "PreviewHalfPageUp"
     "shift-down"       = "PreviewHalfPageDown"
     "ctrl-shift-up"    = "VScroll(1)"

@@ -1,0 +1,29 @@
+[workspace]
+changelog_path = "CHANGELOG.md"
+
+dependencies_update = true
+pr_labels = ["release"]
+
+[changelog]
+header = ""
+trim = false
+commit_parsers = [
+  { message = "^feat", group = "🚀 Features" },
+  { message = "^fix", group = "🐛 Bug Fixes" },
+  { message = "^doc", group = "📚 Documentation" },
+  { message = "^perf", group = "⚡ Performance" },
+  { message = "^refactor", group = "🚜 Refactoring" },
+  { message = "^style", group = "🎨 Styling" },
+  { message = "^test", group = "🧪 Testing" },
+  { message = "^chore|^ci", skip = true },
+]
+
+# The template that loops through your sorted groups
+body = """## [{{ version }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group }}
+{% for commit in commits %}
+- {{ commit.message | upper_first }}
+{% endfor %}{% endfor %}
+"""
+

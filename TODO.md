@@ -25,6 +25,8 @@
 - benchmarks
   - (what kinds of speed matter?)
 - https://github.com/saghen/frizbee
+- On windows launching pwsh is slow, we should maybe support configurable shell for running scripts since pwsh is slow?
+  - On linux, SHELL generally should be the user's preferred shell for writing scripts so not really an issue?
 
 # Columns
 
@@ -48,14 +50,13 @@
 - I feel that having matcher and worker in seperate fields and supporting deny_unknown outweighs the minor confusion it could introduce
 - Non grapheme aware option to speed up rendering? This would require frizbee (and be required by?).
 
-
-
 # Examples
+
 (date; ps -ef) |
-  fzf --bind='ctrl-r:reload(date; ps -ef)' \
-      --header=$'Press CTRL-R to reload\n\n' --header-lines=2 \
-      --preview='echo {}' --preview-window=down,3,wrap \
-      --layout=reverse --height=80% | awk '{print $2}' | xargs kill -9
+fzf --bind='ctrl-r:reload(date; ps -ef)'\
+--header=$'Press CTRL-R to reload\n\n' --header-lines=2\
+--preview='echo {}' --preview-window=down,3,wrap\
+--layout=reverse --height=80% | awk '{print $2}' | xargs kill -9
 
 Kubernetes
 

@@ -79,7 +79,6 @@ main() {
     if [ "$OS" = "windows" ]; then
         ASSET_NAME="matchmaker-windows.zip"
     else
-        # Adjust this if your linux/mac assets include architecture
         ASSET_NAME="matchmaker-${OS}.tar.gz"
     fi
 

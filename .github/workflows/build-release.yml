@@ -47,6 +47,7 @@ jobs:
         shell: pwsh
         run: |
           Compress-Archive -Path target/release/${{ matrix.artifact_name }} -DestinationPath ./${{ matrix.asset_name }}
+
       - name: Upload to Release
         uses: softprops/action-gh-release@v1
         with:
@@ -58,20 +59,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  publish:
-    name: Publish to crates.io
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: cargo-bins/cargo-binstall@main
+      - run: cargo binstall --no-confirm cargo-workspaces
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-      
-      - name: Publish to crates.io
-        run: cargo publish --workspace
+      - name: Publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_API_KEY }}
-
-
+        run: cargo workspaces publish --from-git

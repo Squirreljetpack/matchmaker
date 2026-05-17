@@ -134,7 +134,6 @@ impl Previewer {
 
             self.dispatch_kill();
             self.clear_string();
-            self.lines.clear();
 
             match &*self.rx.borrow() {
                 PreviewMessage::Run(cmd, variables) => {
@@ -151,10 +150,9 @@ impl Previewer {
                     // we need the child handle
                     if let Some(mut child) = cmd_builder._spawn() {
                         if let Some(stdout) = child.stdout.take() {
-                            self.changed.store(true, Ordering::Relaxed);
-
                             let lines = self.lines.clone();
-                            let guard = self.lines.read();
+                            let mut guard = self.lines.read();
+                            let changed = self.changed.clone();
                             let cmd = cmd.clone();
 
                             // false => needs refresh (i.e. invalid utf-8)
@@ -162,10 +160,18 @@ impl Previewer {
                                 let mut reader = BufReader::new(stdout);
                                 let mut leftover = Vec::new();
                                 let mut buf = [0u8; 8192];
+                                let mut first = true;
 
                                 while let Ok(n) = std::io::Read::read(&mut reader, &mut buf) {
                                     if n == 0 {
                                         break;
+                                    }
+
+                                    if first {
+                                        lines.clear();
+                                        guard = lines.read(); // get new consistent snapshot
+                                        changed.store(true, Ordering::Relaxed);
+                                        first = false;
                                     }
 
                                     leftover.extend_from_slice(&buf[..n]);
@@ -213,7 +219,10 @@ impl Previewer {
                                     leftover = rest.to_vec();
                                 }
 
-                                if !leftover.is_empty() && !lines.is_expired(&guard) {
+                                if first {
+                                    lines.clear();
+                                    changed.store(true, Ordering::Relaxed);
+                                } else if !leftover.is_empty() && !lines.is_expired(&guard) {
                                     match leftover.into_text() {
                                         Ok(text) => {
                                             for line in text {
@@ -249,7 +258,10 @@ impl Previewer {
                         }
                     }
                 }
-                PreviewMessage::Stop => {}
+                PreviewMessage::Stop => {
+                    self.lines.clear();
+                    self.changed.store(true, Ordering::Relaxed);
+                }
                 _ => unreachable!(),
             }
 

@@ -604,8 +604,9 @@ fn render_cell<T: SSS>(
 
         // Add preserved prefix and ellipsis if needed
         if i > 0 && autoscroll.enabled {
-            let preserved = autoscroll.initial_preserved;
-            for (g, s) in line_graphemes.drain(..preserved) {
+            for (g, s) in
+                line_graphemes.drain(..autoscroll.initial_preserved.min(line_graphemes.len()))
+            {
                 if s != current_style {
                     if !current_span.is_empty() {
                         current_spans.push(Span::styled(current_span, current_style));
@@ -618,7 +619,7 @@ fn render_cell<T: SSS>(
             if !current_span.is_empty() {
                 current_spans.push(Span::styled(current_span, current_style));
             }
-            i -= preserved;
+            i -= autoscroll.initial_preserved;
 
             current_width += current_spans.iter().map(|x| x.width()).sum::<usize>();
             current_spans.push(hscroll_indicator());
@@ -628,13 +629,11 @@ fn render_cell<T: SSS>(
             current_style = Style::default();
         }
 
-        let full_line_width = (!wrap).then(|| {
-            current_width
-                + line_graphemes[i..]
-                    .iter()
-                    .map(|(g, _)| g.width())
-                    .sum::<usize>()
-        });
+        // prevent stuck invisible columns
+        if !line_graphemes.is_empty() {
+            cell_width = cell_width.max(1);
+            i = i.min(line_graphemes.len())
+        }
 
         let mut graphemes = line_graphemes.drain(i..);
 
@@ -716,7 +715,7 @@ fn render_cell<T: SSS>(
 
         current_spans.push(Span::styled(current_span, current_style));
         lines.push(Line::from(current_spans));
-        cell_width = cell_width.max(full_line_width.unwrap_or(current_width));
+        cell_width = cell_width.max(current_width);
 
         grapheme_idx += 1; // newline
     }

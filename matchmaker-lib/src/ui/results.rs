@@ -1,4 +1,5 @@
 use cba::bring::split::split_on_nesting;
+use log::trace;
 use ratatui::{
     layout::{Alignment, Rect},
     style::{Color, Modifier, Style},
@@ -363,6 +364,16 @@ impl ResultsUI {
                 hz,
             ),
             self.config.show_skipped,
+        );
+
+        trace!(
+            "{}, {},  {}, {}, {:?}, {:?}",
+            results.len(),
+            self.hscroll,
+            offset,
+            end,
+            width_limits,
+            self.widths
         );
 
         widths[0] += self.indentation() as u16;
@@ -810,12 +821,17 @@ impl ResultsUI {
                 && pos > 0
                 && self.config.right_align_last
             {
-                let used = widths.iter().take(widths.len() - 1).sum();
-                widths[pos] = self.width.saturating_sub(used);
+                let used: u16 = widths.iter().take(widths.len() - 1).sum();
+                let v = self.width.saturating_sub(used);
+                let w = &mut widths[pos];
+                *w = if *w > 0 { v.max(1) } else { v }; // prevent column hiding
             }
-            if let Some(s) = widths.get_mut(0) {
-                *s -= self.indentation() as u16
+
+            if let Some(w) = widths.get_mut(0) {
+                let v = w.saturating_sub(self.indentation() as u16);
+                *w = if *w > 0 { v.max(1) } else { v };
             }
+            // set self.widths to "actual" width of each column
             self.widths = widths.clone();
 
             if !self.config.wrap {

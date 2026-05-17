@@ -1,0 +1,78 @@
+[query]
+    prompt_style.fg = "Red"
+
+[start]
+    command = '''rg --column --line-number --no-heading --color=always --smart-case "$env:FZF_QUERY"'''
+    ansi    = true
+
+[columns]
+    max     = 3
+    split   = '^(.*?):(\d+:\d+):(.*)$'
+    default = 3
+
+[results]
+
+[[preview.layout]]
+    command = '''
+$line = '{2}'
+$file = '{1}'
+$highlightLine = ($line -split ':')[0]
+
+if (Get-Command bat -ErrorAction SilentlyContinue) {
+    bat --color=always --highlight-line $highlightLine $file
+} else {
+    Get-Content -LiteralPath $file -Raw
+}
+'''
+    border = { type = "LightDoubleDashed", color = "DarkGray" }
+    side = "top"
+    percentage = 50
+
+[preview]
+    show              = true
+    scroll.percentage = 70
+    scroll.index      = 2
+
+[binds]
+    "Start" = "@enter_rg"
+    "@enter_rg" = [ # Reload on query change, disable reparsing, update bind
+        "Filtering(false)",
+        '''Bind(QueryChange = Reload)''',
+        # Prompt indicator (
+        '''Transform(
+    if ($env:MM_QUERY) {
+        $trimmedQuery = $env:MM_QUERY -replace '^%1\s*', ''
+        Write-Output "SetStyledPrompt({blue,italic:($trimmedQuery)} )"
+    } else {
+        Write-Output "SetPrompt(rg> )"
+    }
+
+    Write-Output "SetQuery($env:MM_STORE)"
+    Write-Output "Store($env:MM_QUERY)"
+)''',
+        "Bind(@reload = @enter_mm)",
+    ]
+    "@enter_mm" = [
+        "Filtering(true)",
+        "Unbind(QueryChange)",
+        '''Transform(
+    if ($env:MM_QUERY) {
+        Write-Output "SetPrompt(($env:MM_QUERY) )"
+    } else {
+        Write-Output "SetStyledPrompt({blue,italic:mm> })"
+    }
+
+    Write-Output "SetQuery($env:MM_STORE)"
+    Write-Output "Store($env:MM_QUERY)"
+    Write-Output "SwitchColumn(1)"
+)
+''',
+        "Bind(@reload = @enter_rg)",
+    ]
+
+    "ctrl-r" = "@reload"
+
+    # Navigation
+    "ctrl-." = "NextColumn"
+    "enter"  = "Become($env:EDITOR {1})"
+    "?"      = "SwitchPreview"

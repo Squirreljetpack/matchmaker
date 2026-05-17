@@ -53,6 +53,10 @@ Or grab it from the releases page with extra features:
 curl -fsSL https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/install.sh | sh
 ```
 
+```powershell
+powershell -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/install.ps1 -useb | iex"
+```
+
 Pass it some items:
 
 ```sh

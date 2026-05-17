@@ -138,15 +138,18 @@ impl Previewer {
 
             match &*self.rx.borrow() {
                 PreviewMessage::Run(cmd, variables) => {
-                    // we need the child handle
-                    if let Some(mut child) = Command::from_script(cmd)
+                    let mut cmd_builder = Command::from_script(cmd);
+                    cmd_builder
                         .envs(variables.iter().cloned())
                         .stdout(Stdio::piped())
                         .stdin(Stdio::null())
-                        .stderr(Stdio::null())
-                        .detach()
-                        ._spawn()
-                    {
+                        .stderr(Stdio::null());
+
+                    #[cfg(not(target_os = "windows"))]
+                    cmd_builder.detach();
+
+                    // we need the child handle
+                    if let Some(mut child) = cmd_builder._spawn() {
                         if let Some(stdout) = child.stdout.take() {
                             self.changed.store(true, Ordering::Relaxed);
 

@@ -60,9 +60,14 @@ pub struct Config {
 
 // -----------------------
 
+#[cfg(not(windows))]
+pub const DEFAULT_CONFIG: &str = include_str!("../assets/config.toml");
+#[cfg(windows)]
+pub const DEFAULT_CONFIG: &str = include_str!("../assets/config.win.toml");
+
 impl Default for Config {
     fn default() -> Self {
-        toml::from_str(include_str!("../assets/config.toml")).unwrap()
+        toml::from_str(DEFAULT_CONFIG).unwrap()
     }
 }
 

@@ -16,21 +16,22 @@
 
 [[preview.layout]]
     command = '''
-if [ -d {} ]; then
-    if command -v eza >/dev/null 2>&1; then
-        eza --color=always -T -L 2 {}
-    else
-        find {} -maxdepth 2 | sed 's|[^/]*/|  |g'
-    fi
-else
-    if command -v bat >/dev/null 2>&1; then
-        bat --binary no-printing --color=always {}
-    elif command -v $PAGER >/dev/null 2>&1; then
-        $PAGER {}
-    else
-        cat {}
-    fi
-fi
+$p = {}
+if (Test-Path -LiteralPath $p -PathType Container) {
+    if (Get-Command eza -ErrorAction SilentlyContinue) {
+        eza --color=always -T -L 2 $p
+    } else {
+        Get-ChildItem -LiteralPath $p | Select-Object -First 20 | ForEach-Object { "  $($_.Name)" }
+    }
+} else {
+    if (Get-Command bat -ErrorAction SilentlyContinue) {
+        bat --binary no-printing --color=always $p
+    } elseif ($env:PAGER) {
+        & $env:PAGER $p
+    } else {
+        Get-Content -LiteralPath $p -Raw
+    }
+}
 '''
     side = "right"
     percentage = 40
@@ -105,17 +106,17 @@ fi
     "alt-1"            = "Pos(0)"
 
     # Programmable
-    "ctrl-l" = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)" # "maximize" the preview
-    "ctrl-o" = "Execute($EDITOR {})"
-    "alt-o"  = "Become($EDITOR {})"
+    "ctrl-l" = "Execute(%MM_PREVIEW_COMMAND% | %PAGER%)" # "maximize" the preview
+    "ctrl-o" = "Execute(%EDITOR% {})"
+    "alt-o"  = "Become(%EDITOR% {})"
     "ctrl-r" = "Reload"
 
 [start]
     command = '''
-if command -v fd >/dev/null 2>&1; then
+if (Get-Command fd -ErrorAction SilentlyContinue) {
     fd --strip-cwd-prefix --print0
-else
-    find . -print0
-fi
+} else {
+    Get-ChildItem -Recurse -File | ForEach-Object { "$($_.FullName)`0" }
+}
 '''
-    command_input_separator = "\\0"
+    command_input_separator = "\x00"

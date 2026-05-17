@@ -1,148 +1,134 @@
 #!/bin/sh
 #
 # matchmaker installation script
-# Downloads and installs the latest release from GitHub
 #
 
 set -e
 
-# Configuration
 REPO="Squirreljetpack/matchmaker"
-BINARY_NAME="mm"
+BINARY_BASE_NAME="mm"
 INSTALL_DIR_CARGO="$HOME/.cargo/bin"
+INSTALL_DIR_LOCAL="$HOME/.local/bin"
 
-# Colors for output
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-error() {
-	printf "%b\n" "${RED}Error: $1${NC}" >&2
-	exit 1
-}
+error() { printf "%bError: %s%b\n" "${RED}" "$1" "${NC}" >&2; exit 1; }
+info() { printf "%b%s%b\n" "${GREEN}" "$1" "${NC}"; }
+warn() { printf "%bWarning: %s%b\n" "${YELLOW}" "$1" "${NC}"; }
 
-info() {
-	printf "%b\n" "${GREEN}$1${NC}"
-}
-
-warn() {
-	printf "%b\n" "${YELLOW}$1${NC}"
-}
-
-# Detect OS and architecture
 detect_os() {
-	case "$(uname -s)" in
-	Linux*) echo "linux" ;;
-	Darwin*) echo "mac" ;;
-	CYGWIN* | MINGW* | MSYS*) echo "windows" ;;
-	*) error "Unsupported OS: $(uname -s)" ;;
-	esac
+    case "$(uname -s)" in
+        Linux*) echo "linux" ;;
+        Darwin*) echo "mac" ;;
+        CYGWIN*|MINGW*|MSYS*) echo "windows" ;;
+        *) error "Unsupported OS: $(uname -s)" ;;
+    esac
 }
 
 detect_arch() {
-	case "$(uname -m)" in
-	x86_64) echo "x86_64" ;;
-	arm64) echo "aarch64" ;;
-	aarch64) echo "aarch64" ;;
-	*) error "Unsupported architecture: $(uname -m)" ;;
-	esac
+    case "$(uname -m)" in
+        x86_64|amd64) echo "x86_64" ;;
+        arm64|aarch64) echo "aarch64" ;;
+        *) echo "x86_64" ;; # Default to x86_64 if unknown
+    esac
 }
 
-# Determine install directory
 get_install_dir() {
-	found_in_path=0
-	case ":$PATH:" in
-		*":$INSTALL_DIR_CARGO:"*) found_in_path=1 ;;
-	esac
+    # 1. Cargo priority
+    case ":$PATH:" in
+        *":$INSTALL_DIR_CARGO:"*) echo "$INSTALL_DIR_CARGO"; return ;;
+    esac
 
-	if command -v cargo >/dev/null 2>&1 && [ "$found_in_path" = "1" ]; then
-		echo "$INSTALL_DIR_CARGO"
-	else
-		case "$OS" in
-		linux | mac)
-			echo "/usr/local/bin"
-			;;
-		windows)
-			error "Windows installation not supported via this script. Please download manually from GitHub releases."
-			;;
-		esac
+    # 2. Local bin priority
+    if [ -d "$INSTALL_DIR_LOCAL" ] || mkdir -p "$INSTALL_DIR_LOCAL" 2>/dev/null; then
+        echo "$INSTALL_DIR_LOCAL"
+    # 3. Windows-specific fallback
+	elif [ "$OS" = "windows" ]; then
+		_win_appdata="${LOCALAPPDATA:-}"
+		[ -z "$_win_appdata" ] && error "LOCALAPPDATA not set"
+
+		_win_path="$_win_appdata/Programs/matchmaker"
+		mkdir -p "$_win_path" || error "Could not create $_win_path"
+
+		echo "$_win_path"
 	fi
 }
 
-# Get the latest release version
 get_latest_release() {
-	url="https://api.github.com/repos/$REPO/releases/latest"
-	version=$(curl -s "$url" | grep '"tag_name":' | sed 's/.*"tag_name": "\(.*\)".*/\1/')
-	if [ -z "$version" ]; then
-		error "Failed to fetch latest release version"
-	fi
-	echo "$version"
+    _url="https://api.github.com/repos/$REPO/releases/latest"
+    _version=$(curl -s "$_url" | grep '"tag_name":' | sed 's/.*"tag_name": "//;s/".*//')
+    [ -z "$_version" ] && error "Failed to fetch latest release version"
+    echo "$_version"
 }
 
-# Download and install
 main() {
-	OS=$(detect_os)
-	ARCH=$(detect_arch)
+    OS=$(detect_os)
+    ARCH=$(detect_arch)
+    BINARY_NAME="$BINARY_BASE_NAME"
+    [ "$OS" = "windows" ] && BINARY_NAME="${BINARY_BASE_NAME}.exe"
 
-	info "Detected OS: $OS ($ARCH)"
+    info "Detected OS: $OS ($ARCH)"
+    INSTALL_DIR=$(get_install_dir)
+    VERSION=$(get_latest_release)
 
-	INSTALL_DIR=$(get_install_dir)
-	info "Install directory: $INSTALL_DIR"
+    # Asset Naming Logic
+    if [ "$OS" = "windows" ]; then
+        ASSET_NAME="matchmaker-windows.zip"
+    else
+        # Adjust this if your linux/mac assets include architecture
+        ASSET_NAME="matchmaker-${OS}.tar.gz"
+    fi
 
-	# Check if we can write to install directory
-	if [ ! -w "$INSTALL_DIR" ]; then
-		error "Cannot write to $INSTALL_DIR. Please run with appropriate permissions."
-	fi
+    DOWNLOAD_URL="https://github.com/$REPO/releases/download/$VERSION/$ASSET_NAME"
 
-	# Get latest release
-	VERSION=$(get_latest_release)
-	info "Latest version: $VERSION"
+    TEMP_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'mm')
+    trap 'rm -rf "$TEMP_DIR"' 0  # POSIX trap on exit 0
 
-	# Construct download URL
-	ASSET_NAME="matchmaker-${OS}.tar.gz"
-	DOWNLOAD_URL="https://github.com/$REPO/releases/download/$VERSION/$ASSET_NAME"
+    info "Downloading $ASSET_NAME..."
+    curl -sL "$DOWNLOAD_URL" -o "$TEMP_DIR/$ASSET_NAME" || error "Download failed"
 
-	info "Downloading $ASSET_NAME..."
+    # Extraction
+    case "$ASSET_NAME" in
+        *.zip)
+            if command -v unzip >/dev/null 2>&1; then
+                unzip -q "$TEMP_DIR/$ASSET_NAME" -d "$TEMP_DIR"
+            else
+                tar -xf "$TEMP_DIR/$ASSET_NAME" -C "$TEMP_DIR"
+            fi
+            ;;
+        *)
+            tar -xzf "$TEMP_DIR/$ASSET_NAME" -C "$TEMP_DIR"
+            ;;
+    esac
 
-	# Create temporary directory
-	TEMP_DIR=$(mktemp -d)
-	trap 'rm -rf "$TEMP_DIR"' EXIT
-	trap 'rm -rf "$TEMP_DIR"' INT TERM
+    # Smart Sudo: Only use on Unix if write-access is denied
+    SUDO=""
+    if [ ! -w "$INSTALL_DIR" ]; then
+        if [ "$OS" = "windows" ]; then
+            error "No write permission for $INSTALL_DIR. Please run as Administrator."
+        else
+            warn "No write permission. Attempting sudo..."
+            SUDO="sudo"
+        fi
+    fi
 
-	# Download and extract
-	if ! curl -sL "$DOWNLOAD_URL" -o "$TEMP_DIR/$ASSET_NAME"; then
-		error "Failed to download from $DOWNLOAD_URL"
-	fi
+    FOUND_BIN=$(find "$TEMP_DIR" -name "$BINARY_NAME" -type f | head -n 1)
+    [ -z "$FOUND_BIN" ] && error "Binary $BINARY_NAME not found in archive"
 
-	tar -xzf "$TEMP_DIR/$ASSET_NAME" -C "$TEMP_DIR"
+    $SUDO rm -f "$INSTALL_DIR/$BINARY_NAME"
+    $SUDO mv "$FOUND_BIN" "$INSTALL_DIR/"
+    $SUDO chmod +x "$INSTALL_DIR/$BINARY_NAME"
 
-	# Install binary
-	INSTALL_PATH="$INSTALL_DIR/$BINARY_NAME"
-	if [ -f "$INSTALL_PATH" ]; then
-		warn "Existing installation found at $INSTALL_PATH, replacing..."
-		rm -f "$INSTALL_PATH"
-	fi
+    info "Successfully installed to $INSTALL_DIR/$BINARY_NAME"
 
-	if [ -f "$TEMP_DIR/$BINARY_NAME" ]; then
-		mv "$TEMP_DIR/$BINARY_NAME" "$INSTALL_DIR/"
-	elif [ -f "$TEMP_DIR/target/release/$BINARY_NAME" ]; then
-		mv "$TEMP_DIR/target/release/$BINARY_NAME" "$INSTALL_DIR/"
-	else
-		FOUND_BIN=$(find "$TEMP_DIR" -name "$BINARY_NAME" -type f | head -n 1)
-		if [ -n "$FOUND_BIN" ]; then
-			mv "$FOUND_BIN" "$INSTALL_DIR/"
-		else
-			error "Could not find binary $BINARY_NAME in the downloaded archive"
-		fi
-	fi
-
-	chmod +x "$INSTALL_PATH"
-
-	info "Successfully installed $BINARY_NAME to $INSTALL_PATH"
-	info ""
-	info "To get started, run:"
-	info "  $BINARY_NAME --help"
+    case ":$PATH:" in
+        *":$INSTALL_DIR:"*) ;;
+        *) warn "$INSTALL_DIR is not in PATH. Please add it." ;;
+    esac
 }
 
 main "$@"

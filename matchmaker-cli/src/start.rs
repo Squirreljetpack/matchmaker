@@ -18,7 +18,7 @@ use cba::{
         write_str,
     },
     bog::BogOkExt,
-    prints,
+    ibog, prints,
 };
 use cba::{bo::load_type, broc::CommandExt};
 use log::debug;
@@ -47,22 +47,22 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
 
     let (cfg_path, mut config): (_, Config) = {
         // parse cli arg as path or toml
-        // todo: deprecate
-        if let Some(cfg) = &cli.config {
-            let p = Path::new(cfg);
+        if let Some(p) = &cli.config {
             (
-                p,
-                if p.is_file() || p.to_str().is_none() {
-                    load_type(p, |s| toml::from_str(s))._ebog().or_exit()
-                } else {
-                    toml::from_str(cfg.to_str().unwrap())?
-                },
+                Path::new(p),
+                load_type(p, |s| toml::from_str(s))._ebog().or_exit(),
             )
         } else {
             // get config from default location or default config
             let p = default_config_path();
             #[cfg(debug_assertions)]
-            write_str(p, include_str!("../assets/dev.toml")).unwrap();
+            {
+                #[cfg(target_os = "windows")]
+                write_str(p, include_str!("../assets/dev.win.toml")).unwrap();
+
+                #[cfg(not(target_os = "windows"))]
+                write_str(p, include_str!("../assets/dev.toml")).unwrap();
+            }
             (p, load_type_or_default(p, |s| toml::from_str(s)))
         }
     };
@@ -106,7 +106,8 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
 
         // if stdout: dump the default cfg with comments
         if atty::is(atty::Stream::Stdout) {
-            write_str(cfg_path, include_str!("../assets/config.toml"))?;
+            write_str(cfg_path, crate::config::DEFAULT_CONFIG)?;
+            ibog!("Config written to {cfg_path:?}");
         } else {
             // if piped: dump the current cfg
             std::io::Write::write_all(&mut std::io::stdout(), contents.as_bytes())?;

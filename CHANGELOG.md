@@ -1,3 +1,18 @@
+<<<<<<< Updated upstream
+=======
+
+## [0.0.30] - 2026-05-18
+
+## [0.0.29] - 2026-05-18
+
+### 🚀 Features
+
+- Clickable headers and status
+- optimize mem footprint
+- named overrides (`-o`)
+- configurable previewer shell executor
+
+>>>>>>> Stashed changes
 ## [0.0.27] - 2026-05-17
 
 ### 🚀 Features

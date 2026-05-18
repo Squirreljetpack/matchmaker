@@ -243,7 +243,7 @@ fn get_val<'a>(
                 index: 0,
                 inner: item.clone(),
             };
-            return Some(col.format_text(&indexed).to_string().into());
+            return Some(col.raw(&indexed).to_string().into());
         }
         None
     } else {
@@ -264,7 +264,7 @@ fn get_val<'a>(
                         index: 0,
                         inner: item.clone(),
                     };
-                    return Some(col.format_text(&indexed).to_string().into());
+                    return Some(col.raw(&indexed).to_string().into());
                 }
             }
             None
@@ -334,7 +334,7 @@ fn handle_range<'a, 'b>(
                     };
                     for &col_idx in &columns_to_join {
                         let col = &state.picker_ui.worker.columns[col_idx];
-                        let val = col.format_text(&indexed).to_string();
+                        let val = col.raw(&indexed).to_string();
                         row_res.push(val);
                     }
                     let joined = row_res.join(" ");
@@ -355,7 +355,7 @@ fn handle_range<'a, 'b>(
             };
             for &col_idx in &columns_to_join {
                 let col = &state.picker_ui.worker.columns[col_idx];
-                let val = col.format_text(&indexed).to_string();
+                let val = col.raw(&indexed).to_string();
                 row_res.push(val);
             }
             let joined = row_res.join(" ");
@@ -368,7 +368,7 @@ fn handle_range<'a, 'b>(
             let mut row_res = Vec::new();
             for &col_idx in &columns_to_join {
                 let col = &state.picker_ui.worker.columns[col_idx];
-                let val = col.format_text(item).to_string();
+                let val = col.raw(item).to_string();
                 row_res.push(val);
             }
             let joined = row_res.join(" ");

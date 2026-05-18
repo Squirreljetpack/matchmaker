@@ -19,15 +19,15 @@ use crate::{
     SSS,
     config::AutoscrollSettings,
     nucleo::Render,
-    utils::text::{
-        hscroll_indicator, text_to_string, truncation_indicator, wrap_text, wrapping_indicator,
-    },
+    utils::text::{hscroll_indicator, truncation_indicator, wrap_text, wrapping_indicator},
 };
 
 type ColumnFormatFn<T> = Box<dyn for<'a> Fn(&'a T) -> Text<'a> + Send + Sync>;
+type ColumnRawFn<T> = Box<dyn for<'a> Fn(&'a T) -> Cow<'a, str> + Send + Sync>;
 pub struct Column<T> {
     pub name: Arc<str>,
     pub(super) format: ColumnFormatFn<T>,
+    pub(super) raw: Option<ColumnRawFn<T>>,
     /// Whether the column should be passed to nucleo for matching and filtering.
     pub(super) filter: bool,
 }
@@ -38,6 +38,7 @@ impl<T> Column<T> {
             name: name.into(),
             format,
             filter: true,
+            raw: None,
         }
     }
 
@@ -49,7 +50,16 @@ impl<T> Column<T> {
             name: name.into(),
             format: Box::new(f),
             filter: true,
+            raw: None,
         }
+    }
+
+    pub fn with_raw<F>(mut self, f: F) -> Self
+    where
+        F: for<'a> Fn(&'a T) -> Cow<'a, str> + SSS,
+    {
+        self.raw = Some(Box::new(f));
+        self
     }
 
     /// Disable filtering.
@@ -63,8 +73,12 @@ impl<T> Column<T> {
     }
 
     // Note: the characters should match the output of [`Self::format`]
-    pub fn format_text<'a>(&self, item: &'a T) -> Cow<'a, str> {
-        Cow::Owned(text_to_string(&(self.format)(item)))
+    pub fn raw<'a>(&self, item: &'a T) -> Cow<'a, str> {
+        if let Some(r) = &self.raw {
+            (r)(item)
+        } else {
+            Cow::Owned((self.format)(item).to_string())
+        }
     }
 }
 
@@ -426,7 +440,7 @@ impl<T: SSS> Worker<T> {
 
         let snapshot = self.nucleo.snapshot();
         snapshot.matched_items(..).find_map(|item| {
-            let content = col.format_text(item.data);
+            let content = col.raw(item.data);
             if content.as_str() == query {
                 Some(item.data)
             } else {
@@ -439,7 +453,7 @@ impl<T: SSS> Worker<T> {
         self.columns
             .iter()
             .find(|c| &*c.name == col)
-            .map(|c| c.format_text(item))
+            .map(|c| c.raw(item))
     }
 }
 
@@ -792,7 +806,7 @@ mod tests {
             0,
         );
 
-        let output_str = text_to_string(&result_text);
+        let output_str = result_text.to_string();
         assert_eq!(output_str, "hello match world");
         assert_eq!(width, 17);
     }
@@ -824,7 +838,7 @@ mod tests {
             0,
         );
 
-        let output_str = text_to_string(&result_text);
+        let output_str = result_text.to_string();
         assert_eq!(output_str, "hello match world");
     }
 
@@ -869,7 +883,7 @@ mod tests {
             0,
         );
 
-        let output_str = text_to_string(&result_text);
+        let output_str = result_text.to_string();
         assert_eq!(output_str, "…ghijmatch");
         assert_eq!(width, 10);
     }
@@ -913,7 +927,7 @@ mod tests {
             0,
         );
 
-        let output_str = text_to_string(&result_text);
+        let output_str = result_text.to_string();
         assert_eq!(output_str, "abc…jmatch");
         assert_eq!(width, 10);
     }
@@ -945,7 +959,7 @@ mod tests {
             -2,
         );
 
-        let output_str = text_to_string(&result_text);
+        let output_str = result_text.to_string();
         assert_eq!(output_str, "abcdefmat↵\nch");
         assert_eq!(width, 10);
     }
@@ -976,7 +990,7 @@ mod tests {
             0,
         );
 
-        let output_str = text_to_string(&result_text);
+        let output_str = result_text.to_string();
         // Expecting "1234↵" and "56"
         assert_eq!(output_str, "1234↵\n56");
         assert_eq!(width, 5);
@@ -1009,7 +1023,7 @@ mod tests {
             0,
         );
 
-        let output_str = text_to_string(&result_text);
+        let output_str = result_text.to_string();
         assert_eq!(output_str, "…ghijmatch");
         assert_eq!(width, 10);
     }

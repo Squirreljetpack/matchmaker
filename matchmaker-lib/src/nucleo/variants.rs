@@ -1,6 +1,6 @@
 use std::{borrow::Cow, sync::Arc};
 
-use crate::{RenderFn, SSS, nucleo::Indexed, utils::text::text_to_string};
+use crate::{RenderFn, SSS, nucleo::Indexed};
 
 use super::{
     Text,
@@ -46,7 +46,7 @@ impl<T: SSS> Worker<T> {
                                 _ => columns
                                     .iter()
                                     .find(|col| &*col.name == key.as_str())
-                                    .map(|col| col.format_text(item))
+                                    .map(|col| col.raw(item))
                                     .unwrap_or_else(|| Cow::Borrowed("")),
                             };
 
@@ -97,7 +97,7 @@ impl<T: SSS> Worker<Indexed<T>> {
 /// You must either impl as_str or as_text
 pub trait Render {
     fn as_str(&self) -> std::borrow::Cow<'_, str> {
-        text_to_string(&self.as_text()).into()
+        self.as_text().to_string().into()
     }
     fn as_text(&self) -> Text<'_> {
         Text::from(self.as_str())
@@ -112,14 +112,17 @@ impl<T: AsRef<str>> Render for T {
 impl<T: Render + SSS> Worker<T> {
     /// Create a new worker over items which are displayed in the picker as exactly their as_str representation.
     pub fn new_single_column() -> Self {
-        Self::new([Column::new("_", |item: &T| item.as_text())], 0)
+        Self::new(
+            [Column::new("_", |item: &T| item.as_text()).with_raw(|item: &T| item.as_str())],
+            0,
+        )
     }
 }
 
 /// You must either impl as_str or as_text
 pub trait ColumnIndexable {
     fn get_str(&self, i: usize) -> std::borrow::Cow<'_, str> {
-        text_to_string(&self.get_text(i)).into()
+        self.get_text(i).to_string().into()
     }
 
     fn get_text(&self, i: usize) -> Text<'_> {
@@ -172,10 +175,10 @@ where
     {
         let columns_vec: Vec<Arc<str>> = column_names.into_iter().map(Into::into).collect();
 
-        let columns = columns_vec
-            .iter()
-            .enumerate()
-            .map(|(i, name)| Column::new(name.clone(), move |item: &T| item.get_text(i)));
+        let columns = columns_vec.iter().enumerate().map(|(i, name)| {
+            Column::new(name.clone(), move |item: &T| item.get_text(i))
+                .with_raw(move |item: &T| item.get_str(i))
+        });
 
         // Find the index of the default column
         let default_index = if let Some(default_column) = default_column {

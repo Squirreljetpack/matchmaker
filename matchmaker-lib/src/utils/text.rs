@@ -213,21 +213,21 @@ pub fn wrap_text<'a>(text: Text<'a>, max_width: u16) -> (Text<'a>, bool) {
 }
 
 /// Convert `Text` into lines of plain `String`s
-pub fn text_to_lines(text: &Text) -> Vec<String> {
-    text.iter()
-        .map(|spans| {
-            spans
-                .iter()
-                .map(|span| span.content.as_ref())
-                .collect::<String>()
-        })
-        .collect()
-}
+// pub fn text_to_lines(text: &Text) -> Vec<String> {
+//     text.iter()
+//         .map(|spans| {
+//             spans
+//                 .iter()
+//                 .map(|span| span.content.as_ref())
+//                 .collect::<String>()
+//         })
+//         .collect()
+// }
 
 /// Convert `Text` into a single `String` with newlines
-pub fn text_to_string(text: &Text) -> String {
-    text_to_lines(text).join("\n")
-}
+// pub fn text_to_string(text: &Text) -> String {
+//     text_to_lines(text).join("\n")
+// }
 
 /// Helper function to slice a `ratatui::text::Text` based on global byte indices,
 /// assuming lines were virtually joined with a single `\n` (1 byte).

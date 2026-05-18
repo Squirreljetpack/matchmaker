@@ -1,9 +1,7 @@
 use std::borrow::Cow;
 
 use cba::define_either;
-use ratatui::text::Text;
-
-use crate::utils::text::text_to_string;
+pub use ratatui::text::Text;
 
 define_either! {
     #[derive(serde::Serialize, serde::Deserialize)]
@@ -14,18 +12,25 @@ define_either! {
     }
 }
 
-impl Either<String, Text<'static>> {
+impl Either<Box<str>, Text<'static>> {
     pub fn to_cow(&self) -> Cow<'_, str> {
         match self {
             Either::Left(s) => Cow::Borrowed(s),
-            Either::Right(t) => Cow::Owned(text_to_string(t)),
+            Either::Right(t) => Cow::Owned(t.to_string()),
         }
     }
 
     pub fn to_text(self) -> Text<'static> {
         match self {
-            Either::Left(s) => Text::from(s),
+            Either::Left(s) => Text::from(s.into_string()),
             Either::Right(t) => t,
+        }
+    }
+
+    pub fn as_text(&self) -> Text<'_> {
+        match self {
+            Either::Left(s) => Text::from(s.as_ref()),
+            Either::Right(t) => t.clone(),
         }
     }
 }

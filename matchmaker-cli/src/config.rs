@@ -47,15 +47,15 @@ pub struct Config {
     #[serde(default)]
     pub start: StartConfig,
 
-    // configure exit conditions
-    #[partial(attr, alias = "e")]
-    #[serde(default)]
-    pub exit: ExitConfig,
-
     #[partial(attr, alias = "c")]
     #[serde(default)]
     /// How columns are parsed from input lines
     pub columns: ColumnsConfig,
+
+    // configure exit conditions
+    #[partial(attr, alias = "e")]
+    #[serde(default)]
+    pub exit: ExitConfig,
 }
 
 // -----------------------

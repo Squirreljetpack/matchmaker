@@ -10,6 +10,8 @@ max = 120
 [results]
 wrap = true
 
+[status]
+
 [preview]
 show = true
 wrap = true
@@ -56,6 +58,12 @@ max = 240
 
 border.type = "Plain"
 border.padding = [2, 0]
+
+[header]
+[footer]
+[start]
+[columns]
+[exit]
 
 [binds]
 # UI

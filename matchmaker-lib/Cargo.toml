@@ -1,4 +1,5 @@
 [package]
+<<<<<<< Updated upstream
     name        = "matchmaker-lib"
     version     = "0.0.27"
     edition     = "2024"
@@ -7,6 +8,16 @@
     description = "A fuzzy finder for the terminal, powered by nucleo"
     categories  = [ "command-line-utilities", "rust-patterns" ]
     keywords    = [ "fuzzy", "finder", "tui", "nucleo", "fzf" ]
+=======
+name = "matchmaker-lib"
+version = "0.0.28"
+categories = ["command-line-utilities", "rust-patterns"]
+edition = "2024"
+keywords = ["fuzzy", "finder", "tui", "nucleo", "fzf"]
+license = "MIT"
+repository = "https://github.com/Squirreljetpack/matchmaker"
+description = "A fuzzy finder for the terminal, powered by nucleo"
+>>>>>>> Stashed changes
 
 [dependencies]
     cli_boilerplate_automation = { version = "0", features = [ "serde", "bring" ] }

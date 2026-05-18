@@ -1,10 +1,19 @@
 [package]
+<<<<<<< Updated upstream
     name        = "matchmaker-partial"
     version     = "0.0.19"
     edition     = "2024"
     description = "Support for partial updates and configuration in matchmaker"
     repository  = "https://github.com/Squirreljetpack/matchmaker"
     license     = "MIT"
+=======
+name = "matchmaker-partial"
+version = "0.0.20"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/Squirreljetpack/matchmaker"
+description = "Support for partial updates and configuration in matchmaker"
+>>>>>>> Stashed changes
 
 [dependencies]
     serde     = { version = "1.0", features = [ "derive" ] }

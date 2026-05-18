@@ -333,8 +333,6 @@ checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 [[package]]
 name = "cli_boilerplate_automation"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "512f4f88354b6710c553c18fd6dcd7b2110b872e5900cf9a4f35b14212839c4a"
 dependencies = [
  "anstream 0.6.21",
  "anstyle",
@@ -1217,7 +1215,7 @@ dependencies = [
  "dirs",
  "env_logger",
  "log",
- "matchmaker-lib 0.0.26",
+ "matchmaker-lib",
  "matchmaker-partial",
  "matchmaker-partial-macros",
  "mimalloc",
@@ -1229,50 +1227,6 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "toml",
-]
-
-[[package]]
-name = "matchmaker-lib"
-version = "0.0.26"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71157adada668f7f01f224e1e4efb592501dcb0fe89afd4799ccfc1364b20ef1"
-dependencies = [
- "ansi-to-tui",
- "anyhow",
- "arc-swap",
- "arrayvec",
- "atoi",
- "atty",
- "bitflags 2.11.1",
- "bitflags-derive",
- "boxcar",
- "cli_boilerplate_automation",
- "crokey",
- "crossterm 0.29.0",
- "easy-ext",
- "env_logger",
- "futures",
- "indexmap",
- "log",
- "matchmaker-partial",
- "matchmaker-partial-macros",
- "mio",
- "nix 0.31.3",
- "nucleo",
- "paste",
- "phf 0.13.1",
- "ratatui",
- "regex",
- "rustc-hash",
- "serde",
- "strum",
- "strum_macros",
- "thiserror 2.0.18",
- "tokio",
- "toml",
- "unicode-segmentation",
- "unicode-width 0.2.2",
- "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1440,7 +1394,6 @@ dependencies = [
 [[package]]
 name = "nucleo"
 version = "0.5.0"
-source = "git+https://github.com/Squirreljetpack/nucleo?branch=mm#39e4023c5f6b4f4ff778281548398a0959d13b57"
 dependencies = [
  "log",
  "nucleo-matcher",
@@ -1451,7 +1404,6 @@ dependencies = [
 [[package]]
 name = "nucleo-matcher"
 version = "0.3.1"
-source = "git+https://github.com/Squirreljetpack/nucleo?branch=mm#39e4023c5f6b4f4ff778281548398a0959d13b57"
 dependencies = [
  "memchr",
  "unicode-segmentation",

@@ -487,6 +487,8 @@ pub struct StatusConfig {
     /// - Disjoint: no effect.
     /// - Capped: no effect. (Since, unlike [`DisplayConfig`], status line can not display over the preview).
     pub row_connection: RowConnectionStyle,
+
+    pub interactions: InteractionRegionSetting,
 }
 impl Default for StatusConfig {
     fn default() -> Self {
@@ -500,6 +502,8 @@ impl Default for StatusConfig {
             match_indent: true,
             template: String::new(),
             row_connection: RowConnectionStyle::Full,
+
+            interactions: Default::default(),
         }
     }
 }
@@ -540,7 +544,11 @@ pub struct DisplayConfig {
     /// (cli only) This setting controls how many lines are read from the input for display with the header.
     #[partial(alias = "h")]
     pub header_lines: usize,
+
+    pub interactions: Vec<InteractionRegionSetting>,
 }
+
+pub type InteractionRegionSetting = Vec<(u8, String)>;
 
 impl Default for DisplayConfig {
     fn default() -> Self {
@@ -556,6 +564,8 @@ impl Default for DisplayConfig {
             row_connection: Default::default(),
             content: None,
             header_lines: 0,
+
+            interactions: Default::default(),
         }
     }
 }

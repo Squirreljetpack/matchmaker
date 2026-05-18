@@ -10,6 +10,16 @@ use crate::{
 };
 
 // --------------------------------------------------------------------
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Layout {
+    pub preview: Rect,
+    pub input: Rect,
+    pub status: Rect,
+    pub header: Rect,
+    pub results: Rect,
+    pub footer: Rect,
+}
+
 #[derive(Default, Debug)]
 pub struct State {
     last_id: Option<u32>,
@@ -21,7 +31,7 @@ pub struct State {
     pub(crate) col: Option<usize>,
     pub(crate) iterations: u32,
     pub(crate) preview_visible: bool,
-    pub(crate) layout: [Rect; 4], //preview, input, status, results
+    pub(crate) layout: Layout,
     pub(crate) overlay_index: Option<usize>,
     pub(crate) synced: [bool; 2], // ran, synced
 
@@ -57,7 +67,7 @@ impl State {
             preview_set_payload: None,
             preview_visible: false,
             stashed_preview_visibility: None,
-            layout: [Rect::default(); 4],
+            layout: Layout::default(),
             overlay_index: None,
             col: None,
 
@@ -145,8 +155,14 @@ impl State {
         }
     }
 
-    pub(crate) fn update_layout(&mut self, new_layout: [Rect; 4]) -> bool {
-        let changed = self.layout.cmp_replace(new_layout);
+    pub(crate) fn update_layout(&mut self, new_layout: Layout) -> bool {
+        let changed = self.layout.preview.width != new_layout.preview.width
+            || self.layout.preview.height != new_layout.preview.height
+            || self.layout.results.width != new_layout.results.width
+            || self.layout.results.height != new_layout.results.height;
+
+        self.layout = new_layout;
+
         if changed {
             self.insert(Event::Resize);
         }

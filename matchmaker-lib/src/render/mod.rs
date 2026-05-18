@@ -8,7 +8,7 @@ pub use state::*;
 
 use std::io::Write;
 
-use log::{info, warn};
+use log::{debug, info, warn};
 use ratatui::Frame;
 use ratatui::layout::{Position, Rect};
 use tokio::sync::mpsc;
@@ -17,8 +17,8 @@ use tokio::sync::mpsc;
 use crate::PasteHandler;
 use crate::action::{Action, ActionExt};
 use crate::config::{CursorSetting, ExitConfig, RowConnectionStyle};
-use crate::event::EventSender;
-use crate::message::{Event, Interrupt, RenderCommand};
+use crate::event::{BindSender, EventSender};
+use crate::message::{BindDirective, Event, Interrupt, RenderCommand};
 use crate::tui::Tui;
 use crate::ui::{DisplayUI, OverlayUI, PickerUI, PreviewUI, QueryUI, ResultsUI, UI};
 use crate::{ActionAliaser, ActionExtHandler, Initializer, MatchError, SSS, Selection};
@@ -57,6 +57,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
     mut render_rx: mpsc::UnboundedReceiver<RenderCommand<A>>,
     controller_tx: EventSender,
+    bind_tx: BindSender<A>,
 
     dynamic_handlers: DynamicHandlers<T, S>,
     mut ext_handler: Option<ActionExtHandler<T, S, A>>,
@@ -94,7 +95,6 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         let mut did_exit = false;
         let mut did_resize = false;
 
-        // todo: why exactly can we not borrow the picker_ui mutably?
         if let Some(aliaser) = &mut ext_aliaser {
             apply_aliases(
                 &mut buffer,
@@ -107,7 +107,6 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     &controller_tx,
                 ),
             )
-            // effects could be moved out for efficiency, but it seems more logical to add them as they come so that we can trigger interrupts
         };
 
         if state.should_quit {
@@ -178,16 +177,15 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 RenderCommand::Mouse(mouse) => {
                     // we could also impl this in the aliasing step
                     let pos = Position::from((mouse.column, mouse.row));
-                    let [preview, input, status, result] = state.layout;
+                    let layout = state.layout;
 
                     match mouse.kind {
                         MouseEventKind::Down(MouseButton::Left) => {
-                            // todo: clickable column headers, clickable results, also, grouping?
-                            if result.contains(pos) {
-                                click = Click::ResultPos(mouse.row - result.top());
-                            } else if input.contains(pos) {
+                            if layout.results.contains(pos) {
+                                click = Click::ResultPos(mouse.row - layout.results.top());
+                            } else if layout.input.contains(pos) {
                                 // The X offset of the start of the visible text relative to the terminal
-                                let text_start_x = input.x + picker_ui.query.left();
+                                let text_start_x = layout.input.x + picker_ui.query.left();
 
                                 if pos.x >= text_start_x {
                                     let visual_offset = pos.x - text_start_x;
@@ -195,12 +193,41 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                 } else {
                                     picker_ui.query.set(None, 0);
                                 }
-                            } else if status.contains(pos) {
-                                // todo
+                            } else if layout.status.contains(pos) {
+                                let x = pos.x.saturating_sub(layout.status.x);
+                                debug!("Status clicked at x: {x}");
+                                if let Some(action) = find_interaction(
+                                    &picker_ui.results.status_config.interactions,
+                                    x,
+                                ) {
+                                    click = Click::Semantic(action);
+                                }
+                            } else if layout.header.contains(pos) {
+                                let rel_x = pos.x.saturating_sub(layout.header.x);
+                                let rel_y = pos.y.saturating_sub(layout.header.y);
+                                debug!("Header clicked at x: {rel_x}, y: {rel_y}");
+
+                                if let Some(setting) =
+                                    picker_ui.header.config.interactions.get(rel_y as usize)
+                                    && let Some(action) = find_interaction(setting, rel_x)
+                                {
+                                    click = Click::Semantic(action);
+                                }
+                            } else if layout.footer.contains(pos) {
+                                let rel_x = pos.x.saturating_sub(layout.footer.x);
+                                let rel_y = pos.y.saturating_sub(layout.footer.y);
+                                debug!("Footer clicked at x: {rel_x}, y: {rel_y}");
+
+                                if let Some(setting) =
+                                    footer_ui.config.interactions.get(rel_y as usize)
+                                    && let Some(action) = find_interaction(setting, rel_x)
+                                {
+                                    click = Click::Semantic(action);
+                                }
                             }
                         }
                         MouseEventKind::ScrollDown => {
-                            if preview.contains(pos) {
+                            if layout.preview.contains(pos) {
                                 if let Some(p) = preview_ui.as_mut() {
                                     p.down(1)
                                 }
@@ -209,7 +236,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             }
                         }
                         MouseEventKind::ScrollUp => {
-                            if preview.contains(pos) {
+                            if layout.preview.contains(pos) {
                                 if let Some(p) = preview_ui.as_mut() {
                                     p.up(1)
                                 }
@@ -710,7 +737,14 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 let [input, status, header, results] = picker_ui.layout(picker_area);
 
                 // compare and save dimensions
-                did_resize = state.update_layout([preview, input, status, results]);
+                did_resize = state.update_layout(Layout {
+                    preview,
+                    input,
+                    status,
+                    header,
+                    results,
+                    footer,
+                });
 
                 if did_resize {
                     picker_ui.results.update_dimensions(&results);
@@ -810,7 +844,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             }
         }
 
-        click.process(&mut buffer);
+        click.process(&mut buffer, &bind_tx);
     }
 
     Err(MatchError::EventLoopClosed)
@@ -822,20 +856,34 @@ pub enum Click {
     None,
     ResultPos(u16),
     ResultIdx(u32),
+    Semantic(String),
 }
 
 impl Click {
-    fn process<A: ActionExt>(&mut self, buffer: &mut Vec<RenderCommand<A>>) {
+    fn process<A: ActionExt>(&mut self, buffer: &mut Vec<RenderCommand<A>>, bind_tx: &BindSender<A>) {
         match self {
             Self::ResultIdx(u) => {
                 buffer.push(RenderCommand::Action(Action::Pos(*u as i32)));
             }
-            _ => {
-                // todo
+            Self::Semantic(s) => {
+                bind_tx
+                    .send(BindDirective::Action(Action::Semantic(s.clone())))
+                    .unwrap_or_else(|err| log::error!("bind send failed: {:?}", err));
+                log::debug!("Click triggered: @{s}");
             }
+            _ => {}
         }
         *self = Click::None
     }
+}
+
+fn find_interaction(setting: &crate::config::InteractionRegionSetting, x: u16) -> Option<String> {
+    setting
+        .iter()
+        .rev()
+        .find(|(start, _)| x >= *start as u16)
+        .map(|(_, action)| action.clone())
+        .filter(|a| !a.is_empty())
 }
 
 fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {

@@ -17,6 +17,10 @@ prompt = ">"
 [header]
 content = "test"
 header_lines = 2
+interactions = [
+  [[0, "test"]],
+  [[1, "test"], [3, "open"], [4, ""]],
+]
 
 [results]
 scroll_padding = 2
@@ -107,12 +111,18 @@ max = 120
 # Columns
 "ctrl-." = "NextColumn"
 
-"ctrl-t" = "Execute(echo ----; read v; echo $v; echo ----)"
-"ctrl-l" = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)"
-"ctrl-o" = "Execute(micro {})"
-"alt-o" = "Become(micro {})"
-"ctrl-r" = "Reload(fd -u)"
 "alt-enter" = "Print({1})"
+
+"alt-t" = "@test"
+"ctrl-o" = "@open"
+"alt-o" = "@enter"
+"ctrl-r" = "@reload"
+
+"@test" = "Execute(echo ----; read v; echo $v; echo ----)"
+"@look" = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)"
+"@open" = "Execute($EDITOR {})"
+"@enter" = "Become($EDITOR {})"
+"@reload" = "Reload"
 
 [matcher]
 trim = true

@@ -15,9 +15,10 @@ _mm() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" : \
-'--config=[]:CONFIG:_files' \
-'*-o+[]:OVERRIDE:_files' \
-'*--override=[]:OVERRIDE:_files' \
+'--config=[]:PATH:_files' \
+'*-o+[]:PATH:_files' \
+'*--override=[]:PATH:_files' \
+'-d+[Display documentation]:DOC:(options binds template other)' \
 '--doc=[Display documentation]:DOC:(options binds template other)' \
 '--dump-config[]' \
 '-F[]' \

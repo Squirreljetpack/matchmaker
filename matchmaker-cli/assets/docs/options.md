@@ -120,7 +120,7 @@ All colors and modifiers come from ratatui:
 
 - `s`, `split`: Defines how the input line is divided into columns. This can be `None`, a single `Delimiter` regex, or a list of `Regexes`.
   - **No Splitting** (`null`): The entire line is treated as a single column.
-  - **Delimiter Regex** (`"regex"`):
+  - **Single Regex** (`"regex"`):
     - **No Capture Groups**: The regex is treated as a delimiter. Columns are the segments *between* matches.
     - **Unnamed Capture Groups**: If the regex contains capture groups (e.g., `(\d+) (\w+)`), each group's match becomes a column in order.
     - **Named Capture Groups**: If the regex contains named groups (e.g., `(?P<size>\d+) (?P<name>\w+)`), matches are mapped to columns with matching names defined in `columns.names`.
@@ -187,6 +187,7 @@ All colors and modifiers come from ratatui:
   - `\t` -> total count
   - `\s` -> Available whitespace / #count
   - `\S` -> Increments the count denominator without displaying whitespace
+- `interactions`: ([index, action]) Define interactive regions. See [Interactions](template.md#interaction-regions).
 
 #### Preview Panel (`preview.`, `p`)
 
@@ -216,10 +217,9 @@ All colors and modifiers come from ratatui:
 - `style`: [Style Settings](#style-settings).
 - `match_indent`: (bool) Indent content to match the results table.
 - `wrap`: (bool) Enable line wrapping.
-
-<!-- - `row_connection`: See Results Table.  -->
-
+- `row_connection`: Controls the effective width of the displayed content. See [Results Table](#results-table-results-r) for variants.
 - `t`, `header_lines`: (number, header only) Number of lines to read from input for the header.
+- `interactions`: ([[index, action]]) Define interactive regions per line. See [Interactions](template.md#interaction-regions).
 - `border`: [Border Settings](#border-settings).
 
 ### TUI Settings (`tui.`)
@@ -255,4 +255,4 @@ Most UI components have a `border` block:
 
 ### Key Binds (`binds.`, `b`)
 
-See [webpage](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/binds.md) or `--doc binds`.
+See `mm --doc binds`.

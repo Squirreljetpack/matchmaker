@@ -7,9 +7,9 @@ pub static BINARY_SHORT: &str = "mm";
 #[derive(Debug, Parser, Default, Clone)]
 #[command(trailing_var_arg = true)]
 pub struct Cli {
-    #[arg(long)]
+    #[arg(long, value_name = "PATH")]
     pub config: Option<PathBuf>,
-    #[arg(long, short)]
+    #[arg(long, short, value_name = "PATH")]
     pub r#override: Vec<PathBuf>,
     #[arg(long)]
     pub dump_config: bool,
@@ -33,7 +33,7 @@ pub struct Cli {
 
     // docs
     /// Display documentation
-    #[arg(long, value_enum)]
+    #[arg(long, short, value_enum)]
     pub doc: Option<Doc>,
 }
 
@@ -85,6 +85,7 @@ impl Cli {
             try_parse!("config", "--");
             try_parse!("verbosity", "--");
             try_parse!("doc", "--");
+            try_parse!("d", "-");
             try_parse!("override", "--");
             try_parse!("o", "-");
 

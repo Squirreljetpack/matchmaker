@@ -48,7 +48,16 @@ impl PreviewUI {
                     false
                 }
             }
-            ShowCondition::Bool(x) => x,
+            ShowCondition::Bool(x) => {
+                x && if let Some(l) = config.layout.first() {
+                    (match l.layout.side {
+                        Side::Bottom | Side::Top => ui_height,
+                        _ => ui_width,
+                    }) > 5 + (l.layout.min.max(0) as u16)
+                } else {
+                    false
+                }
+            }
         };
 
         // enforce invariant of valid index
@@ -101,10 +110,19 @@ impl PreviewUI {
                     self.show(show);
                 };
             }
-            ShowCondition::Bool(show) => {
+            ShowCondition::Bool(mut show) => {
                 if !hide && !show {
                     return;
-                }
+                };
+                show = show
+                    && if let Some(l) = self.config.layout.first() {
+                        (match l.layout.side {
+                            Side::Bottom | Side::Top => ui_height,
+                            _ => ui_width,
+                        }) > 5 + (l.layout.min.max(0) as u16)
+                    } else {
+                        false
+                    };
                 self.show(show);
             }
         };

@@ -1,53 +1,52 @@
 # picker configuration file
 
 [tui]
-    percentage = 60
-    min        = 10
-    max        = 120
+percentage = 60
+min = 10
+max = 120
 
 [ui]
-    # border    = { color = "blue", bg = "#282828" }
-    tick_rate = 30
+# border    = { color = "blue", bg = "#282828" }
+tick_rate = 30
 
 [query]
-    style.fg = "White"
-    cursor   = "default"
-    prompt   = ">"
+style.fg = "White"
+cursor = "default"
+prompt = ">"
 
 [header]
-    content      = "test"
-    header_lines = 2
-
+content = "test"
+header_lines = 2
 
 [results]
-    scroll_padding = 2
+scroll_padding = 2
 
-    # border           = { type = "Rounded", sides = "", padding = 0 }
-    style.fg         = "White"
-    current.bg       = "Black"
-    current.modifier = "BOLD"
-    match.fg   = "Green"
+# border           = { type = "Rounded", sides = "", padding = 0 }
+style.fg = "White"
+current.bg = "Black"
+current.modifier = "BOLD"
+match.fg = "Green"
 
-    # reverse = auto
-    wrap = true
+# reverse = auto
+wrap = true
 
-    scroll_wrap = true
+scroll_wrap = true
 
 [status]
-    style.fg       = "Green"
-    style.modifier = "ITALIC"
+style.fg = "Green"
+style.modifier = "ITALIC"
 
 [previewer]
-    try_lossy = false
+try_lossy = false
 
 [preview]
-    # border      = { type = "Rounded", color = "Blue" }
-    scroll_wrap = true
-    show        = true
-    wrap        = true
+# border      = { type = "Rounded", color = "Blue" }
+scroll_wrap = true
+show = true
+wrap = true
 
 [[preview.layout]]
-    command = '''
+command = '''
 if [ -d {} ]; then
     cd {} &&
     find . -maxdepth 2 | sed 's|[^/]*/|  |g'
@@ -55,83 +54,83 @@ else
     cat {}
 fi
 '''
-    side       = "right"
-    percentage = 40
-    min        = 30
-    max        = 120
+side = "right"
+percentage = 40
+min = 30
+max = 120
 
 [[preview.layout]]
-    side       = "top"
-    percentage = 40
-    min        = 30
-    max        = 120
+side = "top"
+percentage = 40
+min = 30
+max = 120
 
 [binds]
-    # UI
-    "ctrl-c"        = "Quit"
-    "esc"           = "Quit"
-    "enter"         = "Accept"
-    "ctrl-a"        = "CycleAll"
-    "tab"           = [ "Select", "Down" ]
-    "shift-backtab" = [ "Toggle", "Up" ]
+# UI
+"ctrl-c" = "Quit"
+"esc" = "Quit"
+"enter" = "Accept"
+"ctrl-a" = "CycleAll"
+"tab" = ["Select", "Down"]
+"shift-backtab" = ["Toggle", "Up"]
 
-    # Edit
-    "right"      = "ForwardChar"
-    "left"       = "BackwardChar"
-    "ctrl-right" = "ForwardWord"
-    "ctrl-left"  = "BackwardWord"
-    "backspace"  = "DeleteChar"
-    "ctrl-h"     = "DeleteWord"
-    "ctrl-u"     = "Cancel"
+# Edit
+"right" = "ForwardChar"
+"left" = "BackwardChar"
+"ctrl-right" = "ForwardWord"
+"ctrl-left" = "BackwardWord"
+"backspace" = "DeleteChar"
+"ctrl-h" = "DeleteWord"
+"ctrl-u" = "Cancel"
 
-    # Navigation
-    "up"              = "Up"
-    "down"            = "Down"
-    "pageup"          = "HalfPageDown"
-    "pagedown"        = "HalfPageUp"
-    "ctrl-p"          = "Up(10)"
-    "ctrl-n"          = "Down(10)"
-    "shift-up"        = "PreviewUp"
-    "shift-down"      = "PreviewDown"
-    "ctrl-shift-up"   = "PreviewHalfPageUp"
-    "ctrl-shift-down" = "PreviewHalfPageDown"
-    "shift-right"     = "HScroll(1)"
-    "shift-left"      = "HScroll(-1)"
+# Navigation
+"up" = "Up"
+"down" = "Down"
+"pageup" = "HalfPageDown"
+"pagedown" = "HalfPageUp"
+"ctrl-p" = "Up(10)"
+"ctrl-n" = "Down(10)"
+"shift-up" = "PreviewUp"
+"shift-down" = "PreviewDown"
+"ctrl-shift-up" = "PreviewHalfPageUp"
+"ctrl-shift-down" = "PreviewHalfPageDown"
+"shift-right" = "HScroll(1)"
+"shift-left" = "HScroll(-1)"
 
-    "shift+scrollup"   = "PreviewUp"
-    "shift+scrolldown" = "PreviewDown"
-    "alt-h"            = "Help"
-    "?"                = "SwitchPreview(0)"
-    "shift-?"          = "SwitchPreview(0)"
-    "ctrl-shift-/"     = "CyclePreview"     # ctrl-shift-/
+"shift+scrollup" = "PreviewUp"
+"shift+scrolldown" = "PreviewDown"
+"alt-h" = "Help"
+"?" = "SwitchPreview(0)"
+"shift-?" = "SwitchPreview(0)"
+"ctrl-shift-/" = "CyclePreview" # ctrl-shift-/
 
-    # Columns
-    "ctrl-." = "NextColumn"
+# Columns
+"ctrl-." = "NextColumn"
 
-    "ctrl-t"    = "Execute(echo ----; read v; echo $v; echo ----)"
-    "ctrl-l"    = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)"
-    "ctrl-o"    = "Execute(micro {})"
-    "alt-o"     = "Become(micro {})"
-    "ctrl-r"    = "Reload(fd -u)"
-    "alt-enter" = "Print({1})"
+"ctrl-t" = "Execute(echo ----; read v; echo $v; echo ----)"
+"ctrl-l" = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)"
+"ctrl-o" = "Execute(micro {})"
+"alt-o" = "Become(micro {})"
+"ctrl-r" = "Reload(fd -u)"
+"alt-enter" = "Print({1})"
 
 [matcher]
-    trim           = true
-    sort_threshold = 1
+trim = true
+sort_threshold = 1
 
 [columns]
-    split = '\s+'
-    max   = 8
+split = '\s+'
+max = 8
 
 [start]
-    command = '''
+command = '''
 if command -v fd >/dev/null 2>&1; then
     fd
 else
     find .
 fi
 '''
-    output  = "{}"
+output = "{}"
 
 [exit]
-    select_1 = false
+select_1 = false

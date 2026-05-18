@@ -1,4 +1,3 @@
-
 ## [0.0.27] - 2026-05-17
 
 ### 🚀 Features
@@ -31,12 +30,15 @@
 ### ⚙️ Miscellaneous Tasks
 
 - Add justfile task runner
+
 ## [0.0.24] - 2026-03-24
 
 ### 🚀 Features
+
 - Add command_input_separator specifically for splitting only non-piped input
 
 ### 🐛 Bug Fixes
+
 - fix broken default config.toml splitting on null separator even for piped input
 
 ## [0.0.23] - 2026-03-22

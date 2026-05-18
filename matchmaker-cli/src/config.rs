@@ -15,45 +15,45 @@ use crate::action::MMAction;
 #[serde(deny_unknown_fields)]
 pub struct Config {
     // configure the ui
-    #[serde(default)]
     #[partial(attr)]
+    #[serde(default)]
     #[serde(flatten)]
     pub render: RenderConfig,
 
     // configure binds ( keypress/mouseevent/event => Actions )
-    #[serde(default)]
     #[partial(attr)]
+    #[serde(default)]
     #[partial(alias = "b")]
     #[partial(recurse = "", unwrap)]
     pub binds: HashMap<Trigger, Actions<MMAction>>,
 
     // configure the tui
-    #[serde(default)]
     #[partial(attr)]
+    #[serde(default)]
     pub tui: TerminalConfig,
 
     // configure the preview command runner
-    #[serde(default)]
     #[partial(skip)]
+    #[serde(default)]
     pub previewer: PreviewerConfig,
 
     // configure the matcher (columns + matching settings)
-    #[serde(default)]
     #[partial(attr, alias = "m")]
+    #[serde(default)]
     pub matcher: MatcherConfig,
 
     // configure startup settings (options for how input/output is processed)
-    #[serde(default)]
     #[partial(attr, alias = "s")]
+    #[serde(default)]
     pub start: StartConfig,
 
     // configure exit conditions
-    #[serde(default)]
     #[partial(attr, alias = "e")]
+    #[serde(default)]
     pub exit: ExitConfig,
 
-    #[serde(default)]
     #[partial(attr, alias = "c")]
+    #[serde(default)]
     /// How columns are parsed from input lines
     pub columns: ColumnsConfig,
 }

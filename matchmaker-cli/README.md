@@ -130,7 +130,7 @@ In addition to keys, actions can also be bound to Events and Crossterm events (c
 
 See [here](./matchmaker-cli/assets/docs/options.md) for the command-line syntax.
 
-For quick reference, `mm --doc` provides fairly readable and comprehensive guides to various topics. 
+For quick reference, `mm --doc` provides fairly readable and comprehensive guides to various topics.
 
 Matchmaker aims to achieve feature-parity with fzf (though not necessarily by the same means). If there's any specific feature that you'd like to see, open an issue!
 
@@ -152,7 +152,8 @@ Currently, the first includes an example for interactively performing a full tex
 # Try it yourself
 mkdir -p ~/.config/matchmaker/presets
 curl -L https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-cli/assets/presets/rg.toml -o ~/.config/matchmaker/presets/rg.toml
-mm --config ~/.config/matchmaker/presets/rg.toml
+# mm --config ~/.config/matchmaker/presets/rg.toml, or, simply
+mm -o rg
 ```
 
 ### Migrating from fzf

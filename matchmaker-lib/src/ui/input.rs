@@ -2,6 +2,7 @@ use std::ops::{Deref, DerefMut};
 
 use ratatui::{
     layout::{Position, Rect},
+    style::Style,
     text::{Line, Span},
     widgets::Paragraph,
 };
@@ -363,7 +364,10 @@ impl QueryUI {
 
     pub fn make_input(&self) -> Paragraph<'_> {
         let mut line = self.prompt.clone();
-        line.push_span(Span::styled(self.state.render(), self.config.style));
+        line.push_span(Span::styled(
+            self.state.render(),
+            self.config.style.r#override(Style::reset()),
+        ));
 
         Paragraph::new(line).block(self.config.border.as_block())
     }

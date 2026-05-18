@@ -1,6 +1,6 @@
 [workspace]
 changelog_path = "CHANGELOG.md"
-
+git_release_enable = false
 dependencies_update = true
 pr_labels = ["release"]
 
@@ -26,4 +26,3 @@ body = """## [{{ version }}] - {{ timestamp | date(format="%Y-%m-%d") }}
 - {{ commit.message | upper_first }}
 {% endfor %}{% endfor %}
 """
-

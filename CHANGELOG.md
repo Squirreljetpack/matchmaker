@@ -1,3 +1,39 @@
+
+## [0.0.28] - 2026-05-18
+
+### 🚀 Features
+
+- Improve mem usage
+
+- Named overrides
+
+- Configurable previewer shell executor
+
+
+## [0.0.28] - 2026-05-18
+
+### 🚀 Features
+
+- Improve mem usage
+
+- Named overrides
+
+- Configurable previewer shell executor
+
+
+## [0.0.13] - 2026-05-18
+
+### 🚀 Features
+
+- Named overrides
+
+
+## [0.0.20] - 2026-05-18
+
+### 🚀 Features
+
+- Named overrides
+
 ## [0.0.27] - 2026-05-17
 
 ### 🚀 Features

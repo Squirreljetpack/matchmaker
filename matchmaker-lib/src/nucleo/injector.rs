@@ -123,7 +123,7 @@ where
 {
     injector.extend(items, |item, dst| {
         for (column, text) in columns.iter().filter(|column| column.filter).zip(dst) {
-            *text = column.format_text(item).into()
+            *text = column.raw(item).into()
         }
     });
 }

@@ -1217,7 +1217,7 @@ dependencies = [
  "dirs",
  "env_logger",
  "log",
- "matchmaker-lib 0.0.27",
+ "matchmaker-lib",
  "matchmaker-partial",
  "matchmaker-partial-macros",
  "mimalloc",
@@ -1233,51 +1233,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-lib"
-version = "0.0.27"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a51d81a69f977fbf492afc03e3cf1f0895cbc07f1926503b1dde4c97a78c8761"
-dependencies = [
- "ansi-to-tui",
- "anyhow",
- "arc-swap",
- "arrayvec",
- "atoi",
- "atty",
- "bitflags 2.11.1",
- "bitflags-derive",
- "boxcar",
- "cli_boilerplate_automation",
- "crokey",
- "crossterm 0.29.0",
- "easy-ext",
- "env_logger",
- "futures",
- "indexmap",
- "log",
- "matchmaker-partial",
- "matchmaker-partial-macros",
- "mio",
- "nix 0.31.3",
- "nucleo",
- "paste",
- "phf 0.13.1",
- "ratatui",
- "regex",
- "rustc-hash",
- "serde",
- "strum",
- "strum_macros",
- "thiserror 2.0.18",
- "tokio",
- "toml",
- "unicode-segmentation",
- "unicode-width 0.2.2",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "matchmaker-lib"
-version = "0.0.28"
+version = "0.0.29"
 dependencies = [
  "ansi-to-tui",
  "anyhow",

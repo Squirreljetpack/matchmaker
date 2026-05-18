@@ -1,6 +1,8 @@
 //! Config Types.
 //! See `src/bin/mm/config.rs` for an example
 
+use std::ffi::OsString;
+
 use matchmaker_partial_macros::partial;
 
 pub use crate::config_types::*;
@@ -348,7 +350,7 @@ pub struct ResultsConfig {
     pub inactive_current: StyleSetting,
 
     #[partial(recurse)]
-    pub match_style: StyleSetting,
+    pub r#match: StyleSetting,
 
     /// current item style
     #[partial(recurse)]
@@ -422,7 +424,7 @@ impl Default for ResultsConfig {
                 ..Default::default()
             },
 
-            match_style: StyleSetting {
+            r#match: StyleSetting {
                 fg: Some(Color::Green),
                 modifier: Modifier::ITALIC,
                 ..Default::default()
@@ -655,6 +657,7 @@ pub struct PreviewerConfig {
     pub cache: u8,
 
     pub help_colors: HelpColorConfig,
+    pub shell: Option<Vec<OsString>>,
 }
 
 /// Help coloring

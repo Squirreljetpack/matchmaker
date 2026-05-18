@@ -26,7 +26,7 @@
     style.fg         = "White"
     current.bg       = "Black"
     current.modifier = "BOLD"
-    match_style.fg   = "Green"
+    match.fg   = "Green"
 
     # reverse = auto
     wrap = true

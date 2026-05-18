@@ -46,6 +46,7 @@ pub struct Previewer {
     procs: Vec<Child>,
     /// The currently executing child process
     current: Option<(Child, JoinHandle<bool>)>,
+
     pub config: PreviewerConfig,
     /// Event loop controller
     // We only use it to send [`ControlEvent::Event`]
@@ -137,7 +138,17 @@ impl Previewer {
 
             match &*self.rx.borrow() {
                 PreviewMessage::Run(cmd, variables) => {
-                    let mut cmd_builder = Command::from_script(cmd);
+                    let mut cmd_builder = if let Some(s) = &self.config.shell
+                        && s.len() > 0
+                    {
+                        let mut iter = s.into_iter();
+                        let mut program = Command::new(iter.next().unwrap());
+                        program.args(iter).arg(cmd);
+                        program
+                    } else {
+                        Command::from_script(cmd)
+                    };
+
                     cmd_builder
                         .envs(variables.iter().cloned())
                         .stdout(Stdio::piped())

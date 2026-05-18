@@ -25,8 +25,6 @@
 - benchmarks
   - (what kinds of speed matter?)
 - https://github.com/saghen/frizbee
-- On windows launching pwsh is slow, we should maybe support configurable shell for running scripts since pwsh is slow?
-  - On linux, SHELL generally should be the user's preferred shell for writing scripts so not really an issue?
 
 # Columns
 

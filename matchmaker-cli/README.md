@@ -96,7 +96,7 @@ min = 30
 max = 120
 ```
 
-The structure of the config file is defined [here](./matchmaker-cli/src/config.rs)[^1], and the full specification lives [here](./matchmaker-lib/src/config.rs)[^2]. You can also view your current config using `mm --dump-config | cat`[^30].
+The structure of the config file is defined [here](./matchmaker-cli/src/config.rs)[^1], and the full specification lives [here](./matchmaker-lib/src/config.rs)[^2]. You can also view your current config using `mm --dump-config | cat`[^30] or a quick reference using `mm --doc options`.
 
 Options can be overridden on the command line, where abbreviations are supported:
 
@@ -151,7 +151,7 @@ Currently, the first includes an example for interactively performing a full tex
 ```shell
 # Try it yourself
 mkdir -p ~/.config/matchmaker/presets
-curl -L https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-cli/assets/rg.toml -o ~/.config/matchmaker/presets/rg.toml
+curl -L https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-cli/assets/presets/rg.toml -o ~/.config/matchmaker/presets/rg.toml
 mm --config ~/.config/matchmaker/presets/rg.toml
 ```
 

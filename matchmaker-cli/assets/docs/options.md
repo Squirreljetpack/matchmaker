@@ -155,7 +155,7 @@ All colors and modifiers come from ratatui:
 - `style`: [Style Settings](#style-settings) (default).
 - `inactive`: [Style Settings](#style-settings) for inactive columns.
 - `inactive_current`: [Style Settings](#style-settings) for the current item in inactive columns.
-- `match_style`: [Style Settings](#style-settings) for matching characters.
+- `match`: [Style Settings](#style-settings) for matching characters.
 - `current`: [Style Settings](#style-settings) for the highlighted item.
 - `row_connection`: `Disjoint`, `Capped`, or `Full`. Controls how current item styles apply across the row.
 - `scroll_wrap`: (bool) Wrap selection when reaching the end of the list.

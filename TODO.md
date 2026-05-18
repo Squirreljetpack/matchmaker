@@ -59,3 +59,6 @@ fzf --bind='ctrl-r:reload(date; ps -ef)'\
 Kubernetes
 
 Git
+
+Mode: filters which binds activate (starts off as either "command", or "piped")
+Clickable headers: templating

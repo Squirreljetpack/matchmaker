@@ -71,7 +71,14 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
         config.render.status.template = r#"\m/\t"#.to_string();
     }
 
-    for p in cli.r#override {
+    for mut p in cli.r#override {
+        if p.components().count() == 1 && p.extension().is_none() {
+            p = default_config_path()
+                .parent()
+                .unwrap_or(&Path::new(""))
+                .join("presets")
+                .join(p);
+        }
         let o = load_type(p, |s| toml::from_str(s))?;
         config.apply(o);
     }

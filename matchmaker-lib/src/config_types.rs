@@ -45,6 +45,24 @@ impl From<StyleSetting> for Style {
     }
 }
 
+impl StyleSetting {
+    pub fn r#override(&self, base: Style) -> Style {
+        let mut style = base;
+
+        if let Some(fg) = self.fg {
+            style = style.fg(fg);
+        }
+
+        if let Some(bg) = self.bg {
+            style = style.bg(bg);
+        }
+
+        style = style.add_modifier(self.modifier);
+
+        style
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum HorizontalSeparator {
     #[default]

@@ -53,11 +53,11 @@ Modifiers (`=`, `+`, `-`) also apply to ranges.
 
 #### Custom Preview Command
 
-Use `{}` to pass the current item to a previewer like `bat` or `eza`. 
+Use `{}` to pass the current item to a previewer like `bat` or `eza`.
 
 ```toml
 [[preview.layout]]
-    command = "bat --color=always {} || eza -T {}"
+command = "bat --color=always {} || eza -T {}"
 ```
 
 #### Keybindings with Shell Execution
@@ -66,9 +66,9 @@ You can bind keys to run shell commands.
 
 ```toml
 [binds]
-    "ctrl-o" = "Execute($EDITOR {})"     # Open in editor and return to matchmaker
-    "alt-o"  = "Become($EDITOR {})"      # Open in editor and exit matchmaker
-    "ctrl-y" = "Execute(echo -n {} | xclip -sel clip)" # Copy to clipboard
+"ctrl-o" = "Execute($EDITOR {})" # Open in editor and return to matchmaker
+"alt-o" = "Become($EDITOR {})" # Open in editor and exit matchmaker
+"ctrl-y" = "Execute(echo -n {} | xclip -sel clip)" # Copy to clipboard
 ```
 
 #### Output Formatting
@@ -77,7 +77,7 @@ Change how the selected item is printed to stdout when you press enter.
 
 ```toml
 [start]
-    output_template = "Selected: {}"
+output_template = "Selected: {}"
 ```
 
 ### Command Line (CLI)

@@ -1,5 +1,4 @@
 use cba::bring::split::split_on_nesting;
-use log::trace;
 use ratatui::{
     layout::{Alignment, Rect},
     style::{Color, Modifier, Style},

@@ -3,8 +3,6 @@ use std::borrow::Cow;
 use cba::define_either;
 use ratatui::text::Text;
 
-use crate::utils::text::text_to_string;
-
 define_either! {
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -18,7 +16,7 @@ impl Either<String, Text<'static>> {
     pub fn to_cow(&self) -> Cow<'_, str> {
         match self {
             Either::Left(s) => Cow::Borrowed(s),
-            Either::Right(t) => Cow::Owned(text_to_string(t)),
+            Either::Right(t) => Cow::Owned(t.to_string()),
         }
     }
 

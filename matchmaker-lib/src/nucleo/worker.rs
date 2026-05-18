@@ -19,9 +19,7 @@ use crate::{
     SSS,
     config::AutoscrollSettings,
     nucleo::Render,
-    utils::text::{
-        hscroll_indicator, text_to_string, truncation_indicator, wrap_text, wrapping_indicator,
-    },
+    utils::text::{hscroll_indicator, truncation_indicator, wrap_text, wrapping_indicator},
 };
 
 type ColumnFormatFn<T> = Box<dyn for<'a> Fn(&'a T) -> Text<'a> + Send + Sync>;
@@ -64,7 +62,7 @@ impl<T> Column<T> {
 
     // Note: the characters should match the output of [`Self::format`]
     pub fn format_text<'a>(&self, item: &'a T) -> Cow<'a, str> {
-        Cow::Owned(text_to_string(&(self.format)(item)))
+        Cow::Owned((self.format)(item).to_string())
     }
 }
 
@@ -792,7 +790,7 @@ mod tests {
             0,
         );
 
-        let output_str = text_to_string(&result_text);
+        let output_str = result_text.to_string();
         assert_eq!(output_str, "hello match world");
         assert_eq!(width, 17);
     }
@@ -824,7 +822,7 @@ mod tests {
             0,
         );
 
-        let output_str = text_to_string(&result_text);
+        let output_str = result_text.to_string();
         assert_eq!(output_str, "hello match world");
     }
 
@@ -869,7 +867,7 @@ mod tests {
             0,
         );
 
-        let output_str = text_to_string(&result_text);
+        let output_str = result_text.to_string();
         assert_eq!(output_str, "…ghijmatch");
         assert_eq!(width, 10);
     }
@@ -913,7 +911,7 @@ mod tests {
             0,
         );
 
-        let output_str = text_to_string(&result_text);
+        let output_str = result_text.to_string();
         assert_eq!(output_str, "abc…jmatch");
         assert_eq!(width, 10);
     }
@@ -945,7 +943,7 @@ mod tests {
             -2,
         );
 
-        let output_str = text_to_string(&result_text);
+        let output_str = result_text.to_string();
         assert_eq!(output_str, "abcdefmat↵\nch");
         assert_eq!(width, 10);
     }
@@ -976,7 +974,7 @@ mod tests {
             0,
         );
 
-        let output_str = text_to_string(&result_text);
+        let output_str = result_text.to_string();
         // Expecting "1234↵" and "56"
         assert_eq!(output_str, "1234↵\n56");
         assert_eq!(width, 5);
@@ -1009,7 +1007,7 @@ mod tests {
             0,
         );
 
-        let output_str = text_to_string(&result_text);
+        let output_str = result_text.to_string();
         assert_eq!(output_str, "…ghijmatch");
         assert_eq!(width, 10);
     }

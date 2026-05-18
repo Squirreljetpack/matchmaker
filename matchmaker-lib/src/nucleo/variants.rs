@@ -1,6 +1,6 @@
 use std::{borrow::Cow, sync::Arc};
 
-use crate::{RenderFn, SSS, nucleo::Indexed, utils::text::text_to_string};
+use crate::{RenderFn, SSS, nucleo::Indexed};
 
 use super::{
     Text,
@@ -97,7 +97,7 @@ impl<T: SSS> Worker<Indexed<T>> {
 /// You must either impl as_str or as_text
 pub trait Render {
     fn as_str(&self) -> std::borrow::Cow<'_, str> {
-        text_to_string(&self.as_text()).into()
+        self.as_text().to_string().into()
     }
     fn as_text(&self) -> Text<'_> {
         Text::from(self.as_str())
@@ -119,7 +119,7 @@ impl<T: Render + SSS> Worker<T> {
 /// You must either impl as_str or as_text
 pub trait ColumnIndexable {
     fn get_str(&self, i: usize) -> std::borrow::Cow<'_, str> {
-        text_to_string(&self.get_text(i)).into()
+        self.get_text(i).to_string().into()
     }
 
     fn get_text(&self, i: usize) -> Text<'_> {

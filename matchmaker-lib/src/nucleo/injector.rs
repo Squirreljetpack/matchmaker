@@ -191,7 +191,9 @@ pub struct SegmentedInjector<T, I: Injector<InputItem = Segmented<T>>> {
     splitter: SplitterFn<T>,
 }
 
-impl<T, I: Injector<InputItem = Segmented<T>>> Injector for SegmentedInjector<T, I> {
+impl<T: SegmentableItem, I: Injector<InputItem = Segmented<T>>> Injector
+    for SegmentedInjector<T, I>
+{
     type InputItem = T;
     type Inner = I;
     type Context = SplitterFn<T>;
@@ -208,10 +210,7 @@ impl<T, I: Injector<InputItem = Segmented<T>>> Injector for SegmentedInjector<T,
         item: Self::InputItem,
     ) -> Result<<Self::Inner as Injector>::InputItem, WorkerError> {
         let ranges = (self.splitter)(&item);
-        Ok(Segmented {
-            inner: item,
-            ranges,
-        })
+        Ok(Segmented::new(item, ranges))
     }
 
     fn inner(&self) -> &Self::Inner {
@@ -220,7 +219,7 @@ impl<T, I: Injector<InputItem = Segmented<T>>> Injector for SegmentedInjector<T,
 }
 
 mod ansi {
-    use std::ops::Range;
+    use std::{borrow::Cow, ops::Range};
 
     pub use crate::utils::Either;
     use crate::{
@@ -278,6 +277,12 @@ mod ansi {
             match self {
                 Either::Left(s) => ratatui::text::Text::from(&s[range]),
                 Either::Right(text) => slice_ratatui_text(text, range),
+            }
+        }
+        fn slice_str(&self, range: Range<usize>) -> Cow<'_, str> {
+            match self {
+                Either::Left(s) => (&s[range]).into(),
+                Either::Right(text) => text.to_string()[range].to_string().into(),
             }
         }
     }

@@ -384,6 +384,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
 
         // important to start after tui
         let event_controller = event_loop.controller();
+        let bind_controller = event_loop.bind_controller();
         let event_loop_handle = tokio::spawn(async move {
             let _ = event_loop.run().await;
         });
@@ -427,6 +428,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
             self.exit_config,
             render_rx,
             event_controller,
+            bind_controller,
             (self.event_handlers, self.interrupt_handlers),
             ext_handler,
             ext_aliaser,

@@ -33,9 +33,10 @@ Mouse events can be bound with modifiers:
 
 ### Semantic Triggers
 
-Semantic triggers (prefixed with `@`) act as named aliases for a group of actions. They allow you to define a sequence of operations once and trigger it from multiple keys or events, or even from other actions.
+Semantic triggers (prefixed with `@`) act as named aliases. They allow you to define a sequence of operations once and trigger it from multiple keys or events, or even from other actions.
 
 **Defining a Semantic Trigger:**
+
 You define a semantic trigger by binding it to one or more actions in your configuration:
 
 ```toml
@@ -48,6 +49,7 @@ You define a semantic trigger by binding it to one or more actions in your confi
 ```
 
 **Using a Semantic Trigger:**
+
 This trigger then becomes a valid action:
 
 ```toml
@@ -188,7 +190,7 @@ Actions are the operations performed when a trigger is activated.
 | `SetStyledPrompt(s)` | Update the input prompt.\* |
 | `SetStyledStatus(s)` | Update the status line.\*  |
 
-\* See --doc template
+\* See mm --doc template
 
 ### Programmable
 
@@ -306,4 +308,4 @@ ansi = true
 "ctrl-r" = "@reload"
 ```
 
-This example is simplified to demonstrate the special actions `Bind`, `Store`, `Transform`, and `Semantic`. You can find the full version at https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/rg.toml
+This example is simplified to demonstrate the special actions `Bind`, `Store`, `Transform`, and `Semantic`. You can find the full version at https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/presets/rg.toml

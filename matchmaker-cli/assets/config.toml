@@ -99,6 +99,7 @@ border.padding = [2, 0]
 "alt-down" = "VScroll(-1)"
 "alt-left" = "HScroll(-1)"
 "alt-right" = "HScroll(1)"
+"alt-1" = "Pos(0)"
 
 # Columns
 "ctrl-." = "NextColumn"
@@ -110,18 +111,20 @@ border.padding = [2, 0]
 "shift-?" = "SwitchPreview"
 "ctrl-shift-/" = "CyclePreview" # cycle preview layouts
 "alt-h" = "Help"
-"alt-1" = "Pos(0)"
 
 # Programmable
 "ctrl-l" = "@look" # "maximize" the preview
 "ctrl-o" = "@open"
 "alt-o" = "@enter"
 "ctrl-r" = "@reload"
+"alt-enter" = "@print"
+"ctrl-y" = "@copy"
 
 "@look" = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)"
 "@open" = "Execute($EDITOR {})"
 "@enter" = "Become($EDITOR {})"
 "@reload" = "Reload"
+"@print" = "Print({1})"
 
 [start]
 command = '''

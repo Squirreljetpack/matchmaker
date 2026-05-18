@@ -1,6 +1,6 @@
 [package]
 name = "matchmaker-partial-macros"
-version = "0.0.12"
+version = "0.0.29"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/Squirreljetpack/matchmaker"

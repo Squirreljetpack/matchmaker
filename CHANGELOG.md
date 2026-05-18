@@ -1,4 +1,11 @@
 
+## [0.0.28] - 2026-05-18
+
+### 🚀 Features
+
+- Configurable previewer shell executor
+
+
 ## [0.0.27] - 2026-05-17
 
 ### 🚀 Features

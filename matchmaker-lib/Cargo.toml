@@ -1,6 +1,10 @@
 [package]
 name = "matchmaker-lib"
+<<<<<<< Updated upstream
 version = "0.0.27"
+=======
+version = "0.0.30"
+>>>>>>> Stashed changes
 categories = ["command-line-utilities", "rust-patterns"]
 edition = "2024"
 keywords = ["fuzzy", "finder", "tui", "nucleo", "fzf"]

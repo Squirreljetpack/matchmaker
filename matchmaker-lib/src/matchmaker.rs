@@ -4,7 +4,6 @@ use std::{
     sync::Arc,
 };
 
-use arrayvec::ArrayVec;
 use cba::{bath::PathExt, broc::CommandExt, ebog, env_vars};
 use easy_ext::ext;
 use log::{debug, info, warn};
@@ -56,19 +55,19 @@ pub struct Matchmaker<T: SSS, S: Selection = T> {
 // ----------- MAIN -----------------------
 
 pub struct OddEnds {
-    pub splitter: SplitterFn<Either<String, Text<'static>>>,
+    pub splitter: SplitterFn<Either<Box<str>, Text<'static>>>,
     pub hidden_columns: Vec<bool>,
     pub has_error: bool,
 }
 
 pub type ConfigInjector = AnsiInjector<
     SegmentedInjector<
-        Either<String, Text<'static>>,
-        IndexedInjector<Segmented<Either<String, Text<'static>>>, WorkerInjector<ConfigMMItem>>,
+        Either<Box<str>, Text<'static>>,
+        IndexedInjector<Segmented<Either<Box<str>, Text<'static>>>, WorkerInjector<ConfigMMItem>>,
     >,
 >;
-pub type ConfigMatchmaker = Matchmaker<ConfigMMItem, Segmented<Either<String, Text<'static>>>>;
-pub type ConfigMMInnerItem = Segmented<Either<String, Text<'static>>>;
+pub type ConfigMatchmaker = Matchmaker<ConfigMMItem, Segmented<Either<Box<str>, Text<'static>>>>;
+pub type ConfigMMInnerItem = Segmented<Either<Box<str>, Text<'static>>>;
 pub type ConfigMMItem = Indexed<ConfigMMInnerItem>;
 
 impl ConfigMatchmaker {
@@ -117,7 +116,7 @@ impl ConfigMatchmaker {
         let col_count = worker.columns.len();
 
         // Arc over box due to capturing
-        let splitter: SplitterFn<Either<String, Text>> = match cc.split {
+        let splitter: SplitterFn<Either<Box<str>, Text>> = match cc.split {
             Split::Delimiter(ref rg) => {
                 let rg = rg.clone();
                 let names = cc.names.clone();
@@ -156,7 +155,7 @@ impl ConfigMatchmaker {
                     // Named capture groups
                     Arc::new(move |s| {
                         let s = &s.to_cow();
-                        let mut ranges = ArrayVec::from_iter(vec![(0, 0); col_count]);
+                        let mut ranges = vec![(0u32, 0u32); col_count].into_boxed_slice();
 
                         if let Some(caps) = rg.captures(s) {
                             for (group_idx, col_idx_opt) in
@@ -164,7 +163,7 @@ impl ConfigMatchmaker {
                             {
                                 if let Some(col_idx) = col_idx_opt {
                                     if let Some(m) = caps.get(group_idx) {
-                                        ranges[*col_idx] = (m.start(), m.end());
+                                        ranges[*col_idx] = (m.start() as u32, m.end() as u32);
                                     }
                                 }
                             }
@@ -178,12 +177,12 @@ impl ConfigMatchmaker {
                     // All unnamed capture groups → map in order
                     Arc::new(move |s| {
                         let s = &s.to_cow();
-                        let mut ranges = ArrayVec::from_iter(vec![(0, 0); col_count]);
+                        let mut ranges = vec![(0u32, 0u32); col_count].into_boxed_slice();
 
                         if let Some(caps) = rg.captures(s) {
                             for (i, group) in caps.iter().skip(1).enumerate().take(col_count) {
                                 if let Some(m) = group {
-                                    ranges[i] = (m.start(), m.end());
+                                    ranges[i] = (m.start() as u32, m.end() as u32);
                                 }
                             }
                         }
@@ -196,16 +195,16 @@ impl ConfigMatchmaker {
                     // No capture groups → normal delimiter split
                     Arc::new(move |s| {
                         let s = &s.to_cow();
-                        let mut ranges = ArrayVec::new();
+                        let mut ranges = Vec::with_capacity(col_count);
                         let mut last_end = 0;
 
                         for m in rg.find_iter(s).take(col_count - 1) {
-                            ranges.push((last_end, m.start()));
+                            ranges.push((last_end as u32, m.start() as u32));
                             last_end = m.end();
                         }
 
-                        ranges.push((last_end, s.len()));
-                        ranges
+                        ranges.push((last_end as u32, s.len() as u32));
+                        ranges.into_boxed_slice()
                     })
                 }
             }
@@ -214,19 +213,19 @@ impl ConfigMatchmaker {
                 let rgs = rgs.clone(); // or Arc
                 Arc::new(move |s| {
                     let s = &s.to_cow();
-                    let mut ranges = ArrayVec::new();
+                    let mut ranges = Vec::with_capacity(col_count);
 
                     for re in rgs.iter().take(col_count) {
                         if let Some(m) = re.find(s) {
-                            ranges.push((m.start(), m.end()));
+                            ranges.push((m.start() as u32, m.end() as u32));
                         } else {
                             ranges.push((0, 0));
                         }
                     }
-                    ranges
+                    ranges.into_boxed_slice()
                 })
             }
-            Split::None => Arc::new(|s| ArrayVec::from_iter([(0, s.to_cow().len())])),
+            Split::None => Arc::new(|s| vec![(0u32, s.to_cow().len() as u32)].into_boxed_slice()),
         };
         let injector = IndexedInjector::new_globally_indexed(injector);
         let injector = SegmentedInjector::new(injector, splitter.clone());

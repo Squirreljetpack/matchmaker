@@ -231,7 +231,7 @@ pub fn wrap_text<'a>(text: Text<'a>, max_width: u16) -> (Text<'a>, bool) {
 
 /// Helper function to slice a `ratatui::text::Text` based on global byte indices,
 /// assuming lines were virtually joined with a single `\n` (1 byte).
-pub fn slice_ratatui_text<'a>(text: &'a Text<'_>, range: Range<usize>) -> Text<'a> {
+pub fn slice_lines<'a>(lines: &'a [Line<'a>], range: Range<usize>) -> Text<'a> {
     if range.start == range.end {
         return Text::default();
     }
@@ -242,9 +242,9 @@ pub fn slice_ratatui_text<'a>(text: &'a Text<'_>, range: Range<usize>) -> Text<'
     let mut current_byte_idx = 0;
     let mut started_capturing = false;
 
-    let num_lines = text.lines.len();
+    let num_lines = lines.len();
 
-    for (line_idx, line) in text.lines.iter().enumerate() {
+    for (line_idx, line) in lines.iter().enumerate() {
         for span in &line.spans {
             let span_bytes = span.content.len();
             let span_end = current_byte_idx + span_bytes;
@@ -536,7 +536,7 @@ mod tests {
     #[test]
     fn test_slice_exact_span_boundary() {
         let text = sample_text();
-        let sliced = slice_ratatui_text(&text, 0..6);
+        let sliced = slice_lines(&text.lines, 0..6);
 
         let expected = Text::from(vec![Line::from(vec![Span::styled(
             "Hello ",
@@ -549,7 +549,7 @@ mod tests {
     fn test_slice_across_spans() {
         let text = sample_text();
         // Slice "lo Wo"
-        let sliced = slice_ratatui_text(&text, 3..9);
+        let sliced = slice_lines(&text.lines, 3..9);
 
         let expected = Text::from(vec![Line::from(vec![
             Span::styled("lo ", Style::default().fg(Color::Red)),
@@ -562,7 +562,7 @@ mod tests {
     fn test_slice_across_newline() {
         let text = sample_text();
         // Slice "World\nRus" -> byte indices 6 to 15
-        let sliced = slice_ratatui_text(&text, 6..15);
+        let sliced = slice_lines(&text.lines, 6..15);
 
         let expected = Text::from(vec![
             Line::from(vec![Span::styled(
@@ -579,7 +579,7 @@ mod tests {
         let text = sample_text();
         // Slice just the crab emoji. "Rust" is 4 bytes, so emoji starts at index 12 + 4 = 16.
         // Emoji is 4 bytes, so it ends at 20.
-        let sliced = slice_ratatui_text(&text, 16..20);
+        let sliced = slice_lines(&text.lines, 16..20);
 
         let expected = Text::from(vec![Line::from(vec![Span::styled(
             "🦀",
@@ -591,7 +591,7 @@ mod tests {
     #[test]
     fn test_slice_empty_range() {
         let text = sample_text();
-        let sliced = slice_ratatui_text(&text, 5..5);
+        let sliced = slice_lines(&text.lines, 5..5);
         assert_eq!(sliced, Text::default());
     }
 }

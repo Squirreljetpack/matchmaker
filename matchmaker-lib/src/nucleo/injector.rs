@@ -221,21 +221,21 @@ mod ansi {
 
     use crate::{
         nucleo::Text,
-        utils::text::{scrub_text_styles, slice_ratatui_text},
+        utils::text::{scrub_text_styles, slice_lines},
     };
     use ansi_to_tui::IntoText;
 
     pub type PreprocessOptions = (bool, bool);
 
     pub use super::*;
-    pub use crate::utils::Either;
+    pub use crate::utils::{Either, SimpleText};
     pub struct AnsiInjector<I> {
         pub injector: I,
         parse: bool,
         trim: bool,
     }
 
-    impl<I: Injector<InputItem = Either<Box<str>, Text<'static>>>> Injector for AnsiInjector<I> {
+    impl<I: Injector<InputItem = SimpleText>> Injector for AnsiInjector<I> {
         type InputItem = String;
         type Inner = I;
         type Context = PreprocessOptions;
@@ -256,11 +256,11 @@ mod ansi {
                 item = item.trim().to_string();
             }
             let ret = if !self.parse {
-                Either::Left(item.into_boxed_str())
+                SimpleText::from(item)
             } else {
                 let mut parsed = item.as_bytes().into_text().unwrap_or(Text::from(item));
                 scrub_text_styles(&mut parsed);
-                Either::Right(parsed)
+                SimpleText::from(parsed)
             };
             Ok(ret)
         }
@@ -270,18 +270,12 @@ mod ansi {
         }
     }
 
-    impl SegmentableItem for Either<Box<str>, Text<'static>> {
+    impl SegmentableItem for SimpleText {
         fn slice(&self, range: Range<usize>) -> Text<'_> {
-            match self {
-                Either::Left(s) => ratatui::text::Text::from(&s[range]),
-                Either::Right(text) => slice_ratatui_text(text, range),
-            }
+            slice_lines(&self.0, range)
         }
         fn slice_str(&self, range: Range<usize>) -> Cow<'_, str> {
-            match self {
-                Either::Left(s) => (&s[range]).into(),
-                Either::Right(text) => text.to_string()[range].to_string().into(),
-            }
+            self.to_cow()[range].to_string().into()
         }
     }
 }

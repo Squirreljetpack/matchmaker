@@ -23,7 +23,7 @@ use crate::{
         Indexed, Segmented, Worker,
         injector::{
             AnsiInjector, Either, IndexedInjector, Injector, PreprocessOptions, SegmentedInjector,
-            SplitterFn, WorkerInjector,
+            SimpleText, SplitterFn, WorkerInjector,
         },
     },
     preview::{
@@ -55,19 +55,19 @@ pub struct Matchmaker<T: SSS, S: Selection = T> {
 // ----------- MAIN -----------------------
 
 pub struct OddEnds {
-    pub splitter: SplitterFn<Either<Box<str>, Text<'static>>>,
+    pub splitter: SplitterFn<SimpleText>,
     pub hidden_columns: Vec<bool>,
     pub has_error: bool,
 }
 
 pub type ConfigInjector = AnsiInjector<
     SegmentedInjector<
-        Either<Box<str>, Text<'static>>,
-        IndexedInjector<Segmented<Either<Box<str>, Text<'static>>>, WorkerInjector<ConfigMMItem>>,
+        SimpleText,
+        IndexedInjector<Segmented<SimpleText>, WorkerInjector<ConfigMMItem>>,
     >,
 >;
-pub type ConfigMatchmaker = Matchmaker<ConfigMMItem, Segmented<Either<Box<str>, Text<'static>>>>;
-pub type ConfigMMInnerItem = Segmented<Either<Box<str>, Text<'static>>>;
+pub type ConfigMatchmaker = Matchmaker<ConfigMMItem, Segmented<SimpleText>>;
+pub type ConfigMMInnerItem = Segmented<SimpleText>;
 pub type ConfigMMItem = Indexed<ConfigMMInnerItem>;
 
 impl ConfigMatchmaker {
@@ -116,7 +116,7 @@ impl ConfigMatchmaker {
         let col_count = worker.columns.len();
 
         // Arc over box due to capturing
-        let splitter: SplitterFn<Either<Box<str>, Text>> = match cc.split {
+        let splitter: SplitterFn<SimpleText> = match cc.split {
             Split::Delimiter(ref rg) => {
                 let rg = rg.clone();
                 let names = cc.names.clone();

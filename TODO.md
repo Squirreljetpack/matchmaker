@@ -25,6 +25,7 @@
 - benchmarks
   - (what kinds of speed matter?)
   - memory: (800000 items) mac home dir: fzf 137M vs sk 212 vs mm ~~509~~/309/(12-183?) <- btop giving some inaccurate readings
+- https://github.com/saghen/frizbee
 
 - group Segmented<T> Storage indices
 - change nucleo to expose Index over to remove dependency on indexed<T>

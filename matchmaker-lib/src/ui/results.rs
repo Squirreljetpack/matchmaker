@@ -351,7 +351,7 @@ impl ResultsUI {
             &width_limits,
             self.config.wrap,
             self.config.max_height,
-            self.config.match_style.into(),
+            self.config.r#match.into(),
             matcher,
             self.config.autoscroll,
             self.hscroll,
@@ -366,15 +366,15 @@ impl ResultsUI {
             self.config.show_skipped,
         );
 
-        trace!(
-            "{}, {},  {}, {}, {:?}, {:?}",
-            results.len(),
-            self.hscroll,
-            offset,
-            end,
-            width_limits,
-            self.widths
-        );
+        // trace!(
+        //     "{}, {},  {}, {}, {:?}, {:?}",
+        //     results.len(),
+        //     self.hscroll,
+        //     offset,
+        //     end,
+        //     width_limits,
+        //     self.widths
+        // );
 
         widths[0] += self.indentation() as u16;
         // should generally be true already, but act as a safeguard

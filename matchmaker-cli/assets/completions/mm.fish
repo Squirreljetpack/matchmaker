@@ -1,6 +1,6 @@
 complete -c mm -l config -r -F
 complete -c mm -s o -l override -r -F
-complete -c mm -l doc -d 'Display documentation' -r -f -a "options\t''
+complete -c mm -s d -l doc -d 'Display documentation' -r -f -a "options\t''
 binds\t''
 template\t''
 other\t''"

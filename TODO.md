@@ -28,7 +28,7 @@
 
 - group Segmented<T> Storage indices
 - change nucleo to expose Index over to remove dependency on indexed<T>
-- 
+- offload injector wrapper logic to column functions
 
 # Columns
 - (fist: lowpri): execute: use of {\*} in place of {+}: execute once for each selected
@@ -55,6 +55,7 @@
    "command" when mm is started using command, and "piped" when mm is started using
    stdin. Add an action SetMode(String), which sets the mode string. Actions now become vec<Option<String>, Actions> <- seems heavy handed
 - renderloop optimization: pass available height?
+- Mode: filters which binds activate (starts off as either "command", or "piped")
 
 # Examples
 
@@ -68,5 +69,4 @@ Kubernetes
 
 Git
 
-Mode: filters which binds activate (starts off as either "command", or "piped")
-Clickable headers: templating
+

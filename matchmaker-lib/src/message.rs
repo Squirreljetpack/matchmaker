@@ -83,4 +83,5 @@ pub enum BindDirective<A: ActionExt> {
     PushBind(Trigger, Action<A>),
     Unbind(Trigger),
     PopBind(Trigger),
+    Action(Action<A>),
 }

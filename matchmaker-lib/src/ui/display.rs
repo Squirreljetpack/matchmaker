@@ -39,6 +39,11 @@ impl DisplayUI {
             _ => (vec![], 0),
         };
 
+        let mut config = config;
+        for line in &mut config.interactions {
+            line.sort_by_key(|(i, _)| *i);
+        }
+
         Self {
             height,
             width: 0,

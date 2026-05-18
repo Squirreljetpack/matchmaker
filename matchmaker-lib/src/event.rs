@@ -163,6 +163,10 @@ impl<A: ActionExt> EventLoop<A> {
                     }
                 }
             }
+
+            BindDirective::Action(action) => {
+                self.send_actions(vec![action], None);
+            }
         }
     }
 

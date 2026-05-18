@@ -155,3 +155,38 @@ Use `\s` and `\S` to insert flexible whitespace for alignment.
 - A single `\s` will expand to fill the remaining width of the terminal, pushing subsequent text to the right.
 - If multiple `\s` are used, the available space is distributed equally between them.
 - `\S` increases the distribution denominator without adding any whitespace.
+
+## Interaction Regions
+
+Interaction regions allow you to trigger [semantic actions](binds.md#semantic-triggers) by clicking on specific areas of the `header`, `footer`, or `status` line.
+
+### Configuration
+
+Interactions are defined as a list of `(index, action)` pairs:
+
+- `index`: The 0-based horizontal character offset from the left of the UI component.
+- `action`: The name of the semantic trigger to activate (e.g., `"foo"` for `@foo`).
+
+When a region is clicked, Matchmaker finds the entry with the largest `index` that is less than or equal to the click position and triggers the associated action. An empty action string (`""`) can be used to disable interaction for a specific range.
+
+### Example
+
+In your `config.toml`:
+
+```toml
+[status]
+template = "{red: [X]} {green: [OK]} \s \m/\t"
+# Click [X] (index 0-4) to quit, [OK] (index 6-10) to accept.
+interactions = [
+    [0, "quit"],   # Trigger @quit
+    [5, ""],       # Gap (no action)
+    [6, "accept"], # Trigger @accept
+    [11, ""]       # Disable for the rest of the line
+]
+
+[binds]
+"@quit" = "Quit"
+"@accept" = "Accept"
+```
+
+For `header` and `footer`, which can have multiple lines, `interactions` is a list of lists (one for each line).

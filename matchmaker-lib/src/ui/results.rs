@@ -49,7 +49,9 @@ pub struct ResultsUI {
 }
 
 impl ResultsUI {
-    pub fn new(config: ResultsConfig, status_config: StatusConfig) -> Self {
+    pub fn new(config: ResultsConfig, mut status_config: StatusConfig) -> Self {
+        status_config.interactions.sort_by_key(|(i, _)| *i);
+
         Self {
             cursor: 0,
             bottom: 0,

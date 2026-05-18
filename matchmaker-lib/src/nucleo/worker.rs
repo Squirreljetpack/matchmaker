@@ -529,7 +529,7 @@ fn render_cell<T: SSS>(
         let mut i; // start_idx
 
         if autoscroll.enabled && autoscroll.end {
-            i = match_idx.unwrap_or(line_graphemes.len());
+            i = match_idx.unwrap_or(line_graphemes.len().saturating_sub(1));
 
             let preserved_width = line_graphemes
                 [..autoscroll.initial_preserved.min(line_graphemes.len())]
@@ -548,14 +548,14 @@ fn render_cell<T: SSS>(
             let mut current_width = 0;
 
             while i > autoscroll.initial_preserved {
-                let w = line_graphemes[i - 1].0.width();
+                let w = line_graphemes[i].0.width();
                 let indicator_width = if i - 1 > autoscroll.initial_preserved {
                     1
                 } else {
                     0
                 };
 
-                if current_width + w + indicator_width <= target_width {
+                if current_width + w + indicator_width < target_width {
                     i -= 1;
                     current_width += w;
                 } else {
@@ -1025,6 +1025,38 @@ mod tests {
 
         let output_str = result_text.to_string();
         assert_eq!(output_str, "…ghijmatch");
+        assert_eq!(width, 10);
+    }
+
+    #[test]
+    fn test_autoscroll_end_context() {
+        let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("ma", "abcdefghijmatch");
+        let snapshot = nucleo.snapshot();
+        let item = snapshot.get_item(0).unwrap();
+
+        let cell = Text::from("abcdefghijmatch");
+        let highlight = Style::default().fg(Color::Red);
+
+        let (result_text, width) = render_cell(
+            cell,
+            0,
+            &snapshot,
+            &item,
+            &mut matcher,
+            highlight,
+            false,
+            10,
+            &mut buffer,
+            AutoscrollSettings {
+                end: true,
+                context: 2,
+                ..Default::default()
+            },
+            0,
+        );
+
+        let output_str = result_text.to_string();
+        assert_eq!(output_str, "…fghijmatc");
         assert_eq!(width, 10);
     }
 }

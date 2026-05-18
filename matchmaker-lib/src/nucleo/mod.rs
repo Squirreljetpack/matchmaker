@@ -22,11 +22,17 @@ use crate::{MAX_SPLITS, SSS};
 // ------------- Wrapper structs
 pub trait SegmentableItem: SSS {
     fn slice(&self, range: Range<usize>) -> ratatui::text::Text<'_>;
+    fn slice_str(&self, range: Range<usize>) -> Cow<'_, str> {
+        self.slice(range).to_string().into()
+    }
 }
 
 impl SegmentableItem for String {
     fn slice(&self, range: Range<usize>) -> ratatui::text::Text<'_> {
         ratatui::text::Text::from(&self[range])
+    }
+    fn slice_str(&self, range: Range<usize>) -> Cow<'_, str> {
+        (&self[range]).into()
     }
 }
 
@@ -34,22 +40,21 @@ impl SegmentableItem for String {
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct Segmented<T> {
     pub inner: T,
-    ranges: ArrayVec<(usize, usize), MAX_SPLITS>,
+    ranges: Box<[(u32, u32)]>,
 }
 
 impl<T: SegmentableItem> ColumnIndexable for Segmented<T> {
-    // fn get_str(&self, index: usize) -> Cow<'_, str> {
-    //     if let Some((start, end)) = self.ranges.get(index) {
-    //         &self.inner[*start..*end]
-    //     } else {
-    //         ""
-    //     }
-    //     .into()
-    // }
+    fn get_str(&self, i: usize) -> std::borrow::Cow<'_, str> {
+        if let Some(&(start, end)) = self.ranges.get(i) {
+            self.inner.slice_str(start as usize..end as usize)
+        } else {
+            "".into()
+        }
+    }
 
     fn get_text(&self, i: usize) -> Text<'_> {
-        if let Some((start, end)) = self.ranges.get(i) {
-            self.inner.slice(*start..*end)
+        if let Some(&(start, end)) = self.ranges.get(i) {
+            self.inner.slice(start as usize..end as usize)
         } else {
             Text::default()
         }
@@ -57,6 +62,14 @@ impl<T: SegmentableItem> ColumnIndexable for Segmented<T> {
 }
 
 impl<T: SegmentableItem> Segmented<T> {
+    pub fn new(inner: T, ranges: impl IntoIterator<Item = (usize, usize)>) -> Self {
+        let ranges: Box<[(u32, u32)]> = ranges
+            .into_iter()
+            .map(|(s, e)| (s as u32, e as u32))
+            .collect();
+        Self { inner, ranges }
+    }
+
     pub fn len(&self) -> usize {
         // Find the last range that is nonempty (start != end)
         self.ranges
@@ -76,7 +89,7 @@ impl<T: SegmentableItem> Segmented<T> {
         self.ranges
             .iter()
             .take(self.len()) // only map the "active" ranges
-            .map(|&(start, end)| f(&self.inner, start, end))
+            .map(|&(start, end)| f(&self.inner, start as usize, end as usize))
             .collect()
     }
 }

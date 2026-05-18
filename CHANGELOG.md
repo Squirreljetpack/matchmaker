@@ -1,3 +1,10 @@
+
+## [0.0.27] - 2026-05-17
+
+### 🚀 Features
+
+- Smoother preview switching
+
 ## [0.0.26] - 2026-05-17
 
 ### 🚀 Features

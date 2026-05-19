@@ -1,3 +1,12 @@
+
+## [0.0.30] - 2026-05-19
+
+### 🚀 Features
+
+- Support disabling of preview layout
+
+- Git-grep preset + more previewer configuration settings
+
 ## [0.0.29] - 2026-05-18
 
 ### 🚀 Features

@@ -214,7 +214,11 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         return Err(MatchError::Abort(1));
     }
     // make previewer
-    let help_str = display_binds(&event_loop.binds, Some(&previewer.help_colors));
+    let help_str = display_binds(
+        &event_loop.binds,
+        Some(&previewer.help_colors),
+        previewer.hide_semantic_help,
+    );
     let cli_formatter = Either::Right(
         crate::formatter::format_cli
             as for<'a, 'b, 'c> fn(

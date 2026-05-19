@@ -1,0 +1,60 @@
+[start]
+command = '''
+git log -Dp |
+awk '
+BEGIN {
+    OFS = "\x1f"
+}
+/^commit [0-9a-f]/ {
+    commit = substr($2, 1, 7)
+}
+/^diff --git / {
+    idx = index($0, " b/")
+    if (idx > 0) {
+        file = substr($0, idx + 3)
+    }
+}
+/^[+-]/ && !/^(---|\+\+\+) / {
+    print commit, file, $0
+}
+'
+'''
+command_input_separator = "\\n"
+
+[columns]
+split = "\\x1f"
+max = 3
+default = 3
+
+[matcher]
+sort = 20
+
+
+# --- Preview ---
+[previewer]
+always_trigger = false
+
+[[preview.layout]]
+command = '''
+DFT_COLOR=always git diff --color=always {1}\^ {1} -- {2}
+'''
+
+[[preview.layout]]
+command = '''
+git -c color.ui=always show --stat --summary {1}
+'''
+side = "right"
+percentage = 75
+min = 5
+max = 240
+
+[[preview.layout]]
+side = "top"
+percentage = 50
+min = 5
+max = 50
+command = '''
+DFT_COLOR=always git diff --color=always {1}\^ {1} -- {2}
+'''
+
+# --- UI ---

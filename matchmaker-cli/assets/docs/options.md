@@ -210,7 +210,18 @@ All colors and modifiers come from ratatui:
   - `p`, `percentage` (0-100) – How far from the bottom of the preview window the scroll offset should appear.
   - `h`, `header_lines` (number) – Keep the top N lines as a fixed header so that they are always visible.
 
-#### Header & Footer (`header.`, `footer.`, `h`, `f`)
+### Previewer (`previewer.`)
+
+- `try_lossy`: (bool) Enable lossy UTF-8 conversion for preview command output.
+- `debounce_ms`: (number) Debounce delay for preview commands in milliseconds (default 60).
+- `max_procs`: (number) Maximum number of concurrent preview processes (default 4).
+- `always_trigger`: (bool) If false, skips running the preview command if it is the same as the last one executed (default true).
+- `shell`: (list of strings) The shell used to execute preview commands (e.g., `["sh", "-c"]`).
+- `trim_commands`: (bool) Trim whitespace from preview commands.
+- `hide_semantic_help`: (bool) Hide semantic help in the preview window (default true).
+- `cache`: (number) Reserved for future use.
+
+### Header & Footer (`header.`, `footer.`, `h`, `f`)
 
 - `content`: (string or list) Static content to display.
   - Absolute alias: `h`.

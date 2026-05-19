@@ -33,7 +33,6 @@ pub struct Config {
     pub tui: TerminalConfig,
 
     // configure the preview command runner
-    #[partial(skip)]
     #[serde(default)]
     pub previewer: PreviewerConfig,
 

@@ -38,7 +38,7 @@
 - When the cursor is not near the top (horizontal preview), the cursor doesn't get restored, and the stuff after not cleared
 - if only current is highlighted, and current col is empty, cursor is invisible.. not sure best way to resolve this
 - reverse scroll to end doesn't fill view
-
+- crossterm (can fail to) detect modifiers on mouse events
 
 ### Low priority
 
@@ -56,17 +56,3 @@
    stdin. Add an action SetMode(String), which sets the mode string. Actions now become vec<Option<String>, Actions> <- seems heavy handed
 - renderloop optimization: pass available height?
 - Mode: filters which binds activate (starts off as either "command", or "piped")
-
-# Examples
-
-(date; ps -ef) |
-fzf --bind='ctrl-r:reload(date; ps -ef)'\
---header=$'Press CTRL-R to reload\n\n' --header-lines=2\
---preview='echo {}' --preview-window=down,3,wrap\
---layout=reverse --height=80% | awk '{print $2}' | xargs kill -9
-
-Kubernetes
-
-Git
-
-

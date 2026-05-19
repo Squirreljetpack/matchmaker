@@ -59,10 +59,21 @@ max = 240
 border.type = "Plain"
 border.padding = [2, 0]
 
+[previewer]
 [header]
 [footer]
-[start]
 [columns]
+
+[start]
+command = '''
+if command -v fd >/dev/null 2>&1; then
+    fd --strip-cwd-prefix --print0
+else
+    find . -print0
+fi
+'''
+command_input_separator = "\\0"
+
 [exit]
 
 [binds]
@@ -109,11 +120,11 @@ border.padding = [2, 0]
 "shift+scrolldown" = "PreviewDown"
 "?" = "SwitchPreview"
 "shift-?" = "SwitchPreview"
-"ctrl-shift-/" = "CyclePreview" # cycle preview layouts
+"ctrl-shift-/" = "CyclePreview"    # cycle preview layouts
 "alt-h" = "Help"
 
 # Programmable
-"ctrl-l" = "@look" # "maximize" the preview
+"ctrl-l" = "@look"     # "maximize" the preview
 "ctrl-o" = "@open"
 "alt-o" = "@enter"
 "ctrl-r" = "@reload"
@@ -125,13 +136,3 @@ border.padding = [2, 0]
 "@enter" = "Become($EDITOR {})"
 "@reload" = "Reload"
 "@print" = "Print({1})"
-
-[start]
-command = '''
-if command -v fd >/dev/null 2>&1; then
-    fd --strip-cwd-prefix --print0
-else
-    find . -print0
-fi
-'''
-command_input_separator = "\\0"

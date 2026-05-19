@@ -48,6 +48,7 @@ pub struct Previewer {
     current: Option<(Child, JoinHandle<bool>)>,
 
     pub config: PreviewerConfig,
+    last: String,
     /// Event loop controller
     // We only use it to send [`ControlEvent::Event`]
     event_controller_tx: Option<EventSender>,
@@ -67,6 +68,7 @@ impl Previewer {
             procs: Vec::new(),
             current: None,
             config,
+            last: Default::default(),
             event_controller_tx: None,
         };
 
@@ -102,12 +104,45 @@ impl Previewer {
 
     pub async fn run(mut self) -> Result<(), Vec<Child>> {
         while self.rx.changed().await.is_ok() {
+            let m = self.rx.borrow_and_update().clone();
+
+            if let PreviewMessage::Run(cmd, _) = &m {
+                if !self.config.always_trigger && &self.last == cmd {
+                    continue;
+                }
+
+                if self.config.debounce_ms > 0 {
+                    tokio::time::sleep(Duration::from_millis(self.config.debounce_ms)).await;
+                }
+
+                while self.procs.len() >= self.config.max_procs {
+                    self.prune_procs();
+                    if self.procs.len() < self.config.max_procs {
+                        break;
+                    }
+
+                    log::error!(
+                        "too many zombie processes ({}), delaying preview update ({m:?}).",
+                        self.procs.len()
+                    );
+                    let sleep = self.config.debounce_ms.max(10);
+                    tokio::time::sleep(Duration::from_millis(sleep)).await;
+
+                    if self.rx.has_changed().unwrap_or(false) {
+                        break;
+                    }
+                }
+
+                if self.rx.has_changed().unwrap_or(false) {
+                    continue;
+                }
+            }
+
             if !self.procs.is_empty() {
                 debug!("procs: {:?}", self.procs);
             }
 
             {
-                let m = &*self.rx.borrow();
                 match m {
                     PreviewMessage::Pause => {
                         self.paused = true;
@@ -122,11 +157,13 @@ impl Previewer {
                     }
                     PreviewMessage::Set(s) => {
                         self.set_string(s.clone());
+                        self.last.clear();
                         // don't kill the underlying
                         continue;
                     }
                     PreviewMessage::Unset => {
                         self.clear_string();
+                        self.last.clear();
                         continue;
                     }
                     _ => {}
@@ -136,17 +173,18 @@ impl Previewer {
             self.dispatch_kill();
             self.clear_string();
 
-            match &*self.rx.borrow() {
+            match m {
                 PreviewMessage::Run(cmd, variables) => {
+                    self.last = cmd.clone();
                     let mut cmd_builder = if let Some(s) = &self.config.shell
                         && s.len() > 0
                     {
                         let mut iter = s.into_iter();
                         let mut program = Command::new(iter.next().unwrap());
-                        program.args(iter).arg(cmd);
+                        program.args(iter).arg(&cmd);
                         program
                     } else {
-                        Command::from_script(cmd)
+                        Command::from_script(&cmd)
                     };
 
                     cmd_builder
@@ -164,7 +202,7 @@ impl Previewer {
                             let lines = self.lines.clone();
                             let mut guard = self.lines.read();
                             let changed = self.changed.clone();
-                            let cmd = cmd.clone();
+                            let cmd_str = cmd.clone();
 
                             // false => needs refresh (i.e. invalid utf-8)
                             let handle = tokio::spawn(async move {
@@ -221,7 +259,7 @@ impl Previewer {
                                                     guard.push(Line::from(line));
                                                 }
                                             } else {
-                                                error!("Error displaying {cmd}: {:?}", e);
+                                                error!("Error displaying {cmd_str}: {:?}", e);
                                                 return false;
                                             }
                                         }
@@ -254,7 +292,7 @@ impl Previewer {
                                                     guard.push(Line::from(line));
                                                 }
                                             } else {
-                                                error!("Error displaying {cmd}: {:?}", e);
+                                                error!("Error displaying {cmd_str}: {:?}", e);
                                                 return false;
                                             }
                                         }
@@ -272,8 +310,9 @@ impl Previewer {
                 PreviewMessage::Stop => {
                     self.lines.clear();
                     self.changed.store(true, Ordering::Relaxed);
+                    self.last.clear();
                 }
-                _ => unreachable!(),
+                _ => {}
             }
 
             self.prune_procs();
@@ -285,12 +324,14 @@ impl Previewer {
 
     fn dispatch_kill(&mut self) {
         if let Some((mut child, old)) = self.current.take() {
-            let _ = child.kill();
+            kill_child(&mut child);
             self.procs.push(child);
-            let mut old = Box::pin(old); // pin it to heap
 
+            // drop future
+            let mut old = Box::pin(old);
             match old.as_mut().now_or_never() {
                 Some(Ok(result)) => {
+                    // unicode error
                     if !result {
                         self.send(Event::Refresh)
                     }
@@ -344,7 +385,10 @@ impl Previewer {
 
     fn prune_procs(&mut self) {
         self.procs.retain_mut(|child| match child.try_wait() {
-            Ok(None) => true,
+            Ok(None) => {
+                kill_child(child);
+                true
+            }
             Ok(Some(_)) => false,
             Err(e) => {
                 warn!("Error waiting on child: {e}");
@@ -352,6 +396,20 @@ impl Previewer {
             }
         });
     }
+}
+
+fn kill_child(child: &mut Child) {
+    let pid = child.id();
+
+    #[cfg(unix)]
+    {
+        use nix::sys::signal::{Signal, kill};
+        use nix::unistd::Pid;
+
+        let pgid = Pid::from_raw(-(pid as i32));
+        let _ = kill(pgid, Signal::SIGKILL);
+    }
+    let _ = child.kill();
 }
 
 // ---------- NON ANSI VARIANT

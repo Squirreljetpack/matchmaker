@@ -533,3 +533,54 @@ mod tests {
         assert!(res.is_err());
     }
 }
+
+// ---------------------------------
+define_transparent_wrapper!(
+    #[derive(Copy, Clone, serde::Serialize)]
+    #[serde(transparent)]
+    SortThreshold: u32 = 0
+);
+
+impl<'de> Deserialize<'de> for SortThreshold {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct Visitor;
+
+        impl<'de> serde::de::Visitor<'de> for Visitor {
+            type Value = SortThreshold;
+
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(f, "a u32 or boolean")
+            }
+
+            fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(SortThreshold(v as u32))
+            }
+
+            fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                if v < 0 {
+                    return Err(E::custom("expected non-negative integer"));
+                }
+
+                Ok(SortThreshold(v as u32))
+            }
+
+            fn visit_bool<E>(self, v: bool) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(SortThreshold(if v { 0 } else { u32::MAX }))
+            }
+        }
+
+        deserializer.deserialize_any(Visitor)
+    }
+}

@@ -35,6 +35,10 @@ sort = 20
 always_trigger = false
 
 [[preview.layout]]
+side = "top"
+percentage = 50
+min = 5
+max = 50
 command = '''
 DFT_COLOR=always git diff --color=always {1}\^ {1} -- {2}
 '''
@@ -44,17 +48,11 @@ command = '''
 git -c color.ui=always show --stat --summary {1}
 '''
 side = "right"
-percentage = 75
-min = 5
-max = 240
+percentage = 40
+min = 30
+max = 120
 
 [[preview.layout]]
-side = "top"
-percentage = 50
-min = 5
-max = 50
-command = '''
-DFT_COLOR=always git diff --color=always {1}\^ {1} -- {2}
-'''
+max = 0
 
 # --- UI ---

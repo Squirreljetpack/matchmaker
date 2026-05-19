@@ -56,6 +56,12 @@ percentage = 75
 min = 5
 max = 240
 
+[[preview.layout]]
+side = "right"
+percentage = 75
+min = 5
+max = 240
+
 border.type = "Plain"
 border.padding = [2, 0]
 

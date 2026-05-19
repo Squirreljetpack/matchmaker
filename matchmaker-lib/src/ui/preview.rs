@@ -171,7 +171,15 @@ impl PreviewUI {
 
     // -------- Layout -----------
     pub fn cycle_layout(&mut self) {
-        self.layout_idx = (self.layout_idx + 1) % self.config.layout.len()
+        let len = self.config.layout.len();
+
+        for _ in 0..len {
+            self.layout_idx = (self.layout_idx + 1) % len;
+
+            if self.config.layout[self.layout_idx].layout.max > 0 {
+                return;
+            }
+        }
     }
     pub fn set_layout(&mut self, idx: u8) -> bool {
         let idx = idx as usize;

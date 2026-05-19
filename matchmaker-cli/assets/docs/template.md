@@ -176,10 +176,9 @@ In your `config.toml`:
 ```toml
 [status]
 template = "{red: [X]} {green: [OK]} \s \m/\t"
-# Click [X] (index 0-4) to quit, [OK] (index 6-10) to accept.
 interactions = [
-    [0, "quit"],   # Trigger @quit
-    [5, ""],       # Gap (no action)
+    [1, "quit"],   # Trigger @quit
+    [4, ""],       # Gap (no action)
     [6, "accept"], # Trigger @accept
     [11, ""]       # Disable for the rest of the line
 ]

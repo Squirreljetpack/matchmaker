@@ -1,6 +1,3 @@
-[query]
-prompt_style.fg = "Red"
-
 [start]
 command = '''rg --column --line-number --no-heading --color=always --smart-case "$FZF_QUERY"'''
 ansi = true
@@ -11,7 +8,12 @@ max = 3
 split = '^(.*?):(\d+:\d+):(.*)$'
 default = 3
 
-[results]
+# --- Preview ---
+
+[preview]
+show = true
+scroll.percentage = 70
+scroll.index = 2
 
 [[preview.layout]]
 command = '''
@@ -28,18 +30,13 @@ percentage = 50
 min = 5
 padding = 0
 
-[preview]
-show = true
-scroll.percentage = 70
-scroll.index = 2
-
 [binds]
 "Start" = "@enter_rg"
 "@enter_rg" = [ # Reload on query change, disable reparsing, update bind
-  "Filtering(false)",
-  '''Bind(QueryChange = Reload)''',
-  # Prompt indicator
-  '''Transform(
+    "Filtering(false)",
+    '''Bind(QueryChange = Reload)''',
+    # Prompt indicator
+    '''Transform(
     if [[ -n "$MM_QUERY" ]]; then
         echo "SetStyledPrompt({blue,italic:(${MM_QUERY#\%1 } )} )"
     else
@@ -49,12 +46,9 @@ scroll.index = 2
     echo "SetQuery($MM_STORE)"
     echo "Store($MM_QUERY)"
 )''',
-  "Bind(@reload = @enter_mm)",
+    "Bind(@reload = @enter_mm)",
 ]
-"@enter_mm" = [
-  "Filtering(true)",
-  "Unbind(QueryChange)",
-  '''Transform(
+"@enter_mm" = ["Filtering(true)", "Unbind(QueryChange)", '''Transform(
     if [[ -n "$MM_QUERY" ]]; then
         echo "SetPrompt(($MM_QUERY) )"
     else
@@ -65,9 +59,7 @@ scroll.index = 2
     echo "Store($MM_QUERY)"
     echo "SwitchColumn(1)"
 )
-''',
-  "Bind(@reload = @enter_rg)",
-]
+''', "Bind(@reload = @enter_rg)"]
 
 "ctrl-r" = "@reload"
 
@@ -75,3 +67,8 @@ scroll.index = 2
 "ctrl-." = "NextColumn"
 "enter" = "Become($EDITOR {1})"
 "?" = "SwitchPreview"
+
+# --- UI ---
+
+[query]
+prompt_style.fg = "Red"

@@ -108,7 +108,7 @@ impl ConfigMatchmaker {
         #[cfg(feature = "experimental")]
         worker.reverse_items(worker_config.reverse);
         #[cfg(feature = "experimental")]
-        worker.set_stability(worker_config.sort_threshold);
+        worker.set_stability(*worker_config.sort_threshold);
 
         let injector = worker.injector();
 
@@ -805,6 +805,9 @@ pub fn make_previewer<T: SSS, S: Selection + 'static>(
     formatter: AttachmentFormatter<T, S>,
     help_str: Text<'static>,
 ) -> Previewer {
+    if previewer_config.trim_commands {
+        mm.render_config.preview.trim_commands();
+    }
     // initialize previewer
     let (previewer, tx) = Previewer::new(previewer_config);
     let preview_tx = tx.clone();

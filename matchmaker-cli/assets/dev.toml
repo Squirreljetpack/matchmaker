@@ -42,6 +42,8 @@ style.modifier = "ITALIC"
 
 [previewer]
 try_lossy = false
+max_procs = 4
+always_trigger = true
 
 [preview]
 # border      = { type = "Rounded", color = "Blue" }

@@ -45,7 +45,7 @@ pub struct MatcherConfig {
 pub struct WorkerConfig {
     /// How "stable" the results are. Higher values prioritize the initial ordering.
     #[serde(alias = "sort")]
-    pub sort_threshold: u32,
+    pub sort_threshold: SortThreshold,
     /// TODO: Enable raw mode where non-matching items are also displayed in a dimmed color.
     #[partial(alias = "r")]
     pub raw: bool,
@@ -611,6 +611,14 @@ pub struct PreviewConfig {
     pub reevaluate_show_on_resize: bool,
 }
 
+impl PreviewConfig {
+    pub fn trim_commands(&mut self) {
+        for setting in &mut self.layout {
+            setting.command = setting.command.trim().to_string();
+        }
+    }
+}
+
 impl Default for PreviewConfig {
     fn default() -> Self {
         PreviewConfig {
@@ -658,7 +666,8 @@ impl Default for PreviewInitialSetting {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PreviewerConfig {
     pub try_lossy: bool,
@@ -666,8 +675,30 @@ pub struct PreviewerConfig {
     // todo
     pub cache: u8,
 
+    pub debounce_ms: u64,
+    pub max_procs: usize,
+    pub always_trigger: bool,
+
     pub help_colors: HelpColorConfig,
     pub shell: Option<Vec<OsString>>,
+    pub trim_commands: bool,
+    pub hide_semantic_help: bool,
+}
+
+impl Default for PreviewerConfig {
+    fn default() -> Self {
+        Self {
+            try_lossy: false,
+            cache: 0,
+            debounce_ms: 60,
+            max_procs: 4,
+            always_trigger: true,
+            help_colors: HelpColorConfig::default(),
+            shell: None,
+            trim_commands: false,
+            hide_semantic_help: true,
+        }
+    }
 }
 
 /// Help coloring
@@ -973,5 +1004,32 @@ impl<'de> Deserialize<'de> for NucleoMatcherConfig {
         }
 
         Ok(NucleoMatcherConfig(config))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_preview_config_trim_commands() {
+        let mut config = PreviewConfig {
+            layout: vec![
+                PreviewSetting {
+                    command: "  echo hello  ".to_string(),
+                    ..Default::default()
+                },
+                PreviewSetting {
+                    command: "\nls -la\n".to_string(),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+
+        config.trim_commands();
+
+        assert_eq!(config.layout[0].command, "echo hello");
+        assert_eq!(config.layout[1].command, "ls -la");
     }
 }

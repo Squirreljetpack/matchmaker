@@ -327,11 +327,13 @@ use ratatui::text::{Line, Span, Text};
 
 pub fn display_binds<A: ActionExt + Display>(
     binds: &BindMap<A>,
-    cfg: Option<&HelpColorConfig>,
+    colors: Option<&HelpColorConfig>,
+    hide_semantic: bool,
 ) -> Text<'static> {
     // Collect trigger and action strings
     let mut entries: Vec<(String, String)> = binds
         .iter()
+        .filter(|(trigger, _)| !hide_semantic || !matches!(trigger, Trigger::Semantic(_)))
         .map(|(trigger, actions)| {
             let value_str = if actions.len() == 1 {
                 actions[0].to_string()
@@ -351,7 +353,7 @@ pub fn display_binds<A: ActionExt + Display>(
     entries.sort_by(|a, b| a.1.cmp(&b.1));
 
     // Build output
-    let Some(cfg) = cfg else {
+    let Some(cfg) = colors else {
         // fallback plain text
         let mut text = Text::default();
         for (trigger, value) in entries {
@@ -473,5 +475,26 @@ mod test {
             Trigger::Semantic("foo".into()) => Action::Semantic("foo".into()),
         );
         assert!(bind_map_indirect_cycle.check_cycles().is_err());
+    }
+
+    #[test]
+    fn test_display_binds_semantic_help() {
+        let binds: BindMap<NullActionExt> = bindmap!(
+            key!(a) => Action::Print("a".into()),
+            Trigger::Semantic("foo".into()) => Action::Print("foo".into()),
+        );
+
+        // With semantic help
+        let colors = HelpColorConfig::default();
+        let help_show = display_binds(&binds, Some(&colors), true);
+        let help_show_str = help_show.to_string();
+        assert!(help_show_str.contains("a = Print(a)"));
+        assert!(help_show_str.contains("@foo = Print(foo)"));
+
+        // Without semantic help
+        let help_hide = display_binds(&binds, Some(&colors), false);
+        let help_hide_str = help_hide.to_string();
+        assert!(help_hide_str.contains("a = Print(a)"));
+        assert!(!help_hide_str.contains("@foo = Print(foo)"));
     }
 }

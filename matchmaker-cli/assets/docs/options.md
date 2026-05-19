@@ -201,7 +201,7 @@ All colors and modifiers come from ratatui:
   - `layout` *(flattened)*:
     - `side`: `top`, `bottom`, `left`, `right`.
     - `percentage`: Percentage of the screen to occupy.
-    - `min`, `max`: Pixel constraints for the preview size.
+    - `min`, `max`: Pixel constraints for the preview size. Setting `max` to 0 disables a preview layout.
 - `border`: [Border Settings](#border-settings).
 - `initial`: Control the initial scroll offset of the preview window.
   - Alias: `i`.

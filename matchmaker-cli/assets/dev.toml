@@ -69,10 +69,11 @@ min = 30
 max = 120
 
 [binds]
-# UI
+# Essentia
 "ctrl-c" = "Quit"
 "esc" = "Quit"
-"enter" = "Accept"
+"enter" = "@accept"
+"ctrl-enter" = "@accept_2"
 "ctrl-a" = "CycleAll"
 "tab" = ["Select", "Down"]
 "shift-backtab" = ["Toggle", "Up"]
@@ -112,16 +113,36 @@ max = 120
 
 "alt-enter" = "Print({1})"
 
-"alt-t" = "@test"
+# Programmable
+"ctrl-l" = "@look"         # "maximize" the preview
 "ctrl-o" = "@open"
-"alt-o" = "@enter"
+"alt-o" = "@open_2"
 "ctrl-r" = "@reload"
+"alt-p" = "@print"
+"ctrl-y" = "@copy"
+"ctrl-shift-y" = "@copy_2"
 
-"@test" = "Execute(echo ----; read v; echo $v; echo ----)"
 "@look" = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)"
 "@open" = "Execute($EDITOR {})"
-"@enter" = "Become($EDITOR {})"
+"@open_2" = "Become($EDITOR {})"
 "@reload" = "Reload"
+"@print" = "Print({-})"
+"@copy" = '''
+Execute(
+printf '%s\n' {+1} | (command -v pbcopy >/dev/null && pbcopy || command -v wl-copy >/dev/null && wl-copy || command -v xclip >/dev/null && xclip -selection clipboard || command -v xsel >/dev/null && xsel --clipboard --input)
+)
+'''
+"@copy_2" = '''
+Execute(
+printf '%s\n' {+} | (command -v pbcopy >/dev/null && pbcopy || command -v wl-copy >/dev/null && wl-copy || command -v xclip >/dev/null && xclip -selection clipboard || command -v xsel >/dev/null && xsel --clipboard --input)
+)
+'''
+
+"@accept" = "Accept"
+"@accept_2" = "Accept"
+
+"alt-t" = "@test"
+"@test" = "Execute(echo ----; read v; echo $v; echo ----)"
 
 [matcher]
 trim = true
@@ -132,14 +153,16 @@ split = '\s+'
 max = 8
 
 [start]
-command = '''
-if command -v fd >/dev/null 2>&1; then
-    fd
-else
-    find .
-fi
-'''
-output = "{}"
+command = {
+    cmd = '''
+    if command -v fd >/dev/null 2>&1; then
+        fd --strip-cwd-prefix --print0
+    else
+        find . -print0
+    fi
+    ''',
+    separator = "\\0"
+}
 
 [exit]
 select_1 = false

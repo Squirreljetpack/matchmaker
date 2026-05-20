@@ -90,7 +90,7 @@ impl DisplayUI {
 
     /// Whether this is table has just one column
     pub fn is_single_column(&self) -> bool {
-        self.text.len() == 1
+        self.text.len() == 1 && self.lines.first().map(|x| x.len() == 1).unwrap_or(true)
     }
 
     pub fn header_table(&mut self, table: HeaderTable) {

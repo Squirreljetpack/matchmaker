@@ -8,7 +8,6 @@ additional_commands = [
   'git stash list --format="%gd%x1f%cr%x1f%gs"',
   'git log --all --pretty=format:"%h%x1f%ad%x1f%s" --date=human -- "${1:-.}"',
 ]
-command_input_separator = "\\n"
 
 [columns]
 split = "\\x1f"
@@ -17,7 +16,6 @@ default = 3
 
 [matcher]
 sort = 20
-
 
 # --- Preview ---
 [previewer]
@@ -32,7 +30,6 @@ percentage = 40
 min = 30
 max = 120
 
-
 [[preview.layout]]
 side = "top"
 percentage = 50
@@ -41,7 +38,6 @@ max = 50
 command = '''
 DFT_COLOR=always git diff --color=always --exit-code {1} -- {$0} && echo "no change"
 '''
-
 
 [[preview.layout]]
 command = '''
@@ -67,17 +63,19 @@ style.modifier = ""
 "@open" = "Execute($EDITOR {$1})"
 "@open_2" = []
 
-"@reload" = ["ReloadNext", '''Transform(
+"@reload" = [
+  "ReloadNext",
+  '''Transform(
     HEADERS=(
       '[history]'
       '[reflog]'
       '[stash]'
       '[all_refs]'
     )
-    echo "SetHeader(${HEADERS[$((RELOAD_INDEX+1))]})"
-    echo "Store($RELOAD_INDEX)"
+    echo "SetHeader(${HEADERS[$((MM_INDEX+1))]})"
 )
-''']
+''',
+]
 
 "@checkout" = '''
 Become(

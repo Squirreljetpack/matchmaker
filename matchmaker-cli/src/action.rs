@@ -2,7 +2,7 @@ use std::{process::Command, str::FromStr};
 
 use cba::{
     StringError, bait::ResultExt, bring::split::split_on_unescaped_delimiter, broc::CommandExt,
-    env_vars, unwrap,
+    unwrap,
 };
 use log::{debug, error};
 use matchmaker::{
@@ -103,7 +103,7 @@ pub fn action_handler(
                 state.map_selected_to_vec(|_, x| repeat(x.to_cow().to_string()));
             }
 
-            state.should_quit_nomatch = true;
+            state.should_quit = true;
         }
         // state
         MMAction::CycleSort => {
@@ -134,21 +134,27 @@ pub fn action_handler(
         }
 
         MMAction::ReloadNext(x) => {
-            let payload = match x {
+            if additional_commands.0.is_empty() {
+                return;
+            }
+
+            let index = match x {
                 None => {
                     additional_commands.1 =
                         (additional_commands.1 + 1) % additional_commands.0.len();
-                    &additional_commands.0[additional_commands.1]
+                    additional_commands.1
                 }
                 Some(x) => {
                     if x < additional_commands.0.len() {
-                        &additional_commands.0[x]
+                        x
                     } else {
                         error!("Index {x} is out of bounds for ReloadNext");
                         return;
                     }
                 }
             };
+            let payload = &additional_commands.0[index];
+            state.env_payloads.set("MM_INDEX", index);
             state.set_interrupt(Interrupt::Reload, payload.clone());
         }
 
@@ -212,11 +218,7 @@ pub fn action_handler(
                 error!("Failed to format transform command: {payload}");
                 return;
             }
-            let mut vars = state.make_env_vars();
-            let extra = env_vars!(
-                "RELOAD_INDEX" => additional_commands.1,
-            );
-            vars.extend(extra);
+            let vars = state.make_env_vars();
 
             let render_tx = render_tx.clone();
             if let Some(mut contents) = Command::from_script(&cmd)

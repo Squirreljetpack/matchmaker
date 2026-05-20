@@ -5,6 +5,10 @@ use matchmaker::render::MMState;
 use matchmaker::{ConfigMMInnerItem, ConfigMMItem};
 use std::borrow::Cow;
 
+thread_local! {
+    pub static COLUMN_INDICES: std::cell::RefCell<bool>  = std::cell::RefCell::new(true);
+}
+
 type ConfigMMState<'a, 'b> = MMState<'a, 'b, ConfigMMItem, ConfigMMInnerItem>;
 
 fn is_valid_key(s: &str) -> bool {
@@ -298,7 +302,15 @@ fn get_val<'a>(
                 .iter()
                 .position(|c| c.name.as_ref() == key);
 
-            if let Some(idx) = col_idx {
+            let idx = if let Some(i) = col_idx {
+                Some(i)
+            } else if COLUMN_INDICES.with_borrow(|x| *x) {
+                key.parse::<usize>().ok().map(|x| x.saturating_sub(1))
+            } else {
+                None
+            };
+
+            if let Some(idx) = idx {
                 if let Some(col) = state.picker_ui.worker.columns.get(idx) {
                     let indexed = Indexed {
                         index: 0,
@@ -307,6 +319,7 @@ fn get_val<'a>(
                     return Some(col.raw(&indexed).to_string().into());
                 }
             }
+
             None
         }
     }
@@ -438,17 +451,17 @@ mod tests {
         columns_config.names = vec![
             matchmaker::config::ColumnSetting {
                 name: "col1".to_string().into(),
-                filter: true,
+                ignore: true,
                 hidden: false,
             },
             matchmaker::config::ColumnSetting {
                 name: "col2".to_string().into(),
-                filter: true,
+                ignore: true,
                 hidden: false,
             },
             matchmaker::config::ColumnSetting {
                 name: "col3".to_string().into(),
-                filter: true,
+                ignore: true,
                 hidden: false,
             },
         ];

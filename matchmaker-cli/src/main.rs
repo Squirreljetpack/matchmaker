@@ -62,6 +62,9 @@ async fn main() {
             MatchError::TUIError(e) => {
                 ebog!("TUI"; "{e}")
             }
+            MatchError::NoMatch => {
+                ebog!("NoMatch")
+            }
             _ => unreachable!(),
         },
     };

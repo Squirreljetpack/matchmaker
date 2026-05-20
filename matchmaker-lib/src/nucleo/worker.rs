@@ -309,10 +309,13 @@ impl<T: SSS> Worker<T> {
         hscroll_offset: i8,
         vscroll: (u8, bool),
         show_skipped: bool,
-    ) -> (WorkerResults<'_, T>, Vec<u16>, Status) {
+    ) -> (WorkerResults<'_, T>, Vec<u16>, Vec<u16>, Status) {
         let (snapshot, status) = Self::new_snapshot(&mut self.nucleo);
 
         let mut widths = vec![0u16; self.columns.len()];
+        let mut raw_widths = vec![vec![]; self.columns.len()];
+        let total_width_limit: u16 = width_limits.iter().sum();
+        let last_nonzero_idx = width_limits.iter().rposition(|&w| w != 0); // lowpri: not sure if this should be per row
 
         let iter =
             snapshot.matched_items(start.min(status.matched_count)..end.min(status.matched_count));
@@ -325,7 +328,7 @@ impl<T: SSS> Worker<T> {
 
                 let mut to_skip = vscroll_offset as usize;
                 let mut skip = !show_skipped;
-                for c in self.columns.iter() {
+                for (i, c) in self.columns.iter().enumerate() {
                     let mut t = c.format(item.data);
                     if stacked {
                         if to_skip >= t.height() {
@@ -353,12 +356,18 @@ impl<T: SSS> Worker<T> {
                                 last_line.spans.push(truncation_indicator());
                             }
                         }
+
+                        if width_limits.get(i).cloned() != Some(0) && !skip {
+                            raw_widths[i].push(t.width() as u16);
+                        }
                     }
                     row.push(t);
                 }
                 if skip {
                     return None;
                 }
+
+                let mut consumed_width = 0u16;
 
                 let row: Vec<Text> = row
                     .into_iter()
@@ -367,7 +376,13 @@ impl<T: SSS> Worker<T> {
                     .map(|((col_idx, cell), &width_limit)| {
                         let column = &self.columns[col_idx];
 
-                        let (cell, _) = if width_limit == 0 {
+                        let effective_limit = if Some(col_idx) == last_nonzero_idx {
+                            total_width_limit.saturating_sub(consumed_width)
+                        } else {
+                            width_limit
+                        };
+
+                        let (cell, computed_width) = if effective_limit == 0 {
                             (Default::default(), if wrap { 1 } else { cell.width() })
                         } else if column.filter {
                             render_cell(
@@ -378,16 +393,16 @@ impl<T: SSS> Worker<T> {
                                 matcher,
                                 highlight_style,
                                 wrap,
-                                width_limit,
+                                effective_limit,
                                 &mut self.col_indices_buffer,
                                 autoscroll,
                                 hscroll_offset,
                             )
                         } else if wrap {
-                            let (cell, wrapped) = wrap_text(cell, width_limit);
+                            let (cell, wrapped) = wrap_text(cell, effective_limit);
 
                             let width = if wrapped {
-                                width_limit as usize
+                                effective_limit as usize
                             } else {
                                 cell.width()
                             };
@@ -396,6 +411,8 @@ impl<T: SSS> Worker<T> {
                             let width = cell.width();
                             (cell, width)
                         };
+
+                        consumed_width += computed_width as u16;
 
                         cell
                     })
@@ -421,7 +438,19 @@ impl<T: SSS> Worker<T> {
             }
         }
 
-        (table, widths, status)
+        let medians = raw_widths
+            .into_iter()
+            .map(|mut v| {
+                if v.is_empty() {
+                    0
+                } else {
+                    v.sort_unstable();
+                    v[v.len() / 2]
+                }
+            })
+            .collect();
+
+        (table, widths, medians, status)
     }
 
     pub fn exact_column_match(&mut self, column: &str) -> Option<&T> {

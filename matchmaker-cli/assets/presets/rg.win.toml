@@ -4,7 +4,6 @@ prompt_style.fg = "Red"
 [start]
 command = '''rg --column --line-number --no-heading --color=always --smart-case "$env:FZF_QUERY"'''
 ansi = true
-command_input_separator = "\\n"
 
 [columns]
 max = 3

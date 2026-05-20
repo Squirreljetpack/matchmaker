@@ -18,6 +18,8 @@
 - switch preset can read remote from {$1} instead of assuming origin
 - ord on prev layouts for better composability
 
+- vty to support animated previews
+
 # Previewer
 
 - Offload large previews to disk

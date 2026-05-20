@@ -1,7 +1,6 @@
 [start]
 command = '''rg --column --line-number --no-heading --color=always --smart-case "$FZF_QUERY"'''
 ansi = true
-command_input_separator = "\\n"
 
 [columns]
 max = 3
@@ -33,10 +32,10 @@ padding = 0
 [binds]
 "Start" = "@enter_rg"
 "@enter_rg" = [ # Reload on query change, disable reparsing, update bind
-    "Filtering(false)",
-    '''Bind(QueryChange = Reload)''',
-    # Prompt indicator
-    '''Transform(
+  "Filtering(false)",
+  '''Bind(QueryChange = Reload)''',
+  # Prompt indicator
+  '''Transform(
     if [[ -n "$MM_QUERY" ]]; then
         echo "SetStyledPrompt({blue,italic:(${MM_QUERY#\%1 } )} )"
     else
@@ -46,9 +45,12 @@ padding = 0
     echo "SetQuery($MM_STORE)"
     echo "Store($MM_QUERY)"
 )''',
-    "Bind(@reload = @enter_mm)",
+  "Bind(@reload = @enter_mm)",
 ]
-"@enter_mm" = ["Filtering(true)", "Unbind(QueryChange)", '''Transform(
+"@enter_mm" = [
+  "Filtering(true)",
+  "Unbind(QueryChange)",
+  '''Transform(
     if [[ -n "$MM_QUERY" ]]; then
         echo "SetPrompt(($MM_QUERY) )"
     else
@@ -59,7 +61,9 @@ padding = 0
     echo "Store($MM_QUERY)"
     echo "SwitchColumn(1)"
 )
-''', "Bind(@reload = @enter_rg)"]
+''',
+  "Bind(@reload = @enter_rg)",
+]
 
 "ctrl-r" = "@reload"
 

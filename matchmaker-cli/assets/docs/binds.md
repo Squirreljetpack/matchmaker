@@ -179,62 +179,44 @@ Actions are the operations performed when a trigger is activated.
 | `PushBind(t=a)`         | Append an action to an existing binding.  |
 | `PopBind(t)`            | Remove the last action from a binding.    |
 
-### UI Customization
+### Programmable and Miscellaneous
 
-| Action               | Description                |
-| -------------------- | -------------------------- |
-| `SetHeader(s)`       | Update the header content. |
-| `SetFooter(s)`       | Update the footer content. |
-| `SetPrompt(s)`       | Update the input prompt.   |
-| `SetStatus(s)`       | Update the status line.\*  |
-| `SetStyledPrompt(s)` | Update the input prompt.\* |
-| `SetStyledStatus(s)` | Update the status line.\*  |
+| Action             | Description                                                              |
+| ------------------ | ------------------------------------------------------------------------ |
+| `Execute(cmd)`     | Run a shell command (replaces TUI).                                      |
+| `ExecuteSilent(c)` | Run a shell command in the background.                                   |
+| `Become(cmd)`      | Exit Matchmaker and execute the command.                                 |
+| `Reload(cmd)`      | Rerun the initial command or a new one.                                  |
+| `ReloadNext(n)`    | Cycle through `additional_commands`.                                     |
+| `Transform(cmd)`   | Run command and parse its output as a stream of Actions.                 |
+| `Store(str)`       | Set the value of `MM_STORE`.                                             |
+| `Print(s)`         | Print a string to stdout on exit.                                        |
+| `PrintKey`         | Print the activating key.                                                |
+| `@name`            | Execute the actions associated with semantic trigger `name`.             |
 
-\* See mm --doc template
-
-### Programmable
-
-| Action             | Description                                                  |
-| ------------------ | ------------------------------------------------------------ |
-| `Execute(cmd)`     | Run a shell command (replaces TUI).                          |
-| `ExecuteSilent(c)` | Run a shell command in the background.                       |
-| `Become(cmd)`      | Exit Matchmaker and execute the command.                     |
-| `Reload(cmd)`      | Rerun the item generation command or a new one.              |
-| `ReloadNext(n)`    | Cycle through `additional_commands` defined at startup.      |
-| `Transform(cmd)`   | Run command and parse its output as a stream of Actions.     |
-| `Print(s)`         | Print a string to stdout on exit.                            |
-| `@name`            | Execute the actions associated with semantic trigger `name`. |
+Note: Commands executed via these actions have access to various [environment variables](template.md#environment-variables).
 
 ### UI & Display
 
-| Action           | Description                                |
-| ---------------- | ------------------------------------------ |
-| `SetHeader(str)` | Set the header text (pass empty to clear). |
-| `SetFooter(str)` | Set the footer text (pass empty to clear). |
-| `SetPrompt(str)` | Set the input prompt text.                 |
-| `SetStatus(str)` | Set the status line template.              |
+| Action               | Description                                |
+| -------------------- | ------------------------------------------ |
+| `SetHeader(str)`     | Set the header text (pass empty to clear). |
+| `SetFooter(str)`     | Set the footer text (pass empty to clear). |
+| `SetPrompt(str)`     | Set the input prompt text.                 |
+| `SetStatus(str)`     | Set the status line template.              |
+| `SetStyledPrompt(s)` | Update the input prompt.                   |
+| `SetStyledStatus(s)` | Update the status line.                    |
 
-### Programmable
-
-| Action           | Description                                    |
-| ---------------- | ---------------------------------------------- |
-| `Execute(cmd)`   | Run a shell command and continue.              |
-| `Become(cmd)`    | Replace Matchmaker with the specified command. |
-| `Reload(cmd)`    | Reload items by running the specified command. |
-| `Print(str)`     | Print the specified string to stdout.          |
-| `PrintKey`       | Print the activating key.                      |
-| `Store(str)`     | Store a string in the state (`MM_STORE`).      |
-| `Transform(cmd)` | Run command and parse output as actions.       |
+\* See mm --doc template
 
 ### Other & Experimental
 
-| Action            | Description                                                           |
-| ----------------- | --------------------------------------------------------------------- |
-| `Filtering(bool)` | Enable or disable query filtering.                                    |
-| `CycleSort`       | Cycle through result sorting modes (`Full`/ `Mixed` / `None`).        |
-| `ReloadNext(idx)` | Reload using the next command in `matcher.start.additional_commands`. |
-| `Overlay(idx)`    | Activate the UI overlay at index `idx`.                               |
-| `Redraw`          | Force a complete UI redraw.                                           |
+| Action            | Description                                                    |
+| ----------------- | -------------------------------------------------------------- |
+| `Filtering(bool)` | Enable or disable query filtering.                             |
+| `CycleSort`       | Cycle through result sorting modes (`Full` / `Mixed` / `None`). |
+| `Overlay(idx)`    | Activate the UI overlay at index `idx`.                        |
+| `Redraw`          | Force a complete UI redraw.                                    |
 
 ---
 

@@ -15,7 +15,6 @@ static ALIASES: &[(&str, &str)] = &[
     ("o", "start.output_template"),
     ("x", "start.command"),
     ("cmd", "start.command"),
-    ("command", "start.command"),
     ("a", "start.ansi"),
     ("t", "start.trim"),
     ("S", "matcher.sort"),

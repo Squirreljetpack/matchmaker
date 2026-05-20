@@ -1,0 +1,89 @@
+# processes
+
+[start]
+command = "ps -ef"
+additional_commands = [
+  "ps -ef",
+  # '''
+  #   if [[ "$OSTYPE" == "darwin"* ]]; then
+  #     thcount=nq
+  #   else
+  #     args=thcount
+  #   fi
+  #   ps -eo user,pid,ppid,pgid,sess,tty,lstart,time,rss,vsz,pcpu,stat,$args,command
+  # '''
+]
+ansi = false
+trim = true
+
+[header]
+header_lines = 1
+
+[columns]
+split = ' +'
+max = 8
+default = 8
+
+[matcher]
+# --- Preview ---
+
+[preview]
+show = false
+
+[[preview.layout]]
+# Tree view
+command = '''
+if command -v pstree >/dev/null 2>&1; then
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        pstree -p {2}
+    else
+        pstree -ap {2}
+    fi
+else
+    if ps --version 2>/dev/null | grep -q procps; then
+        ps -f --forest -p $pid
+    else
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            args=,wq
+        else
+            args=,thcount
+        fi
+
+        ps -ww -eo user,pid,ppid,pgid,sess,tty,lstart,time,rss,vsz,pcpu,pmem,stat$args,command {2}
+    fi
+fi
+'''
+
+[[preview.layout]]
+command = "echo '### Ports ###\n'; lsof -p {2}"
+
+[[preview.layout]]
+command = "top -pid {2}"
+scroll.tail = true
+
+[binds]
+"ctrl-r" = "@reload"
+
+"@accept" = "Become(printf '%s\n' {+2})"
+"@accept_2" = "Become(printf '%s\n' {+!})"
+"@reload" = "ReloadNext"
+
+"ctrl-k" = '''
+Execute(
+    kill -9 {2}
+)
+'''
+
+"alt-k" = '''
+Execute(
+    kill {2}
+)
+'''
+
+"@copy" = '''
+Execute(
+printf '%s\n' {+2} | (command -v pbcopy >/dev/null && pbcopy || command -v wl-copy >/dev/null && wl-copy || command -v xclip >/dev/null && xclip -selection clipboard || command -v xsel >/dev/null && xsel --clipboard --input)
+)
+'''
+
+[tui]

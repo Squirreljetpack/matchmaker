@@ -1,0 +1,195 @@
+# ssh - SSH host selector
+# get_key requires setting $CLIPcmd
+
+[start]
+# Not a perfect parse if host definitions are fragmented
+command = '''
+{
+    setopt +o nomatch 2>/dev/null
+
+    for f in "$HOME/.ssh/config" "$HOME/.ssh/config.d/"* "/etc/ssh/ssh_config"; do
+        [ -f "$f" ] && [ -r "$f" ] || continue
+
+        awk -v file="$f" '
+            BEGIN {
+                OFS="\x1f"
+            }
+
+            function print_hosts() {
+                for(j=1; j<=host_count; j++) {
+                    out_host = current_hosts[j]
+                    out_hostname = (hostname == "-") ? out_host : hostname
+
+                    print out_host, out_hostname, user, port, file
+                }
+            }
+
+            $1 ~ /^[Hh][Oo][Ss][Tt]$/ {
+                if (host_count > 0) { print_hosts() }
+
+                host_count = 0
+                hostname = "-"
+                user = "-"
+                port = "-"
+
+                for(i=2; i<=NF; i++) {
+                    if ($i !~ /[*?]/) {
+                        current_hosts[++host_count] = $i
+                    }
+                }
+                next
+            }
+
+            $1 ~ /^[Hh][Oo][Ss][Tt][Nn][Aa][Mm][Ee]$/ { hostname = $2; next }
+            $1 ~ /^[Uu][Ss][Ee][Rr]$/               { user = $2; next }
+            $1 ~ /^[Pp][Oo][Rr][Tt]$/               { port = $2; next }
+
+            END {
+                if (host_count > 0) { print_hosts() }
+            }
+        ' "$f"
+    done
+} | awk -F'\x1f' '!seen[$1]++' | sort
+'''
+
+[columns]
+split = "\\x1f"
+max = 5
+default = 1
+names = ["host", "address", "user", "port", { name = "file", hidden = true }]
+
+[header]
+content = ["host", "address", "user", "port"]
+
+# --- Preview ---
+[preview]
+show = true
+
+[[preview.layout]]
+command = "(nc -w 5 -vz {host} 22 2>&1)&!; ping -c 3 -W 1000 {host}"
+
+[[preview.layout]]
+command = "echo '### Configuration ###\n'; ssh -G {host}"
+
+[[preview.layout]]
+command = "echo '### Host keys ###\n'; ssh-keyscan {host}"
+
+[binds]
+"@accept" = "Become(ssh {host})"
+"@open" = "Execute($EDITOR {file})"
+"@accept_2" = "Become(echo {host})"
+
+"ctrl-k" = "@get_key"
+"ctrl-g" = "@get_key"
+"alt-t" = ["@test", "Reload"]
+
+# --- Scripts ---
+"@get_key" = '''
+Execute(
+    mkdir -p ~/.ssh
+    chmod 700 ~/.ssh || { echo "Error: Could not set permissions for ~/.ssh. Please do it manually."; exit 1; }
+    cd ~/.ssh || exit 1
+
+    add_ssh_config() {
+        local key_file="$1"
+        local remote_target=""
+        local target_user=""
+        local target_hostname=""
+        local config_host_alias=""
+        local config_block=""
+
+        # 1. Validate argument (key file)
+        if [ -z "$key_file" ]; then
+            echo "Usage: add_ssh_config <path_to_private_key>"
+            echo "Example: add_ssh_config ~/.ssh/gitlab_sq_ed25519"
+            return 1
+        fi
+
+        if [ ! -f "$key_file" ]; then
+            echo "Error: Key file '$key_file' not found."
+            return 1
+        fi
+
+        # 2. Prompt for the remote URL/target
+        read -p "Enter remote URL/target (e.g., user@host.com or host.com): " remote_target
+
+        if [ -z "$remote_target" ]; then
+            echo "Error: Remote target cannot be empty."
+            return 1
+        fi
+
+        # 3. Parse the remote user and hostname
+        if echo "$remote_target" | grep -q '@'; then
+            target_user=$(echo "$remote_target" | cut -d'@' -f1)
+            target_hostname=$(echo "$remote_target" | cut -d'@' -f2)
+        else
+            target_user=""
+            target_hostname="$remote_target"
+        fi
+
+        # Use the hostname as the config alias for simplicity
+        config_host_alias="$target_hostname"
+
+        # 4. Construct the SSH config block
+        config_block="\n"
+        config_block="${config_block}Host ${config_host_alias}\n"
+        config_block="${config_block}    HostName ${target_hostname}\n"
+        if [ -n "$target_user" ]; then # Only add User if specified in remote_target
+            config_block="${config_block}    User ${target_user}\n"
+        fi
+        config_block="${config_block}    IdentityFile ${key_file}\n"
+        config_block="${config_block}    IdentitiesOnly yes\n" # Good practice to only try specified keys
+        config_block="${config_block}    AddKeysToAgent yes\n" # Automatically add to agent if running
+
+        # 6. Ensure ~/.ssh/config file exists and has correct permissions
+        touch ~/.ssh/config
+        chmod 600 ~/.ssh/config || { echo "Error: Could not set permissions for ~/.ssh/config. Please do it manually."; return 1; }
+
+        # 7. Append the block to ~/.ssh/config
+        echo -e "$config_block" >> ~/.ssh/config
+        echo "Added block to ~/.ssh/config for host '$config_host_alias'."
+
+        # 8. Check validity with ssh -vT
+        # echo "Attempting SSH connection with '$config_host_alias' using the configured key..."
+        # ssh -vT "$config_host_alias"
+    }
+
+    # Pick an existing key
+    line="$(ls *.pub 2>/dev/null | mm h='Pick a key or press (Esc) to create a new one' h.style.fg=Blue)"
+    if [ -n "$line" ]; then
+        $CLIPcmds < "$line"
+        key="${line%.pub}"
+        ssh-add "$key"
+        echo "$line copied to clipboard and added to agent." >&2
+        add_ssh_config "$key"
+        exit 0
+    fi
+
+    printf "Key name: "
+    read -r name
+    if [ -z "$name" ]; then
+    echo "Usage: $0 <name>"
+    exit 1
+    fi
+
+    printf "Enter email (optional): "
+    read -r email
+
+    keyfile=~/.ssh/${name}_ed25519
+
+    if [ -z "$email" ]; then
+    ssh-keygen -t ed25519 -f "$keyfile"
+    else
+    ssh-keygen -t ed25519 -C "$email" -f "$keyfile"
+    fi
+
+    $CLIPcmd < "$keyfile.pub"
+    ssh-add "$keyfile"
+    echo "$keyfile copied to clipboard and added to agent." >&2
+    add_ssh_config "$keyfile"
+)
+'''
+"@test" = "Execute(ssh -vT {host} 2>&1)"
+
+[tui]
+percentage = 100

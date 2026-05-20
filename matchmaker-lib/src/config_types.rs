@@ -266,11 +266,26 @@ impl<'de> Deserialize<'de> for ColumnName {
     }
 }
 
+// #[matchmaker_partial_macros::partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize)]
 pub struct ColumnSetting {
-    pub filter: bool,
+    #[serde(default)]
+    pub ignore: bool,
+    #[serde(default)]
     pub hidden: bool,
     pub name: ColumnName,
+}
+
+// #[matchmaker_partial_macros::partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
+#[derive(Default, Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CommandSetting {
+    /// Input separator that only applies when not reading from stdin
+    #[serde(deserialize_with = "escaped_opt_char")]
+    #[serde(default)]
+    pub separator: Option<char>,
+
+    #[serde(alias = "cmd")]
+    pub command: String,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -373,15 +388,11 @@ impl<'de> Deserialize<'de> for ColumnSetting {
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
         struct ColumnStruct {
-            #[serde(default = "default_true")]
-            filter: bool,
+            #[serde(default)]
+            ignore: bool,
             #[serde(default)]
             hidden: bool,
             name: ColumnName,
-        }
-
-        fn default_true() -> bool {
-            true
         }
 
         #[derive(Deserialize)]
@@ -393,14 +404,54 @@ impl<'de> Deserialize<'de> for ColumnSetting {
 
         match Input::deserialize(deserializer)? {
             Input::Str(name) => Ok(ColumnSetting {
-                filter: true,
+                ignore: true,
                 hidden: false,
                 name,
             }),
             Input::Obj(obj) => Ok(ColumnSetting {
-                filter: obj.filter,
+                ignore: obj.ignore,
                 hidden: obj.hidden,
                 name: obj.name,
+            }),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for CommandSetting {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use crate::utils::serde::escaped_opt_char;
+
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct CommandStruct {
+            /// Input separator that only applies when not reading from stdin
+            #[serde(deserialize_with = "escaped_opt_char")]
+            #[serde(default)]
+            pub separator: Option<char>,
+
+            #[serde(alias = "cmd")]
+            pub command: String,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum CommandSettingDe {
+            String(String),
+            Full(CommandStruct),
+        }
+
+        match CommandSettingDe::deserialize(deserializer)? {
+            CommandSettingDe::String(command) => Ok(CommandSetting {
+                separator: None,
+                command,
+            }),
+
+            CommandSettingDe::Full(obj) => Ok(CommandSetting {
+                separator: obj.separator,
+                command: obj.command,
             }),
         }
     }

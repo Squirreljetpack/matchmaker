@@ -177,6 +177,32 @@ Use `\s` and `\S` to insert flexible whitespace for alignment.
 - If multiple `\s` are used, the available space is distributed equally between them.
 - `\S` increases the distribution denominator without adding any whitespace.
 
+## Environment Variables
+
+When Matchmaker executes a command (e.g., via `Execute`, `Become`, or a preview command), it injects several environment variables that you can use in your scripts.
+
+| Variable             | FZF Equivalent     | Description                                        |
+| -------------------- | ------------------ | -------------------------------------------------- |
+| `MM_LINES`           | `FZF_LINES`        | Height of the terminal                             |
+| `MM_COLUMNS`         | `FZF_COLUMNS`      | Width of the terminal                              |
+| `MM_TOTAL_COUNT`     | `FZF_TOTAL_COUNT`  | Total number of items                              |
+| `MM_MATCH_COUNT`     | `FZF_MATCH_COUNT`  | Number of matched items                            |
+| `MM_SELECT_COUNT`    | `FZF_SELECT_COUNT` | Number of selected items                           |
+| `MM_POS`             | `FZF_POS`          | Current row index (0-indexed cursor position)      |
+| `MM_QUERY`           | `FZF_QUERY`        | Current input query                                |
+| `MM_PREVIEW_COMMAND` |                    | The current preview command                        |
+| `MM_STORE`           |                    | Current value stored in state (via `Store` action) |
+| `MM_INDEX`           |                    | Index of command being reloaded (in `ReloadNext`)  |
+
+### Preview Environment
+
+In addition to the above, commands executed within the preview window also receive:
+
+| Variable  | Description                |
+| --------- | -------------------------- |
+| `LINES`   | Height of the preview area |
+| `COLUMNS` | Width of the preview area  |
+
 ## Interaction Regions
 
 Interaction regions allow you to trigger [semantic actions](binds.md#semantic-triggers) by clicking on specific areas of the `header`, `footer`, or `status` line.

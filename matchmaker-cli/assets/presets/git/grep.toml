@@ -21,7 +21,6 @@ BEGIN {
 }
 '
 '''
-command_input_separator = "\\n"
 
 [columns]
 split = "\\x1f"

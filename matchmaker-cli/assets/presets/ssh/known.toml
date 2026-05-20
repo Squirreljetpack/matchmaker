@@ -1,0 +1,36 @@
+[start]
+command = "grep -v '^[[:space:]]*$' ~/.ssh/known_hosts | sort"
+
+[columns]
+split = ' '
+max = 4
+default = 1
+names = [
+  "host",
+  "type",
+  "key",
+  { name = "comment", hidden = true },
+]
+
+[header]
+content = ["host", "type", "key"]
+
+# --- Preview ---
+[preview]
+show = true
+
+[[preview.layout]]
+command = "echo '### Fingerprint ###\n'; echo {} | ssh-keygen -lf -"
+
+[[preview.layout]]
+command = "echo '### Fetch ###\n'; ssh-keyscan {host};"
+
+[binds]
+"alt-d" = "@delete"
+
+"@open" = "Execute(ssh -vT {host} 2>&1)"
+"@reload" = "@next_preset"
+"@next_preset" = "Become(mm -o ssh/tailscale)"
+
+# --- Scripts ---
+"@delete" = ["Execute(ssh-keygen -R {host})", "Reload"]

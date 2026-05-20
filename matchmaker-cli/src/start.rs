@@ -1,4 +1,5 @@
 use std::{
+    env::set_current_dir,
     io::Read,
     path::Path,
     process::{Command, Stdio, exit},
@@ -10,6 +11,7 @@ use crate::{
     clap::Cli,
     config::PartialConfig,
     paths::{last_key_path, presets_path},
+    utils::expand_tilde,
 };
 use crate::{config::Config, paths::default_config_path};
 use cba::{
@@ -184,7 +186,12 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         start:
             StartConfig {
                 input_separator,
-                command: CommandSetting { separator, command },
+                command:
+                    CommandSetting {
+                        separator,
+                        command,
+                        directory,
+                    },
                 sync,
                 output_separator,
                 output_template,
@@ -194,6 +201,11 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             },
         mut exit,
     } = config;
+
+    if let Some(mut d) = directory {
+        d = expand_tilde(d);
+        set_current_dir(d)._wbog();
+    }
 
     let abort_empty = exit.abort_empty;
     let header_lines = render.header.header_lines;
@@ -355,7 +367,11 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
 
     let ret = mm.pick(options).await;
 
-    print_handle.map_to_vec(|s| print!("{}{}", s, output_separator));
+    print_handle.map_to_vec(|s| {
+        log::trace!("{s}"); // this apparently helps with a race condition that erases output?
+        print!("{}{}", s, output_separator);
+    });
+
     ret.map(|_| {})
 }
 

@@ -1,0 +1,34 @@
+[start]
+command = "tailscale status | awk 'NF{print; next} {exit}'"
+
+[columns]
+# tailscale status output:
+# 100.100.100.100  hostname             user@        os      status
+split = '\s+'
+names = ["ip", "hostname", "user", "os", "status"]
+
+[header]
+content = ["ip", "hostname", "user", "os", "status"]
+
+# --- Preview ---
+[preview]
+show = true
+
+[[preview.layout]]
+command = "TAILSCALE_BE_CLI=1 tailscale ping --verbose {hostname}"
+
+[[preview.layout]]
+
+[[preview.layout]]
+command = "tailscale status --json"
+
+[binds]
+"ctrl-n" = "@netcheck"
+
+"@accept" = "Become(echo {ip})"
+"@open" = "Become(tailscale ssh {hostname})"
+"@open_2" = "Execute(fs :o https://login.tailscale.com/admin/machines)"
+"@reload" = "@next_preset"
+"@next_preset" = "Become(mm -o ssh/hosts)"
+
+"@netcheck" = "Preview(tailscale netcheck)"

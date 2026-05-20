@@ -106,7 +106,7 @@ max = 120
 "alt-h" = "Help"
 "?" = "SwitchPreview(0)"
 "shift-?" = "SwitchPreview(0)"
-"ctrl-shift-/" = "CyclePreview"    # ctrl-shift-/
+"ctrl-shift-/" = "CyclePreview" # ctrl-shift-/
 
 # Columns
 "ctrl-." = "NextColumn"
@@ -114,33 +114,50 @@ max = 120
 "alt-enter" = "Print({1})"
 
 # Programmable
-"ctrl-l" = "@look"         # "maximize" the preview
+"ctrl-l" = "@look" # "maximize" the preview
 "ctrl-o" = "@open"
 "alt-o" = "@open_2"
 "ctrl-r" = "@reload"
+"ctrl-shift-n" = "@next"
 "alt-p" = "@print"
 "ctrl-y" = "@copy"
 "ctrl-shift-y" = "@copy_2"
 
+"@accept" = "Accept"
+"@accept_2" = "Accept"
 "@look" = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)"
 "@open" = "Execute($EDITOR {})"
 "@open_2" = "Become($EDITOR {})"
 "@reload" = "Reload"
+
+# Printing
+"alt-p" = "@print"
+"alt-shift-p" = "@print_2"
+"ctrl-y" = "@copy"
+"ctrl-shift-y" = "@copy_2"
+"alt-y" = "@copy_3"
+
 "@print" = "Print({-})"
+"@print_2" = "Print({-!})"
 "@copy" = '''
 Execute(
-printf '%s\n' {+1} | (command -v pbcopy >/dev/null && pbcopy || command -v wl-copy >/dev/null && wl-copy || command -v xclip >/dev/null && xclip -selection clipboard || command -v xsel >/dev/null && xsel --clipboard --input)
+out="$(printf '%s\n' {+1})"
+printf "$out" | (pbcopy || wl-copy || xclip -selection clipboard || xsel --clipboard --input) 2>/dev/null
 )
 '''
 "@copy_2" = '''
 Execute(
-printf '%s\n' {+} | (command -v pbcopy >/dev/null && pbcopy || command -v wl-copy >/dev/null && wl-copy || command -v xclip >/dev/null && xclip -selection clipboard || command -v xsel >/dev/null && xsel --clipboard --input)
+printf '%s' {} | (pbcopy || wl-copy || xclip -selection clipboard || xsel --clipboard --input) 2>/dev/null
+)
+'''
+"@copy_3" = '''
+Execute(
+out="$(printf '%s\n' {+!})"
+printf "$out" | (pbcopy || wl-copy || xclip -selection clipboard || xsel --clipboard --input) 2>/dev/null
 )
 '''
 
-"@accept" = "Accept"
-"@accept_2" = "Accept"
-
+# test
 "alt-t" = "@test"
 "@test" = "Execute(echo ----; read v; echo $v; echo ----)"
 
@@ -152,17 +169,15 @@ sort_threshold = 1
 split = '\s+'
 max = 8
 
-[start]
-command = {
-    cmd = '''
+[start.command]
+cmd = '''
     if command -v fd >/dev/null 2>&1; then
         fd --strip-cwd-prefix --print0
     else
         find . -print0
     fi
-    ''',
-    separator = "\\0"
-}
+    '''
+separator = "\\0"
 
 [exit]
 select_1 = false

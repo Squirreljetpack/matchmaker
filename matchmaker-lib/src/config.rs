@@ -555,7 +555,7 @@ impl Default for DisplayConfig {
             border: Default::default(),
             match_indent: true,
             style: StyleSetting {
-                fg: Some(Color::Green),
+                fg: Some(Color::Blue),
                 modifier: Modifier::ITALIC,
                 ..Default::default()
             },

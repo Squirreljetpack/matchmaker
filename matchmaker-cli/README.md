@@ -230,6 +230,23 @@ b.Shift-BackTab=Up b.BackTab=Up b.Tab=Down
 
 [^50]: More on comparisons: https://github.com/Squirreljetpack/matchmaker/issues/1
 
+## Presets
+
+Matchmaker is a great tool for creating workflows. Check out the collection [here](https://github.com/Squirreljetpack/matchmaker/tree/main/matchmaker-cli/assets/presets)[^51].
+
+```
+# download a preset
+mm --download=git
+
+# invoke a preset
+mm -o git/restore
+```
+
+
+<img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/git-restore.png" alt="git-restore" style="width:416px;" /> <img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/git-help.png" alt="git-help" style="width:416px;" />
+
+[^51]: Contributions welcome!
+
 ## Library
 
 Matchmaker can also be used as a library.

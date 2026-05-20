@@ -152,15 +152,38 @@ Currently, the first includes an example for interactively performing a full tex
 # Try it yourself
 mkdir -p ~/.config/matchmaker/presets
 curl -L https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-cli/assets/presets/rg.toml -o ~/.config/matchmaker/presets/rg.toml
-# mm --config ~/.config/matchmaker/presets/rg.toml, or, simply
+mm --config ~/.config/matchmaker/presets/rg.toml
+```
+
+
+### Presets
+
+Matchmaker is a great tool for creating workflows. Check out the collection [here](https://github.com/Squirreljetpack/matchmaker/tree/main/matchmaker-cli/assets/presets)[^50].
+
+```shell
+# download a preset
+mm --download=git
+
+# invoke a preset
+mm -o git/restore
+```
+
+<img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/git-restore.png" alt="git-restore" style="width:416px;" /> <img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/git-help.png" alt="git-help" style="width:416px;" />
+
+The first example can also be run like this:
+
+```shell
+mm --download=rg.toml
 mm -o rg
 ```
+
+[^50]: Contributions welcome!
 
 ### Migrating from fzf
 
 Migrating from `fzf` to `mm` is conceptually straightforward because the two tools are almost fully feature-compatible. You can continue using familiar actions, like `execute`, and they will function the same way.
 
-The main difference is **syntax**[^50]. For example, opening a selected file in your editor:
+The main difference is **syntax**[^51]. For example, opening a selected file in your editor:
 
 - In `fzf`:
 
@@ -228,7 +251,7 @@ r.r= r.w=false r.a.e= r.a.c=0 \
 b.Shift-BackTab=Up b.BackTab=Up b.Tab=Down
 ```
 
-[^50]: More on comparisons: https://github.com/Squirreljetpack/matchmaker/issues/1
+[^51]: More on comparisons: https://github.com/Squirreljetpack/matchmaker/issues/1
 
 ## Library
 

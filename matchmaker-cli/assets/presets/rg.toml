@@ -72,3 +72,5 @@ padding = 0
 
 [query]
 prompt_style.fg = "Red"
+[tui]
+percentage = 100

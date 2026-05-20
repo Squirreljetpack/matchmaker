@@ -295,16 +295,24 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
             .get_nth(self.picker_ui.results.index())
     }
     /// Runs f on selections if nonempty, otherwise, the current item
-    pub fn map_selected_to_vec<U>(&self, mut f: impl FnMut(&S) -> U) -> Vec<U> {
+    pub fn map_selected_to_vec<U>(&self, mut f: impl FnMut(u32, &S) -> U) -> Vec<U> {
         if !self.picker_ui.selector.is_empty() {
             self.picker_ui.selector.map_to_vec(f)
         } else {
             get_current(self.picker_ui)
                 .iter()
-                .map(|s| f(&s.1))
+                .map(|s| f(s.0, &s.1))
                 .collect()
         }
     }
+
+    // pub fn selected_indices<U>(&self) -> Vec<u32> {
+    //     if !self.picker_ui.selector.is_empty() {
+    //         self.picker_ui.selector.indices()
+    //     } else {
+    //         get_current(self.picker_ui).iter().map(|s| s.0).collect()
+    //     }
+    // }
 
     pub fn injector(&self) -> WorkerInjector<T> {
         self.picker_ui.worker.injector()

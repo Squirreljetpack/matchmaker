@@ -1,0 +1,321 @@
+# Switch to a branch
+
+[start]
+
+command = '''
+git for-each-ref --format='%(objectname:short) %(refname:strip=2)' refs/heads
+git remote |
+while read -r remote; do git for-each-ref --format="%(objectname:short) %(refname)" "refs/remotes/$remote/" |
+grep -v '/HEAD$' |
+sed "s| refs/remotes/$remote/| $remote:|"; done
+'''
+additional_commands = [
+    '''
+git for-each-ref --format='%(objectname:short) %(refname:strip=2)' refs/heads
+git remote |
+while read -r remote; do git for-each-ref --format="%(objectname:short) %(refname)" "refs/remotes/$remote/" |
+grep -v '/HEAD$' |
+sed "s| refs/remotes/$remote/| $remote:|"; done
+''',
+    "git for-each-ref --format='%(objectname:short) %(refname:lstrip=2)' refs/tags",
+    "git ls-remote --heads --tags ${1:-origin} | awk '{print substr($1,1,7), $2}'",
+]
+command_input_separator = "\\n"
+
+[columns]
+split = " "
+max = 2
+default = 2
+
+[matcher]
+sort = 20
+
+# --- Preview ---
+[previewer]
+always_trigger = false
+
+[[preview.layout]]
+command = '''
+git log --color=always --graph --decorate --pretty=oneline --abbrev-commit {1}
+'''
+side = "right"
+percentage = 40
+min = 30
+max = 120
+
+[[preview.layout]]
+command = '''
+git log --color=always --stat --summary --decorate {1}
+'''
+side = "right"
+percentage = 40
+min = 30
+max = 120
+
+[[preview.layout]]
+command = '''
+set -- $(git rev-list --left-right --count HEAD..{1})
+behind=$1
+ahead=$2
+theirs=$(git rev-list --count {1})
+echo "behind: $behind ahead: $ahead theirs: $theirs\n"
+git log --color=always --left-right --oneline ...{1}
+'''
+side = "right"
+percentage = 40
+min = 30
+max = 120
+
+[[preview.layout]]
+side = "top"
+percentage = 50
+min = 5
+max = 50
+command = '''DFT_COLOR=always git diff --color=always --exit-code {1} -- {$0} && echo "no change"'''
+
+# --- UI ---
+[tui]
+percentage = 100
+
+[header]
+content = "branches"
+
+[binds]
+"Start" = "Store(0)"
+"enter" = "@switch"
+"ctrl-d" = ["@delete", "Reload"]
+"alt-r" = ["@rename", "Reload"]
+
+"ctrl-u" = ["@update", "Reload"]
+"ctrl-a" = ["@add_remote", "Reload"]
+"ctrl-n" = ["@add_branch", "Reload"]
+
+"@reload" = ["ReloadNext", '''Transform(
+    HEADERS=(
+      branches
+      tags
+      remotes
+    )
+    echo "SetHeader(${HEADERS[$((RELOAD_INDEX+1))]})"
+    echo "Store($RELOAD_INDEX)"
+)
+''']
+
+"@update" = '''
+Execute(
+case "$MM_STORE" in
+0)
+    ref={2}
+    if [[ "$ref" == *":"* ]]; then
+        remote="${ref%%:*}"
+        echo "Fetching $remote..."
+        git fetch "$remote"
+    else
+        current="$(git branch --show-current)"
+        git switch "$ref"
+        echo "Updating branch $ref..."
+        git pull --rebase --autostash
+        git status -sb
+        git switch "$current"
+    fi
+    ;;
+1)
+    echo "Fetching tags..."
+    git fetch --tags
+    ;;
+2)
+    remote="$(git config --get branch.$(git branch --show-current).remote)"
+    echo "Fetching $remote..."
+    git fetch $remote
+    ;;
+esac
+printf "\nPress enter to continue..."
+read -r
+)
+'''
+
+"@switch" = '''
+Become(
+set -e
+if [ -n "$(git status --porcelain)" ]; then
+    printf "Local changes detected, continue? [y/N/stash] "
+    read -r ans
+    case "$ans" in
+        [sS]*) git stash ;;
+        [yY]*) ;;
+        *) exit 0 ;;
+    esac
+fi
+
+remote="$(git config --get branch.$(git branch --show-current).remote)"
+
+case "$MM_STORE" in
+0|1)
+  ref={2}
+  printf "Checkout remote branch %s/%s? [y/N] " "$remote" "$branch"
+  read -r ans
+  case "$ans" in
+      [yY]*)
+          git checkout -b "$branch" "$remote/$branch" 2>/dev/null \
+            || git checkout "$branch"
+          ;;
+      *)
+          echo "cancelled"
+          ;;
+  esac
+  ;;
+2)
+  ref={2}
+  case "$ref" in
+    refs/heads/*)
+      name="${ref#refs/heads/}"
+      git fetch "$remote" "$ref:$name"
+      git switch "$name"
+      ;;
+    refs/tags/*)
+      git fetch "$remote" "$ref"
+      git switch --detach FETCH_HEAD
+      ;;
+  esac
+  ;;
+esac
+)
+'''
+
+"@delete" = '''
+Execute(
+set -e
+case "$MM_STORE" in
+0)
+    ref={2}
+    if [[ "$ref" == *":"* ]]; then
+         remote="${ref%%:*}"
+         printf "Remove REMOTE %s? [y/N] " "$remote"
+         read -r ans
+         case "$ans" in [yY]*) git remote remove "$remote" ;; esac
+    else
+         printf "Delete local branch %s? [y/N] " "$ref"
+         read -r ans
+         case "$ans" in [yY]*) git branch -D "$ref" ;; esac
+    fi
+    ;;
+1)
+    printf "Delete tag %s? [y/N] " {2}
+    read -r ans
+    case "$ans" in
+        [yY]*)
+            git tag -d {2}
+            printf "Delete remote tag too? [y/N] "
+            read -r rans
+            case "$rans" in [yY]*) git push origin --delete {2} ;; esac
+            ;;
+    esac
+    ;;
+*)
+    printf "\nUnavailable. Press enter to continue..."
+    read -r
+    ;;
+esac
+)
+'''
+
+"@rename" = '''
+Execute(
+set -e
+case "$MM_STORE" in
+0)
+    ref={2}
+    if [[ "$ref" == *":"* ]]; then
+        old_remote="${ref%%:*}"
+        printf "Rename REMOTE %s to: " "$old_remote"
+        read -r new_name
+        [ -z "$new_name" ] && exit 0
+        git remote rename "$old_remote" "$new_name"
+    else
+        printf "Rename branch %s to: " "$ref"
+        read -r new_name
+        [ -n "$new_name" ]
+        git branch -m "$ref" "$new_name"
+
+        printf "Push / create only? [y/c/N] "
+        read -r ans
+        case "$ans" in
+        [y]*)
+            git push origin "$new_name"
+            git push origin --delete "$ref"
+            ;;
+        [c]*)
+            git push origin "$new_name"
+            ;;
+        *)
+            echo "cancelled"
+            ;;
+        esac
+    fi
+    ;;
+1)
+    printf "Rename tag %s to: " {2}
+    read -r new_tag
+    [ -n "$new_tag" ]
+
+    git tag "$new_tag" {2}
+    git tag -d {2}
+
+    printf "Push / create only? [y/c/f/N] "
+    read -r ans
+    case "$ans" in
+        [yY]*)
+            git push origin "$new_tag"
+            git push origin --delete "{2}"
+            ;;
+        [cC]*)
+            git push origin "$new_tag"
+            ;;
+        *)
+            echo "cancelled"
+            ;;
+    esac
+    ;;
+*)
+    printf "\nUnavailable. Press enter to continue..."
+    read -r
+    ;;
+esac
+)
+'''
+
+"@add_remote" = '''
+Execute(
+set -e
+printf "Remote name: "
+read -r name
+[ -n "$name" ]
+printf "Remote URL: "
+read -r url
+[ -n "$url" ]
+git remote add "$name" "$url"
+echo "Added remote $name"
+printf "\nPress enter to continue..."
+read -r
+)
+'''
+
+"@add_branch" = '''Execute(
+set -eu
+while :; do
+  printf "New branch name: "
+  read -r branch
+
+  [ -n "$branch" ] || exit 0
+
+  if git show-ref --verify --quiet "refs/heads/$branch"; then
+    printf "Branch '%s' already exists. Try another name.\n" "$branch"
+    continue
+  fi
+
+  break
+done
+
+git switch -c "$branch"
+echo "Created and switched to $branch"
+)'''

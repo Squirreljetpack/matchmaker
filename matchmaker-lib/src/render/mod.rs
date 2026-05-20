@@ -59,7 +59,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
     controller_tx: EventSender,
     bind_tx: BindSender<A>,
 
-    dynamic_handlers: DynamicHandlers<T, S>,
+    mut dynamic_handlers: DynamicHandlers<T, S>,
     mut ext_handler: Option<ActionExtHandler<T, S, A>>,
     mut ext_aliaser: Option<ActionAliaser<T, S, A>>,
     initializer: Option<Initializer<T, S>>,
@@ -226,29 +226,41 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                 }
                             }
                         }
-                        MouseEventKind::ScrollDown => {
+                        MouseEventKind::ScrollDown | MouseEventKind::ScrollUp => {
                             if layout.preview.contains(pos) {
                                 if let Some(p) = preview_ui.as_mut() {
-                                    p.down(1)
+                                    if matches!(mouse.kind, MouseEventKind::ScrollDown) {
+                                        p.down(1)
+                                    } else {
+                                        p.up(1)
+                                    }
                                 }
                             } else {
-                                picker_ui.results.cursor_next()
+                                let next = matches!(mouse.kind, MouseEventKind::ScrollDown)
+                                    ^ picker_ui.results.reverse();
+                                if next {
+                                    picker_ui.results.cursor_next()
+                                } else {
+                                    picker_ui.results.cursor_prev()
+                                }
                             }
                         }
-                        MouseEventKind::ScrollUp => {
+                        MouseEventKind::ScrollLeft | MouseEventKind::ScrollRight => {
+                            let left = matches!(mouse.kind, MouseEventKind::ScrollLeft);
                             if layout.preview.contains(pos) {
                                 if let Some(p) = preview_ui.as_mut() {
-                                    p.up(1)
+                                    p.scroll(true, if left { -1 } else { 1 })
                                 }
                             } else {
-                                picker_ui.results.cursor_prev()
+                                if !left
+                                    || picker_ui.results.hscroll > 0
+                                    || !picker_ui.query.input.is_empty()
+                                {
+                                    picker_ui
+                                        .results
+                                        .current_scroll(if left { -1 } else { 1 }, true);
+                                }
                             }
-                        }
-                        MouseEventKind::ScrollLeft => {
-                            // todo
-                        }
-                        MouseEventKind::ScrollRight => {
-                            // todo
                         }
                         // Drag tracking: todo
                         _ => {}
@@ -267,7 +279,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         }
                     }
                     let PickerUI {
-                        query: input,
+                        query,
                         results,
                         worker,
                         selector: selections,
@@ -339,9 +351,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             let pos = if pos >= 0 {
                                 pos as u16
                             } else {
-                                (input.len() as u16).saturating_sub((-pos) as u16)
+                                (query.len() as u16).saturating_sub((-pos) as u16)
                             };
-                            input.set(None, pos);
+                            query.set(None, pos);
                         }
                         Action::HScroll(n) | Action::VScroll(n) => {
                             if let Some(p) = &mut preview_ui
@@ -351,7 +363,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             {
                                 p.scroll(true, n);
                             } else {
-                                results.current_scroll(n, matches!(action, Action::HScroll(_)));
+                                if n >= 0 || results.hscroll > 0 || !query.input.is_empty() {
+                                    results.current_scroll(n, matches!(action, Action::HScroll(_)));
+                                }
                             }
                         }
                         Action::HalfPageDown | Action::HalfPageUp => {
@@ -478,22 +492,22 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
                         // Columns
                         Action::SwitchColumn(col_name) => {
-                            if worker.query.active_column_name(input.str_at_cursor()) != col_name
+                            if worker.query.active_column_name(query.str_at_cursor()) != col_name
                                 && worker.columns.iter().any(|c| *c.name == col_name)
                             {
-                                input.prepare_column_change();
-                                input.push_str(&format!("%{} ", col_name));
+                                query.prepare_column_change();
+                                query.push_str(&format!("%{} ", col_name));
                             } else {
                                 log::warn!("Column {} not found in worker columns", col_name);
                             }
                         }
                         Action::NextColumn | Action::PrevColumn => {
-                            let cursor_byte = input.byte_index(input.cursor() as usize);
+                            let cursor_byte = query.byte_index(query.cursor() as usize);
                             let active_idx = worker.query.active_column_index(cursor_byte);
 
                             let num_columns = worker.columns.len();
                             if num_columns > 0 {
-                                input.prepare_column_change();
+                                query.prepare_column_change();
 
                                 let mut next_idx = match action {
                                     Action::NextColumn => active_idx + 1,
@@ -520,7 +534,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                 }
 
                                 let col_name = &worker.columns[next_idx].name;
-                                input.push_str(&format!("%{} ", col_name));
+                                query.push_str(&format!("%{} ", col_name));
                             }
                         }
 
@@ -528,7 +542,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             let index = if let Some(name) = col_name {
                                 worker.columns.iter().position(|c| *c.name == name)
                             } else {
-                                let cursor_byte = input.byte_index(input.cursor() as usize);
+                                let cursor_byte = query.byte_index(query.cursor() as usize);
                                 Some(worker.query.active_column_index(cursor_byte))
                             };
 
@@ -556,22 +570,19 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             }
                         }
 
-                        Action::ScrollLeft => {}
-                        Action::ScrollRight => {}
-
                         // Edit
                         Action::SetQuery(context) => {
-                            input.set(context, u16::MAX);
+                            query.set(context, u16::MAX);
                         }
-                        Action::ForwardChar => input.forward_char(),
-                        Action::BackwardChar => input.backward_char(),
-                        Action::ForwardWord => input.forward_word(),
-                        Action::BackwardWord => input.backward_word(),
-                        Action::DeleteChar => input.delete(),
-                        Action::DeleteWord => input.delete_word(),
-                        Action::DeleteLineStart => input.delete_line_start(),
-                        Action::DeleteLineEnd => input.delete_line_end(),
-                        Action::Cancel => input.cancel(),
+                        Action::ForwardChar => query.forward_char(),
+                        Action::BackwardChar => query.backward_char(),
+                        Action::ForwardWord => query.forward_word(),
+                        Action::BackwardWord => query.backward_word(),
+                        Action::DeleteChar => query.delete(),
+                        Action::DeleteWord => query.delete_word(),
+                        Action::DeleteLineStart => query.delete_line_start(),
+                        Action::DeleteLineEnd => query.delete_line_end(),
+                        Action::Cancel => query.cancel(),
 
                         // Other
                         Action::Redraw => {
@@ -637,7 +648,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     &mut preview_ui,
                     &controller_tx,
                 );
-                for h in dynamic_handlers.1.get(interrupt) {
+                for h in dynamic_handlers.1.get_mut(interrupt) {
                     h(&mut dispatcher);
                 }
 
@@ -860,7 +871,11 @@ pub enum Click {
 }
 
 impl Click {
-    fn process<A: ActionExt>(&mut self, buffer: &mut Vec<RenderCommand<A>>, bind_tx: &BindSender<A>) {
+    fn process<A: ActionExt>(
+        &mut self,
+        buffer: &mut Vec<RenderCommand<A>>,
+        bind_tx: &BindSender<A>,
+    ) {
         match self {
             Self::ResultIdx(u) => {
                 buffer.push(RenderCommand::Action(Action::Pos(*u as i32)));

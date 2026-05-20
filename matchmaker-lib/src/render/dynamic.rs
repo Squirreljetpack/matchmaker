@@ -9,7 +9,7 @@ use crate::{
 // note: beware that same handler could be called multiple times for the same event in one iteration
 // We choose not to return a Option<Result<S, E>> to simplify defining handlers, but will rather expose some mechanisms on state later on if a use case arises
 pub type DynamicMethod<T, S, E> = Box<dyn Fn(&mut MMState<'_, '_, T, S>, &E)>;
-pub type BoxedHandler<T, S> = Box<dyn Fn(&mut MMState<'_, '_, T, S>)>;
+pub type BoxedHandler<T, S> = Box<dyn FnMut(&mut MMState<'_, '_, T, S>)>;
 
 pub type DynamicHandlers<T, S> = (EventHandlers<T, S>, InterruptHandlers<T, S>);
 
@@ -65,9 +65,9 @@ impl<T: SSS, S: Selection> InterruptHandlers<T, S> {
         }
     }
 
-    pub fn get(&self, variant: Interrupt) -> impl Iterator<Item = &BoxedHandler<T, S>> {
+    pub fn get_mut(&mut self, variant: Interrupt) -> impl Iterator<Item = &mut BoxedHandler<T, S>> {
         self.handlers
-            .iter()
+            .iter_mut()
             .filter_map(move |(v, h)| (*v == variant).then_some(h))
             .flatten()
     }

@@ -2,7 +2,7 @@ use std::{process::Command, str::FromStr};
 
 use cba::{
     StringError, bait::ResultExt, bring::split::split_on_unescaped_delimiter, broc::CommandExt,
-    unwrap,
+    env_vars, unwrap,
 };
 use log::{debug, error};
 use matchmaker::{
@@ -100,7 +100,7 @@ pub fn action_handler(
             if let Some(template) = output_template {
                 crate::formatter::format_cli(state, template, Some(&repeat));
             } else {
-                state.map_selected_to_vec(|x| repeat(x.to_cow().to_string()));
+                state.map_selected_to_vec(|_, x| repeat(x.to_cow().to_string()));
             }
 
             state.should_quit_nomatch = true;
@@ -212,7 +212,12 @@ pub fn action_handler(
                 error!("Failed to format transform command: {payload}");
                 return;
             }
-            let vars = state.make_env_vars();
+            let mut vars = state.make_env_vars();
+            let extra = env_vars!(
+                "RELOAD_INDEX" => additional_commands.1,
+            );
+            vars.extend(extra);
+
             let render_tx = render_tx.clone();
             if let Some(mut contents) = Command::from_script(&cmd)
                 .envs(vars)

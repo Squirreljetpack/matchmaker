@@ -77,14 +77,14 @@ pub struct StartConfig {
     #[serde(alias = "output")]
     pub output_template: Option<String>,
 
-    /// Default command to execute when stdin is not being read.
+    /// (cli only)  Default command to execute when stdin is not being read.
     #[partial(alias = "cmd", alias = "x")]
     pub command: String,
     /// (cli only) Additional command which can be cycled through using Action::ReloadNext
     #[partial(alias = "ax")]
     pub additional_commands: Vec<String>,
-    pub sync: bool,
 
+    pub sync: bool,
     /// Whether to parse ansi sequences from input
     #[partial(alias = "a")]
     pub ansi: bool,
@@ -683,6 +683,9 @@ pub struct PreviewerConfig {
     pub shell: Option<Vec<OsString>>,
     pub trim_commands: bool,
     pub hide_semantic_help: bool,
+
+    /// See [`StartConfig`]
+    pub command_args: Vec<OsString>,
 }
 
 impl Default for PreviewerConfig {
@@ -690,13 +693,15 @@ impl Default for PreviewerConfig {
         Self {
             try_lossy: false,
             cache: 0,
-            debounce_ms: 60,
+            debounce_ms: 40,
             max_procs: 4,
             always_trigger: true,
             help_colors: HelpColorConfig::default(),
             shell: None,
             trim_commands: false,
             hide_semantic_help: true,
+
+            command_args: Default::default(),
         }
     }
 }

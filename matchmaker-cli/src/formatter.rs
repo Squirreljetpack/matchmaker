@@ -9,8 +9,14 @@ type ConfigMMState<'a, 'b> = MMState<'a, 'b, ConfigMMItem, ConfigMMInnerItem>;
 
 fn is_valid_key(s: &str) -> bool {
     let body = s.strip_prefix(&['=', '-', '_', '+'][..]).unwrap_or(s);
-    if body.is_empty() || body == "!" {
+    if body.is_empty() || body == "!" || body == "#" {
         return true;
+    }
+
+    if let Some(num) = body.strip_prefix('$') {
+        if num.chars().all(|c| c.is_ascii_digit()) && !num.is_empty() {
+            return true;
+        }
     }
 
     body.chars().all(|c| c.is_alphanumeric())
@@ -40,8 +46,8 @@ pub fn format_cli(
     }
     if let Some(f) = repeat {
         if any_non_multi(template) {
-            state.map_selected_to_vec(|item| {
-                let s = format_cli_inner(state, template, Some(item));
+            state.map_selected_to_vec(|i, item| {
+                let s = format_cli_inner(state, template, Some((i, item)));
                 if !s.is_empty() {
                     f(s);
                 }
@@ -65,7 +71,7 @@ pub fn format_cli(
 fn format_cli_inner(
     state: &ConfigMMState<'_, '_>,
     template: &str,
-    item_override: Option<&ConfigMMInnerItem>,
+    item_override: Option<(u32, &ConfigMMInnerItem)>,
 ) -> String {
     let mut result = String::with_capacity(template.len());
     let mut chars = template.char_indices().peekable();
@@ -174,7 +180,7 @@ fn any_non_multi(template: &str) -> bool {
 fn process_key(
     input: &str,
     state: &ConfigMMState<'_, '_>,
-    item_override: Option<&ConfigMMInnerItem>,
+    item_override: Option<(u32, &ConfigMMInnerItem)>,
 ) -> Option<String> {
     let mut key = input;
     let mut quote = true;
@@ -192,16 +198,47 @@ fn process_key(
         key = &key[1..];
     }
 
+    if let Some(num_str) = key.strip_prefix('$')
+        && let Ok(idx) = num_str.parse::<usize>()
+    {
+        let args = crate::start::COMMAND_ARGS.lock().unwrap();
+        // return all args joined
+        if idx == 0 {
+            let joined = args
+                .iter()
+                .map(|arg| {
+                    if quote {
+                        shell_quote_impl(&arg.to_string_lossy())
+                    } else {
+                        arg.to_string_lossy().to_string()
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(" ");
+            return Some(joined);
+        }
+        if let Some(arg) = args.get(idx - 1) {
+            let val = arg.to_string_lossy();
+            if quote {
+                return Some(shell_quote_impl(&val));
+            } else {
+                return Some(val.to_string());
+            }
+        } else {
+            return Some(String::new());
+        }
+    }
+
     // Handle ranges
     if key.contains("..") {
-        return handle_range(key, state, quote, multi, item_override);
+        return handle_range(key, state, quote, multi, item_override.map(|x| x.1));
     }
 
     if multi {
         Some(
             state
-                .map_selected_to_vec(|item| {
-                    let val = get_val(key, item, state).unwrap_or(Cow::Borrowed(""));
+                .map_selected_to_vec(|i, item| {
+                    let val = get_val(key, (i, item), state).unwrap_or(Cow::Borrowed(""));
                     if quote {
                         shell_quote_impl(&val)
                     } else {
@@ -211,7 +248,8 @@ fn process_key(
                 .join(" "),
         )
     } else {
-        let item = unwrap!(item_override.or_else(|| state.current_raw().map(|x| &x.inner)));
+        let item =
+            unwrap!(item_override.or_else(|| state.current_raw().map(|x| (x.index, &x.inner))));
         let val = get_val(key, item, state)?;
         if quote {
             Some(shell_quote_impl(&val))
@@ -223,7 +261,7 @@ fn process_key(
 
 fn get_val<'a>(
     key: &str,
-    item: &'a ConfigMMInnerItem,
+    (index, item): (u32, &'a ConfigMMInnerItem),
     state: &ConfigMMState<'_, '_>,
 ) -> Option<Cow<'a, str>> {
     if key == "!" {
@@ -249,6 +287,8 @@ fn get_val<'a>(
     } else {
         if key.is_empty() {
             Some(item.to_cow())
+        } else if key == "#" {
+            Some(index.to_string().into())
         } else {
             // Try to use key as column index or name
             let col_idx = state
@@ -326,7 +366,7 @@ fn handle_range<'a, 'b>(
     if multi {
         Some(
             state
-                .map_selected_to_vec(|item| {
+                .map_selected_to_vec(|_, item| {
                     let mut row_res = Vec::new();
                     let indexed = Indexed {
                         index: 0,
@@ -603,6 +643,53 @@ mod tests {
 
             let result = format_cli(&mut mm_state, "echo {missing} {=also_invalid}", None);
             assert_eq!(result, "echo {missing} {=also_invalid}");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_format_cli_command_args() {
+        {
+            let mut args = crate::start::COMMAND_ARGS.lock().unwrap();
+            args.clear();
+            args.push("arg1".into());
+            args.push("arg with space".into());
+        }
+
+        let (mut mm, injector) = setup_test_mm();
+        injector.push("a,b,c".to_string()).unwrap();
+        mm.worker.nucleo.tick(10);
+
+        let mut state_obj = State::new();
+        let mut tui = matchmaker::tui::Tui::new(TerminalConfig::default()).unwrap();
+        let mut matcher = Matcher::new(NucleoConfig::DEFAULT);
+
+        let hidden_columns = vec![false, false, false];
+        let (mut ui, mut picker_ui, mut footer_ui, mut preview_ui) = UI::new(
+            mm.render_config,
+            &mut matcher,
+            mm.worker,
+            mm.selector,
+            None,
+            &mut tui,
+            hidden_columns,
+        );
+
+        let (event_tx, _event_rx) = mpsc::unbounded_channel();
+
+        {
+            let mut mm_state = state_obj.dispatcher(
+                &mut ui,
+                &mut picker_ui,
+                &mut footer_ui,
+                &mut preview_ui,
+                &event_tx,
+            );
+
+            let result = format_cli(&mut mm_state, "echo {$0} {=$0}", None);
+            assert_eq!(result, "echo 'arg1' 'arg with space' arg1 arg with space");
+
+            let result = format_cli(&mut mm_state, "echo {$1} {=$2} {$3}", None);
+            assert_eq!(result, "echo 'arg1' arg with space ");
         }
     }
 }

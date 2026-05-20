@@ -307,7 +307,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
     /// Register a handler to listen on [`Interrupt`]s
     pub fn register_interrupt_handler<F>(&mut self, interrupt: Interrupt, handler: F)
     where
-        F: Fn(&mut MMState<'_, '_, T, S>) + 'static,
+        F: FnMut(&mut MMState<'_, '_, T, S>) + 'static,
     {
         let boxed = Box::new(handler);
         self.register_boxed_interrupt_handler(interrupt, boxed);

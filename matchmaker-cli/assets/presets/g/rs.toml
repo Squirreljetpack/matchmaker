@@ -1,0 +1,177 @@
+# grep for a line of change
+
+[start]
+command = 'git log --pretty=format:"%h%x1f%ad%x1f%s" --date=human -- "${1:-.}"'
+additional_commands = [
+  'git log --pretty=format:"%h%x1f%ad%x1f%s" --date=human -- "${1:-.}"',
+  'git reflog --date=human --format="%h%x1f%ad%x1f%s" -- "${1:-.}"',
+  'git stash list --format="%gd%x1f%cr%x1f%gs"',
+  'git log --all --pretty=format:"%h%x1f%ad%x1f%s" --date=human -- "${1:-.}"',
+]
+command_input_separator = "\\n"
+
+[columns]
+split = "\\x1f"
+max = 3
+default = 3
+
+[matcher]
+sort = 20
+
+
+# --- Preview ---
+[previewer]
+always_trigger = false
+
+[[preview.layout]]
+command = '''
+git -c color.ui=always show --stat --summary --decorate {1}
+'''
+side = "right"
+percentage = 40
+min = 30
+max = 120
+
+
+[[preview.layout]]
+side = "top"
+percentage = 50
+min = 5
+max = 50
+command = '''
+DFT_COLOR=always git diff --color=always --exit-code {1} -- {$0} && echo "no change"
+'''
+
+
+[[preview.layout]]
+command = '''
+git show {1}:{$1}
+'''
+
+# --- UI ---
+[tui]
+percentage = 100
+
+[header]
+content = "[history]"
+style.fg = "Blue"
+style.modifier = ""
+
+[binds]
+"enter" = "@checkout"
+"ctrl-t" = ["@tag_or_drop", "Reload"]
+"alt-r" = "@soft-reset"
+
+# --- Scripts ---
+"Start" = ["Store(0)"]
+
+"@reload" = ["ReloadNext", '''Transform(
+    HEADERS=(
+      '[history]'
+      '[reflog]'
+      '[stash]'
+      '[all_refs]'
+    )
+    echo "SetHeader(${HEADERS[$((RELOAD_INDEX+1))]})"
+    echo "Store($RELOAD_INDEX)"
+)
+''']
+
+"@checkout" = '''
+Become(
+git --no-pager diff --stat {1} -- {$1}
+[ -n "$(git status --porcelain -- {$1})" ] &&
+printf 'Proceed? [y/N/s] ' ||
+printf 'Proceed? [y/N] '
+read -r c
+case $c in
+  [s])
+  git stash push -- {$1} ;;
+  [u])
+  git stash push -u -- {$1} ;;
+  [y]) ;;
+  *) exit 0 ;;
+esac
+git checkout {1} -- {$1}
+)
+'''
+
+"@accept_2" = '''
+Become(
+case $MM_STORE in
+0|3) printf '%s\n' {+1} ;;
+1) git reset --hard {1} ;;
+2) git stash apply {1} ;;
+esac
+)'''
+
+"@soft_reset" = '''Become(
+git diff --name-status {1}..HEAD
+printf "Soft reset to %s? [y/N] " {1}
+read -r ans
+case "$ans" in
+  y|Y) git reset --soft {1} ;;
+  *) echo "cancelled" ;;
+esac
+)'''
+
+"@tag_or_drop" = '''
+Execute(
+set -e
+
+case $MM_STORE in
+0|3)
+  printf "Enter tag name for %s: " {1}
+  read -r tag_name
+
+  [ -n "$tag_name" ]
+  delete="";
+  remote=$(git rev-parse --abbrev-ref --symbolic-full-name @{u})
+
+  if git rev-parse -q --verify "refs/tags/$tag_name" >/dev/null; then
+    printf "Tag '%s' already exists. Remove it? [y/N] " "$tag_name"
+    read -r ans
+
+    case "$ans" in
+      [yY]*)
+        git tag -d "$tag_name"
+        echo "Deleted local tag $tag_name"
+        delete=--delete
+        ;;
+      *)
+        exit
+        ;;
+    esac
+  else
+    git tag "$tag_name" {1}
+    echo "Tagged {1} as $tag_name"
+  fi
+
+  printf "(force) push tag '%s' to $remote? [y/f/N] " "$tag_name"
+  read -r ans
+
+  case "$ans" in
+    [fF]*|force)
+      git push --force $delete $remote "$tag_name"
+      ;;
+    [yY]*)
+      git push $delete $remote "$tag_name"
+      ;;
+    *)
+      exit
+      ;;
+  esac
+  ;;
+1)
+  printf "Bookmark reflog %s with new branch name: " {1}
+  read -r bname
+  if [ -n "$bname" ]; then
+    git branch "$bname" "{1}"
+    echo "Created branch '$bname'"
+  fi
+  ;;
+2)
+  git stash drop {1}
+  ;;
+esac
+)'''

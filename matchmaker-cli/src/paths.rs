@@ -32,6 +32,15 @@ expr_as_path_fn!(
     default_config_path,
     config_dir_impl().unwrap_or_default().join("dev.toml")
 );
+
+expr_as_path_fn!(
+    presets_path,
+    default_config_path()
+        .parent()
+        .unwrap_or(&std::path::Path::new(""))
+        .join("presets")
+);
+
 #[cfg(not(debug_assertions))]
 expr_as_path_fn!(
     default_config_path,

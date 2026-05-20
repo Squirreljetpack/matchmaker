@@ -9,7 +9,7 @@ use crate::{
     action::{ActionContext, MMAction, action_handler},
     clap::Cli,
     config::PartialConfig,
-    paths::last_key_path,
+    paths::{last_key_path, presets_path},
 };
 use crate::{config::Config, paths::default_config_path};
 use cba::{
@@ -74,11 +74,7 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
 
     for mut p in cli.r#override {
         if p.is_relative() && p.extension().is_none() {
-            p = default_config_path()
-                .parent()
-                .unwrap_or(&Path::new(""))
-                .join("presets")
-                .join(p.with_extension("toml"));
+            p = presets_path().join(p.with_extension("toml"));
         }
         let o = load_type(p, |s| toml::from_str(s))?;
         config.apply(o);

@@ -39,6 +39,7 @@ async fn main() {
     log::debug!("{cli:?}, {config_args:?}");
 
     display_doc(&cli);
+    handle_download(&cli);
 
     // get config overrides
     let partial = get_partial(config_args).__ebog();

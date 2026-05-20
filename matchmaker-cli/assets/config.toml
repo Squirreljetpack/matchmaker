@@ -39,11 +39,11 @@ else
     fi
 fi
 '''
+
 side = "right"
 percentage = 40
 min = 30
 max = 120
-
 border.type = "Plain"
 border.padding = [2, 0]
 
@@ -52,7 +52,6 @@ side = "top"
 percentage = 50
 min = 5
 max = 50
-
 border.type = "Plain"
 
 [[preview.layout]]
@@ -60,7 +59,6 @@ side = "right"
 percentage = 75
 min = 5
 max = 240
-
 border.type = "Plain"
 border.padding = [2, 0]
 
@@ -139,7 +137,7 @@ command_input_separator = "\\0"
 "ctrl-o" = "@open"
 "alt-o" = "@open_2"
 "ctrl-r" = "@reload"
-"alt-enter" = "@print"
+"alt-p" = "@print"
 "ctrl-y" = "@copy"
 "ctrl-shift-y" = "@copy_2"
 
@@ -147,7 +145,7 @@ command_input_separator = "\\0"
 "@open" = "Execute($EDITOR {})"
 "@open_2" = "Become($EDITOR {})"
 "@reload" = "Reload"
-"@print" = "Print({+1})"
+"@print" = "Print({-})"
 "@copy" = '''
 Execute(
 printf '%s\n' {+1} | (command -v pbcopy >/dev/null && pbcopy || command -v wl-copy >/dev/null && wl-copy || command -v xclip >/dev/null && xclip -selection clipboard || command -v xsel >/dev/null && xsel --clipboard --input)

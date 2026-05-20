@@ -64,6 +64,8 @@ style.modifier = ""
 
 # --- Scripts ---
 "Start" = ["Store(0)"]
+"@open" = "Execute($EDITOR {$1})"
+"@open_2" = []
 
 "@reload" = ["ReloadNext", '''Transform(
     HEADERS=(

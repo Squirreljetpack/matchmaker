@@ -5,9 +5,8 @@ use cba::{
     ebog, nbog,
 };
 use std::{
-    fs,
-    fs::OpenOptions,
-    path::Path,
+    fs::{self, OpenOptions},
+    path::{Path, PathBuf},
     process::{Command, exit},
 };
 
@@ -220,4 +219,16 @@ pub fn init_logger([q, v]: [u8; 2], log_path: &Path) {
     }
 
     builder.init();
+}
+
+pub fn expand_tilde(path: PathBuf) -> PathBuf {
+    let s = path.as_os_str().to_string_lossy();
+
+    if let Some(stripped) = s.strip_prefix("~/") {
+        if let Some(home) = dirs::home_dir() {
+            return home.join(stripped);
+        }
+    }
+
+    path
 }

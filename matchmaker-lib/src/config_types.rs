@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, path::PathBuf};
 
 use cba::{bird::one_or_many, define_transparent_wrapper};
 use ratatui::{
@@ -276,18 +276,6 @@ pub struct ColumnSetting {
     pub name: ColumnName,
 }
 
-// #[matchmaker_partial_macros::partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
-#[derive(Default, Debug, Clone, PartialEq, serde::Serialize)]
-pub struct CommandSetting {
-    /// Input separator that only applies when not reading from stdin
-    #[serde(deserialize_with = "escaped_opt_char")]
-    #[serde(default)]
-    pub separator: Option<char>,
-
-    #[serde(alias = "cmd")]
-    pub command: String,
-}
-
 #[derive(Default, Debug, Clone)]
 pub enum Split {
     /// Split by delimiter. Supports regex.
@@ -417,6 +405,22 @@ impl<'de> Deserialize<'de> for ColumnSetting {
     }
 }
 
+// -------------
+
+// #[matchmaker_partial_macros::partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
+#[derive(Default, Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CommandSetting {
+    /// Input separator that only applies when not reading from stdin
+    #[serde(default)]
+    pub separator: Option<char>,
+
+    #[serde(alias = "cmd")]
+    pub command: String,
+
+    #[serde(default)]
+    pub directory: Option<PathBuf>,
+}
+
 impl<'de> Deserialize<'de> for CommandSetting {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -432,6 +436,9 @@ impl<'de> Deserialize<'de> for CommandSetting {
             #[serde(default)]
             pub separator: Option<char>,
 
+            #[serde(default)]
+            pub directory: Option<PathBuf>,
+
             #[serde(alias = "cmd")]
             pub command: String,
         }
@@ -446,11 +453,13 @@ impl<'de> Deserialize<'de> for CommandSetting {
         match CommandSettingDe::deserialize(deserializer)? {
             CommandSettingDe::String(command) => Ok(CommandSetting {
                 separator: None,
+                directory: None,
                 command,
             }),
 
             CommandSettingDe::Full(obj) => Ok(CommandSetting {
                 separator: obj.separator,
+                directory: obj.directory,
                 command: obj.command,
             }),
         }

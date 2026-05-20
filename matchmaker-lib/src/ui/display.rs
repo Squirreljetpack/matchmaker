@@ -77,6 +77,13 @@ impl DisplayUI {
         self.show = true;
     }
 
+    /// Add a column and show.
+    pub fn push(&mut self, text: impl Into<Text<'static>>) {
+        self.text.push(text.into());
+
+        self.show = true;
+    }
+
     pub fn clear(&mut self, keep_header: bool) {
         if !keep_header {
             self.lines.clear();
@@ -94,7 +101,8 @@ impl DisplayUI {
     }
 
     pub fn header_table(&mut self, table: HeaderTable) {
-        self.lines = table
+        self.lines = table;
+        self.show = true;
     }
 
     // lowpri: how much to be gained by caching texts to not have to always rewrap?

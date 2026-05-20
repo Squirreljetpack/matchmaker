@@ -17,7 +17,7 @@
 - should QuitEmpty have nonzero exit code
 - switch preset can read remote from {$1} instead of assuming origin
 - ord on prev layouts for better composability
-
+- descriptions to override help actions
 - vty to support animated previews
 
 # Previewer

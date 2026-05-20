@@ -40,8 +40,12 @@ pub enum MMAction {
     // set
     /// Set header
     SetHeader(Option<String>),
+    /// Push header
+    PushHeader(String),
     /// Set footer
     SetFooter(Option<String>),
+    /// Push footer
+    PushFooter(String),
     /// Set status without interpreting style braces
     SetPrompt(Option<String>),
     /// Set prompt
@@ -184,12 +188,18 @@ pub fn action_handler(
                 state.picker_ui.header.clear(true);
             }
         }
+        MMAction::PushHeader(s) => {
+            state.picker_ui.header.push(s);
+        }
         MMAction::SetFooter(context) => {
             if let Some(s) = context {
                 state.footer_ui.set(s);
             } else {
                 state.footer_ui.clear(false);
             }
+        }
+        MMAction::PushFooter(s) => {
+            state.footer_ui.push(s);
         }
         MMAction::SetStyledPrompt(s) => {
             state
@@ -306,7 +316,7 @@ enum_from_str_display! {
 
 
     tuples:
-    Bind, Unbind, PushBind, PopBind, ExecuteAsync, Transform, SetStyledPrompt, SetStyledStatus;
+    Bind, Unbind, PushBind, PopBind, ExecuteAsync, Transform, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter;
 
     defaults:
     ;

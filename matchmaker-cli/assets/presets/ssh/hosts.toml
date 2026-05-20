@@ -1,0 +1,96 @@
+# ssh - SSH host selector
+# get_key requires setting $CLIPcmd
+
+[start]
+# Not a perfect parse if host definitions are fragmented
+command = '''
+{
+    setopt +o nomatch 2>/dev/null
+
+    for f in "$HOME/.ssh/config" "$HOME/.ssh/config.d/"* "/etc/ssh/ssh_config"; do
+        [ -f "$f" ] && [ -r "$f" ] || continue
+
+        awk -v file="$f" '
+            BEGIN {
+                OFS="\x1f"
+            }
+
+            function print_hosts() {
+                for(j=1; j<=host_count; j++) {
+                    out_host = current_hosts[j]
+                    out_hostname = (hostname == "-") ? out_host : hostname
+
+                    print out_host, out_hostname, user, port, file
+                }
+            }
+
+            $1 ~ /^[Hh][Oo][Ss][Tt]$/ {
+                if (host_count > 0) { print_hosts() }
+
+                host_count = 0
+                hostname = "-"
+                user = "-"
+                port = "-"
+
+                for(i=2; i<=NF; i++) {
+                    if ($i !~ /[*?]/) {
+                        current_hosts[++host_count] = $i
+                    }
+                }
+                next
+            }
+
+            $1 ~ /^[Hh][Oo][Ss][Tt][Nn][Aa][Mm][Ee]$/ { hostname = $2; next }
+            $1 ~ /^[Uu][Ss][Ee][Rr]$/               { user = $2; next }
+            $1 ~ /^[Pp][Oo][Rr][Tt]$/               { port = $2; next }
+
+            END {
+                if (host_count > 0) { print_hosts() }
+            }
+        ' "$f"
+    done
+} | awk -F'\x1f' '!seen[$1]++' | sort
+'''
+
+[columns]
+split = "\\x1f"
+max = 5
+default = 1
+names = ["host", "address", "user", "port", { name = "file", hidden = true }]
+
+# --- Preview ---
+[preview]
+show = true
+
+[[preview.layout]]
+command = "echo '### Configuration ###\n'; ssh -G {host}"
+
+[[preview.layout]]
+command = "(nc -w 5 -vz {host} 22 2>&1)&!; ping -c 3 -W 1000 {host}"
+
+[[preview.layout]]
+command = "echo '### Host keys ###\n'; ssh-keyscan {host}"
+
+# --- UI ---
+[header]
+content = ["host", "address", "user", "port"]
+
+[query]
+prompt = "hosts> "
+prompt_style.fg = "Blue"
+
+[binds]
+"ctrl-t" = ["@test", "Reload"]
+"alt-t" = ["@test", "Reload"]
+
+"@accept" = "Become(ssh {host})"
+"@accept_2" = "Become(echo {host})"
+"@open" = "Execute($EDITOR {file})"
+"@open_2" = "Become($EDITOR {file})"
+"@next" = "Become(mm -o ssh/keys)"
+
+# --- Scripts ---
+"@test" = "Execute(ssh -vT {host} 2>&1)"
+
+[tui]
+percentage = 100

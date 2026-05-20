@@ -61,3 +61,5 @@ git show {1}:{2}
 # --- UI ---
 [tui]
 percentage = 100
+
+# --- Scripts ---

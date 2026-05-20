@@ -34,6 +34,10 @@ pub struct Cli {
     #[clap(short, conflicts_with("quiet"), action = ArgAction::Count)]
     pub verbose: u8,
 
+    /// Download presets from GitHub. Optionally specify a subfolder.
+    #[arg(long, value_name = "FOLDER", num_args = 0..=1, default_missing_value = "")]
+    pub download: Option<String>,
+
     // docs
     /// Display documentation
     #[arg(long, short, value_enum)]
@@ -54,7 +58,7 @@ impl Cli {
         let mut clap_args = Vec::new();
         let mut rest = Vec::new();
 
-        let mut iter = args.into_iter();
+        let mut iter = args.into_iter().peekable();
         while let Some(arg) = iter.next() {
             let s = arg.to_string_lossy();
 
@@ -63,6 +67,12 @@ impl Cli {
                 clap_args.push(arg);
                 clap_args.extend(iter);
                 break;
+            }
+
+            // Special handling for download since it has an optional value
+            if s == "--download" || s.starts_with("--download=") {
+                clap_args.push(arg.clone());
+                continue;
             }
 
             macro_rules! try_parse {

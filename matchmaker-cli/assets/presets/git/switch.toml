@@ -150,19 +150,13 @@ fi
 remote="$(git config --get branch.$(git branch --show-current).remote)"
 
 case "$MM_STORE" in
-0|1)
+0)
   ref={2}
-  printf "Checkout remote branch %s/%s? [y/N] " "$remote" "$branch"
-  read -r ans
-  case "$ans" in
-      [yY]*)
-          git checkout -b "$branch" "$remote/$branch" 2>/dev/null \
-            || git checkout "$branch"
-          ;;
-      *)
-          echo "cancelled"
-          ;;
-  esac
+  ref=${ref#*:}
+  git switch "$ref"
+  ;;
+1)
+  git switch --detach {2}
   ;;
 2)
   ref={2}
@@ -194,9 +188,31 @@ case "$MM_STORE" in
          read -r ans
          case "$ans" in [yY]*) git remote remove "$remote" ;; esac
     else
-         printf "Delete local branch %s? [y/N] " "$ref"
-         read -r ans
-         case "$ans" in [yY]*) git branch -D "$ref" ;; esac
+        printf "Delete local branch %s? [y/N] " "$ref"
+        read -r ans
+
+        case "$ans" in
+            [yY]*)
+                git branch -D "$ref"
+
+                # resolve upstream safely
+                upstream="$(git rev-parse --abbrev-ref "$ref@{u}" 2>/dev/null || true)"
+
+                if [ -n "$upstream" ]; then
+                    remote="${upstream%%/*}"
+                    branch="${upstream#*/}"
+
+                    printf "Also delete remote branch %s/%s? [y/N] " "$remote" "$branch"
+                    read -r rans
+
+                    case "$rans" in
+                        [yY]*)
+                            git push "$remote" --delete "$branch"
+                            ;;
+                    esac
+                fi
+                ;;
+        esac
     fi
     ;;
 1)

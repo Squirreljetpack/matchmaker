@@ -24,6 +24,7 @@ Register-ArgumentCompleter -Native -CommandName 'mm' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config')
             [CompletionResult]::new('-o', '-o', [CompletionResultType]::ParameterName, 'o')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'override')
+            [CompletionResult]::new('--download', '--download', [CompletionResultType]::ParameterName, 'Download presets from GitHub. Optionally specify a subfolder')
             [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Display documentation')
             [CompletionResult]::new('--doc', '--doc', [CompletionResultType]::ParameterName, 'Display documentation')
             [CompletionResult]::new('--dump-config', '--dump-config', [CompletionResultType]::ParameterName, 'dump-config')

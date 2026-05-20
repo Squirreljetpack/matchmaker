@@ -18,6 +18,7 @@ _mm() {
 '--config=[]:PATH:_files' \
 '*-o+[]:PATH:_files' \
 '*--override=[]:PATH:_files' \
+'--download=[Download presets from GitHub. Optionally specify a subfolder]::FOLDER:_default' \
 '-d+[Display documentation]:DOC:(options binds template other)' \
 '--doc=[Display documentation]:DOC:(options binds template other)' \
 '--dump-config[]' \

@@ -13,6 +13,8 @@
 - ExecuteAsync: support chaining actions without blocking ui
 - improve/test wrap_text and hscroll on non filtering
 - Bottom scroll padding not working with --reverse (maybe we want to increase self.cursor if height before is insufficient).
+- reload should send to preview_tx
+- should QuitEmpty have nonzero exit code
 
 # Previewer
 
@@ -39,6 +41,7 @@
 - if only current is highlighted, and current col is empty, cursor is invisible.. not sure best way to resolve this
 - reverse scroll to end doesn't fill view
 - crossterm (can fail to) detect modifiers on mouse events
+
 
 ### Low priority
 

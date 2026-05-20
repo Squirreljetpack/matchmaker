@@ -2,6 +2,7 @@ use std::{
     io::Read,
     path::Path,
     process::{Command, Stdio, exit},
+    sync::Mutex,
 };
 
 use crate::{
@@ -72,18 +73,27 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
     }
 
     for mut p in cli.r#override {
-        if p.components().count() == 1 && p.extension().is_none() {
+        if p.is_relative() && p.extension().is_none() {
             p = default_config_path()
                 .parent()
                 .unwrap_or(&Path::new(""))
                 .join("presets")
-                .join(p);
+                .join(p.with_extension("toml"));
         }
         let o = load_type(p, |s| toml::from_str(s))?;
         config.apply(o);
     }
 
     config.apply(partial); // resolve config.exit first
+
+    if !cli.args.is_empty() {
+        if !atty::is(atty::Stream::Stdin) && !cli.no_read {
+            eprintln!(
+                "warning: trailing arguments provided but input is piped. ignoring trailing arguments."
+            );
+        }
+        *COMMAND_ARGS.lock().unwrap() = cli.args;
+    }
 
     if cli.last_key {
         let path = config
@@ -165,6 +175,8 @@ pub fn map_reader<E: SSS + std::fmt::Display>(
     })
 }
 
+pub static COMMAND_ARGS: Mutex<Vec<std::ffi::OsString>> = Mutex::new(Vec::new());
+
 pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let Config {
         render,
@@ -243,7 +255,8 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
 
     // reload handler
     let reload_formatter = cli_formatter.clone();
-    let default_reload = (!command.is_empty() && atty::is(atty::Stream::Stdin) || no_read)
+
+    let mut default_reload = (!command.is_empty() && atty::is(atty::Stream::Stdin) || no_read)
         .then_some(command.clone())
         .unwrap_or_default();
 
@@ -253,16 +266,17 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         let injector = SegmentedInjector::new(injector, splitter.clone());
         let injector = AnsiInjector::new(injector, preprocess);
 
-        let cmd = if !state.payload().is_empty() {
-            &use_formatter(&reload_formatter, state, state.payload(), None)
-        } else {
-            &default_reload
+        if !state.payload().is_empty() {
+            default_reload = use_formatter(&reload_formatter, state, state.payload(), None);
         };
+
+        let cmd = &default_reload;
 
         if !cmd.is_empty() {
             let vars = state.make_env_vars();
             debug!("Reloading: {cmd}");
             state.picker_ui.selector.clear();
+
             if let Some(stdout) = Command::from_script(&cmd)
                 .envs(vars)
                 .stdin(Stdio::null())
@@ -317,7 +331,10 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             abort_empty.then_some(render_tx),
         )
     } else if !command.is_empty()
-        && let Some(stdout) = Command::from_script(&command).spawn_piped()._ebog()
+        && let Some(stdout) = Command::from_script(&command)
+            .args(&*COMMAND_ARGS.lock().unwrap())
+            .spawn_piped()
+            ._ebog()
     {
         map_reader(
             stdout,

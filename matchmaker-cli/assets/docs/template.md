@@ -30,9 +30,22 @@ Note that the default column names (when `columns.names` is unspecified) are `1`
 | `{+col}`    | Column `col` of all selected items (shell-quoted) |
 | `{-col}`    | Column `col` of all selected items (raw)          |
 
-## Active Column
+## Special
 
-The active column is the one under the cursor in the input field (contolled via `%column_name` in the query).
+`!` refers to the active column.
+`#` refers to the active index.
+
+See examples for more information.
+
+## Command Line Arguments
+
+If you passed trailing arguments to `mm` (after `--`), you can access them in your templates.
+
+| Placeholder | Description                                           |
+| ----------- | ----------------------------------------------------- |
+| `{$0}`      | All arguments (shell-quoted, space-separated)         |
+| `{$1}`      | The first argument (shell-quoted)                     |
+| `{$n}`      | The n-th argument                                     |
 
 ## Ranges
 
@@ -104,6 +117,14 @@ The `{!}` placeholder refers to the column currently under focus (specified by `
 
 ```bash
 mm px "echo 'You are currently filtering on: {!}'"
+```
+
+#### Index
+
+The `{#}` placeholder resolves to the absolute index of the item.
+
+```bash
+mm px "echo 'You are currently selecting items: #{+#}'"
 ```
 
 #### Ranges

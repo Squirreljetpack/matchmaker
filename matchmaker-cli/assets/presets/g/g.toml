@@ -1,3 +1,5 @@
+# grep for a line of change
+
 [start]
 command = '''
 git log -Dp |
@@ -29,7 +31,6 @@ default = 3
 [matcher]
 sort = 20
 
-
 # --- Preview ---
 [previewer]
 always_trigger = false
@@ -40,7 +41,8 @@ percentage = 50
 min = 5
 max = 50
 command = '''
-DFT_COLOR=always git diff --color=always {1}\^ {1} -- {2}
+DFT_COLOR=always git diff --color=always {1}\^ {1} -- {2} ||
+git show {1}:{2}
 '''
 
 [[preview.layout]]
@@ -53,6 +55,10 @@ min = 30
 max = 120
 
 [[preview.layout]]
-max = 0
+command = '''
+git show {1}:{2}
+'''
 
 # --- UI ---
+[tui]
+percentage = 100

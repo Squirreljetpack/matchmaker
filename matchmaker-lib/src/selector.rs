@@ -137,13 +137,13 @@ impl<T, S: Selection> Selector<T, S> {
             .collect()
     }
 
-    pub fn map_to_vec<U, F>(&self, f: F) -> Vec<U>
+    pub fn map_to_vec<U, F>(&self, mut f: F) -> Vec<U>
     where
-        F: FnMut(&S) -> U,
+        F: FnMut(u32, &S) -> U,
     {
         self.selections
             .as_ref()
-            .map_or_else(Vec::new, |s| s.map_to_vec(f))
+            .map_or_else(Vec::new, |s| s.map_to_vec(|(k, v)| f(*k, v)))
     }
 
     pub fn map_last<U, F>(&self, f: F) -> Option<U>
@@ -249,10 +249,20 @@ struct SelectorImpl<K: Eq + Hash, S> {
     pub set: Arc<Mutex<IndexMap<K, S, FxBuildHasher>>>,
 }
 
-impl<K: Eq + Hash, S> SelectorImpl<K, S>
+impl<K: Eq + Hash + Clone, S> SelectorImpl<K, S>
 where
     S: Selection,
 {
+    // pub fn indices(&self) -> Vec<K> {
+    //     self.set
+    //         .lock()
+    //         .unwrap()
+    //         .iter()
+    //         .enumerate()
+    //         .map(|(_, (k, _))| k.clone())
+    //         .collect()
+    // }
+
     pub fn new() -> Self {
         Self {
             set: Arc::new(Mutex::new(IndexMap::with_hasher(FxBuildHasher))),
@@ -297,10 +307,10 @@ where
 
     pub fn map_to_vec<U, F>(&self, f: F) -> Vec<U>
     where
-        F: FnMut(&S) -> U,
+        F: FnMut((&K, &S)) -> U,
     {
         let set = self.set.lock().unwrap();
-        set.values().map(f).collect()
+        set.iter().map(f).collect()
     }
 
     pub fn map_last<U>(&self, f: impl FnOnce((&K, &S)) -> U) -> Option<U> {

@@ -37,9 +37,9 @@ pub enum Action<A: ActionExt = NullActionExt> {
     /// Move selection index down
     Down(u16),
     Pos(i32),
-    // TODO
+    // Scroll half page down
     HalfPageDown,
-    // TODO
+    // Scroll half page up
     HalfPageUp,
     /// Horizontally scroll (the active column of) the current result.
     /// 0 to reset.
@@ -98,8 +98,6 @@ pub enum Action<A: ActionExt = NullActionExt> {
     ToggleColumn(Option<String>),
     /// Unhide a column, or all columns if None
     ShowColumn(Option<String>),
-    ScrollLeft,
-    ScrollRight,
 
     // Programmable
     /// Execute command and continue
@@ -345,7 +343,7 @@ enum_from_str_display!(
     units:
     Select, Deselect, Toggle, CycleAll, ClearSelections, Accept,
 
-    HalfPageDown, HalfPageUp, ScrollLeft, ScrollRight,
+    HalfPageDown, HalfPageUp,
 
     ToggleWrap, TogglePreviewWrap, CyclePreview, PreviewJump,
 

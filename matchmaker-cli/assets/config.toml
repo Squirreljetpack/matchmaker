@@ -3,6 +3,7 @@ percentage = 60
 min = 10
 max = 120
 
+# --- UI ---
 [ui]
 
 [query]
@@ -12,6 +13,10 @@ wrap = true
 
 [status]
 
+[header]
+[footer]
+
+# --- Preview ---
 [preview]
 show = true
 wrap = true
@@ -56,18 +61,15 @@ percentage = 75
 min = 5
 max = 240
 
-[[preview.layout]]
-side = "right"
-percentage = 75
-min = 5
-max = 240
-
 border.type = "Plain"
 border.padding = [2, 0]
 
 [previewer]
-[header]
-[footer]
+always_trigger = true
+
+# --- Misc ---
+[matcher]
+
 [columns]
 
 [start]
@@ -82,11 +84,14 @@ command_input_separator = "\\0"
 
 [exit]
 
+
+# --- Binds ---
 [binds]
 # UI
 "ctrl-c" = "Quit"
 "esc" = "Quit"
-"enter" = "Accept"
+"enter" = "@accept"
+"ctrl-enter" = "@accept_2"
 "ctrl-a" = "CycleAll"
 "tab" = ["Toggle", "Down"]
 "shift-backtab" = ["Toggle", "Up"]
@@ -130,15 +135,29 @@ command_input_separator = "\\0"
 "alt-h" = "Help"
 
 # Programmable
-"ctrl-l" = "@look"     # "maximize" the preview
+"ctrl-l" = "@look"         # "maximize" the preview
 "ctrl-o" = "@open"
-"alt-o" = "@enter"
+"alt-o" = "@open_2"
 "ctrl-r" = "@reload"
 "alt-enter" = "@print"
 "ctrl-y" = "@copy"
+"ctrl-shift-y" = "@copy_2"
 
 "@look" = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)"
 "@open" = "Execute($EDITOR {})"
-"@enter" = "Become($EDITOR {})"
+"@open_2" = "Become($EDITOR {})"
 "@reload" = "Reload"
-"@print" = "Print({1})"
+"@print" = "Print({+1})"
+"@copy" = '''
+Execute(
+printf '%s\n' {+1} | (command -v pbcopy >/dev/null && pbcopy || command -v wl-copy >/dev/null && wl-copy || command -v xclip >/dev/null && xclip -selection clipboard || command -v xsel >/dev/null && xsel --clipboard --input)
+)
+'''
+"@copy_2" = '''
+Execute(
+printf '%s\n' {+} | (command -v pbcopy >/dev/null && pbcopy || command -v wl-copy >/dev/null && wl-copy || command -v xclip >/dev/null && xclip -selection clipboard || command -v xsel >/dev/null && xsel --clipboard --input)
+)
+'''
+
+"@accept" = "Accept"
+"@accept_2" = "Accept"

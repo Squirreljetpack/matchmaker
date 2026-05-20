@@ -17,10 +17,7 @@ prompt = ">"
 [header]
 content = "test"
 header_lines = 2
-interactions = [
-  [[0, "test"]],
-  [[1, "test"], [3, "open"], [4, ""]],
-]
+interactions = [[[0, "test"]], [[1, "test"], [3, "open"], [4, ""]]]
 
 [results]
 scroll_padding = 2
@@ -108,7 +105,7 @@ max = 120
 "alt-h" = "Help"
 "?" = "SwitchPreview(0)"
 "shift-?" = "SwitchPreview(0)"
-"ctrl-shift-/" = "CyclePreview" # ctrl-shift-/
+"ctrl-shift-/" = "CyclePreview"    # ctrl-shift-/
 
 # Columns
 "ctrl-." = "NextColumn"

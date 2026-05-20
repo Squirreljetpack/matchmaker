@@ -5,7 +5,6 @@ pub static LIBRARY_FULL: &str = "matchmaker";
 pub static BINARY_SHORT: &str = "mm";
 
 #[derive(Debug, Parser, Default, Clone)]
-#[command(trailing_var_arg = true)]
 pub struct Cli {
     #[arg(long, value_name = "PATH")]
     pub config: Option<PathBuf>,
@@ -23,6 +22,10 @@ pub struct Cli {
     /// Force the default command to run.
     #[arg(long)]
     pub no_read: bool,
+
+    /// args passed to the start command
+    #[arg(last = true)]
+    pub args: Vec<OsString>,
 
     /// Reduce the verbosity level.
     #[clap(short, conflicts_with("verbose"), action = ArgAction::Count)]
@@ -57,7 +60,8 @@ impl Cli {
 
             // Check end of options
             if s == "--" {
-                rest.extend(iter);
+                clap_args.push(arg);
+                clap_args.extend(iter);
                 break;
             }
 

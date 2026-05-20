@@ -36,12 +36,33 @@ always_trigger = false
 
 [[preview.layout]]
 command = '''
+set -- $(git rev-list --left-right --count HEAD..{1})
+behind=$1
+ahead=$2
+theirs=$(git rev-list --count {1})
+echo "behind: $behind ahead: $ahead theirs: $theirs\n"
+git log --color=always --left-right --oneline ...{1}
+'''
+# side = "right"
+# percentage = 40
+# min = 30
+# max = 120
+
+[[preview.layout]]
+command = '''DFT_COLOR=always git diff --color=always --exit-code {1} -- {$0} && echo "no change"'''
+# side = "top"
+# percentage = 50
+# min = 5
+# max = 50
+
+[[preview.layout]]
+command = '''
 git log --color=always --graph --decorate --pretty=oneline --abbrev-commit {1}
 '''
-side = "right"
-percentage = 40
-min = 30
-max = 120
+# side = "right"
+# percentage = 75
+# min = 5
+# max = 240
 
 [[preview.layout]]
 command = '''
@@ -51,27 +72,8 @@ side = "right"
 percentage = 40
 min = 30
 max = 120
-
-[[preview.layout]]
-command = '''
-set -- $(git rev-list --left-right --count HEAD..{1})
-behind=$1
-ahead=$2
-theirs=$(git rev-list --count {1})
-echo "behind: $behind ahead: $ahead theirs: $theirs\n"
-git log --color=always --left-right --oneline ...{1}
-'''
-side = "right"
-percentage = 40
-min = 30
-max = 120
-
-[[preview.layout]]
-side = "top"
-percentage = 50
-min = 5
-max = 50
-command = '''DFT_COLOR=always git diff --color=always --exit-code {1} -- {$0} && echo "no change"'''
+border.type = "Plain"
+border.padding = [2, 0]
 
 # --- UI ---
 [tui]
@@ -195,7 +197,6 @@ case "$MM_STORE" in
             [yY]*)
                 git branch -D "$ref"
 
-                # resolve upstream safely
                 upstream="$(git rev-parse --abbrev-ref "$ref@{u}" 2>/dev/null || true)"
 
                 if [ -n "$upstream" ]; then
@@ -207,7 +208,7 @@ case "$MM_STORE" in
 
                     case "$rans" in
                         [yY]*)
-                            git push "$remote" --delete "$branch"
+                            git push "$remote" --delete "$branch" && exit || :
                             ;;
                     esac
                 fi
@@ -223,15 +224,16 @@ case "$MM_STORE" in
             git tag -d {2}
             printf "Delete remote tag too? [y/N] "
             read -r rans
-            case "$rans" in [yY]*) git push origin --delete {2} ;; esac
+            case "$rans" in [yY]*) git push origin --delete refs/tags/{2} && exit || : ;; esac
             ;;
     esac
     ;;
 *)
-    printf "\nUnavailable. Press enter to continue..."
-    read -r
+    echo "Unavailable"
     ;;
 esac
+printf "\nPress enter to continue..."
+read -r
 )
 '''
 
@@ -257,14 +259,14 @@ case "$MM_STORE" in
         read -r ans
         case "$ans" in
         [y]*)
-            git push origin "$new_name"
-            git push origin --delete "$ref"
+            git push origin "$new_name" &&
+            git push origin --delete "$ref" && exit || :
             ;;
         [c]*)
-            git push origin "$new_name"
+            git push origin "$new_name" && exit || :
             ;;
         *)
-            echo "cancelled"
+            echo "cancelled" && exit || :
             ;;
         esac
     fi
@@ -281,22 +283,23 @@ case "$MM_STORE" in
     read -r ans
     case "$ans" in
         [yY]*)
-            git push origin "$new_tag"
-            git push origin --delete "{2}"
+            git push origin "$new_tag" &&
+            git push origin --delete "{2}" && exit || :
             ;;
         [cC]*)
-            git push origin "$new_tag"
+            git push origin "$new_tag" && exit || :
             ;;
         *)
-            echo "cancelled"
+            echo "cancelled" && exit || :
             ;;
     esac
     ;;
 *)
-    printf "\nUnavailable. Press enter to continue..."
-    read -r
+    echo "Unavailable"
     ;;
 esac
+printf "\nPress enter to continue..."
+read -r
 )
 '''
 

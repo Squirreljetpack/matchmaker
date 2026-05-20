@@ -15,6 +15,8 @@
 - Bottom scroll padding not working with --reverse (maybe we want to increase self.cursor if height before is insufficient).
 - reload should send to preview_tx
 - should QuitEmpty have nonzero exit code
+- switch preset can read remote from {$1} instead of assuming origin
+- ord on prev layouts for better composability
 
 # Previewer
 

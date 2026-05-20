@@ -165,7 +165,7 @@ pub fn map_reader<E: SSS + std::fmt::Display>(
         if let Some(render_tx) = abort_empty
             && matches!(ret, Ok(0))
         {
-            let _ = render_tx.send(matchmaker::message::RenderCommand::QuitEmpty);
+            let _ = render_tx.send(matchmaker::message::RenderCommand::NoMatch);
         }
         ret
     })
@@ -347,13 +347,10 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         handle.await._wbog(); // warn the mapreader error (?)
     }
 
-    match mm.pick(options).await {
-        Ok(_) | Err(MatchError::NoMatch) => {
-            print_handle.map_to_vec(|s| print!("{}{}", s, output_separator));
-            Ok(())
-        }
-        Err(e) => Err(e),
-    }
+    let ret = mm.pick(options).await;
+
+    print_handle.map_to_vec(|s| print!("{}{}", s, output_separator));
+    ret.map(|_| {})
 }
 
 use matchmaker::nucleo::{Line, Span};

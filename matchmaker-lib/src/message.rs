@@ -61,7 +61,8 @@ pub enum RenderCommand<A: ActionExt> {
     Ack,
     Tick,
     Refresh,
-    QuitEmpty,
+    NoMatch,
+    Empty,
 }
 
 impl<A: ActionExt> From<Action<A>> for RenderCommand<A> {

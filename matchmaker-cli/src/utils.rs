@@ -77,63 +77,48 @@ pub fn handle_download(cli: &crate::clap::Cli) {
     let mut dest = presets_dir.to_path_buf();
 
     if !subfolder.is_empty() {
-        let sub_path = source.join(subfolder);
+        #[allow(unused_mut)]
+        let mut sub_path = source.join(subfolder);
         if sub_path.is_dir() {
             source = sub_path;
             dest = dest.join(subfolder);
-        } else if subfolder.ends_with(".toml") {
+        } else if subfolder.ends_with(".toml") && sub_path.is_file() {
             #[cfg(windows)]
             {
-                if sub_path.is_file() {
-                    let name_str = sub_path.file_name().unwrap().to_string_lossy();
-                    if let Some(base) = name_str.strip_suffix(".toml") {
-                        if !name_str.ends_with(".win.toml") {
-                            let win_path = sub_path.with_file_name(format!("{}.win.toml", base));
-                            if win_path.exists() {
-                                sub_path = win_path;
-                            }
-                        }
-                    }
-                }
+                sub_path = sub_path
+                    .with_extension("")
+                    .with_extension("")
+                    .with_extension("win")
+                    .with_extension("toml");
             }
 
-            if sub_path.is_file() {
-                if !dest.exists() {
-                    fs::create_dir_all(&dest).unwrap();
-                }
-                let name = sub_path.file_name().unwrap();
-                let copied = copy_single_file(&sub_path, &dest.join(name));
+            if !dest.exists() {
+                fs::create_dir_all(&dest).unwrap();
+            }
+            let name = sub_path.file_name().unwrap();
+            let copied = copy_single_file(&sub_path, &dest.join(name));
 
-                if !copied {
-                    ebog!("Source '{}' is not available for your platform.", subfolder);
-                    exit(1);
-                }
-
-                let final_name = if cfg!(windows) && name.to_string_lossy().ends_with(".win.toml") {
-                    name.to_string_lossy().replace(".win.toml", ".toml")
-                } else {
-                    name.to_string_lossy().into_owned()
-                };
-
-                nbog!(
-                    "Preset file successfully downloaded to: {}",
-                    dest.join(final_name).display()
-                );
-                fs::remove_dir_all(&temp_dir).ok();
-                exit(0);
-            } else {
-                ebog!("Source '{}' not found in the repository.", subfolder);
+            if !copied {
+                ebog!("Source '{}' is not available for your platform.", subfolder);
                 exit(1);
             }
-        }
-    }
 
-    if !source.exists() {
-        ebog!(
-            "Source folder '{}' not found in the repository.",
-            source.display()
-        );
-        exit(1);
+            let final_name = if cfg!(windows) {
+                name.to_string_lossy().replace(".win.toml", ".toml")
+            } else {
+                name.to_string_lossy().into_owned()
+            };
+
+            nbog!(
+                "Preset file successfully downloaded to: {}",
+                dest.join(final_name).display()
+            );
+            fs::remove_dir_all(&temp_dir).ok();
+            exit(0);
+        } else {
+            ebog!("'{}' not found in the repository.", subfolder);
+            exit(1);
+        }
     }
 
     copy_and_process(&source, &dest);
@@ -144,9 +129,7 @@ pub fn handle_download(cli: &crate::clap::Cli) {
 }
 
 fn copy_single_file(path: &Path, dest_path: &Path) -> bool {
-    let name = path.file_name().unwrap();
-    let name_str = name.to_string_lossy();
-
+    let name = path.file_name().unwrap().to_string_lossy();
     #[cfg(windows)]
     {
         if name_str.ends_with(".win.toml") {
@@ -160,7 +143,7 @@ fn copy_single_file(path: &Path, dest_path: &Path) -> bool {
     }
     #[cfg(not(windows))]
     {
-        if name_str.ends_with(".win.toml") {
+        if name.ends_with(".win.toml") {
             return false;
         }
         fs::copy(path, dest_path).__ebog();

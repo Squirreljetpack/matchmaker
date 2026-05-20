@@ -111,18 +111,15 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
         if state.should_quit {
             log::debug!("Exiting due to should_quit");
-            let ret = picker_ui.selector.output().collect::<Vec<S>>();
             return if picker_ui.selector.is_disabled()
                 && let Some((_, item)) = get_current(&picker_ui)
             {
                 Ok(vec![item])
-            } else if ret.is_empty() {
-                Err(MatchError::Abort(0))
             } else {
-                Ok(ret)
+                Ok(picker_ui.selector.output().collect())
             };
         } else if state.should_quit_nomatch {
-            log::debug!("Exiting due to should_quit_no_match");
+            log::debug!("Exiting due to should_quit_nomatch");
             return Err(MatchError::NoMatch);
         }
 
@@ -266,7 +263,10 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         _ => {}
                     }
                 }
-                RenderCommand::QuitEmpty => {
+                RenderCommand::NoMatch => {
+                    return Err(MatchError::NoMatch);
+                }
+                RenderCommand::Empty => {
                     return Ok(vec![]);
                 }
                 RenderCommand::Action(action) => {
@@ -659,15 +659,12 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
             if state.should_quit {
                 log::debug!("Exiting due to should_quit");
-                let ret = picker_ui.selector.output().collect::<Vec<S>>();
                 return if picker_ui.selector.is_disabled()
                     && let Some((_, item)) = get_current(&picker_ui)
                 {
                     Ok(vec![item])
-                } else if ret.is_empty() {
-                    Err(MatchError::Abort(0))
                 } else {
-                    Ok(ret)
+                    Ok(picker_ui.selector.output().collect())
                 };
             } else if state.should_quit_nomatch {
                 log::debug!("Exiting due to should_quit_nomatch");

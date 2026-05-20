@@ -213,7 +213,7 @@ All colors and modifiers come from ratatui:
 ### Previewer (`previewer.`)
 
 - `try_lossy`: (bool) Enable lossy UTF-8 conversion for preview command output.
-- `debounce_ms`: (number) Debounce delay for preview commands in milliseconds (default 60).
+- `debounce_ms`: (number) Debounce delay for preview commands in milliseconds (default 0).
 - `max_procs`: (number) Maximum number of concurrent preview processes (default 4).
 - `always_trigger`: (bool) If false, skips running the preview command if it is the same as the last one executed (default true).
 - `shell`: (list of strings) The shell used to execute preview commands (e.g., `["sh", "-c"]`).

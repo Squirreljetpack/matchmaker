@@ -64,10 +64,7 @@ pub struct StartConfig {
     #[serde(deserialize_with = "escaped_opt_char")]
     #[partial(alias = "is")]
     pub input_separator: Option<char>,
-    /// Input separator that only applies when not reading from stdin
-    #[serde(deserialize_with = "escaped_opt_char")]
-    #[partial(alias = "ps")]
-    pub command_input_separator: Option<char>,
+
     #[serde(deserialize_with = "escaped_opt_string")]
     #[partial(alias = "os")]
     pub output_separator: Option<String>,
@@ -79,7 +76,7 @@ pub struct StartConfig {
 
     /// (cli only)  Default command to execute when stdin is not being read.
     #[partial(alias = "cmd", alias = "x")]
-    pub command: String,
+    pub command: CommandSetting,
     /// (cli only) Additional command which can be cycled through using Action::ReloadNext
     #[partial(alias = "ax")]
     pub additional_commands: Vec<String>,
@@ -222,6 +219,7 @@ pub struct QueryConfig {
     /// The prompt prefix.
     #[serde(deserialize_with = "deserialize_string_or_char_as_double_width")]
     pub prompt: String,
+
     /// Cursor style.
     pub cursor: CursorSetting,
 
@@ -443,7 +441,7 @@ impl Default for ResultsConfig {
             reverse: Default::default(),
 
             wrap: Default::default(),
-            min_wrap_width: 4,
+            min_wrap_width: 2,
             max_height: 0,
 
             autoscroll: Default::default(),
@@ -542,6 +540,7 @@ pub struct DisplayConfig {
     pub row_connection: RowConnectionStyle,
 
     /// (cli only) This setting controls how many lines are read from the input for display with the header.
+    /// Note: Incoming lines are partitioned into columns the same way regular lines are.
     #[partial(alias = "h")]
     pub header_lines: usize,
 
@@ -653,6 +652,9 @@ pub struct PreviewInitialSetting {
     /// Keep the top N lines as the fixed header so that they are always visible.
     #[partial(alias = "h")]
     pub header_lines: usize,
+
+    #[partial(alias = "t")]
+    pub tail: bool,
 }
 
 impl Default for PreviewInitialSetting {
@@ -662,6 +664,7 @@ impl Default for PreviewInitialSetting {
             offset: -1,
             percentage: Default::default(),
             header_lines: Default::default(),
+            tail: false,
         }
     }
 }
@@ -693,7 +696,7 @@ impl Default for PreviewerConfig {
         Self {
             try_lossy: false,
             cache: 0,
-            debounce_ms: 40,
+            debounce_ms: 0,
             max_procs: 4,
             always_trigger: true,
             help_colors: HelpColorConfig::default(),
@@ -892,6 +895,12 @@ pub struct PreviewSetting {
     pub border: Option<BorderSetting>,
     #[serde(default, alias = "cmd", alias = "x")]
     pub command: String,
+
+    #[cfg(feature = "partial")]
+    #[serde(alias = "scroll")]
+    #[serde(default)]
+    #[partial(skip)]
+    pub initial: PartialPreviewInitialSetting,
 }
 
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
@@ -928,6 +937,7 @@ pub struct ColumnsConfig {
     pub split: Split,
     /// Column names
     #[partial(alias = "n")]
+    // #[partial(recurse, set = "recurse")] // partial application is better on the command line but we don't want it for overrides
     pub names: Vec<ColumnSetting>,
     /// Maximum number of columns to autogenerate when names is unspecified. Maximum of 16, minimum of 1.
     #[serde(deserialize_with = "bounded_usize::<_, 1, {crate::MAX_SPLITS}>")]

@@ -6,7 +6,9 @@ use ratatui::{
 };
 
 use crate::{
-    config::{BorderSetting, PreviewConfig, PreviewSetting, ShowCondition, Side},
+    config::{
+        BorderSetting, PreviewConfig, PreviewInitialSetting, PreviewSetting, ShowCondition, Side,
+    },
     preview::Preview,
     utils::text::wrapped_line_height,
 };
@@ -22,6 +24,8 @@ pub struct PreviewUI {
     offset: usize,
     target: Option<usize>,
     attained_target: bool,
+    #[cfg(feature = "partial")]
+    initial: PreviewInitialSetting,
 
     show: bool,
 }
@@ -69,6 +73,7 @@ impl PreviewUI {
 
         Self {
             view,
+            initial: config.initial.clone(),
             config,
             layout_idx: 0,
             scroll: Default::default(),
@@ -186,6 +191,16 @@ impl PreviewUI {
         if idx < self.config.layout.len() {
             let changed = self.layout_idx != idx;
             self.layout_idx = idx;
+            #[cfg(feature = "partial")]
+            {
+                use matchmaker_partial::Apply;
+                if let Some(s) = self.setting() {
+                    let mut new = self.initial.clone();
+                    new.apply(s.initial.clone());
+                    self.config.initial = new;
+                }
+            }
+
             changed
         } else {
             error!("Layout idx {idx} out of bounds, ignoring.");
@@ -259,6 +274,10 @@ impl PreviewUI {
     }
 
     pub fn set_target(&mut self, target: Option<isize>) {
+        if self.config.initial.tail {
+            return;
+        }
+
         let results = self.view.results().lines;
         let line_count = results.len();
 
@@ -322,7 +341,12 @@ impl PreviewUI {
         let rl = results.lines.len();
         let height = self.area.height as usize;
 
-        if let Some(target) = self.target
+        if self.config.initial.tail {
+            let header_count = self.config.initial.header_lines.min(height);
+            let remaining_lines = rl.saturating_sub(header_count);
+            let remaining_space = height.saturating_sub(header_count);
+            self.offset = remaining_lines.saturating_sub(remaining_space);
+        } else if let Some(target) = self.target
             && !self.attained_target
             && target < rl
         {
@@ -356,7 +380,7 @@ impl PreviewUI {
 
         let mut preview = Paragraph::new(lines);
         preview = preview.block(self.border().as_block());
-        if self.config.wrap {
+        if self.config.wrap && !self.config.initial.tail {
             preview = preview
                 .wrap(Wrap { trim: false })
                 .scroll(self.scroll.into());

@@ -96,11 +96,13 @@ border.padding = [2, 0]
 "ctrl-r" = "Reload"
 
 [start]
-command = '''
+command = {
+    cmd = '''
 if (Get-Command fd -ErrorAction SilentlyContinue) {
     fd --strip-cwd-prefix --print0
 } else {
     Get-ChildItem -Recurse -File | ForEach-Object { "$($_.FullName)`0" }
 }
-'''
-command_input_separator = "\\0"
+''',
+    separator = "\\0"
+}

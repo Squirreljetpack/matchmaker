@@ -15,7 +15,6 @@ wrap = true
 
 [header]
 [footer]
-
 # --- Preview ---
 [preview]
 show = true
@@ -71,21 +70,21 @@ always_trigger = true
 [columns]
 
 [start]
-command = '''
-if command -v fd >/dev/null 2>&1; then
-    fd --strip-cwd-prefix --print0
-else
-    find . -print0
-fi
-'''
-command_input_separator = "\\0"
+command = {
+    cmd = '''
+    if command -v fd >/dev/null 2>&1; then
+        fd --strip-cwd-prefix --print0
+    else
+        find . -print0
+    fi
+    ''',
+    separator = "\\0"
+}
 
 [exit]
-
-
 # --- Binds ---
 [binds]
-# UI
+# Essentia
 "ctrl-c" = "Quit"
 "esc" = "Quit"
 "enter" = "@accept"
@@ -123,17 +122,18 @@ command_input_separator = "\\0"
 
 # Columns
 "ctrl-." = "NextColumn"
+"ctrl-shift-." = "PrevColumn"
 
 # Preview
 "shift+scrollup" = "PreviewUp"
 "shift+scrolldown" = "PreviewDown"
 "?" = "SwitchPreview"
 "shift-?" = "SwitchPreview"
-"ctrl-shift-/" = "CyclePreview"    # cycle preview layouts
+"ctrl-shift-/" = "CyclePreview" # cycle preview layouts
 "alt-h" = "Help"
 
 # Programmable
-"ctrl-l" = "@look"         # "maximize" the preview
+"ctrl-l" = "@look" # "maximize" the preview
 "ctrl-o" = "@open"
 "alt-o" = "@open_2"
 "ctrl-r" = "@reload"
@@ -148,7 +148,8 @@ command_input_separator = "\\0"
 "@print" = "Print({-})"
 "@copy" = '''
 Execute(
-printf '%s\n' {+1} | (command -v pbcopy >/dev/null && pbcopy || command -v wl-copy >/dev/null && wl-copy || command -v xclip >/dev/null && xclip -selection clipboard || command -v xsel >/dev/null && xsel --clipboard --input)
+out="$(printf '%s\n' {+1})"
+printf $out | (command -v pbcopy >/dev/null && pbcopy || command -v wl-copy >/dev/null && wl-copy || command -v xclip >/dev/null && xclip -selection clipboard || command -v xsel >/dev/null && xsel --clipboard --input)
 )
 '''
 "@copy_2" = '''

@@ -26,7 +26,7 @@ use log::debug;
 use matchmaker::{
     Action, ConfigInjector, MatchError, Matchmaker, OddEnds, PickOptions, SSS,
     binds::{BindMap, BindMapExt, display_binds},
-    config::{MatcherConfig, StartConfig},
+    config::{CommandSetting, MatcherConfig, StartConfig},
     event::{EventLoop, RenderSender},
     make_previewer,
     message::Interrupt,
@@ -46,26 +46,32 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
         exit(0);
     }
 
-    let (cfg_path, mut config): (_, Config) = {
-        // parse cli arg as path or toml
-        if let Some(p) = &cli.config {
-            (
-                Path::new(p),
-                load_type(p, |s| toml::from_str(s))._ebog().or_exit(),
-            )
-        } else {
-            // get config from default location or default config
-            let p = default_config_path();
-            #[cfg(debug_assertions)]
-            {
-                #[cfg(target_os = "windows")]
-                write_str(p, include_str!("../assets/dev.win.toml")).unwrap();
+    let cfg_path = if let Some(p) = &cli.config {
+        Path::new(p)
+    } else {
+        default_config_path()
+    };
 
-                #[cfg(not(target_os = "windows"))]
-                write_str(p, include_str!("../assets/dev.toml")).unwrap();
-            }
-            (p, load_type_or_default(p, |s| toml::from_str(s)))
-        }
+    if cli.dump_config && atty::is(atty::Stream::Stdout) {
+        // if stdout: dump the default cfg with comments
+        write_str(cfg_path, crate::config::DEFAULT_CONFIG)?;
+        ibog!("Config written to {cfg_path:?}");
+        exit(0)
+    }
+
+    #[cfg(debug_assertions)]
+    if cli.config.is_none() {
+        #[cfg(target_os = "windows")]
+        write_str(cfg_path, include_str!("../assets/dev.win.toml")).unwrap();
+
+        #[cfg(not(target_os = "windows"))]
+        write_str(cfg_path, include_str!("../assets/dev.toml")).unwrap();
+    }
+
+    let mut config: Config = if cli.config.is_some() {
+        load_type(cfg_path, |s| toml::from_str(s))._ebog().or_exit()
+    } else {
+        load_type_or_default(cfg_path, |s| toml::from_str(s))
     };
 
     if config.render.status.template.is_empty() {
@@ -117,14 +123,8 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
     if cli.dump_config {
         let contents = toml::to_string_pretty(&config).expect("failed to serialize to TOML");
 
-        // if stdout: dump the default cfg with comments
-        if atty::is(atty::Stream::Stdout) {
-            write_str(cfg_path, crate::config::DEFAULT_CONFIG)?;
-            ibog!("Config written to {cfg_path:?}");
-        } else {
-            // if piped: dump the current cfg
-            std::io::Write::write_all(&mut std::io::stdout(), contents.as_bytes())?;
-        }
+        // if piped: dump the current cfg
+        std::io::Write::write_all(&mut std::io::stdout(), contents.as_bytes())?;
 
         exit(0);
     }
@@ -184,8 +184,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         start:
             StartConfig {
                 input_separator,
-                command_input_separator,
-                command,
+                command: CommandSetting { separator, command },
                 sync,
                 output_separator,
                 output_template,
@@ -282,7 +281,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 map_reader(
                     stdout,
                     move |line| injector.push(line),
-                    command_input_separator.or(input_separator),
+                    separator.or(input_separator),
                     None,
                 );
             }
@@ -291,12 +290,19 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
 
     debug!("{mm:?}");
 
+    let set_index = !additional_commands.is_empty();
+
     let bind_tx = event_loop.bind_controller();
     let mut options = PickOptions::new()
         .event_loop(event_loop)
         .matcher(matcher.0)
         .previewer(previewer)
-        .hidden_columns(hidden_columns);
+        .hidden_columns(hidden_columns)
+        .initializer(move |s| {
+            if set_index {
+                s.env_payloads.set("MM_INDEX", 0);
+            }
+        });
 
     let render_tx = options.render_tx();
 
@@ -335,7 +341,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         map_reader(
             stdout,
             push_fn,
-            command_input_separator.or(input_separator),
+            separator.or(input_separator),
             abort_empty.then_some(render_tx),
         )
     } else {

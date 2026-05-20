@@ -20,6 +20,20 @@ pub struct Layout {
     pub footer: Rect,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct EnvPayloads(pub Vec<(String, String)>);
+
+impl EnvPayloads {
+    pub fn set(&mut self, key: impl Into<String>, value: impl ToString) {
+        let key = key.into();
+        if let Some(pos) = self.0.iter().position(|(k, _)| k == &key) {
+            self.0[pos].1 = value.to_string();
+        } else {
+            self.0.push((key, value.to_string()));
+        }
+    }
+}
+
 #[derive(Default, Debug)]
 pub struct State {
     last_id: Option<u32>,
@@ -42,7 +56,7 @@ pub struct State {
     /// The payload left by [`crate::action::Action::Preview`]
     pub preview_payload: String,
     /// The payload left by [`crate::action::Action::Store`]
-    pub store_payload: String,
+    pub env_payloads: EnvPayloads,
     /// A place to stash the preview visibility when overriding it
     stashed_preview_visibility: Option<bool>,
     /// Setting this to true finishes the picker with the contents of [`Selector`].
@@ -63,7 +77,7 @@ impl State {
             interrupt_payload: String::new(),
 
             preview_payload: String::new(),
-            store_payload: String::new(),
+            env_payloads: Default::default(),
             preview_set_payload: None,
             preview_visible: false,
             stashed_preview_visibility: None,
@@ -350,7 +364,7 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
     }
 
     pub fn make_env_vars(&self) -> EnvVars {
-        env_vars! {
+        let mut vars = env_vars! {
             "FZF_LINES" => self.tui_area().height.to_string(),
             "FZF_COLUMNS" => self.tui_area().width.to_string(),
             "FZF_TOTAL_COUNT" => self.status().item_count.to_string(),
@@ -366,9 +380,10 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
             "MM_SELECT_COUNT" => self.selections().len().to_string(),
             "MM_POS" => get_current(self.picker_ui).map_or("".to_string(), |x| format!("{}", x.0)),
             "MM_QUERY" => self.input.clone(),
+        };
 
-            "MM_STORE" => if self.store_payload.is_empty() { "".into() } else { self.store_payload.clone() },
-        }
+        vars.extend(self.env_payloads.0.clone());
+        vars
     }
 
     // -------- other

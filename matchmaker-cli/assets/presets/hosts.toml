@@ -1,0 +1,8 @@
+[start]
+command = "grep -v '^[[:space:]]*$' ~/.ssh/known_hosts"
+
+[columns]
+split = ' '
+
+[[preview.layout]]
+command = "echo {}"

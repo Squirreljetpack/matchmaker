@@ -183,9 +183,9 @@ pub fn init_logger([q, v]: [u8; 2], log_path: &Path) {
         {
             builder
                 .filter(None, log::LevelFilter::Info)
-                .filter(Some(LIBRARY_FULL), log::LevelFilter::Debug)
+                .filter(Some(LIBRARY_FULL), log::LevelFilter::Trace)
                 .filter(Some("cba"), log::LevelFilter::Trace)
-                .filter(Some(BINARY_SHORT), log::LevelFilter::Debug);
+                .filter(Some(BINARY_SHORT), log::LevelFilter::Trace);
         }
         #[cfg(not(debug_assertions))]
         {

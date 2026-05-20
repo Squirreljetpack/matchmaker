@@ -1,7 +1,6 @@
 # Switch to a branch
 
 [start]
-
 command = '''
 git for-each-ref --format='%(objectname:short) %(refname:strip=2)' refs/heads
 git remote |
@@ -10,17 +9,16 @@ grep -v '/HEAD$' |
 sed "s| refs/remotes/$remote/| $remote:|"; done
 '''
 additional_commands = [
-    '''
+  '''
 git for-each-ref --format='%(objectname:short) %(refname:strip=2)' refs/heads
 git remote |
 while read -r remote; do git for-each-ref --format="%(objectname:short) %(refname)" "refs/remotes/$remote/" |
 grep -v '/HEAD$' |
 sed "s| refs/remotes/$remote/| $remote:|"; done
 ''',
-    "git for-each-ref --format='%(objectname:short) %(refname:lstrip=2)' refs/tags",
-    "git ls-remote --heads --tags ${1:-origin} | awk '{print substr($1,1,7), $2}'",
+  "git for-each-ref --format='%(objectname:short) %(refname:lstrip=2)' refs/tags",
+  "git ls-remote --heads --tags ${1:-origin} | awk '{print substr($1,1,7), $2}'",
 ]
-command_input_separator = "\\n"
 
 [columns]
 split = " "
@@ -92,16 +90,19 @@ content = "branches"
 "ctrl-a" = ["@add_remote", "Reload"]
 "ctrl-n" = ["@add_branch", "Reload"]
 
-"@reload" = ["ReloadNext", '''Transform(
+# --- Scripts ---
+"@reload" = [
+  "ReloadNext",
+  '''Transform(
     HEADERS=(
       branches
       tags
       remotes
     )
-    echo "SetHeader(${HEADERS[$((RELOAD_INDEX+1))]})"
-    echo "Store($RELOAD_INDEX)"
+    echo "SetHeader(${HEADERS[$((MM_INDEX+1))]})"
 )
-''']
+''',
+]
 
 "@update" = '''
 Execute(

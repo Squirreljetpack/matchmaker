@@ -33,6 +33,7 @@ pub struct ResultsUI {
     // column widths.
     // Note that the first width doesn't include the indentation.
     widths: Vec<u16>,
+    medians: Vec<u16>,
 
     pub hidden_columns: Vec<bool>,
 
@@ -60,6 +61,7 @@ impl ResultsUI {
             vscroll: 0,
 
             widths: Vec::new(),
+            medians: Vec::new(),
             height: 0, // uninitialized, so be sure to call update_dimensions
             width: 0,
             hidden_columns: Default::default(),
@@ -158,7 +160,7 @@ impl ResultsUI {
     pub fn cursor_prev(&mut self) {
         self.reset_current_scroll();
 
-        log::trace!("cursor_prev: {self:?}");
+        // log::trace!("cursor_prev: {self:?}");
         if self.cursor_above <= self.scroll_padding() && self.bottom > 0 {
             self.bottom -= 1;
             self.bottom_clip = None;
@@ -250,10 +252,11 @@ impl ResultsUI {
     /// Adapt the stored widths (initialized by [`Worker::results`]) to the fit within the available width (self.width)
     /// widths <= min_wrap_width don't shrink and aren't wrapped
     pub fn max_widths(&self) -> Vec<u16> {
-        let mut base_widths = self.widths.clone();
+        let mut base_widths = self.medians.clone();
 
-        if base_widths.is_empty() {
-            return base_widths;
+        // uninitialized
+        if base_widths.is_empty() || base_widths.iter().all(|x| *x == 0) {
+            return vec![];
         }
         base_widths.resize(self.hidden_columns.len().max(base_widths.len()), 0);
 
@@ -264,23 +267,24 @@ impl ResultsUI {
         }
 
         let target = self.content_width();
-        let sum: u16 = base_widths
-            .iter()
-            .map(|x| {
-                (*x != 0)
-                    .then_some(*x.max(&self.config.min_wrap_width))
-                    .unwrap_or_default()
-            })
-            .sum();
+        for w in base_widths.iter_mut() {
+            if *w != 0 {
+                *w = (*w).max(self.config.min_wrap_width);
+            }
+        }
+        let sum: u16 = base_widths.iter().sum();
 
         if sum < target {
             let nonzero_count = base_widths.iter().filter(|w| **w > 0).count();
+
             if nonzero_count > 0 {
-                let extra_per_column = (target - sum) / nonzero_count as u16;
-                let mut remainder = (target - sum) % nonzero_count as u16;
+                let extra = target - sum;
+                let extra_per_column = extra / nonzero_count as u16;
+                let mut remainder = extra % nonzero_count as u16;
 
                 for w in base_widths.iter_mut().filter(|w| **w > 0) {
                     *w += extra_per_column;
+
                     if remainder > 0 {
                         *w += 1;
                         remainder -= 1;
@@ -288,6 +292,8 @@ impl ResultsUI {
                 }
             }
         }
+
+        // log::trace!("base_widths: {:?}, target: {target}", base_widths);
 
         match allocate_widths(&base_widths, target, self.config.min_wrap_width) {
             Ok(s) | Err(s) => s,
@@ -346,7 +352,7 @@ impl ResultsUI {
                 .collect()
         };
 
-        let (mut results, mut widths, status) = worker.results(
+        let (mut results, mut widths, medians, status) = worker.results(
             offset,
             end,
             &width_limits,
@@ -362,21 +368,23 @@ impl ResultsUI {
                 } else {
                     self.vscroll
                 },
-                hz,
+                !hz,
             ),
             self.config.show_skipped,
         );
 
-        // trace!(
-        //     "{}, {},  {}, {}, {:?}, {:?}",
+        // log::trace!(
+        //     "len: {}, hscroll: {},  offset: {}, end: {}, limits: {:?}, medians: {:?}, last_widths: {:?}",
         //     results.len(),
         //     self.hscroll,
         //     offset,
         //     end,
         //     width_limits,
+        //     medians,
         //     self.widths
         // );
 
+        self.medians = medians;
         widths[0] += self.indentation() as u16;
         // should generally be true already, but act as a safeguard
         for x in widths.iter_mut().zip(&self.hidden_columns) {
@@ -384,7 +392,6 @@ impl ResultsUI {
                 *x.0 = 0
             }
         }
-        let widths = widths;
 
         let match_count = status.matched_count;
         self.status = status;
@@ -414,7 +421,7 @@ impl ResultsUI {
                 }
         };
 
-        // log::debug!("results initial: {}, {}, {}, {}, {}", self.bottom, self.cursor, total_height, self.height, results.len());
+        // log::trace!("results initial: {}, {}, {}, {}, {}", self.bottom, self.cursor, total_height, self.height, results.len());
         let h_at_cursor = height_of(&results[self.cursor as usize]);
         let h_after_cursor = results[self.cursor as usize + 1..]
             .iter()
@@ -427,7 +434,7 @@ impl ResultsUI {
         let cursor_end_should_lte = self.height - self.scroll_padding().min(h_after_cursor);
         // let cursor_start_should_gt = self.scroll_padding().min(h_to_cursor);
 
-        // log::debug!(
+        // log::trace!(
         //     "Computed heights: {}, {h_at_cursor}, {h_to_cursor}, {h_after_cursor}, {cursor_end_should_lte}",
         //     self.cursor
         // );
@@ -818,6 +825,7 @@ impl ResultsUI {
             let pos = widths.iter().rposition(|&x| x != 0);
             // column_spacing eats into the width
             let mut widths: Vec<_> = widths[..pos.map_or(0, |x| x + 1)].to_vec();
+
             if let Some(pos) = pos
                 && pos > 0
                 && self.config.right_align_last
@@ -864,7 +872,7 @@ impl ResultsUI {
             vec![self.width]
         };
 
-        // log::debug!(
+        // log::trace!(
         //     "widths: {width_limits:?}, {widths:?}, {table_widths:?}, {:?}",
         //     self.widths
         // );

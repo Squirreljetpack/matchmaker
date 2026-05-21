@@ -133,7 +133,7 @@ git checkout {1} -- {$1}
 
 "@accept_2" = '''
 Become(
-case $MM_STORE in
+case $MM_INDEX in
 0|3) printf '%s\n' {+1} ;;
 1) git reset --hard {1} ;;
 2) git stash apply {1} ;;
@@ -143,7 +143,7 @@ esac
 "@soft_reset" = '''Become(
 set -e
 
-case $MM_STORE in
+case $MM_INDEX in
 2)
   TARGET={1}
   FILES="$(git stash show --name-only "$TARGET" 2>/dev/null || true)"
@@ -230,7 +230,7 @@ esac
 Execute(
 set -e
 
-case $MM_STORE in
+case $MM_INDEX in
 0|3)
   printf "Enter tag name for %s: " {1}
   read -r tag_name

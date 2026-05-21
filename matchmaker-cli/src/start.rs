@@ -239,6 +239,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         &event_loop.binds,
         Some(&previewer.help_colors),
         previewer.hide_semantic_help,
+        Some(['[', ']']),
     );
     let cli_formatter = Either::Right(
         crate::formatter::format_cli

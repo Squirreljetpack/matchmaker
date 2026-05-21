@@ -776,6 +776,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     if let Some(x) = overlay_ui_ref.as_deref_mut() {
                         x.update_dimensions(&area);
                     }
+                    if let Some(preview_ui) = preview_ui.as_mut() {
+                        preview_ui.update_dimensions(&preview);
+                    }
                 };
 
                 cursor_y_offset = render_input(frame, input, &mut picker_ui.query).y;
@@ -786,9 +789,6 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 if let Some(preview_ui) = preview_ui.as_mut() {
                     state.update_preview_visible(preview_ui);
                     if preview_ui.visible() {
-                        if did_resize {
-                            preview_ui.update_dimensions(&preview);
-                        }
                         render_preview(frame, preview, preview_ui);
                     }
                 }

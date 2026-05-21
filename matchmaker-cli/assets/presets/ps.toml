@@ -11,6 +11,7 @@ trim = true
 
 [header]
 header_lines = 1
+content = '[procs]'
 
 [columns]
 split = ' +'
@@ -59,8 +60,30 @@ initial.tail = true
 
 "@accept" = "Become(printf '%s\n' {+2})"
 "@accept_2" = "Become(printf '%s\n' {+!})"
-"@reload" = "ReloadNext"
-"@reload_2" = "ReloadPrev"
+"@reload" = [
+  "ReloadNext",
+  '''Transform(
+    HEADERS=(
+      '[procs]'
+      '[ports]'
+    )
+    setopt KSH_ARRAYS 2>/dev/null
+    echo "SetHeader(${HEADERS[$MM_INDEX]})"
+)
+''',
+]
+"@reload_2" = [
+  "ReloadPrev",
+  '''Transform(
+    HEADERS=(
+      '[procs]'
+      '[ports]'
+    )
+    setopt KSH_ARRAYS 2>/dev/null
+    echo "SetHeader(${HEADERS[$MM_INDEX]})"
+)
+''',
+]
 
 "ctrl-k" = "Execute(kill {2} || read)"
 "alt-k" = "Execute(kill -9 {2} || read)"

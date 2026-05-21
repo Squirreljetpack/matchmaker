@@ -167,16 +167,14 @@ mm --download=git
 
 # invoke a preset
 mm -o git/restore
-```
 
-<img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/git-restore.png" alt="git-restore" style="width:416px;" /> <img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/git-help.png" alt="git-help" style="width:416px;" />
-
-The first example can also be run like this:
-
-```shell
+# You can also run the previous example this way:
 mm --download=rg.toml
 mm -o rg
 ```
+
+<img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/git-restore.png" alt="git-restore" style="width:416px;" /> <img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/git-help.png" alt="git-help" style="width:416px;" /> 
+<img src="../matchmaker-lib/assets/ps.png" alt="procs" style="width:416px;" /> <img src="../matchmaker-lib/assets/ssh-known.png" alt="ssh-hosts" style="width:416px;" />
 
 [^50]: Contributions welcome!
 

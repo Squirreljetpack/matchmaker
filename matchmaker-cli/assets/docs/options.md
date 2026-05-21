@@ -16,19 +16,19 @@ Overrides follow the pattern `path=value` or `path value`.
   - `results.wrap` -> `r.w`
   - `preview.layout` -> `p.l`
   - `preview.initial` -> `p.i`
-
 - **Absolute Aliases**: The following common paths can be accessed directly:
   - `preview.layout.command` -> `px`
   - `start.input_separator` -> `i`
   - `start.output_template` -> `o`
   - `start.command` -> `x`
   - `start.command` -> `cmd`
-  - `start.command` -> `command`
   - `start.ansi` -> `a`
   - `start.trim` -> `t`
   - `columns.split` -> `d`
   - `preview.layout` -> `P`
   - `header.content` -> `h`
+  - `matcher.sort` -> `S`
+
 
 ### Collections (Lists/Vectors)
 
@@ -81,8 +81,12 @@ All colors and modifiers come from ratatui:
 
 ### Start (`start.`, `s`)
 
-- `command`: (string) The shell command used to generate items.
-  - Absolute alias: `x`.
+- `command`: (string or object) The shell command used to generate items.
+  - Absolute alias: `x`, `cmd`.
+  - If an object:
+    - `command`: (string) The shell command.
+    - `separator`: (char) Input separator (overrides `start.input_separator` for this command).
+    - `directory`: (string) Directory to execute the command in.
 - `input_separator`: (char) Character separating input items.
   - Absolute alias: `i`.
 - `os`, `output_separator`: (string) String separating output selections.
@@ -93,9 +97,8 @@ All colors and modifiers come from ratatui:
   - Absolute alias: `t`.
 - `ansi`: (bool) Parse ansi codes from input.
   - Absolute alias: `a`.
-- `ax`, `additional_commands`: ([String]) Additional commands that can be cycled through using the ReloadNext action
-- `ansi`: (bool) Parse ansi codes from input.
-  - Absolute alias: `a`.
+- `ax`, `additional_commands`: ([String]) Additional commands that can be cycled through using the ReloadNext action.
+
 
 ### Exit (`exit.`, `e`)
 
@@ -202,6 +205,7 @@ All colors and modifiers come from ratatui:
     - `side`: `top`, `bottom`, `left`, `right`.
     - `percentage`: Percentage of the screen to occupy.
     - `min`, `max`: Pixel constraints for the preview size. Setting `max` to 0 disables a preview layout.
+    - `scroll` *(flattened)*: Initial scroll settings for this layout. See [Initial](#initial) for available fields.
 - `border`: [Border Settings](#border-settings).
 - `initial`: Control the initial scroll offset of the preview window.
   - Alias: `i`.
@@ -209,6 +213,7 @@ All colors and modifiers come from ratatui:
   - `o`, `offset` (integer) – Adjust the initial scroll index relative to `index`.
   - `p`, `percentage` (0-100) – How far from the bottom of the preview window the scroll offset should appear.
   - `h`, `header_lines` (number) – Keep the top N lines as a fixed header so that they are always visible.
+  - `t`, `tail` (bool) – Start with the scroll at the bottom of the preview window.
 
 ### Previewer (`previewer.`)
 

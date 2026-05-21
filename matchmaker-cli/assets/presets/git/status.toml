@@ -1,0 +1,203 @@
+# interactive git status
+
+[start]
+command = '''
+git -c color.status=always status -sz |
+while IFS= read -r -d '' entry; do
+  entry="${entry# }"
+  st="${entry%% *}"
+  file="${entry#* }"
+  file="${file# }"
+
+  printf '%s\x1f%s\n' "$file" "$st"
+done
+'''
+ansi = true
+
+[columns]
+split = "\\x1f"
+max = 2
+default = 1
+
+[matcher]
+sort = 20
+
+[envs]
+DFT_COLOR = "always"
+
+# --- Preview ---
+[previewer]
+always_trigger = false
+
+[[preview.layout]]
+command = '''
+git diff --color=always --exit-code {1} && $PAGER {1}
+'''
+# side = "right"
+# percentage = 40
+# min = 30
+# max = 120
+
+[[preview.layout]]
+command = '''
+git diff --cached --color=always --exit-code {1} && echo "no staged changes"
+'''
+side = "right"
+percentage = 40
+min = 30
+max = 120
+
+[[preview.layout]]
+# alternate history: git -c color.ui=always log --decorate --stat --summary -p -- {1}
+command = '''
+git -c  color.ui=always log --ext-diff -D -p -- {1}
+'''
+
+# --- UI ---
+[tui]
+percentage = 100
+
+[binds]
+"@accept" = ["@stage", "Reload"]
+"@accept_2" = ["Print({=1})", "Quit"]
+
+"ctrl-c" = ["@commit", "Reload"]
+"ctrl-shift-c" = ["@ai_commit", "Reload"]
+"alt-r" = ["@restore", "Reload"]
+"ctrl-t" = ["@stash", "Reload"]
+"ctrl-d" = ["@remove", "Reload"]
+"ctrl-shift-d" = ["@delete", "Reload"]
+"alt-d" = ["@disk-delete", "Reload"]
+"alt-i" = ["@ignore", "Reload"]
+
+# --- Scripts ---
+"@stage" = '''
+ExecuteSilent(
+set -e
+set -- {+1}
+ac=true
+ad=true
+
+for f; do
+  git diff --quiet -- "$f" && ad=false || ac=false
+done
+
+$ac || $ad
+if $ad; then git add -- "$@"; else git reset -q -- "$@"; fi
+)
+'''
+
+"@restore" = '''
+Execute(
+set -e
+set -- {+1}
+if (( $# == 1 )); then
+  file="$1"
+  if git diff --cached --quiet -- "$file" 2>/dev/null; then
+    printf "Restore %s to HEAD? [y/N] " "$file"
+  else
+    printf "Restore %s? [y(HEAD)/N/s(taged)] " "$file"
+  fi
+  read -r ans
+  case "$ans" in
+    [yY]*) git restore --source=HEAD --staged --worktree -- "$file" ;;
+    [sS]*) git restore -- "$file" ;;
+  esac
+else
+  printf "Restore %d files? [y(HEAD)/N/s(taged)] " "$#"
+  read -r ans
+  case "$ans" in
+    [yY]*) git restore --source=HEAD --staged --worktree -- "$@" ;;
+    [sS]*) git restore -- "$@" ;;
+  esac
+fi
+)
+'''
+
+"@stash" = '''
+Execute(
+set -e
+printf "Stash message (optional): "
+read -r msg
+if [ -n "$msg" ]; then
+  git stash push -m "$msg" -- {+1}
+else
+  git stash push -- {+1}
+fi
+)
+'''
+
+"@remove" = '''
+Execute(
+set -e
+
+tracked=$(git ls-files -z --cached --exclude-standard -- {+1})
+printf '%s' "$tracked" |
+while IFS= read -r -d '' file; do
+  files+=("$file")
+done
+
+[ ${#files[@]} -eq 0 ] && exit 0
+
+if git rm --cached -n -- "${files[@]}" >/dev/null; then
+  git rm --cached -- "${files[@]}"
+else
+  printf "Force remove ${#files} files? [y/N] "
+  read -r ans
+  case "$ans" in
+    [yY]*) git rm --cached -f -- "${files[@]}" ;;
+  esac
+fi
+)
+'''
+
+"@disk-delete" = "Execute(rm -rf -- {+1})"
+
+"@delete" = '''
+Execute(
+git add -- {+1}
+git rm -rf -- {+1}
+)
+'''
+
+"@ignore" = '''
+Execute(
+for f in {+1}; do
+  git rm -r --cached "$f" 2>/dev/null &&
+  echo "$f" >> .gitignore ||
+  {
+    read
+    exit 1
+  }
+done
+)
+'''
+
+"@commit" = '''
+Execute(
+set -e
+git --no-pager diff --cached --compact-summary
+echo
+printf "Commit message: "
+msg=""
+while IFS= read -r line; do
+  if [[ "$line" == *'\' ]]; then
+    msg+="${line%?}"$'\n'
+    printf "> "
+  else
+    msg+="$line"
+    break
+  fi
+done
+
+if [ -n "$msg" ]; then
+  git commit -m "$msg"
+else
+  git commit
+fi
+)
+'''
+
+"@ai_commit" = '''
+Execute(:)
+'''

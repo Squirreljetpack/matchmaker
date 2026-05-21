@@ -1,4 +1,4 @@
-# Switch to a branch
+# Intelligently switch to any ref
 
 [start]
 command = '''
@@ -99,6 +99,7 @@ content = "branches"
       tags
       remotes
     )
+    setopt KSH_ARRAYS 2>/dev/null
     echo "SetHeader(${HEADERS[$MM_INDEX]})"
 )
 ''',
@@ -111,7 +112,8 @@ content = "branches"
       tags
       remotes
     )
-    echo "SetHeader(${HEADERS[$(((MM_INDEX + ${#HEADERS[@]} - 1) % ${#HEADERS[@]}))]})"
+    setopt KSH_ARRAYS 2>/dev/null
+    echo "SetHeader(${HEADERS[$MM_INDEX]})"
 )
 ''',
 ]

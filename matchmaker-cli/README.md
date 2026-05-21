@@ -22,6 +22,7 @@ It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and
 - Bind keys to multiple actions, bind actions to mouse triggers, bind actions to event triggers, bind keys to rebind keys, bind keys to modify the configuration, bind keys to run a shell script and use its output to execute actions and bind more keys, bind keys to set the header, footer, status, input, bind semantic triggers to actions, bind keys to semantic triggers, bind keys to -- wait nope thats about it.
 - Comprehensive logging in case you need to debug applications.
 - oh yeah, and `mm --last-key` gives you the last key that was pressed in a previous run of the program.[^13]
+- a *[panoply](#presets)* of amazing presets which manifest as *dashing* TUIs to boost your productivity.
 - Available as a rust library to use in your own code!
 
 On the way:
@@ -158,7 +159,7 @@ mm --config ~/.config/matchmaker/presets/rg.toml
 
 ### Presets
 
-Matchmaker is a great tool for creating workflows. Check out the collection [here](https://github.com/Squirreljetpack/matchmaker/tree/main/matchmaker-cli/assets/presets)[^50].
+Matchmaker is really good for creating workflows. It's like a swiss army knife for building and sharing great TUI's -- check out the collection [here](https://github.com/Squirreljetpack/matchmaker/tree/main/matchmaker-cli/assets/presets)[^50]!
 
 ```shell
 # download a preset

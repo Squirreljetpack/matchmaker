@@ -1,5 +1,4 @@
-# ssh - SSH host selector
-# get_key requires setting $CLIPcmd
+# ssh host selector
 
 [start]
 # Not a perfect parse if host definitions are fragmented

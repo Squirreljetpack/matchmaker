@@ -63,3 +63,6 @@
    stdin. Add an action SetMode(String), which sets the mode string. Actions now become vec<Option<String>, Actions> <- seems heavy handed
 - renderloop optimization: pass available height?
 - Mode: filters which binds activate (starts off as either "command", or "piped")
+
+- converting kube/tabby is ok
+- 

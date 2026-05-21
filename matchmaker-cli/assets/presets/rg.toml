@@ -1,3 +1,5 @@
+# Full text search
+
 [start]
 command = '''rg --column --line-number --no-heading --color=always --smart-case "$FZF_QUERY"'''
 ansi = true

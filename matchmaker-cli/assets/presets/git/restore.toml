@@ -1,4 +1,4 @@
-# grep for a line of change
+# restore a file or revision
 
 [start]
 command = 'git log --pretty=format:"%h%x1f%ad%x1f%s" --date=human -- "${1:-.}"'
@@ -36,7 +36,11 @@ percentage = 50
 min = 5
 max = 50
 command = '''
-DFT_COLOR=always git diff --color=always --exit-code {1} -- {$0} && echo "no change"
+if ((MM_INDEX == 2)); then
+  DFT_COLOR=always git -c color.ui=always stash show -p {1} -- {$0}
+else
+  DFT_COLOR=always git diff --color=always --exit-code {1} -- {$0} && echo "no change"
+fi
 '''
 
 [[preview.layout]]
@@ -66,13 +70,13 @@ style.modifier = ""
 "@reload" = [
   "ReloadNext",
   '''Transform(
-    setopt KSH_ARRAYS 2>/dev/null
     HEADERS=(
       '[history]'
       '[reflog]'
       '[stash]'
       '[all_refs]'
     )
+    setopt KSH_ARRAYS 2>/dev/null
     echo "SetHeader(${HEADERS[$MM_INDEX]})"
 )
 ''',
@@ -80,14 +84,14 @@ style.modifier = ""
 "@reload_2" = [
   "ReloadPrev",
   '''Transform(
-    setopt KSH_ARRAYS 2>/dev/null
     HEADERS=(
       '[history]'
       '[reflog]'
       '[stash]'
       '[all_refs]'
     )
-    echo "SetHeader(${HEADERS[$(((MM_INDEX + ${#HEADERS[@]} - 1) % ${#HEADERS[@]}))]})"
+    setopt KSH_ARRAYS 2>/dev/null
+    echo "SetHeader(${HEADERS[$MM_INDEX]})"
 )
 ''',
 ]

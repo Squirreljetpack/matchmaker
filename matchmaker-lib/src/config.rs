@@ -88,6 +88,8 @@ pub struct StartConfig {
     /// Trim the input
     #[partial(alias = "t")]
     pub trim: bool,
+
+    pub mode: Option<String>,
 }
 
 /// Exit conditions of the render loop.

@@ -84,8 +84,10 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
         if p.is_relative() && p.extension().is_none() {
             p = presets_path().join(p.with_extension("toml"));
         }
+        let path_str = p.to_string_lossy().to_string();
         let o = load_type(p, |s| toml::from_str(s))?;
         config.apply(o);
+        config.envs.insert("MM_OVERRIDE".to_string(), path_str);
     }
 
     config.apply(partial); // resolve config.exit first
@@ -199,6 +201,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 ansi,
                 trim,
                 additional_commands,
+                mode,
             },
         mut exit,
         envs,
@@ -219,7 +222,19 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         exit.last_key_path = Some(last_key_path().into())
     }
 
-    let event_loop = EventLoop::with_binds(binds).with_tick_rate(render.tick_rate());
+    let mut event_loop = EventLoop::with_binds(binds).with_tick_rate(render.tick_rate());
+
+    let mut default_reload = (!command.is_empty() && atty::is(atty::Stream::Stdin) || no_read)
+        .then_some(command.clone())
+        .unwrap_or_default();
+
+    if let Some(m) = mode {
+        event_loop.mode = m;
+    } else if !default_reload.is_empty() {
+        event_loop.mode = "command".to_string();
+    } else {
+        event_loop.mode = "piped".to_string();
+    }
     // make matcher and matchmaker with matchmaker-and-matcher-maker
     let (
         mut mm,
@@ -312,9 +327,6 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     // reload handler
     let reload_formatter = cli_formatter.clone();
     let reload_render_tx = render_tx.clone();
-    let mut default_reload = (!command.is_empty() && atty::is(atty::Stream::Stdin) || no_read)
-        .then_some(command.clone())
-        .unwrap_or_default();
 
     mm.register_interrupt_handler(Interrupt::Reload, move |state| {
         let injector = state.injector();

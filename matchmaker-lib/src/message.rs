@@ -29,6 +29,8 @@ bitflags! {
 
         const Pause  = 1 << 11; // Pause events
         const Resume = 1 << 12; // Resume events
+
+        const Reloaded = 1 << 13; // Reloaded
     }
 }
 

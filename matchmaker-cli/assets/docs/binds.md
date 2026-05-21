@@ -78,6 +78,7 @@ Actions can be bound to events:
 - `Complete` – Triggered when the application is about to exit.
 - `Synced` – Triggered when the matcher completes its first synchronization.
 - `Resynced` – Triggered when the matcher finishes processing the current state again.
+- `Reloaded` – Triggered when a `Reload` or `ReloadNext` action completes.
 
 #### Input & Cursor
 
@@ -99,6 +100,31 @@ Actions can be bound to events:
 
 - `Pause` – Triggered when the system enters a paused state.
 - `Resume` – Triggered when execution resumes from a paused state.
+
+### Modes
+
+Triggers can be optionally prefixed with a mode (consisting of alphanumeric characters) followed by `^^`. A bind with a mode will only be active when the application is in that specific mode.
+
+**Syntax:** `mode^^trigger = actions`
+
+Binds defined without a mode act as fallbacks and are active in all modes unless overridden by a mode-specific bind.
+
+**Example:**
+```toml
+[binds]
+"vim^^h" = "BackwardChar"
+"vim^^l" = "ForwardChar"
+"h" = "Up"
+"l" = "Down"
+```
+
+In this example, if the mode is `vim`, `h` and `l` will move the cursor horizontally. In any other mode, they will move the selection cursor vertically.
+
+Matchmaker initializes with a default mode based on how it was started:
+- `command`: When started with a shell command.
+- `piped`: When reading from stdin.
+
+You can set the initial mode using `start.mode`.
 
 Scroll to the bottom for some examples.
 

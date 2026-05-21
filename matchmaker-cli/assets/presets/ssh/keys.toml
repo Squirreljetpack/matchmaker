@@ -9,6 +9,7 @@ directory = "~/.ssh"
 [query]
 prompt = "keys> "
 prompt_style.fg = "Blue"
+prompt_style.modifier = "ITALIC"
 
 [binds]
 "ctrl-b" = "@bind_to_host"

@@ -159,7 +159,7 @@ mm --config ~/.config/matchmaker/presets/rg.toml
 
 ### Presets
 
-Matchmaker is really good for creating workflows. It's like a swiss army knife for building and sharing great TUI's -- check out the collection [here](https://github.com/Squirreljetpack/matchmaker/tree/main/matchmaker-cli/assets/presets)[^50]!
+Matchmaker is really good for creating workflows. It's like a swiss army knife for building and sharing great TUI's -- check out the [collection](https://github.com/Squirreljetpack/matchmaker/tree/main/matchmaker-cli/assets/presets)![^50]
 
 ```shell
 # download a preset

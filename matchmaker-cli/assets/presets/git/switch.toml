@@ -123,7 +123,7 @@ content = "branches"
 
 "@update" = '''
 Execute(
-case "$MM_STORE" in
+case "$MM_INDEX" in
 0)
     ref={2}
     if [[ "$ref" == *":"* ]]; then
@@ -169,7 +169,7 @@ fi
 
 remote="$(git config --get branch.$(git branch --show-current).remote)"
 
-case "$MM_STORE" in
+case "$MM_INDEX" in
 0)
   ref={2}
   ref=${ref#*:}
@@ -199,7 +199,7 @@ esac
 "@delete" = '''
 Execute(
 set -e
-case "$MM_STORE" in
+case "$MM_INDEX" in
 0)
     ref={2}
     if [[ "$ref" == *":"* ]]; then
@@ -258,7 +258,7 @@ read -r
 "@rename" = '''
 Execute(
 set -e
-case "$MM_STORE" in
+case "$MM_INDEX" in
 0)
     ref={2}
     if [[ "$ref" == *":"* ]]; then

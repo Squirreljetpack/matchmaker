@@ -418,34 +418,38 @@ pub fn display_binds<A: ActionExt + Display>(
     binds: &BindMap<A>,
     colors: Option<&HelpColorConfig>,
     hide_semantic: bool,
+    seq_brackets: Option<[char; 2]>,
 ) -> Text<'static> {
     // Collect trigger and action strings
-    let mut entries: Vec<(String, String)> = binds
+    let mut entries: Vec<(String, Vec<String>)> = binds
         .iter()
         .filter(|(trigger, _)| !hide_semantic || !matches!(trigger, Trigger::Semantic(_)))
         .map(|(trigger, actions)| {
-            let value_str = if actions.len() == 1 {
-                actions[0].to_string()
-            } else {
-                let inner = actions
-                    .iter()
-                    .map(|a| a.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                format!("[{inner}]")
-            };
-            (trigger.to_string(), value_str)
+            (
+                trigger.to_string(),
+                actions.iter().map(|a| a.to_string()).collect(),
+            )
         })
         .collect();
 
-    // Sort by trigger string
+    // Sort by actions (values) instead of triggers
     entries.sort_by(|a, b| a.1.cmp(&b.1));
 
     // Build output
     let Some(cfg) = colors else {
         // fallback plain text
         let mut text = Text::default();
-        for (trigger, value) in entries {
+        for (trigger, actions) in entries {
+            let value = if actions.len() == 1 {
+                actions[0].clone()
+            } else {
+                let inner = actions.join(", ");
+                if let Some([open, close]) = seq_brackets {
+                    format!("{open}{inner}{close}")
+                } else {
+                    inner
+                }
+            };
             text.extend(Text::from(format!("{trigger} = {value}\n")));
         }
         return text;
@@ -453,30 +457,36 @@ pub fn display_binds<A: ActionExt + Display>(
 
     let mut text = Text::default();
 
-    for (trigger, value) in entries {
-        let mut spans = vec![];
-
-        // Trigger
-        spans.push(Span::styled(trigger, Style::default().fg(cfg.key)));
-        spans.push(Span::raw(" = "));
+    for (trigger, actions) in entries {
+        let mut spans = vec![
+            // Trigger
+            Span::styled(trigger, Style::default().fg(cfg.key)),
+            Span::raw(" = "),
+        ];
 
         // Value
-        if value.starts_with('[') {
+        if actions.len() > 1 {
             // multi-action list: color each item
-            spans.push(Span::raw("["));
-            let inner = &value[1..value.len() - 1];
-            for (i, item) in inner.split(", ").enumerate() {
+            if let Some([open, _]) = seq_brackets {
+                spans.push(Span::raw(open.to_string()));
+            }
+
+            for (i, item) in actions.into_iter().enumerate() {
                 if i > 0 {
                     spans.push(Span::raw(", "));
                 }
-                spans.push(Span::styled(
-                    item.to_string(),
-                    Style::default().fg(cfg.value),
-                ));
+                spans.push(Span::styled(item, Style::default().fg(cfg.value)));
             }
-            spans.push(Span::raw("]"));
+
+            if let Some([_, close]) = seq_brackets {
+                spans.push(Span::raw(close.to_string()));
+            }
         } else {
-            spans.push(Span::styled(value, Style::default().fg(cfg.value)));
+            // single action
+            spans.push(Span::styled(
+                actions[0].clone(),
+                Style::default().fg(cfg.value),
+            ));
         }
 
         spans.push(Span::raw("\n"));
@@ -625,13 +635,13 @@ mod test {
 
         // With semantic help
         let colors = HelpColorConfig::default();
-        let help_show = display_binds(&binds, Some(&colors), false);
+        let help_show = display_binds(&binds, Some(&colors), false, None);
         let help_show_str = help_show.to_string();
         assert!(help_show_str.contains("a = Print(a)"));
         assert!(help_show_str.contains("@foo = Print(foo)"));
 
         // Without semantic help
-        let help_hide = display_binds(&binds, Some(&colors), true);
+        let help_hide = display_binds(&binds, Some(&colors), true, None);
         let help_hide_str = help_hide.to_string();
         assert!(help_hide_str.contains("a = Print(a)"));
         assert!(!help_hide_str.contains("@foo = Print(foo)"));

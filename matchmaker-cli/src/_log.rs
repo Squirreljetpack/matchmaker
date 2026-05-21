@@ -1,0 +1,58 @@
+use crate::clap::{BINARY_SHORT, LIBRARY_FULL};
+use cba::{
+    bait::ResultExt,
+    bog::{self, BogOkExt},
+};
+use std::{fs::OpenOptions, path::Path};
+
+pub fn init_logger([q, v]: [u8; 2], log_path: &Path) {
+    bog::init_bogger(true, true);
+    bog::init_filter((3 + v).saturating_sub(q));
+
+    let rust_log = std::env::var("RUST_LOG").ok().map(|val| val.to_lowercase());
+
+    let mut builder = env_logger::Builder::from_default_env();
+
+    if rust_log.is_none() {
+        #[cfg(debug_assertions)]
+        {
+            builder
+                .filter(None, log::LevelFilter::Info)
+                .filter(Some(LIBRARY_FULL), log::LevelFilter::Trace)
+                .filter(Some("cba"), log::LevelFilter::Trace)
+                .filter(Some(BINARY_SHORT), log::LevelFilter::Trace);
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            builder
+                .format_module_path(false)
+                .format_target(false)
+                .format_timestamp(None);
+
+            let level = cba::bother::level_filter::from_qv(q, v);
+
+            builder
+                .filter(Some(LIBRARY_FULL), level)
+                .filter(Some("cba"), level)
+                .filter(Some(BINARY_SHORT), level);
+        }
+    }
+
+    log_path.parent().map(cba::bs::create_dir);
+
+    if let Some(log_file) = OpenOptions::new()
+        .truncate(true)
+        .write(true)
+        .create(true)
+        .open(log_path)
+        .prefix(format!(
+            "Failed to open log file @ {}.",
+            log_path.to_string_lossy()
+        ))
+        ._wbog()
+    {
+        builder.target(env_logger::Target::Pipe(Box::new(log_file)));
+    }
+
+    builder.init();
+}

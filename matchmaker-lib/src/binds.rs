@@ -26,7 +26,6 @@ pub type BindMap<A: ActionExt = NullActionExt> = HashMap<Trigger, Actions<A>>;
 
 #[easy_ext::ext(BindMapExt)]
 impl<A: ActionExt> BindMap<A> {
-    #[allow(unused_mut)]
     pub fn default_binds() -> Self {
         let mut ret = bindmap!(
             key!(ctrl-c) => Action::Quit(1),
@@ -106,6 +105,84 @@ impl<A: ActionExt> BindMap<A> {
         path.pop();
 
         Ok(())
+    }
+
+    /// Simplifies semantic trigger chains and removes unbound triggers.
+    ///
+    /// - `key -> @s1 -> @s2 -> concrete` becomes `key -> @s2`.
+    /// - `key -> @s1 -> unbound` results in `key` being removed.
+    ///
+    /// # Note
+    /// This method assumes that [Self::check_cycles] has been called and succeeded.
+    pub fn resolve_semantics(&mut self) {
+        let mut triggers_to_remove = Vec::new();
+        let mut triggers_to_update = Vec::new();
+
+        for (trigger, actions) in self.iter() {
+            let mut any_unbound = false;
+            let mut updated_actions = Vec::new();
+            let mut changed = false;
+
+            for action in actions.iter() {
+                if let Action::Semantic(start_s) = action {
+                    let mut current_s = start_s.clone();
+                    let mut last_valid_s = start_s.clone();
+                    let mut is_unbound = false;
+
+                    // Trace the chain of single semantic actions
+                    loop {
+                        let next_trigger = Trigger::Semantic(current_s.clone());
+                        match self.get(&next_trigger) {
+                            Some(next_actions) if next_actions.len() == 1 => {
+                                if let Action::Semantic(next_s) = &next_actions[0] {
+                                    last_valid_s = current_s;
+                                    current_s = next_s.clone();
+                                } else {
+                                    // Chain ends at a single non-semantic action
+                                    last_valid_s = current_s;
+                                    break;
+                                }
+                            }
+                            Some(next_actions) if !next_actions.is_empty() => {
+                                // Chain ends at multiple actions
+                                last_valid_s = current_s;
+                                break;
+                            }
+                            _ => {
+                                // Dead end
+                                is_unbound = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if is_unbound {
+                        any_unbound = true;
+                        break;
+                    } else if last_valid_s != *start_s && actions.len() == 1 {
+                        updated_actions.push(Action::Semantic(last_valid_s));
+                        changed = true;
+                    } else {
+                        updated_actions.push(action.clone());
+                    }
+                } else {
+                    updated_actions.push(action.clone());
+                }
+            }
+
+            if any_unbound {
+                triggers_to_remove.push(trigger.clone());
+            } else if changed {
+                triggers_to_update.push((trigger.clone(), updated_actions.into_iter().collect()));
+            }
+        }
+
+        for t in triggers_to_remove {
+            self.remove(&t);
+        }
+        for (t, a) in triggers_to_update {
+            self.insert(t, a);
+        }
     }
 }
 
@@ -478,6 +555,50 @@ mod test {
     }
 
     #[test]
+    fn test_resolve_semantics() {
+        use crate::bindmap;
+        use crate::action::NullActionExt;
+
+        // Chain: key(a) -> @s1 -> @s2 -> concrete
+        let mut bind_map: BindMap<NullActionExt> = bindmap!(
+            key!(a) => Action::Semantic("s1".into()),
+            Trigger::Semantic("s1".into()) => Action::Semantic("s2".into()),
+            Trigger::Semantic("s2".into()) => Action::Accept,
+        );
+        bind_map.resolve_semantics();
+        assert_eq!(
+            bind_map.get(&Trigger::Key(key!(a))).unwrap().0[0],
+            Action::Semantic("s2".into())
+        );
+        assert_eq!(
+            bind_map.get(&Trigger::Semantic("s1".into())).unwrap().0[0],
+            Action::Semantic("s2".into())
+        );
+
+        // Unbound: key(b) -> @s3 -> @s4 -> unbound
+        let mut bind_map_unbound: BindMap<NullActionExt> = bindmap!(
+            key!(b) => Action::Semantic("s3".into()),
+            Trigger::Semantic("s3".into()) => Action::Semantic("s4".into()),
+        );
+        bind_map_unbound.resolve_semantics();
+        assert!(!bind_map_unbound.contains_key(&Trigger::Key(key!(b))));
+        assert!(!bind_map_unbound.contains_key(&Trigger::Semantic("s3".into())));
+
+        // Multi-action chain: key(c) -> @s5 -> [@s6, Accept]
+        let mut bind_map_multi: BindMap<NullActionExt> = bindmap!(
+            key!(c) => Action::Semantic("s5".into()),
+            Trigger::Semantic("s5".into()) => [Action::Semantic("s6".into()), Action::Accept],
+            Trigger::Semantic("s6".into()) => Action::Cancel,
+        );
+        bind_map_multi.resolve_semantics();
+        // key(c) should still point to @s5 because @s5 has multiple actions.
+        assert_eq!(
+            bind_map_multi.get(&Trigger::Key(key!(c))).unwrap().0[0],
+            Action::Semantic("s5".into())
+        );
+    }
+
+    #[test]
     fn test_display_binds_semantic_help() {
         let binds: BindMap<NullActionExt> = bindmap!(
             key!(a) => Action::Print("a".into()),
@@ -486,13 +607,13 @@ mod test {
 
         // With semantic help
         let colors = HelpColorConfig::default();
-        let help_show = display_binds(&binds, Some(&colors), true);
+        let help_show = display_binds(&binds, Some(&colors), false);
         let help_show_str = help_show.to_string();
         assert!(help_show_str.contains("a = Print(a)"));
         assert!(help_show_str.contains("@foo = Print(foo)"));
 
         // Without semantic help
-        let help_hide = display_binds(&binds, Some(&colors), false);
+        let help_hide = display_binds(&binds, Some(&colors), true);
         let help_hide_str = help_hide.to_string();
         assert!(help_hide_str.contains("a = Print(a)"));
         assert!(!help_hide_str.contains("@foo = Print(foo)"));

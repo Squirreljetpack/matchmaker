@@ -478,7 +478,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             state.set_interrupt(Interrupt::ExecuteSilent, payload);
                         }
                         Action::Store(payload) => {
-                            state.env_payloads.set("MM_STORE", payload);
+                            state.envs.set("MM_STORE", payload);
                         }
                         Action::Become(payload) => {
                             state.set_interrupt(Interrupt::Become, payload);

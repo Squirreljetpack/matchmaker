@@ -80,6 +80,11 @@ cmd = '''
 separator = "\\0"
 
 [exit]
+
+[envs]
+# CLIPcmd = # Leave blank to auto-determine
+# PASTEcmd = # Leave blank to auto-determine
+
 # --- Binds ---
 [binds]
 # Essentia
@@ -130,12 +135,27 @@ separator = "\\0"
 "ctrl-shift-/" = "CyclePreview" # cycle preview layouts
 "alt-h" = "Help"
 
+"F1" = "@help"
+"F2" = "@rename"
+"F3" = "@search"
+"F4" = "@focus"
+"F5" = "@reload"
+"F6" = "@cycle"
+"F7" = "@build"
+"F8" = "@step"
+"F9" = "@break"
+"F10" = "@menu"
+"F11" = "@look"
+"F12" = "@save"
+
 # Programmable
 "ctrl-l" = "@look" # "maximize" the preview
 "ctrl-o" = "@open"
 "alt-o" = "@open_2"
 "ctrl-r" = "@reload"
+"ctrl-shift-r" = "@reload_2"
 "ctrl-shift-n" = "@next"
+"ctrl-shift-p" = "@prev"
 
 "@accept" = "Accept"
 "@accept_2" = "Accept"
@@ -143,6 +163,7 @@ separator = "\\0"
 "@open" = "Execute($EDITOR {})"
 "@open_2" = "Become($EDITOR {})"
 "@reload" = "Reload"
+"@help" = "Help"
 
 # Printing
 "alt-p" = "@print"
@@ -154,19 +175,19 @@ separator = "\\0"
 "@print" = "Print({-})"
 "@print_2" = "Print({-!})"
 "@copy" = '''
-Execute(
+ExecuteSilent(
 out="$(printf '%s\n' {+1})"
-printf "$out" | (pbcopy || wl-copy || xclip -selection clipboard || xsel --clipboard --input) 2>/dev/null
+printf "$out" | eval $CLIPcmd
 )
 '''
 "@copy_2" = '''
-Execute(
-printf '%s' {} | (pbcopy || wl-copy || xclip -selection clipboard || xsel --clipboard --input) 2>/dev/null
+ExecuteSilent(
+printf '%s' {} | eval $CLIPcmd
 )
 '''
 "@copy_3" = '''
-Execute(
+ExecuteSilent(
 out="$(printf '%s\n' {+!})"
-printf "$out" | (pbcopy || wl-copy || xclip -selection clipboard || xsel --clipboard --input) 2>/dev/null
+printf "$out" | eval $CLIPcmd
 )
 '''

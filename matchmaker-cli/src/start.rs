@@ -26,7 +26,7 @@ use cba::{
 use cba::{bo::load_type, broc::CommandExt};
 use log::debug;
 use matchmaker::{
-    Action, ConfigInjector, MatchError, Matchmaker, OddEnds, PickOptions, SSS,
+    Action, ConfigInjector, MatchError, Matchmaker, OddEnds, PickOptions, SSS, acs,
     binds::{BindMap, BindMapExt, display_binds},
     config::{CommandSetting, MatcherConfig, StartConfig},
     event::{EventLoop, RenderSender},
@@ -134,6 +134,7 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
     // check binds
     config.binds = BindMap::default_binds().modify(|x| x.extend(config.binds));
     config.binds.check_cycles().map_err(anyhow::Error::msg)?;
+    config.binds.resolve_semantics();
 
     for actions in config.binds.values() {
         for a in actions {
@@ -200,6 +201,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 additional_commands,
             },
         mut exit,
+        mut envs,
     } = config;
 
     if let Some(mut d) = directory {
@@ -312,8 +314,36 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         .hidden_columns(hidden_columns)
         .initializer(move |s| {
             if set_index {
-                s.env_payloads.set("MM_INDEX", 0);
+                envs.set("MM_INDEX", 0);
             }
+
+            if envs
+                .get("CLIPcmd")
+                .map(|x| !x.is_empty())
+                .unwrap_or_else(|| {
+                    std::env::var("CLIPcmd")
+                        .ok()
+                        .map_or(false, |x| !x.is_empty())
+                })
+            {
+                if let Some((clip, paste)) = crate::utils::guess_clip_cmd() {
+                    envs.set("CLIPcmd", clip);
+
+                    if envs
+                        .get("PASTEcmd")
+                        .map(|x| !x.is_empty())
+                        .unwrap_or_else(|| {
+                            std::env::var("PASTEcmd")
+                                .ok()
+                                .map_or(false, |x| !x.is_empty())
+                        })
+                    {
+                        envs.set("PASTEcmd", paste);
+                    }
+                }
+            }
+
+            s.envs = envs;
         });
 
     let render_tx = options.render_tx();
@@ -330,8 +360,11 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     options = options
         .ext_handler(move |x, y| action_handler(x, y, &mut action_context))
         .ext_aliaser(|a, _state| match a {
-            matchmaker::Action::Accept => matchmaker::acs![MMAction::Accept],
-            _ => matchmaker::acs![a],
+            Action::Accept => acs![MMAction::Accept],
+            Action::Custom(MMAction::RunPreview(c)) => {
+                acs![Action::Execute(c)]
+            }
+            _ => acs![a],
         });
 
     // ----------- read -----------------------

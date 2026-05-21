@@ -119,9 +119,6 @@ max = 120
 "alt-o" = "@open_2"
 "ctrl-r" = "@reload"
 "ctrl-shift-n" = "@next"
-"alt-p" = "@print"
-"ctrl-y" = "@copy"
-"ctrl-shift-y" = "@copy_2"
 
 "@accept" = "Accept"
 "@accept_2" = "Accept"
@@ -140,20 +137,20 @@ max = 120
 "@print" = "Print({-})"
 "@print_2" = "Print({-!})"
 "@copy" = '''
-Execute(
+ExecuteSilent(
 out="$(printf '%s\n' {+1})"
 printf "$out" | (pbcopy || wl-copy || xclip -selection clipboard || xsel --clipboard --input) 2>/dev/null
 )
 '''
 "@copy_2" = '''
-Execute(
-printf '%s' {} | (pbcopy || wl-copy || xclip -selection clipboard || xsel --clipboard --input) 2>/dev/null
+ExecuteSilent(
+printf '%s' {} | eval $CLIPcmd
 )
 '''
 "@copy_3" = '''
-Execute(
+ExecuteSilent(
 out="$(printf '%s\n' {+!})"
-printf "$out" | (pbcopy || wl-copy || xclip -selection clipboard || xsel --clipboard --input) 2>/dev/null
+printf "$out" | eval $CLIPcmd
 )
 '''
 

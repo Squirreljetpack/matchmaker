@@ -87,7 +87,7 @@ prompt_style.fg = "Blue"
 "@accept_2" = "Become(echo {host})"
 "@open" = "Execute($EDITOR {file})"
 "@open_2" = "Become($EDITOR {file})"
-"@next" = "Become(mm -o ssh/keys)"
+"@next" = "BecomeSilent(mm -o ssh/keys)"
 
 # --- Scripts ---
 "@test" = "Execute(ssh -vT {host} 2>&1)"

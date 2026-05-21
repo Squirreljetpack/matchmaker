@@ -1,11 +1,6 @@
-use crate::clap::{BINARY_SHORT, LIBRARY_FULL};
-use cba::{
-    bait::ResultExt,
-    bog::{self, BogOkExt},
-    ebog, nbog,
-};
+use cba::{bog::BogOkExt, ebog, nbog};
 use std::{
-    fs::{self, OpenOptions},
+    fs::{self},
     path::{Path, PathBuf},
     process::{Command, exit},
 };
@@ -169,58 +164,6 @@ fn copy_and_process(src: &Path, dst: &Path) {
     }
 }
 
-pub fn init_logger([q, v]: [u8; 2], log_path: &Path) {
-    bog::init_bogger(true, true);
-    bog::init_filter((3 + v).saturating_sub(q));
-
-    let rust_log = std::env::var("RUST_LOG").ok().map(|val| val.to_lowercase());
-
-    let mut builder = env_logger::Builder::from_default_env();
-
-    if rust_log.is_none() {
-        #[cfg(debug_assertions)]
-        {
-            builder
-                .filter(None, log::LevelFilter::Info)
-                .filter(Some(LIBRARY_FULL), log::LevelFilter::Trace)
-                .filter(Some("cba"), log::LevelFilter::Trace)
-                .filter(Some(BINARY_SHORT), log::LevelFilter::Trace);
-        }
-        #[cfg(not(debug_assertions))]
-        {
-            builder
-                .format_module_path(false)
-                .format_target(false)
-                .format_timestamp(None);
-
-            let level = cba::bother::level_filter::from_qv(q, v);
-
-            builder
-                .filter(Some(LIBRARY_FULL), level)
-                .filter(Some("cba"), level)
-                .filter(Some(BINARY_SHORT), level);
-        }
-    }
-
-    log_path.parent().map(cba::bs::create_dir);
-
-    if let Some(log_file) = OpenOptions::new()
-        .truncate(true)
-        .write(true)
-        .create(true)
-        .open(log_path)
-        .prefix(format!(
-            "Failed to open log file @ {}.",
-            log_path.to_string_lossy()
-        ))
-        ._wbog()
-    {
-        builder.target(env_logger::Target::Pipe(Box::new(log_file)));
-    }
-
-    builder.init();
-}
-
 pub fn expand_tilde(path: PathBuf) -> PathBuf {
     let s = path.as_os_str().to_string_lossy();
 
@@ -231,4 +174,44 @@ pub fn expand_tilde(path: PathBuf) -> PathBuf {
     }
 
     path
+}
+
+pub fn guess_clip_cmd() -> Option<(String, String)> {
+    #[cfg(target_os = "macos")]
+    {
+        if which::which("pbcopy").is_ok() && which::which("pbpaste").is_ok() {
+            return Some(("pbcopy".to_string(), "pbpaste".to_string()));
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        if which::which("wl-copy").is_ok() {
+            return Some(("wl-copy".to_string(), "wl-paste".to_string()));
+        }
+
+        if which::which("xclip").is_ok() {
+            return Some((
+                "xclip -selection clipboard -in".to_string(),
+                "xclip -selection clipboard -out".to_string(),
+            ));
+        }
+
+        if which::which("xsel").is_ok() {
+            return Some((
+                "xsel --clipboard --input".to_string(),
+                "xsel --clipboard --output".to_string(),
+            ));
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        return Some((
+            "clip".to_string(),
+            "powershell -command Get-Clipboard".to_string(),
+        ));
+    }
+
+    None
 }

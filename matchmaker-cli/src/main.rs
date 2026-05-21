@@ -1,3 +1,4 @@
+mod _log;
 mod action;
 mod clap;
 mod config;
@@ -8,6 +9,7 @@ mod paths;
 mod start;
 mod utils;
 
+use _log::*;
 use clap::*;
 use config::PartialConfig;
 use paths::*;

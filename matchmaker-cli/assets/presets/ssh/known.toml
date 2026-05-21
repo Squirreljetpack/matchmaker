@@ -34,7 +34,7 @@ prompt_style.fg = "Blue"
 "alt-d" = "@delete"
 
 "@open" = "Execute(ssh -vT {host} 2>&1)"
-"@next" = "Become(mm -o ssh/tailscale)"
+"@next" = "BecomeSilent(mm -o ssh/tailscale)"
 
 # --- Scripts ---
 "@delete" = ["Execute(ssh-keygen -R {host})", "Reload"]

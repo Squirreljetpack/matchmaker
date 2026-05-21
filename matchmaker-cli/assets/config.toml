@@ -167,6 +167,8 @@ separator = "\\0"
 "@open" = "Execute($EDITOR {})"
 "@open_2" = "Become($EDITOR {})"
 "@reload" = "Reload"
+"@next" = "ReloadNext"
+"@prev" = "ReloadPrev"
 "@help" = "Help"
 
 # Printing

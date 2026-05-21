@@ -98,6 +98,7 @@ All colors and modifiers come from ratatui:
 - `ansi`: (bool) Parse ansi codes from input.
   - Absolute alias: `a`.
 - `ax`, `additional_commands`: ([String]) Additional commands that can be cycled through using the ReloadNext action.
+- `mode`: (string) The initial mode of the application (e.g., `vim`). Default is `command` or `piped`.
 
 
 ### Exit (`exit.`, `e`)

@@ -12,6 +12,7 @@ trim = true
 [header]
 header_lines = 1
 content = '[procs]'
+style.modifier = ""
 
 [columns]
 split = ' +'
@@ -56,34 +57,22 @@ command = "echo '### Resources ###\n'; top -pid {2}"
 initial.tail = true
 
 [binds]
+"Reloaded" = '''Transform(
+    HEADERS=(
+      '[procs]'
+      '[ports]'
+    )
+    setopt KSH_ARRAYS 2>/dev/null
+    echo "SetHeader(${HEADERS[$MM_INDEX]})"
+)
+'''
+"@reload" = "ReloadNext"
+"@reload_2" = "ReloadPrev"
+
 "ctrl-r" = "@reload"
 
 "@accept" = "Become(printf '%s\n' {+2})"
 "@accept_2" = "Become(printf '%s\n' {+!})"
-"@reload" = [
-  "ReloadNext",
-  '''Transform(
-    HEADERS=(
-      '[procs]'
-      '[ports]'
-    )
-    setopt KSH_ARRAYS 2>/dev/null
-    echo "SetHeader(${HEADERS[$MM_INDEX]})"
-)
-''',
-]
-"@reload_2" = [
-  "ReloadPrev",
-  '''Transform(
-    HEADERS=(
-      '[procs]'
-      '[ports]'
-    )
-    setopt KSH_ARRAYS 2>/dev/null
-    echo "SetHeader(${HEADERS[$MM_INDEX]})"
-)
-''',
-]
 
 "ctrl-k" = "Execute(kill {2} || read)"
 "alt-k" = "Execute(kill -9 {2} || read)"

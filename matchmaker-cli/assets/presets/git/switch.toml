@@ -95,9 +95,7 @@ content = "branches"
 "ctrl-n" = ["@add_branch", "Reload"]
 
 # --- Scripts ---
-"@reload" = [
-  "ReloadNext",
-  '''Transform(
+"Reloaded" = '''Transform(
     HEADERS=(
       branches
       tags
@@ -106,21 +104,9 @@ content = "branches"
     setopt KSH_ARRAYS 2>/dev/null
     echo "SetHeader(${HEADERS[$MM_INDEX]})"
 )
-''',
-]
-"@reload_2" = [
-  "ReloadPrev",
-  '''Transform(
-    HEADERS=(
-      branches
-      tags
-      remotes
-    )
-    setopt KSH_ARRAYS 2>/dev/null
-    echo "SetHeader(${HEADERS[$MM_INDEX]})"
-)
-''',
-]
+'''
+"@reload" = "ReloadNext"
+"@reload_2" = "ReloadPrev"
 
 "@update" = '''
 Execute(

@@ -68,6 +68,20 @@ style.modifier = ""
 
 # --- Scripts ---
 "Start" = ["Store(0)"]
+"Reloaded" = '''Transform(
+    HEADERS=(
+      '[history]'
+      '[reflog]'
+      '[stash]'
+      '[all_refs]'
+    )
+    setopt KSH_ARRAYS 2>/dev/null
+    echo "SetHeader(${HEADERS[$MM_INDEX]})"
+)
+'''
+"@reload" = "ReloadNext"
+"@reload_2" = "ReloadPrev"
+
 "@open" = "Execute($EDITOR {$1})"
 "@open_2" = []
 
@@ -80,35 +94,6 @@ style.modifier = ""
 # fi
 # )
 # '''
-
-"@reload" = [
-  "ReloadNext",
-  '''Transform(
-    HEADERS=(
-      '[history]'
-      '[reflog]'
-      '[stash]'
-      '[all_refs]'
-    )
-    setopt KSH_ARRAYS 2>/dev/null
-    echo "SetHeader(${HEADERS[$MM_INDEX]})"
-)
-''',
-]
-"@reload_2" = [
-  "ReloadPrev",
-  '''Transform(
-    HEADERS=(
-      '[history]'
-      '[reflog]'
-      '[stash]'
-      '[all_refs]'
-    )
-    setopt KSH_ARRAYS 2>/dev/null
-    echo "SetHeader(${HEADERS[$MM_INDEX]})"
-)
-''',
-]
 
 "@checkout" = '''
 Become(

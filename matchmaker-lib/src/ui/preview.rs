@@ -94,11 +94,11 @@ impl PreviewUI {
 
     pub fn update_dimensions(&mut self, area: &Rect) {
         let mut height = area.height;
-        height -= self.config.border.height().min(height);
+        height -= self.border().height().min(height);
         self.area.height = height;
 
         let mut width = area.width;
-        width -= self.config.border.width().min(width);
+        width -= self.border().width().min(width);
         self.area.width = width;
     }
 

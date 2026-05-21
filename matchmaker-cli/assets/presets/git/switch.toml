@@ -40,8 +40,9 @@ command = '''
 set -- $(git rev-list --left-right --count HEAD..{1})
 behind=$1
 ahead=$2
-theirs=$(git rev-list --count {1})
-echo "behind: $behind ahead: $ahead theirs: $theirs\n"
+commits=$(git rev-list --count {1})
+echo "behind: $behind ahead: $ahead commits: $commits"
+printf '%*s\n' "$COLUMNS" '' | tr ' ' '#'
 git log --color=always --left-right --oneline ...{1}
 '''
 # side = "right"

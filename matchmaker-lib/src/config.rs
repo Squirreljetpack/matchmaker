@@ -832,7 +832,8 @@ impl BorderSetting {
 
     pub fn height(&self) -> u16 {
         let mut height = 0;
-        height += 2 * !self.is_empty() as u16;
+        height += self.sides().contains(Borders::TOP) as u16
+            + self.sides().contains(Borders::BOTTOM) as u16;
         height += self.padding.top + self.padding.bottom;
         height += (!self.title.is_empty() as u16).saturating_sub(!self.is_empty() as u16);
 
@@ -841,7 +842,9 @@ impl BorderSetting {
 
     pub fn width(&self) -> u16 {
         let mut width = 0;
-        width += 2 * !self.is_empty() as u16;
+        width += self.sides().contains(Borders::LEFT) as u16
+            + self.sides().contains(Borders::RIGHT) as u16;
+
         width += self.padding.left + self.padding.right;
 
         width

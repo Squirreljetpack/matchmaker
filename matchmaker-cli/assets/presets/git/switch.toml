@@ -28,6 +28,9 @@ default = 2
 [matcher]
 sort = 20
 
+[envs]
+DFT_COLOR = "always"
+
 # --- Preview ---
 [previewer]
 always_trigger = false
@@ -47,7 +50,7 @@ git log --color=always --left-right --oneline ...{1}
 # max = 120
 
 [[preview.layout]]
-command = '''DFT_COLOR=always git diff --color=always --exit-code {1} -- {$0} && echo "no change"'''
+command = '''git diff --color=always --exit-code {1} -- {$0} && echo "no change"'''
 # side = "top"
 # percentage = 50
 # min = 5

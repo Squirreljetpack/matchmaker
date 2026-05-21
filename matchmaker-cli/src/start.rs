@@ -201,7 +201,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 additional_commands,
             },
         mut exit,
-        mut envs,
+        envs,
     } = config;
 
     if let Some(mut d) = directory {
@@ -250,6 +250,52 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     );
     let previewer = make_previewer(&mut mm, previewer, cli_formatter.clone(), help_str);
 
+    // ---------------------- build options ---------------------------
+    let set_index = !additional_commands.is_empty();
+
+    let bind_tx = event_loop.bind_controller();
+    let mut options = PickOptions::new()
+        .event_loop(event_loop)
+        .matcher(matcher.0)
+        .previewer(previewer)
+        .hidden_columns(hidden_columns)
+        .initializer(move |s| {
+            s.envs.extend(envs.into_iter().filter(|p| !p.1.is_empty()));
+
+            if set_index {
+                s.envs.set("MM_INDEX", 0);
+            }
+
+            if s.envs
+                .get("CLIPcmd")
+                .map(|x| !x.is_empty())
+                .unwrap_or_else(|| {
+                    std::env::var("CLIPcmd")
+                        .ok()
+                        .map_or(false, |x| !x.is_empty())
+                })
+            {
+                if let Some((clip, paste)) = crate::utils::guess_clip_cmd() {
+                    s.envs.set("CLIPcmd", clip);
+
+                    if s.envs
+                        .get("PASTEcmd")
+                        .map(|x| !x.is_empty())
+                        .unwrap_or_else(|| {
+                            std::env::var("PASTEcmd")
+                                .ok()
+                                .map_or(false, |x| !x.is_empty())
+                        })
+                    {
+                        s.envs.set("PASTEcmd", paste);
+                    }
+                }
+            }
+        });
+
+    let render_tx = options.render_tx();
+    let push_fn = inject_line(header_lines, render_tx.clone(), injector);
+
     // ---------------------- register handlers ---------------------------
     // print handler (no quoting)
     mm.register_print_handler(
@@ -264,7 +310,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
 
     // reload handler
     let reload_formatter = cli_formatter.clone();
-
+    let reload_render_tx = render_tx.clone();
     let mut default_reload = (!command.is_empty() && atty::is(atty::Stream::Stdin) || no_read)
         .then_some(command.clone())
         .unwrap_or_default();
@@ -274,6 +320,12 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         let injector = IndexedInjector::new_globally_indexed(injector);
         let injector = SegmentedInjector::new(injector, splitter.clone());
         let injector = AnsiInjector::new(injector, preprocess);
+
+        let push_fn = inject_line(
+            state.picker_ui.header.config.header_lines,
+            reload_render_tx.clone(),
+            injector,
+        );
 
         if !state.payload().is_empty() {
             default_reload = use_formatter(&reload_formatter, state, state.payload(), None);
@@ -292,61 +344,12 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 .spawn_piped()
                 ._elog()
             {
-                map_reader(
-                    stdout,
-                    move |line| injector.push(line),
-                    separator.or(input_separator),
-                    None,
-                );
+                map_reader(stdout, push_fn, separator.or(input_separator), None);
             }
         }
     });
 
     debug!("{mm:?}");
-
-    let set_index = !additional_commands.is_empty();
-
-    let bind_tx = event_loop.bind_controller();
-    let mut options = PickOptions::new()
-        .event_loop(event_loop)
-        .matcher(matcher.0)
-        .previewer(previewer)
-        .hidden_columns(hidden_columns)
-        .initializer(move |s| {
-            if set_index {
-                envs.set("MM_INDEX", 0);
-            }
-
-            if envs
-                .get("CLIPcmd")
-                .map(|x| !x.is_empty())
-                .unwrap_or_else(|| {
-                    std::env::var("CLIPcmd")
-                        .ok()
-                        .map_or(false, |x| !x.is_empty())
-                })
-            {
-                if let Some((clip, paste)) = crate::utils::guess_clip_cmd() {
-                    envs.set("CLIPcmd", clip);
-
-                    if envs
-                        .get("PASTEcmd")
-                        .map(|x| !x.is_empty())
-                        .unwrap_or_else(|| {
-                            std::env::var("PASTEcmd")
-                                .ok()
-                                .map_or(false, |x| !x.is_empty())
-                        })
-                    {
-                        envs.set("PASTEcmd", paste);
-                    }
-                }
-            }
-
-            s.envs = envs;
-        });
-
-    let render_tx = options.render_tx();
 
     let mut action_context = ActionContext {
         bind_tx,
@@ -368,7 +371,6 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         });
 
     // ----------- read -----------------------
-    let push_fn = inject_line(header_lines, render_tx.clone(), injector);
     let handle = if !atty::is(atty::Stream::Stdin) && !no_read {
         let stdin = std::io::stdin();
         map_reader(
@@ -431,7 +433,7 @@ fn inject_line(
                 let rows: Vec<Vec<Line>> = header_buf
                     .drain(..)
                     .map(|seg| {
-                        (0..seg.len())
+                        let row = (0..seg.len())
                             .map(move |i| {
                                 let mut s = seg.get_text(i);
                                 if s.lines.is_empty() {
@@ -440,7 +442,8 @@ fn inject_line(
                                     to_static(s.lines.remove(0))
                                 }
                             })
-                            .collect()
+                            .collect();
+                        trim_trailing_empty(row)
                     })
                     .collect();
 
@@ -452,6 +455,14 @@ fn inject_line(
             injector.push(line)
         }
     }
+}
+
+fn trim_trailing_empty(mut row: Vec<Line>) -> Vec<Line> {
+    while matches!(row.last(), Some(line) if line.iter().all(|x| x.content.is_empty())) {
+        row.pop();
+    }
+
+    row
 }
 
 fn to_static(line: Line<'_>) -> Line<'static> {

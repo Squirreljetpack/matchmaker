@@ -1,7 +1,11 @@
 # Find and kill processes
 
 [start]
-command = "ps -ef"
+command = "ps -eo ppid,pid,user,%cpu,stat,vsz,rss,etime,command"
+additional_commands = [
+  "ps -eo ppid,pid,user,%cpu,stat,vsz,rss,etime,command",
+  "lsof -nP -i",
+]
 ansi = false
 trim = true
 
@@ -10,8 +14,8 @@ header_lines = 1
 
 [columns]
 split = ' +'
-max = 8
-default = 8
+max = 9
+default = 9
 
 [matcher]
 # --- Preview ---
@@ -47,8 +51,8 @@ fi
 command = "echo '### Ports ###\n'; lsof -p {2}"
 
 [[preview.layout]]
-command = "top -pid {2}"
-scroll.tail = true
+command = "echo '### Resources ###\n'; top -pid {2}"
+initial.tail = true
 
 [binds]
 "ctrl-r" = "@reload"
@@ -60,7 +64,6 @@ scroll.tail = true
 
 "ctrl-k" = "Execute(kill {2} || read)"
 "alt-k" = "Execute(kill -9 {2} || read)"
-
 "@copy" = '''
 ExecuteSilent(
 printf '%s\n' {+2} | eval $CLIPcmd

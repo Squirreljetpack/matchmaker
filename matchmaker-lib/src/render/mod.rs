@@ -409,7 +409,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             }
                         }
                         Action::PreviewJump => {
-                            // todo
+                            if let Some(p) = preview_ui.as_mut() {
+                                p.jump()
+                            }
                         }
 
                         // Preview

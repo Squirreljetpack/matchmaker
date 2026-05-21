@@ -17,6 +17,9 @@ default = 3
 [matcher]
 sort = 20
 
+[envs]
+DFT_COLOR = "always"
+
 # --- Preview ---
 [previewer]
 always_trigger = false
@@ -37,9 +40,9 @@ min = 5
 max = 50
 command = '''
 if ((MM_INDEX == 2)); then
-  DFT_COLOR=always git -c color.ui=always stash show -p {1} -- {$0}
+  git -c color.ui=always stash show -p {1} -- {$0}
 else
-  DFT_COLOR=always git diff --color=always --exit-code {1} -- {$0} && echo "no change"
+  git diff --color=always --exit-code {1} -- {$0} && echo "no change"
 fi
 '''
 
@@ -60,12 +63,23 @@ style.modifier = ""
 [binds]
 "enter" = "@checkout"
 "ctrl-t" = ["@tag_or_drop", "Reload"]
-"alt-r" = "@soft-reset"
+"alt-r" = "@soft_reset"
+"alt-s" = "@show"
 
 # --- Scripts ---
 "Start" = ["Store(0)"]
 "@open" = "Execute($EDITOR {$1})"
 "@open_2" = []
+
+# "@show" = '''
+# Execute(
+# if ((MM_INDEX == 2)); then
+#   git -c color.ui=always stash show -p {1} -- {$0}
+# else
+#   git diff --color=always --exit-code {1} -- {$0} && echo "no change"
+# fi
+# )
+# '''
 
 "@reload" = [
   "ReloadNext",
@@ -99,9 +113,11 @@ style.modifier = ""
 "@checkout" = '''
 Become(
 git --no-pager diff --stat {1} -- {$1}
+
 [ -n "$(git status --porcelain -- {$1})" ] &&
 printf 'Proceed? [y/N/s] ' ||
 printf 'Proceed? [y/N] '
+
 read -r c
 case $c in
   [s])
@@ -125,12 +141,88 @@ esac
 )'''
 
 "@soft_reset" = '''Become(
-git diff --name-status {1}..HEAD
-printf "Soft reset to %s? [y/N] " {1}
-read -r ans
-case "$ans" in
-  y|Y) git reset --soft {1} ;;
-  *) echo "cancelled" ;;
+set -e
+
+case $MM_STORE in
+2)
+  TARGET={1}
+  FILES="$(git stash show --name-only "$TARGET" 2>/dev/null || true)"
+  STASHED="$(git rev-parse refs/stash 2>/dev/null || true)"
+
+  if [ -n "$FILES" ] &&
+    printf '%s\n' "$FILES" |
+    git status --porcelain --pathspec-from-file=- |
+    grep -q .
+  then
+    printf 'Affected files are dirty. Proceed? [y/N/s(tash)] '
+  else
+    printf 'Proceed? [y/N] '
+  fi
+
+  read -r c
+  case "$c" in
+    [sS])
+      if [ -n "$FILES" ]; then
+        printf '%s\n' "$FILES" |
+        git stash push -m "temp backup" --pathspec-from-file=-
+      else
+        git stash push -m "temp backup"
+      fi
+      ;;
+    [yY])
+      ;;
+    *)
+      echo "Cancelled."
+      exit 0
+      ;;
+  esac
+
+  # Shift target index if stash was created.
+  NEW_STASH=$(git rev-parse refs/stash 2>/dev/null || true)
+  if [ "$STASHED" != "$NEW_STASH" ] && [ -n "$NEW_STASH" ]; then
+      STASHED=true
+      N=$(echo "$TARGET" | grep -oE '[0-9]+' || echo 0)
+      TARGET="stash@{$((N+1))}"
+  else
+      STASHED=false
+  fi
+
+  printf "Applying %s...\n" "$TARGET"
+  git stash apply "$TARGET"
+
+  printf "\nDiff after applying:\n"
+  git status --short
+  git diff --color=always || true
+
+  printf '\nKeep changes? [y/N/(p)reserve] '
+  read -r ans2
+  case "$ans2" in
+    [yY])
+      git stash drop "$TARGET"
+      ;;
+    [pP])
+      # Preserve: do nothing to the target stash
+      ;;
+    *)
+      echo "Reverting stash..."
+      git stash show -p "$TARGET" | git apply --reverse # kills script on fail
+      ;;
+  esac
+
+  if $STASHED; then
+      echo "Restoring previous working directory state..."
+      git stash pop stash@{0}
+  fi
+  ;;
+*)
+  git diff --name-status {1}..HEAD
+  printf "Soft reset to %s? [y/N] " {1}
+  read -r ans
+  case "$ans" in
+    [yY]*) git reset --soft {1} ;;
+    *) echo "cancelled" ;;
+  esac
+  ;;
 esac
 )'''
 

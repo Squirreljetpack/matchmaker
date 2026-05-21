@@ -748,7 +748,9 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                         // Logic: custom_func expects a Deserializer.
                         // If the field is Option<T>, deserialize_with returns Option<T>, so we assign directly.
                         // If the field is T, deserialize_with returns T, so we must wrap in Some().
-                        let assignment = if is_opt {
+                        let assignment = if field_unwrap {
+                            quote! { self.#field_name = result; }
+                        } else if is_opt {
                             quote! { self.#field_name = result; }
                         } else {
                             quote! { self.#field_name = Some(result); }
@@ -761,11 +763,15 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                         }
                     } else {
                         // Logic: generic deserialize helper returns the inner type T.
-                        // We always assign Some(T).
                         let inner_ty = extract_inner_type_from_option(field_ty);
+                        let assignment = if field_unwrap {
+                            quote! { self.#field_name = deserialized; }
+                        } else {
+                            quote! { self.#field_name = Some(deserialized); }
+                        };
                         quote! {
                             let deserialized = matchmaker_partial::deserialize::<#inner_ty>(val)?;
-                            self.#field_name = Some(deserialized);
+                            #assignment
                         }
                     };
 

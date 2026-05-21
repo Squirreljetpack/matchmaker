@@ -97,7 +97,7 @@ impl DisplayUI {
 
     /// Whether this is table has just one column
     pub fn is_single_column(&self) -> bool {
-        self.text.len() == 1 && self.lines.first().map(|x| x.len() == 1).unwrap_or(true)
+        self.text.len() == 1
     }
 
     pub fn header_table(&mut self, table: HeaderTable) {
@@ -195,7 +195,7 @@ impl DisplayUI {
             self.height += self.lines.len() as u16;
         }
 
-        let widths = if self.is_single_column() {
+        let widths = if self.is_single_column() && self.lines.iter().all(|x| x.len() == 1) {
             vec![Constraint::Percentage(100)]
         } else {
             widths.into_iter().map(Constraint::Length).collect()

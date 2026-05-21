@@ -26,7 +26,7 @@ use cba::{
 use cba::{bo::load_type, broc::CommandExt};
 use log::debug;
 use matchmaker::{
-    Action, ConfigInjector, MatchError, Matchmaker, OddEnds, PickOptions, SSS, acs,
+    Action, ConfigInjector, EnvVarsExt, MatchError, Matchmaker, OddEnds, PickOptions, SSS, acs,
     binds::{BindMap, BindMapExt, display_binds},
     config::{CommandSetting, MatcherConfig, StartConfig},
     event::{EventLoop, RenderSender},
@@ -314,11 +314,11 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         .hidden_columns(hidden_columns)
         .initializer(move |s| {
             if set_index {
-                envs.set("MM_INDEX", 0);
+                envs.env_set("MM_INDEX", 0);
             }
 
             if envs
-                .get("CLIPcmd")
+                .env_get("CLIPcmd")
                 .map(|x| !x.is_empty())
                 .unwrap_or_else(|| {
                     std::env::var("CLIPcmd")
@@ -327,10 +327,10 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 })
             {
                 if let Some((clip, paste)) = crate::utils::guess_clip_cmd() {
-                    envs.set("CLIPcmd", clip);
+                    envs.env_set("CLIPcmd", clip);
 
                     if envs
-                        .get("PASTEcmd")
+                        .env_get("PASTEcmd")
                         .map(|x| !x.is_empty())
                         .unwrap_or_else(|| {
                             std::env::var("PASTEcmd")
@@ -338,7 +338,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                                 .map_or(false, |x| !x.is_empty())
                         })
                     {
-                        envs.set("PASTEcmd", paste);
+                        envs.env_set("PASTEcmd", paste);
                     }
                 }
             }

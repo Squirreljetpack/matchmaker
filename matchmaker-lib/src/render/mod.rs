@@ -21,7 +21,7 @@ use crate::event::{BindSender, EventSender};
 use crate::message::{BindDirective, Event, Interrupt, RenderCommand};
 use crate::tui::Tui;
 use crate::ui::{DisplayUI, OverlayUI, PickerUI, PreviewUI, QueryUI, ResultsUI, UI};
-use crate::{ActionAliaser, ActionExtHandler, Initializer, MatchError, SSS, Selection};
+use crate::{ActionAliaser, ActionExtHandler, EnvVarsExt, Initializer, MatchError, SSS, Selection};
 
 fn apply_aliases<T: SSS, S: Selection, A: ActionExt>(
     buffer: &mut Vec<RenderCommand<A>>,
@@ -478,7 +478,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             state.set_interrupt(Interrupt::ExecuteSilent, payload);
                         }
                         Action::Store(payload) => {
-                            state.envs.set("MM_STORE", payload);
+                            state.envs.env_set("MM_STORE", payload);
                         }
                         Action::Become(payload) => {
                             state.set_interrupt(Interrupt::Become, payload);

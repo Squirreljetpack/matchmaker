@@ -1,6 +1,27 @@
 use std::borrow::Cow;
 
-use cba::define_either;
+use cba::{broc::EnvVars, define_either};
+
+pub trait EnvVarsExt {
+    fn env_set(&mut self, key: impl Into<String>, value: impl ToString);
+    fn env_get(&self, key: &str) -> Option<&String>;
+}
+
+impl EnvVarsExt for EnvVars {
+    fn env_set(&mut self, key: impl Into<String>, value: impl ToString) {
+        let key = key.into();
+        let val = value.to_string();
+        if let Some(pos) = self.iter().position(|(k, _)| k == &key) {
+            self[pos].1 = val;
+        } else {
+            self.push((key, val));
+        }
+    }
+
+    fn env_get(&self, key: &str) -> Option<&String> {
+        self.iter().find(|(k, _)| k == key).map(|(_, v)| v)
+    }
+}
 pub use ratatui::text::Text;
 
 define_either! {

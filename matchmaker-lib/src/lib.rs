@@ -26,5 +26,6 @@ pub mod errors;
 mod utils;
 pub use aliases::*;
 pub use errors::*;
+pub use utils::EnvVarsExt;
 
 pub mod noninteractive;

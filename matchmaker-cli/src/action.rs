@@ -6,7 +6,7 @@ use cba::{
 };
 use log::{debug, error};
 use matchmaker::{
-    Action, Actions, ConfigMMInnerItem, ConfigMMItem,
+    Action, Actions, ConfigMMInnerItem, ConfigMMItem, EnvVarsExt,
     binds::Trigger,
     event::BindSender,
     message::{BindDirective, Interrupt, RenderCommand},
@@ -161,7 +161,7 @@ pub fn action_handler(
                 }
             };
             let payload = &additional_commands.0[index];
-            state.envs.set("MM_INDEX", index);
+            state.envs.env_set("MM_INDEX", index);
             state.set_interrupt(Interrupt::Reload, payload.clone());
         }
 
@@ -177,7 +177,7 @@ pub fn action_handler(
 
             let payload = &additional_commands.0[index];
 
-            state.envs.set("MM_INDEX", index);
+            state.envs.env_set("MM_INDEX", index);
 
             state.set_interrupt(Interrupt::Reload, payload.clone());
         }

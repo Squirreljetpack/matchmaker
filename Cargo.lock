@@ -309,6 +309,8 @@ checksum = "3a822ea5bc7590f9d40f1ba12c0dc3c2760f3482c6984db1573ad11031420831"
 [[package]]
 name = "cli_boilerplate_automation"
 version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1208fe79e9a7752a9b3e2123f5b1d12ab0eac9b2f560d07e65abb5403b7cc982"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1370,6 +1372,7 @@ dependencies = [
 [[package]]
 name = "nucleo"
 version = "0.5.0"
+source = "git+https://github.com/Squirreljetpack/nucleo?branch=mm#39e4023c5f6b4f4ff778281548398a0959d13b57"
 dependencies = [
  "log",
  "nucleo-matcher",
@@ -1380,6 +1383,7 @@ dependencies = [
 [[package]]
 name = "nucleo-matcher"
 version = "0.3.1"
+source = "git+https://github.com/Squirreljetpack/nucleo?branch=mm#39e4023c5f6b4f4ff778281548398a0959d13b57"
 dependencies = [
  "memchr",
  "unicode-segmentation",

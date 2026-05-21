@@ -5,10 +5,8 @@ use std::{
 
 use serde::{Deserialize, Serialize, Serializer};
 
-use crate::{
-    MAX_ACTIONS, SSS,
-    utils::{serde::StringOrVec, string::is_valid_semantic_name},
-};
+use crate::utils::string::allowed_semantic_char;
+use crate::{MAX_ACTIONS, SSS, utils::serde::StringOrVec};
 
 /// Bindable actions
 /// # Additional
@@ -420,7 +418,7 @@ macro_rules! enum_from_str_display {
                 }
 
                 if let Some(s) = s.strip_prefix("@") {
-                    if is_valid_semantic_name(s) {
+                    if s.chars().all(allowed_semantic_char) && !s.is_empty() {
                         return Ok(Self::Semantic(s.to_string()));
                     } else if !s.is_empty() {
                         return Err(format!("Invalid semantic trigger name: @{s}. Allowed characters are alphanumeric, space, and -_.:/+$@"));

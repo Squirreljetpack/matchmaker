@@ -69,13 +69,8 @@ pub fn resolve_escapes(s: &str) -> String {
 }
 
 /// Check if a character is allowed in a semantic trigger name.
-pub fn is_valid_semantic_char(c: char) -> bool {
+pub fn allowed_semantic_char(c: char) -> bool {
     c.is_alphanumeric() || matches!(c, ' ' | '-' | '_' | '.' | ':' | '/' | '+' | '@' | '$')
-}
-
-/// Check if a string is a valid semantic trigger name (without the '@' prefix).
-pub fn is_valid_semantic_name(s: &str) -> bool {
-    !s.is_empty() && s.chars().all(is_valid_semantic_char)
 }
 
 /// Allocates widths to a constrained available space while preserving order relations,

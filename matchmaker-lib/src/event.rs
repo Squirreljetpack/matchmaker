@@ -1,5 +1,5 @@
-use crate::action::{Action, ActionExt, NullActionExt};
-use crate::binds::{BindMap, BindMapExt, Trigger};
+use crate::action::{Action, ActionExt, Actions, NullActionExt};
+use crate::binds::{BindMap, BindMapExt, SimpleMouseEvent, Trigger, TriggerKind};
 use crate::message::{BindDirective, Event, RenderCommand};
 use anyhow::Result;
 use cba::bait::ResultExt;
@@ -41,6 +41,7 @@ pub struct EventLoop<A: ActionExt> {
 
     key_file: Option<PathBuf>,
     current_task: Option<tokio::task::JoinHandle<Result<()>>>,
+    pub mode: String,
 }
 
 impl<A: ActionExt> Default for EventLoop<A> {
@@ -75,6 +76,7 @@ impl<A: ActionExt> EventLoop<A> {
 
             bind_rx,
             bind_tx,
+            mode: String::new(),
         }
     }
 
@@ -120,6 +122,23 @@ impl<A: ActionExt> EventLoop<A> {
         self.bind_tx.clone()
     }
 
+    fn get_bind(&self, kind: TriggerKind) -> Option<Actions<A>> {
+        self.binds
+            .get(&Trigger {
+                kind: kind.clone(),
+                mode: self.mode.clone(),
+            })
+            .or_else(|| {
+                (!self.mode.is_empty()).then(|| {
+                    self.binds.get(&Trigger {
+                        kind,
+                        mode: String::new(),
+                    })
+                })?
+            })
+            .cloned()
+    }
+
     fn handle_event(&mut self, e: Event) {
         debug!("Received: {e}");
 
@@ -134,7 +153,7 @@ impl<A: ActionExt> EventLoop<A> {
             }
             _ => {}
         }
-        if let Some(actions) = self.binds.get(&e.into()).cloned() {
+        if let Some(actions) = self.get_bind(TriggerKind::Event(e)) {
             self.send_actions(actions, None);
         }
     }
@@ -230,7 +249,7 @@ impl<A: ActionExt> EventLoop<A> {
                 // In case ctrl-c manifests as a signal instead of a key
                 _ = tokio::signal::ctrl_c() => {
                     self.record_key("ctrl-c".into());
-                    if let Some(actions) = self.binds.get(&key!(ctrl-c).into()).cloned() {
+                    if let Some(actions) = self.get_bind(TriggerKind::Key(key!(ctrl-c))) {
                         self.send_actions(actions, Some("ctrl-c".into()));
                     } else {
                         self.send(RenderCommand::quit());
@@ -264,11 +283,10 @@ impl<A: ActionExt> EventLoop<A> {
                                     if let Some(key) = self.combiner.transform(k) {
                                         info!("{key:?}");
                                         let key = KeyCombination::normalized(key);
-                                        if let Some(actions) = self.binds.get(&key.into()).cloned() {
+                                        if let Some(actions) = self.get_bind(TriggerKind::Key(key)) {
                                             self.record_key(key.to_string());
                                             self.send_actions(actions, Some(key.to_string()));
-                                        } else if let Some(c) = key_code_as_letter(key) {
-                                            self.send(RenderCommand::Action(Action::Char(c)));
+                                        } else if let Some(c) = key_code_as_letter(key) {                                            self.send(RenderCommand::Action(Action::Char(c)));
                                         } else {
                                             let mut matched = true;
                                             // a basic set of keys to ensure basic usability
@@ -300,7 +318,10 @@ impl<A: ActionExt> EventLoop<A> {
                                     }
                                 }
                                 CrosstermEvent::Mouse(mouse) => {
-                                    if let Some(actions) = self.binds.get(&mouse.into()).cloned() {
+                                    if let Some(actions) = self.get_bind(TriggerKind::Mouse(SimpleMouseEvent {
+                                        kind: mouse.kind,
+                                        modifiers: mouse.modifiers,
+                                    })) {
                                         self.send_actions(actions, None);
                                     } else if !matches!(mouse.kind, MouseEventKind::Moved) {
                                         // mouse binds can be disabled by overriding with empty action
@@ -371,7 +392,7 @@ impl<A: ActionExt> EventLoop<A> {
                     }
                 }
                 Action::Semantic(s) => {
-                    if let Some(actions) = self.binds.get(&Trigger::Semantic(s)) {
+                    if let Some(actions) = self.get_bind(TriggerKind::Semantic(s)) {
                         self.send_actions(actions.clone(), None);
                     }
                 }

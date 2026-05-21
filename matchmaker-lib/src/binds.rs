@@ -15,7 +15,7 @@ use crate::{
     action::{Action, ActionExt, Actions, NullActionExt},
     config::HelpColorConfig,
     message::Event,
-    utils::string::is_valid_semantic_char,
+    utils::string::allowed_semantic_char,
 };
 
 pub use crate::bindmap;
@@ -96,7 +96,10 @@ impl<A: ActionExt> BindMap<A> {
         }
 
         path.push(current.to_string());
-        if let Some(actions) = self.get(&Trigger::Semantic(current.to_string())) {
+        if let Some(actions) = self.get(&Trigger {
+            kind: TriggerKind::Semantic(current.to_string()),
+            mode: String::new(),
+        }) {
             for action in actions {
                 if let Action::Semantic(next) = action {
                     self.dfs_semantic(next, path)?;
@@ -132,7 +135,10 @@ impl<A: ActionExt> BindMap<A> {
 
                     // Trace the chain of single semantic actions
                     loop {
-                        let next_trigger = Trigger::Semantic(current_s.clone());
+                        let next_trigger = Trigger {
+                            kind: TriggerKind::Semantic(current_s.clone()),
+                            mode: String::new(),
+                        };
                         match self.get(&next_trigger) {
                             Some(next_actions) if next_actions.len() == 1 => {
                                 if let Action::Semantic(next_s) = &next_actions[0] {
@@ -188,14 +194,14 @@ impl<A: ActionExt> BindMap<A> {
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
-/// A trigger that activates a binding.
+/// A trigger kind that activates a binding.
 ///
 /// Supported variants:
 /// - `Key`: A keyboard combination (e.g., `ctrl-c`, `enter`, `a`). Parsed using `crokey`.
 /// - `Mouse`: A mouse event with optional modifiers (e.g., `left`, `ctrl+scrollup`).
 /// - `Event`: A lifecycle or UI event (e.g., `Start`, `QueryChange`).
 /// - `Semantic`: A (nonempty) named alias prefixed with `@` (e.g., `@open`). See [`is_valid_semantic_char`].
-pub enum Trigger {
+pub enum TriggerKind {
     Key(KeyCombination),
     Mouse(SimpleMouseEvent),
     Event(Event),
@@ -204,25 +210,36 @@ pub enum Trigger {
     Semantic(String),
 }
 
-// impl Ord for Trigger {
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+pub struct Trigger {
+    pub kind: TriggerKind,
+    pub mode: String,
+}
+
+// impl Ord for TriggerKind {
 //     fn cmp(&self, other: &Self) -> Ordering {
-//         use Trigger::*;
+//         use TriggerKind::*;
 
 //         match (self, other) {
 //             (Key(a), Key(b)) => a.to_string().cmp(&b.to_string()),
 //             (Mouse(a), Mouse(b)) => a.cmp(b),
 //             (Event(a), Event(b)) => a.cmp(b),
+//             (Semantic(a), Semantic(b)) => a.cmp(b),
 
 //             // define variant order
 //             (Key(_), _) => Ordering::Less,
 //             (Mouse(_), Key(_)) => Ordering::Greater,
 //             (Mouse(_), Event(_)) => Ordering::Less,
-//             (Event(_), _) => Ordering::Greater,
+//             (Mouse(_), Semantic(_)) => Ordering::Less,
+//             (Event(_), Key(_)) => Ordering::Greater,
+//             (Event(_), Mouse(_)) => Ordering::Greater,
+//             (Event(_), Semantic(_)) => Ordering::Less,
+//             (Semantic(_), _) => Ordering::Greater,
 //         }
 //     }
 // }
 
-// impl PartialOrd for Trigger {
+// impl PartialOrd for TriggerKind {
 //     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
 //         Some(self.cmp(other))
 //     }
@@ -253,31 +270,40 @@ impl PartialOrd for SimpleMouseEvent {
 // ---------- BOILERPLATE
 impl From<crossterm::event::MouseEvent> for Trigger {
     fn from(e: crossterm::event::MouseEvent) -> Self {
-        Trigger::Mouse(SimpleMouseEvent {
-            kind: e.kind,
-            modifiers: e.modifiers,
-        })
+        Trigger {
+            kind: TriggerKind::Mouse(SimpleMouseEvent {
+                kind: e.kind,
+                modifiers: e.modifiers,
+            }),
+            mode: String::new(),
+        }
     }
 }
 
 impl From<KeyCombination> for Trigger {
     fn from(key: KeyCombination) -> Self {
-        Trigger::Key(key)
+        Trigger {
+            kind: TriggerKind::Key(key),
+            mode: String::new(),
+        }
     }
 }
 
 impl From<Event> for Trigger {
     fn from(event: Event) -> Self {
-        Trigger::Event(event)
+        Trigger {
+            kind: TriggerKind::Event(event),
+            mode: String::new(),
+        }
     }
 }
 // ------------ SERDE
 
-impl Display for Trigger {
+impl Display for TriggerKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Trigger::Key(key) => write!(f, "{}", key),
-            Trigger::Mouse(event) => {
+            TriggerKind::Key(key) => write!(f, "{}", key),
+            TriggerKind::Mouse(event) => {
                 if event.modifiers.contains(KeyModifiers::SHIFT) {
                     write!(f, "shift+")?;
                 }
@@ -298,9 +324,18 @@ impl Display for Trigger {
                 }
                 write!(f, "{}", mouse_event_kind_as_str(event.kind))
             }
-            Trigger::Event(event) => write!(f, "{}", event),
-            Trigger::Semantic(alias) => write!(f, "@{alias}"),
+            TriggerKind::Event(event) => write!(f, "{}", event),
+            TriggerKind::Semantic(alias) => write!(f, "@{alias}"),
         }
+    }
+}
+
+impl Display for Trigger {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if !self.mode.is_empty() {
+            write!(f, "{}^^", self.mode)?;
+        }
+        write!(f, "{}", self.kind)
     }
 }
 
@@ -326,14 +361,14 @@ pub fn mouse_event_kind_as_str(kind: MouseEventKind) -> &'static str {
     }
 }
 
-impl FromStr for Trigger {
+impl FromStr for TriggerKind {
     type Err = String;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         // try semantic
         if let Some(s) = value.strip_prefix("@") {
-            if s.chars().all(is_valid_semantic_char) && !s.is_empty() {
-                return Ok(Trigger::Semantic(s.to_string()));
+            if s.chars().all(allowed_semantic_char) && !s.is_empty() {
+                return Ok(TriggerKind::Semantic(s.to_string()));
             } else if !s.is_empty() {
                 return Err(format!(
                     "Invalid semantic trigger name: @{s}. Allowed characters are alphanumeric, space, and -_.:/+$@"
@@ -343,7 +378,7 @@ impl FromStr for Trigger {
 
         // 1. Try KeyCombination
         if let Ok(key) = KeyCombination::from_str(value) {
-            return Ok(Trigger::Key(key));
+            return Ok(TriggerKind::Key(key));
         }
 
         // 2. Try MouseEvent
@@ -374,14 +409,36 @@ impl FromStr for Trigger {
                 }
             }
 
-            return Ok(Trigger::Mouse(SimpleMouseEvent { kind, modifiers }));
+            return Ok(TriggerKind::Mouse(SimpleMouseEvent { kind, modifiers }));
         }
 
         if let Ok(event) = value.parse::<Event>() {
-            return Ok(Trigger::Event(event));
+            return Ok(TriggerKind::Event(event));
         }
 
-        Err(format!("failed to parse trigger from '{}'", value))
+        Err(format!("failed to parse trigger kind from '{}'", value))
+    }
+}
+
+impl FromStr for Trigger {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if let Some((mode, kind_str)) = value.split_once("^^") {
+            if !mode.is_empty() && mode.chars().all(|c| c.is_alphanumeric()) {
+                let kind = TriggerKind::from_str(kind_str)?;
+                return Ok(Trigger {
+                    kind,
+                    mode: mode.to_string(),
+                });
+            }
+        }
+
+        let kind = TriggerKind::from_str(value)?;
+        Ok(Trigger {
+            kind,
+            mode: String::new(),
+        })
     }
 }
 
@@ -423,7 +480,7 @@ pub fn display_binds<A: ActionExt + Display>(
     // Collect trigger and action strings
     let mut entries: Vec<(String, Vec<String>)> = binds
         .iter()
-        .filter(|(trigger, _)| !hide_semantic || !matches!(trigger, Trigger::Semantic(_)))
+        .filter(|(trigger, _)| !hide_semantic || !matches!(trigger.kind, TriggerKind::Semantic(_)))
         .map(|(trigger, actions)| {
             (
                 trigger.to_string(),
@@ -506,10 +563,13 @@ mod test {
         let mut bind_map: BindMap = BindMap::new();
 
         // Insert trigger with default actions
-        let trigger0 = Trigger::Mouse(SimpleMouseEvent {
-            kind: MouseEventKind::ScrollDown,
-            modifiers: KeyModifiers::empty(),
-        });
+        let trigger0 = Trigger {
+            kind: TriggerKind::Mouse(SimpleMouseEvent {
+                kind: MouseEventKind::ScrollDown,
+                modifiers: KeyModifiers::empty(),
+            }),
+            mode: String::new(),
+        };
         bind_map.insert(trigger0.clone(), Actions::default());
 
         // Construct via From<MouseEvent>
@@ -525,10 +585,13 @@ mod test {
         assert!(bind_map.contains_key(&from_event));
 
         // Shift-modified trigger should NOT be found
-        let shift_trigger = Trigger::Mouse(SimpleMouseEvent {
-            kind: MouseEventKind::ScrollDown,
-            modifiers: KeyModifiers::SHIFT,
-        });
+        let shift_trigger = Trigger {
+            kind: TriggerKind::Mouse(SimpleMouseEvent {
+                kind: MouseEventKind::ScrollDown,
+                modifiers: KeyModifiers::SHIFT,
+            }),
+            mode: String::new(),
+        };
         assert!(!bind_map.contains_key(&shift_trigger));
     }
 
@@ -536,11 +599,14 @@ mod test {
     fn test_semantic_parsing() {
         assert_eq!(
             Trigger::from_str("@foo").unwrap(),
-            Trigger::Semantic("foo".into())
+            Trigger {
+                kind: TriggerKind::Semantic("foo".into()),
+                mode: String::new()
+            }
         );
         let trigger = Trigger::from_str("@").unwrap();
         // "@" itself is a valid key, but should NOT be parsed as a Semantic trigger.
-        assert!(matches!(trigger, Trigger::Key(_)));
+        assert!(matches!(trigger.kind, TriggerKind::Key(_)));
 
         assert_eq!(
             Action::<NullActionExt>::from_str("@foo").unwrap(),
@@ -556,28 +622,65 @@ mod test {
     }
 
     #[test]
+    fn test_mode_parsing() {
+        let t = Trigger::from_str("vim^^a").unwrap();
+        assert_eq!(t.mode, "vim".to_string());
+        assert_eq!(t.kind, TriggerKind::Key(key!(a)));
+        assert_eq!(t.to_string(), "vim^^a");
+
+        let t2 = Trigger::from_str("a").unwrap();
+        assert_eq!(t2.mode, String::new());
+        assert_eq!(t2.kind, TriggerKind::Key(key!(a)));
+        assert_eq!(t2.to_string(), "a");
+
+        // Invalid mode (non-alphanumeric) -> whole string parsed as TriggerKind, which fails here
+        assert!(Trigger::from_str("v-im^^a").is_err());
+
+        // Empty mode -> whole string parsed as TriggerKind, which fails here
+        assert!(Trigger::from_str("^^a").is_err());
+    }
+
+    #[test]
     fn test_check_cycles() {
         use crate::bindmap;
         let bind_map: BindMap = bindmap!(
-            Trigger::Semantic("a".into()) => Action::Semantic("b".into()),
-            Trigger::Semantic("b".into()) => Action::Semantic("a".into()),
+            Trigger {
+                kind: TriggerKind::Semantic("a".into()),
+                mode: String::new()
+            } => Action::Semantic("b".into()),
+            Trigger {
+                kind: TriggerKind::Semantic("b".into()),
+                mode: String::new()
+            } => Action::Semantic("a".into()),
         );
         assert!(bind_map.check_cycles().is_err());
 
         let bind_map_no_cycle: BindMap = bindmap!(
-            Trigger::Semantic("a".into()) => Action::Semantic("b".into()),
-            Trigger::Semantic("b".into()) => Action::Print("ok".into()),
+            Trigger {
+                kind: TriggerKind::Semantic("a".into()),
+                mode: String::new()
+            } => Action::Semantic("b".into()),
+            Trigger {
+                kind: TriggerKind::Semantic("b".into()),
+                mode: String::new()
+            } => Action::Print("ok".into()),
         );
         assert!(bind_map_no_cycle.check_cycles().is_ok());
 
         let bind_map_self_cycle: BindMap = bindmap!(
-            Trigger::Semantic("a".into()) => Action::Semantic("a".into()),
+            Trigger {
+                kind: TriggerKind::Semantic("a".into()),
+                mode: String::new()
+            } => Action::Semantic("a".into()),
         );
         assert!(bind_map_self_cycle.check_cycles().is_err());
 
         let bind_map_indirect_cycle: BindMap = bindmap!(
             key!(a) => Action::Semantic("foo".into()),
-            Trigger::Semantic("foo".into()) => Action::Semantic("foo".into()),
+            Trigger {
+                kind: TriggerKind::Semantic("foo".into()),
+                mode: String::new()
+            } => Action::Semantic("foo".into()),
         );
         assert!(bind_map_indirect_cycle.check_cycles().is_err());
     }
@@ -590,38 +693,62 @@ mod test {
         // Chain: key(a) -> @s1 -> @s2 -> concrete
         let mut bind_map: BindMap<NullActionExt> = bindmap!(
             key!(a) => Action::Semantic("s1".into()),
-            Trigger::Semantic("s1".into()) => Action::Semantic("s2".into()),
-            Trigger::Semantic("s2".into()) => Action::Accept,
+            Trigger {
+                kind: TriggerKind::Semantic("s1".into()),
+                mode: String::new()
+            } => Action::Semantic("s2".into()),
+            Trigger {
+                kind: TriggerKind::Semantic("s2".into()),
+                mode: String::new()
+            } => Action::Accept,
         );
         bind_map.resolve_semantics();
         assert_eq!(
-            bind_map.get(&Trigger::Key(key!(a))).unwrap().0[0],
+            bind_map.get(&key!(a).into()).unwrap().0[0],
             Action::Semantic("s2".into())
         );
         assert_eq!(
-            bind_map.get(&Trigger::Semantic("s1".into())).unwrap().0[0],
+            bind_map
+                .get(&Trigger {
+                    kind: TriggerKind::Semantic("s1".into()),
+                    mode: String::new()
+                })
+                .unwrap()
+                .0[0],
             Action::Semantic("s2".into())
         );
 
         // Unbound: key(b) -> @s3 -> @s4 -> unbound
         let mut bind_map_unbound: BindMap<NullActionExt> = bindmap!(
             key!(b) => Action::Semantic("s3".into()),
-            Trigger::Semantic("s3".into()) => Action::Semantic("s4".into()),
+            Trigger {
+                kind: TriggerKind::Semantic("s3".into()),
+                mode: String::new()
+            } => Action::Semantic("s4".into()),
         );
         bind_map_unbound.resolve_semantics();
-        assert!(!bind_map_unbound.contains_key(&Trigger::Key(key!(b))));
-        assert!(!bind_map_unbound.contains_key(&Trigger::Semantic("s3".into())));
+        assert!(!bind_map_unbound.contains_key(&key!(b).into()));
+        assert!(!bind_map_unbound.contains_key(&Trigger {
+            kind: TriggerKind::Semantic("s3".into()),
+            mode: String::new()
+        }));
 
         // Multi-action chain: key(c) -> @s5 -> [@s6, Accept]
         let mut bind_map_multi: BindMap<NullActionExt> = bindmap!(
             key!(c) => Action::Semantic("s5".into()),
-            Trigger::Semantic("s5".into()) => [Action::Semantic("s6".into()), Action::Accept],
-            Trigger::Semantic("s6".into()) => Action::Cancel,
+            Trigger {
+                kind: TriggerKind::Semantic("s5".into()),
+                mode: String::new()
+            } => [Action::Semantic("s6".into()), Action::Accept],
+            Trigger {
+                kind: TriggerKind::Semantic("s6".into()),
+                mode: String::new()
+            } => Action::Cancel,
         );
         bind_map_multi.resolve_semantics();
         // key(c) should still point to @s5 because @s5 has multiple actions.
         assert_eq!(
-            bind_map_multi.get(&Trigger::Key(key!(c))).unwrap().0[0],
+            bind_map_multi.get(&key!(c).into()).unwrap().0[0],
             Action::Semantic("s5".into())
         );
     }
@@ -630,7 +757,10 @@ mod test {
     fn test_display_binds_semantic_help() {
         let binds: BindMap<NullActionExt> = bindmap!(
             key!(a) => Action::Print("a".into()),
-            Trigger::Semantic("foo".into()) => Action::Print("foo".into()),
+            Trigger {
+                kind: TriggerKind::Semantic("foo".into()),
+                mode: String::new()
+            } => Action::Print("foo".into()),
         );
 
         // With semantic help

@@ -638,6 +638,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 Interrupt::Reload => {
                     picker_ui.worker.restart(false);
                     state.synced = [false; 2];
+                    let _ = controller_tx.send(Event::Reloaded);
                 }
                 Interrupt::Become => {
                     tui.exit();

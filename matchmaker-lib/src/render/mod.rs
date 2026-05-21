@@ -16,7 +16,7 @@ use tokio::sync::mpsc;
 #[cfg(feature = "bracketed-paste")]
 use crate::PasteHandler;
 use crate::action::{Action, ActionExt};
-use crate::config::{CursorSetting, ExitConfig, RowConnectionStyle};
+use crate::config::{CursorSetting, ExitConfig, RowConnectionStyle, Side};
 use crate::event::{BindSender, EventSender};
 use crate::message::{BindDirective, Event, Interrupt, RenderCommand};
 use crate::tui::Tui;
@@ -79,6 +79,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
     }
 
     let mut click = Click::None;
+    let mut dragging_preview = false;
 
     // place the initial command in the state where the preview listener can access
     if let Some(ref p) = preview_ui {
@@ -178,7 +179,12 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
                     match mouse.kind {
                         MouseEventKind::Down(MouseButton::Left) => {
-                            if layout.results.contains(pos) {
+                            if layout.gap.width > 0
+                                && layout.gap.height > 0
+                                && layout.gap.contains(pos)
+                            {
+                                dragging_preview = true;
+                            } else if layout.results.contains(pos) {
                                 click = Click::ResultPos(mouse.row - layout.results.top());
                             } else if layout.input.contains(pos) {
                                 // The X offset of the start of the visible text relative to the terminal
@@ -259,7 +265,40 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                 }
                             }
                         }
-                        // Drag tracking: todo
+                        MouseEventKind::Drag(MouseButton::Left) => {
+                            if dragging_preview {
+                                if let Some(p) = preview_ui.as_mut() {
+                                    let info = p.setting().map(|s| {
+                                        (s.layout.side.clone(), s.layout.min, s.layout.max)
+                                    });
+                                    if let Some((side, min, max)) = info {
+                                        let ta = layout.total_area;
+                                        let total = match side {
+                                            Side::Left | Side::Right => ta.width,
+                                            Side::Top | Side::Bottom => ta.height,
+                                        };
+                                        let raw = match side {
+                                            Side::Right => ta.right().saturating_sub(pos.x),
+                                            Side::Left => pos.x.saturating_sub(ta.x) + 1,
+                                            Side::Bottom => ta.bottom().saturating_sub(pos.y),
+                                            Side::Top => pos.y.saturating_sub(ta.y) + 1,
+                                        };
+                                        let min_u16 = min.max(0) as u16;
+                                        let max_u16 = if max < 0 {
+                                            total.saturating_sub((-max) as u16)
+                                        } else {
+                                            (max as u16).min(total)
+                                        };
+                                        let clamped =
+                                            raw.clamp(min_u16, max_u16.max(min_u16));
+                                        p.drag_size = Some(clamped);
+                                    }
+                                }
+                            }
+                        }
+                        MouseEventKind::Up(MouseButton::Left) => {
+                            dragging_preview = false;
+                        }
                         _ => {}
                     }
                 }
@@ -717,30 +756,36 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         Rect::default()
                     };
 
-                let [preview, picker_area, footer] = if let Some(preview_ui) = preview_ui.as_mut()
-                    && preview_ui.visible()
-                    && let Some(setting) = preview_ui.setting()
-                {
-                    let layout = &setting.layout;
+                let [preview, picker_area, footer, gap_rect] =
+                    if let Some(preview_ui) = preview_ui.as_mut()
+                        && preview_ui.visible()
+                        && let Some(setting) = preview_ui.setting()
+                    {
+                        let layout = &setting.layout;
+                        let drag_size = preview_ui.drag_size;
 
-                    let [preview, mut picker_area] = layout.split(_area);
+                        let [preview, mut picker_area, gap_rect] =
+                            layout.split(_area, drag_size);
 
-                    if state.iterations == 0 && picker_area.width <= 5 {
-                        warn!("UI too narrow, hiding preview");
-                        preview_ui.show(false);
+                        if state.iterations == 0 && picker_area.width <= 5 {
+                            warn!("UI too narrow, hiding preview");
+                            preview_ui.show(false);
 
-                        [Rect::default(), _area, footer]
-                    } else {
-                        if !full_width_footer {
-                            footer =
-                                split(&mut picker_area, footer_ui.height(), picker_ui.reverse());
+                            [Rect::default(), _area, footer, Rect::default()]
+                        } else {
+                            if !full_width_footer {
+                                footer = split(
+                                    &mut picker_area,
+                                    footer_ui.height(),
+                                    picker_ui.reverse(),
+                                );
+                            }
+
+                            [preview, picker_area, footer, gap_rect]
                         }
-
-                        [preview, picker_area, footer]
-                    }
-                } else {
-                    [Rect::default(), _area, footer]
-                };
+                    } else {
+                        [Rect::default(), _area, footer, Rect::default()]
+                    };
 
                 let [input, status, header, results] = picker_ui.layout(picker_area);
 
@@ -752,6 +797,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     header,
                     results,
                     footer,
+                    gap: gap_rect,
+                    total_area: _area,
                 });
 
                 if did_resize {

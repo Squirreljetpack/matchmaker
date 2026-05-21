@@ -225,7 +225,9 @@ impl<'a, T: SSS, O: Selection> PickerUI<'a, T, O> {
 }
 
 impl PreviewLayout {
-    pub fn split(&self, area: Rect) -> [Rect; 2] {
+    /// Returns `[preview, picker, gap]` rects.
+    /// `drag_size` overrides the percentage-based computation when set (absolute columns/rows).
+    pub fn split(&self, area: Rect, drag_size: Option<u16>) -> [Rect; 3] {
         use crate::config::Side;
         use ratatui::layout::{Constraint, Direction, Layout};
 
@@ -254,12 +256,21 @@ impl PreviewLayout {
             self.max as u16
         };
 
-        let side_size = if min <= max {
+        let side_size = if let Some(ds) = drag_size {
+            if min <= max {
+                ds.clamp(min, max.max(min))
+            } else {
+                ds.max(min)
+            }
+        } else if min <= max {
             self.percentage.compute_clamped(total, min, max)
         } else {
             log::error!("PreviewLayout min > max: {min} > {max}. Ignoring max.");
             self.percentage.compute_clamped(total, min, 0)
         };
+
+        let gap = self.gap.min(total.saturating_sub(side_size));
+        let side_size = side_size.saturating_sub(gap);
 
         let side_constraint = Constraint::Length(side_size);
 
@@ -274,10 +285,60 @@ impl PreviewLayout {
             .constraints(constraints)
             .split(area);
 
-        if side_first {
-            [chunks[0], chunks[1]]
-        } else {
-            [chunks[1], chunks[0]]
+        let mut preview = if side_first { chunks[0] } else { chunks[1] };
+        let mut picker = if side_first { chunks[1] } else { chunks[0] };
+
+        match self.side {
+            Side::Left => {
+                preview.width = preview.width.saturating_sub(gap);
+                picker.x = picker.x.saturating_add(gap);
+                picker.width = picker.width.saturating_sub(gap);
+            }
+            Side::Right => {
+                preview.x = preview.x.saturating_add(gap);
+                preview.width = preview.width.saturating_sub(gap);
+                picker.width = picker.width.saturating_sub(gap);
+            }
+            Side::Top => {
+                preview.height = preview.height.saturating_sub(gap);
+                picker.y = picker.y.saturating_add(gap);
+                picker.height = picker.height.saturating_sub(gap);
+            }
+            Side::Bottom => {
+                preview.y = preview.y.saturating_add(gap);
+                preview.height = preview.height.saturating_sub(gap);
+                picker.height = picker.height.saturating_sub(gap);
+            }
         }
+
+        // The gap rect is the empty strip between picker and preview.
+        let gap_rect = match self.side {
+            Side::Right => Rect {
+                x: picker.right(),
+                y: area.y,
+                width: preview.x.saturating_sub(picker.right()),
+                height: area.height,
+            },
+            Side::Left => Rect {
+                x: preview.right(),
+                y: area.y,
+                width: picker.x.saturating_sub(preview.right()),
+                height: area.height,
+            },
+            Side::Top => Rect {
+                x: area.x,
+                y: preview.bottom(),
+                width: area.width,
+                height: picker.y.saturating_sub(preview.bottom()),
+            },
+            Side::Bottom => Rect {
+                x: area.x,
+                y: picker.bottom(),
+                width: area.width,
+                height: preview.y.saturating_sub(picker.bottom()),
+            },
+        };
+
+        [preview, picker, gap_rect]
     }
 }

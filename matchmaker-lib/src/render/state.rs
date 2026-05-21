@@ -18,6 +18,10 @@ pub struct Layout {
     pub header: Rect,
     pub results: Rect,
     pub footer: Rect,
+    /// The gap area between the preview pane and the picker pane (used for drag-to-resize).
+    pub gap: Rect,
+    /// The combined preview+picker area (used to compute drag sizes).
+    pub total_area: Rect,
 }
 
 #[derive(Default, Debug)]

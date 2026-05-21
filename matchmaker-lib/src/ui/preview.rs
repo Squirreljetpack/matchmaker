@@ -28,6 +28,8 @@ pub struct PreviewUI {
     initial: PreviewInitialSetting,
 
     show: bool,
+    /// Runtime drag-to-resize override (absolute columns/rows). Overrides percentage when set.
+    pub(crate) drag_size: Option<u16>,
 }
 
 impl PreviewUI {
@@ -82,6 +84,7 @@ impl PreviewUI {
             target: None,
             attained_target: false,
             show,
+            drag_size: None,
         }
     }
 

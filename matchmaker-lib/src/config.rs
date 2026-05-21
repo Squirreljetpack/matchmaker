@@ -912,6 +912,8 @@ pub struct PreviewLayout {
     #[serde(alias = "p")]
     // we need serde here since its specified inside the value but i don't think there's another case for it.
     pub percentage: Percentage,
+    /// Empty space between the preview pane and the picker pane.
+    pub gap: u16,
     pub min: i16,
     pub max: i16,
 }
@@ -921,6 +923,7 @@ impl Default for PreviewLayout {
         Self {
             side: Side::Right,
             percentage: Percentage::new(60),
+            gap: 1,
             min: 15,
             max: 120,
         }

@@ -751,19 +751,19 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
                 );
                 vars.extend(extra);
 
-                if let Some(mut child) = Command::from_script(&cmd)
+                if let Some(mut _child) = Command::from_script(&cmd)
                     .envs(vars)
                     .stdin(maybe_tty())
                     ._spawn()
                 {
-                    match child.wait() {
-                        Ok(i) => {
-                            info!("Command [{cmd}] exited with {i}")
-                        }
-                        Err(e) => {
-                            info!("Failed to wait on command [{cmd}]: {e}")
-                        }
-                    }
+                    // match child.wait() {
+                    //     Ok(i) => {
+                    //         info!("Command [{cmd}] exited with {i}")
+                    //     }
+                    //     Err(e) => {
+                    //         info!("Failed to wait on command [{cmd}]: {e}")
+                    //     }
+                    // }
                 }
             };
         });
@@ -774,6 +774,7 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
     /// - not intended for direct use.
     /// - Assumes preview and cmd formatter are the same.
     pub fn register_become_handler(&mut self, formatter: AttachmentFormatter<T, S>) {
+        let formatter_2 = formatter.clone();
         self.register_interrupt_handler(Interrupt::Become, move |state| {
             let template = state.payload().clone();
             if !template.is_empty() {
@@ -785,6 +786,26 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
 
                 let preview_template = state.preview_payload().clone();
                 let preview_cmd = use_formatter(&formatter, state, &preview_template, None);
+                let extra = env_vars!(
+                    "MM_PREVIEW_COMMAND" => preview_cmd,
+                );
+                vars.extend(extra);
+                debug!("Becoming: {cmd}");
+
+                Command::from_script(&cmd).envs(vars)._exec()
+            }
+        });
+        self.register_interrupt_handler(Interrupt::BecomeSilent, move |state| {
+            let template = state.payload().clone();
+            if !template.is_empty() {
+                let cmd = use_formatter(&formatter_2, state, &template, None);
+                if cmd.is_empty() {
+                    return;
+                }
+                let mut vars = state.make_env_vars();
+
+                let preview_template = state.preview_payload().clone();
+                let preview_cmd = use_formatter(&formatter_2, state, &preview_template, None);
                 let extra = env_vars!(
                     "MM_PREVIEW_COMMAND" => preview_cmd,
                 );

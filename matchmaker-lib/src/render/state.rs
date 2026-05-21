@@ -20,20 +20,6 @@ pub struct Layout {
     pub footer: Rect,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct EnvPayloads(pub Vec<(String, String)>);
-
-impl EnvPayloads {
-    pub fn set(&mut self, key: impl Into<String>, value: impl ToString) {
-        let key = key.into();
-        if let Some(pos) = self.0.iter().position(|(k, _)| k == &key) {
-            self.0[pos].1 = value.to_string();
-        } else {
-            self.0.push((key, value.to_string()));
-        }
-    }
-}
-
 #[derive(Default, Debug)]
 pub struct State {
     last_id: Option<u32>,
@@ -55,8 +41,7 @@ pub struct State {
     pub preview_set_payload: Option<String>,
     /// The payload left by [`crate::action::Action::Preview`]
     pub preview_payload: String,
-    /// The payload left by [`crate::action::Action::Store`]
-    pub env_payloads: EnvPayloads,
+    pub envs: EnvVars,
     /// A place to stash the preview visibility when overriding it
     stashed_preview_visibility: Option<bool>,
     /// Setting this to true finishes the picker with the contents of [`Selector`].
@@ -77,7 +62,7 @@ impl State {
             interrupt_payload: String::new(),
 
             preview_payload: String::new(),
-            env_payloads: Default::default(),
+            envs: Default::default(),
             preview_set_payload: None,
             preview_visible: false,
             stashed_preview_visibility: None,
@@ -382,7 +367,7 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
             "MM_QUERY" => self.input.clone(),
         };
 
-        vars.extend(self.env_payloads.0.clone());
+        vars.extend(self.envs.clone());
         vars
     }
 

@@ -188,6 +188,7 @@ Actions are the operations performed when a trigger is activated.
 | `Become(cmd)`      | Exit Matchmaker and execute the command.                                 |
 | `Reload(cmd)`      | Rerun the initial command or a new one.                                  |
 | `ReloadNext(n)`    | Cycle through `additional_commands`.                                     |
+| `ReloadPrev`       | Cycle backwards through `additional_commands`.                           |
 | `Transform(cmd)`   | Run command and parse its output as a stream of Actions.                 |
 | `Store(str)`       | Set the value of `MM_STORE`.                                             |
 | `Print(s)`         | Print a string to stdout on exit.                                        |

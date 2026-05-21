@@ -5,10 +5,10 @@ use ratatui::{
     widgets::{Paragraph, Wrap},
 };
 
+#[cfg(feature = "partial")]
+use crate::config::PreviewInitialSetting;
 use crate::{
-    config::{
-        BorderSetting, PreviewConfig, PreviewInitialSetting, PreviewSetting, ShowCondition, Side,
-    },
+    config::{BorderSetting, PreviewConfig, PreviewSetting, ShowCondition, Side},
     preview::Preview,
     utils::text::wrapped_line_height,
 };

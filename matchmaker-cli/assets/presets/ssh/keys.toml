@@ -12,11 +12,11 @@ prompt_style.fg = "Blue"
 "ctrl-b" = "@bind_to_host"
 
 "@accept" = '''Become(
-cat {} | tee >(pbcopy || wl-copy || xclip -selection clipboard || xsel --clipboard --input) 2>/dev/null
+cat {} | tee >(eval $CLIPcmd) 2>/dev/null
 )'''
 "@accept_2" = ["@copy", "Accept"]
 "@open_2" = '''Execute(priv={}; priv="${priv%%.pub}"; [[ -f $priv ]] && $EDITOR "$priv")'''
-"@next" = "Become(mm -o ssh/known)"
+"@next" = "BecomeSilent(mm -o ssh/known)"
 
 # --- Scripts ---
 "@bind_to_host" = '''

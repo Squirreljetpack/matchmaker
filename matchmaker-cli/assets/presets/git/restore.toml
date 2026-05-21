@@ -66,13 +66,28 @@ style.modifier = ""
 "@reload" = [
   "ReloadNext",
   '''Transform(
+    setopt KSH_ARRAYS 2>/dev/null
     HEADERS=(
       '[history]'
       '[reflog]'
       '[stash]'
       '[all_refs]'
     )
-    echo "SetHeader(${HEADERS[$((MM_INDEX+1))]})"
+    echo "SetHeader(${HEADERS[$MM_INDEX]})"
+)
+''',
+]
+"@reload_2" = [
+  "ReloadPrev",
+  '''Transform(
+    setopt KSH_ARRAYS 2>/dev/null
+    HEADERS=(
+      '[history]'
+      '[reflog]'
+      '[stash]'
+      '[all_refs]'
+    )
+    echo "SetHeader(${HEADERS[$(((MM_INDEX + ${#HEADERS[@]} - 1) % ${#HEADERS[@]}))]})"
 )
 ''',
 ]

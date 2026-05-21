@@ -36,6 +36,7 @@ pub enum MMAction {
     /// Cycle result sorting between None, Partial, and Full
     CycleSort,
     ReloadNext(Option<usize>),
+    ReloadPrev,
 
     // set
     /// Set header
@@ -54,6 +55,8 @@ pub enum MMAction {
     SetStatus(Option<String>),
     /// Set status
     SetStyledStatus(String),
+    /// Run a command and display output in preview window (TODO)
+    RunPreview(String),
 
     /// Accept current selection and print using output_template
     Accept,
@@ -158,9 +161,28 @@ pub fn action_handler(
                 }
             };
             let payload = &additional_commands.0[index];
-            state.env_payloads.set("MM_INDEX", index);
+            state.envs.set("MM_INDEX", index);
             state.set_interrupt(Interrupt::Reload, payload.clone());
         }
+
+        MMAction::ReloadPrev => {
+            if additional_commands.0.is_empty() {
+                return;
+            }
+
+            additional_commands.1 = (additional_commands.1 + additional_commands.0.len() - 1)
+                % additional_commands.0.len();
+
+            let index = additional_commands.1;
+
+            let payload = &additional_commands.0[index];
+
+            state.envs.set("MM_INDEX", index);
+
+            state.set_interrupt(Interrupt::Reload, payload.clone());
+        }
+
+        MMAction::RunPreview(cmd) => {}
 
         // binds
         MMAction::Bind(s) => {
@@ -312,11 +334,11 @@ enum_from_str_display! {
     MMAction;
 
     units:
-    CycleSort, HistoryUp, HistoryDown, Accept;
+    CycleSort, HistoryUp, HistoryDown, Accept, ReloadPrev;
 
 
     tuples:
-    Bind, Unbind, PushBind, PopBind, ExecuteAsync, Transform, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter;
+    Bind, Unbind, PushBind, PopBind, ExecuteAsync, Transform, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter, RunPreview;
 
     defaults:
     ;

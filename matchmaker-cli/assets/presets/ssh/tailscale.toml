@@ -32,8 +32,8 @@ prompt_style.fg = "Blue"
 
 "@accept" = "Become(echo {ip})"
 "@open" = "Become(tailscale ssh {hostname})"
-"@open_2" = "Execute(fs :o https://login.tailscale.com/admin/machines)"
-"@next" = "Become(mm -o ssh/hosts)"
+"@open_2" = "ExecuteSilent(fs :o https://login.tailscale.com/admin/machines)"
+"@next" = "BecomeSilent(mm -o ssh/hosts)"
 
 # --- Scripts ---
 "@netcheck" = "Preview(tailscale netcheck)"

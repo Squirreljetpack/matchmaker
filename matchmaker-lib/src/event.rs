@@ -78,8 +78,9 @@ impl<A: ActionExt> EventLoop<A> {
         }
     }
 
-    pub fn with_binds(binds: BindMap<A>) -> Self {
+    pub fn with_binds(mut binds: BindMap<A>) -> Self {
         let mut ret = Self::new();
+        binds.resolve_semantics();
         ret.binds = binds;
         ret
     }

@@ -99,7 +99,19 @@ content = "branches"
       tags
       remotes
     )
-    echo "SetHeader(${HEADERS[$((MM_INDEX+1))]})"
+    echo "SetHeader(${HEADERS[$MM_INDEX]})"
+)
+''',
+]
+"@reload_2" = [
+  "ReloadPrev",
+  '''Transform(
+    HEADERS=(
+      branches
+      tags
+      remotes
+    )
+    echo "SetHeader(${HEADERS[$(((MM_INDEX + ${#HEADERS[@]} - 1) % ${#HEADERS[@]}))]})"
 )
 ''',
 ]

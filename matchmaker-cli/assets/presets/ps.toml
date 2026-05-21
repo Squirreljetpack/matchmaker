@@ -2,17 +2,6 @@
 
 [start]
 command = "ps -ef"
-additional_commands = [
-  "ps -ef",
-  # '''
-  #   if [[ "$OSTYPE" == "darwin"* ]]; then
-  #     thcount=nq
-  #   else
-  #     args=thcount
-  #   fi
-  #   ps -eo user,pid,ppid,pgid,sess,tty,lstart,time,rss,vsz,pcpu,stat,$args,command
-  # '''
-]
 ansi = false
 trim = true
 
@@ -67,22 +56,14 @@ scroll.tail = true
 "@accept" = "Become(printf '%s\n' {+2})"
 "@accept_2" = "Become(printf '%s\n' {+!})"
 "@reload" = "ReloadNext"
+"@reload_2" = "ReloadPrev"
 
-"ctrl-k" = '''
-Execute(
-    kill -9 {2}
-)
-'''
-
-"alt-k" = '''
-Execute(
-    kill {2}
-)
-'''
+"ctrl-k" = "Execute(kill {2} || read)"
+"alt-k" = "Execute(kill -9 {2} || read)"
 
 "@copy" = '''
-Execute(
-printf '%s\n' {+2} | (command -v pbcopy >/dev/null && pbcopy || command -v wl-copy >/dev/null && wl-copy || command -v xclip >/dev/null && xclip -selection clipboard || command -v xsel >/dev/null && xsel --clipboard --input)
+ExecuteSilent(
+printf '%s\n' {+2} | eval $CLIPcmd
 )
 '''
 

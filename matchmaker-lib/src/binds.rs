@@ -15,6 +15,7 @@ use crate::{
     action::{Action, ActionExt, Actions, NullActionExt},
     config::HelpColorConfig,
     message::Event,
+    utils::string::is_valid_semantic_char,
 };
 
 pub use crate::bindmap;
@@ -187,6 +188,13 @@ impl<A: ActionExt> BindMap<A> {
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
+/// A trigger that activates a binding.
+///
+/// Supported variants:
+/// - `Key`: A keyboard combination (e.g., `ctrl-c`, `enter`, `a`). Parsed using `crokey`.
+/// - `Mouse`: A mouse event with optional modifiers (e.g., `left`, `ctrl+scrollup`).
+/// - `Event`: A lifecycle or UI event (e.g., `Start`, `QueryChange`).
+/// - `Semantic`: A (nonempty) named alias prefixed with `@` (e.g., `@open`). See [`is_valid_semantic_char`].
 pub enum Trigger {
     Key(KeyCombination),
     Mouse(SimpleMouseEvent),
@@ -323,10 +331,14 @@ impl FromStr for Trigger {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         // try semantic
-        if let Some(s) = value.strip_prefix("@")
-            && !s.is_empty()
-        {
-            return Ok(Trigger::Semantic(s.to_string()));
+        if let Some(s) = value.strip_prefix("@") {
+            if s.chars().all(is_valid_semantic_char) && !s.is_empty() {
+                return Ok(Trigger::Semantic(s.to_string()));
+            } else if !s.is_empty() {
+                return Err(format!(
+                    "Invalid semantic trigger name: @{s}. Allowed characters are alphanumeric, space, and -_.:/+$@"
+                ));
+            }
         }
 
         // 1. Try KeyCombination
@@ -524,7 +536,13 @@ mod test {
             Action::<NullActionExt>::from_str("@foo").unwrap(),
             Action::Semantic("foo".into())
         );
+        assert_eq!(
+            Action::<NullActionExt>::from_str("@foo bar").unwrap(),
+            Action::Semantic("foo bar".into())
+        );
         assert!(Action::<NullActionExt>::from_str("@").is_err());
+
+        // todo: lowpri: test invalid semantic names
     }
 
     #[test]
@@ -556,8 +574,8 @@ mod test {
 
     #[test]
     fn test_resolve_semantics() {
-        use crate::bindmap;
         use crate::action::NullActionExt;
+        use crate::bindmap;
 
         // Chain: key(a) -> @s1 -> @s2 -> concrete
         let mut bind_map: BindMap<NullActionExt> = bindmap!(

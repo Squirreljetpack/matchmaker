@@ -35,6 +35,12 @@ Mouse events can be bound with modifiers:
 
 Semantic triggers (prefixed with `@`) act as named aliases. They allow you to define a sequence of operations once and trigger it from multiple keys or events, or even from other actions.
 
+**Allowed Characters:**
+Semantic trigger names (the part after `@`) can contain:
+- Alphanumeric characters
+- Spaces
+- `-`, `_`, `.`, `:`, `/`, `+`, `@`, `$`
+
 **Defining a Semantic Trigger:**
 
 You define a semantic trigger by binding it to one or more actions in your configuration:

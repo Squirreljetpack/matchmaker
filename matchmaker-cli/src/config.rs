@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use matchmaker::config::*;
 use matchmaker_partial_macros::partial;
 
-use cba::broc::EnvVars;
 use matchmaker::action::Actions;
 use matchmaker::binds::Trigger;
 use std::collections::HashMap;
@@ -22,8 +21,9 @@ pub struct Config {
     pub render: RenderConfig,
 
     #[serde(default)]
-    #[partial(skip)]
-    pub envs: EnvVars,
+    #[serde(alias = "env")]
+    #[partial(recurse = "", unwrap)]
+    pub envs: HashMap<String, String>,
 
     // configure binds ( keypress/mouseevent/event => Actions )
     #[partial(attr)]

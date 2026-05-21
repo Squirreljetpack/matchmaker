@@ -5,7 +5,10 @@ use std::{
 
 use serde::{Deserialize, Serialize, Serializer};
 
-use crate::{MAX_ACTIONS, SSS, utils::serde::StringOrVec};
+use crate::{
+    MAX_ACTIONS, SSS,
+    utils::{serde::StringOrVec, string::is_valid_semantic_name},
+};
 
 /// Bindable actions
 /// # Additional
@@ -85,7 +88,7 @@ pub enum Action<A: ActionExt = NullActionExt> {
     /// Persistent single-line vertical scroll
     /// 0 to reset.
     PreviewScroll(i8),
-    /// Jump between start, end, last, and initial locations. (unimplemented).
+    /// Jump between start, end, initial locations.
     PreviewJump,
 
     /// Cycle columns
@@ -416,8 +419,12 @@ macro_rules! enum_from_str_display {
                     return Ok(Self::Custom(x))
                 }
 
-                if let Some(rest) = s.strip_prefix("@") && !rest.is_empty() {
-                    return Ok(Self::Semantic(rest.to_string()));
+                if let Some(s) = s.strip_prefix("@") {
+                    if is_valid_semantic_name(s) {
+                        return Ok(Self::Semantic(s.to_string()));
+                    } else if !s.is_empty() {
+                        return Err(format!("Invalid semantic trigger name: @{s}. Allowed characters are alphanumeric, space, and -_.:/+$@"));
+                    }
                 }
 
                 let (name, data) = if let Some(pos) = s.find('(') {

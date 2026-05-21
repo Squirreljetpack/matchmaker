@@ -30,6 +30,9 @@ default = 3
 [matcher]
 sort = 20
 
+[envs]
+DFT_COLOR = "always"
+
 # --- Preview ---
 [previewer]
 always_trigger = false
@@ -40,7 +43,7 @@ percentage = 50
 min = 5
 max = 50
 command = '''
-DFT_COLOR=always git diff --color=always {1}\^ {1} -- {2} ||
+git diff --color=always {1}\^ {1} -- {2} ||
 git show {1}:{2}
 '''
 

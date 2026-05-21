@@ -897,9 +897,9 @@ pub struct PreviewSetting {
     pub command: String,
 
     #[cfg(feature = "partial")]
+    #[partial(unwrap)]
     #[serde(alias = "scroll")]
     #[serde(default)]
-    #[partial(skip)]
     pub initial: PartialPreviewInitialSetting,
 }
 

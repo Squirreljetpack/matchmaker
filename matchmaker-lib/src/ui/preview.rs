@@ -27,6 +27,10 @@ pub struct PreviewUI {
     #[cfg(feature = "partial")]
     initial: PreviewInitialSetting,
 
+    pub last_count: usize,
+
+    pub jump: (bool, usize), // end, initial
+
     show: bool,
 }
 
@@ -73,6 +77,7 @@ impl PreviewUI {
 
         Self {
             view,
+            #[cfg(feature = "partial")]
             initial: config.initial.clone(),
             config,
             layout_idx: 0,
@@ -81,6 +86,8 @@ impl PreviewUI {
             area: Rect::default(),
             target: None,
             attained_target: false,
+            last_count: 0,
+            jump: Default::default(),
             show,
         }
     }
@@ -182,6 +189,17 @@ impl PreviewUI {
             self.layout_idx = (self.layout_idx + 1) % len;
 
             if self.config.layout[self.layout_idx].layout.max > 0 {
+                #[cfg(feature = "partial")]
+                {
+                    use matchmaker_partial::Apply;
+                    if let Some(s) = self.setting() {
+                        let mut new = self.initial.clone();
+                        new.apply(s.initial.clone());
+                        log::trace!("Applied: {:?} -> {:?}", s.initial, new);
+                        self.config.initial = new;
+                    }
+                }
+
                 return;
             }
         }
@@ -197,6 +215,7 @@ impl PreviewUI {
                 if let Some(s) = self.setting() {
                     let mut new = self.initial.clone();
                     new.apply(s.initial.clone());
+                    log::trace!("Applied: {:?} -> {:?}", s.initial, new);
                     self.config.initial = new;
                 }
             }
@@ -308,6 +327,58 @@ impl PreviewUI {
         log::trace!("Preview initial offset: {}, index: {}", self.offset, index);
     }
 
+    pub fn jump(&mut self) {
+        if self.config.initial.tail {
+            if self.offset > 0 {
+                // go to end
+                self.jump = (false, self.offset);
+                self.reset_scroll();
+            } else {
+                if !self.jump.0 {
+                    // go to start
+
+                    self.attained_target = true;
+                    self.offset = 0;
+                    self.jump.0 = true
+                } else {
+                    // go to saved
+                    self.offset = self.jump.1;
+                    self.attained_target = true;
+                    self.jump = (false, 0)
+                }
+            }
+        } else {
+            match self.jump {
+                (false, 0) => {
+                    self.jump = (true, self.offset);
+                    self.scroll_end();
+                }
+                (true, x) if x != 0 => {
+                    self.jump.0 = false;
+                    self.reset_scroll();
+                }
+                _ => {
+                    self.offset = self.jump.1;
+                    self.jump = (false, 0)
+                }
+            }
+        }
+    }
+    pub fn reset_scroll(&mut self) {
+        self.offset = 0;
+        self.attained_target = false;
+    }
+    pub fn scroll_end(&mut self) {
+        let results = self.view.results();
+        let rl = results.lines.len();
+        let height = self.area.height as usize;
+
+        let header_count = self.config.initial.header_lines.min(height);
+        let remaining_lines = rl.saturating_sub(header_count);
+
+        self.offset = remaining_lines.saturating_sub(height);
+    }
+
     fn target_to_offset(&self, mut target: usize, results: &Vec<Line>) -> usize {
         // decrement the index to put the target lower on the page.
         // The resulting height up to the top of target should >= p% of height.
@@ -340,12 +411,38 @@ impl PreviewUI {
         let results = self.view.results();
         let rl = results.lines.len();
         let height = self.area.height as usize;
+        let mut offset = self.offset;
 
-        if self.config.initial.tail {
+        // this only triggers on preview change but not guaranteed on every preview change -- attaching it to the event handler is worse
+        if rl < self.last_count {
+            self.offset = 0;
+            self.attained_target = false;
+            self.jump = (false, 0)
+        }
+        self.last_count = rl;
+
+        if self.config.initial.tail && !self.attained_target {
             let header_count = self.config.initial.header_lines.min(height);
             let remaining_lines = rl.saturating_sub(header_count);
             let remaining_space = height.saturating_sub(header_count);
-            self.offset = remaining_lines.saturating_sub(remaining_space);
+
+            // get current offset
+            offset = remaining_lines.saturating_sub(remaining_space);
+            // apply initial offset
+            if self.config.initial.offset < 0 {
+                offset = offset.saturating_sub((self.config.initial.offset).unsigned_abs());
+            }
+
+            // stop scrolling
+            if self.offset != 0 {
+                if self.offset > offset || self.offset + offset > rl {
+                    self.offset = self.offset.saturating_sub(rl.saturating_sub(offset));
+                } else {
+                    self.offset += offset;
+                }
+                self.attained_target = true;
+            }
+            // log::trace!("{} {} {}", offset, self.offset, self.attained_target);
         } else if let Some(target) = self.target
             && !self.attained_target
             && target < rl
@@ -370,7 +467,7 @@ impl PreviewUI {
             };
         }
 
-        let mut results = results.skip(self.offset);
+        let mut results = results.skip(offset);
 
         for _ in self.config.initial.header_lines..height {
             if let Some(line) = results.next() {
@@ -380,7 +477,7 @@ impl PreviewUI {
 
         let mut preview = Paragraph::new(lines);
         preview = preview.block(self.border().as_block());
-        if self.config.wrap && !self.config.initial.tail {
+        if self.config.wrap {
             preview = preview
                 .wrap(Wrap { trim: false })
                 .scroll(self.scroll.into());

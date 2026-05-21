@@ -294,6 +294,7 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
             .get_nth(self.picker_ui.results.index())
     }
     /// Runs f on selections if nonempty, otherwise, the current item
+    // Note: Although the index is almost never useful, inlining should mean this has no performance impact
     pub fn map_selected_to_vec<U>(&self, mut f: impl FnMut(u32, &S) -> U) -> Vec<U> {
         if !self.picker_ui.selector.is_empty() {
             self.picker_ui.selector.map_to_vec(f)

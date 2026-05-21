@@ -106,6 +106,7 @@ max = 120
 "alt-h" = "Help"
 "?" = "SwitchPreview(0)"
 "shift-?" = "SwitchPreview(0)"
+"ctrl-/" = "CyclePreview"
 "ctrl-shift-/" = "CyclePreview" # ctrl-shift-/
 
 # Columns

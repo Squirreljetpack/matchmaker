@@ -130,11 +130,14 @@ separator = "\\0"
 # Preview
 "shift+scrollup" = "PreviewUp"
 "shift+scrolldown" = "PreviewDown"
+"alt-/" = "PreviewJump"
 "?" = "SwitchPreview"
 "shift-?" = "SwitchPreview"
-"ctrl-shift-/" = "CyclePreview" # cycle preview layouts
+"ctrl-/" = "CyclePreview" # cycle preview layouts
+"ctrl-shift-/" = "CyclePreview"
 "alt-h" = "Help"
 
+# Reserved
 "F1" = "@help"
 "F2" = "@rename"
 "F3" = "@search"
@@ -147,6 +150,7 @@ separator = "\\0"
 "F10" = "@menu"
 "F11" = "@look"
 "F12" = "@save"
+"ctrl-s" = "@show"
 
 # Programmable
 "ctrl-l" = "@look" # "maximize" the preview
@@ -169,8 +173,8 @@ separator = "\\0"
 "alt-p" = "@print"
 "alt-shift-p" = "@print_2"
 "ctrl-y" = "@copy"
-"ctrl-shift-y" = "@copy_2"
-"alt-y" = "@copy_3"
+"ctrl-shift-y" = "@copy_all"
+"alt-y" = "@copy_active"
 
 "@print" = "Print({-})"
 "@print_2" = "Print({-!})"
@@ -180,12 +184,12 @@ out="$(printf '%s\n' {+1})"
 printf "$out" | eval $CLIPcmd
 )
 '''
-"@copy_2" = '''
+"@copy_all" = '''
 ExecuteSilent(
 printf '%s' {} | eval $CLIPcmd
 )
 '''
-"@copy_3" = '''
+"@copy_active" = '''
 ExecuteSilent(
 out="$(printf '%s\n' {+!})"
 printf "$out" | eval $CLIPcmd

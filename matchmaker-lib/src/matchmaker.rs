@@ -862,6 +862,7 @@ pub fn make_previewer<T: SSS, S: Selection + 'static>(
 
                 if let Some(p) = state.preview_ui {
                     p.set_target(target);
+                    p.jump = Default::default();
                 };
 
             } else if preview_tx.send(PreviewMessage::Stop).is_err() {

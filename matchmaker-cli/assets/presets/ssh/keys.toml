@@ -1,3 +1,5 @@
+# browse public keys
+
 [start.command]
 command = "ls *.pub 2>/dev/null"
 directory = "~/.ssh"

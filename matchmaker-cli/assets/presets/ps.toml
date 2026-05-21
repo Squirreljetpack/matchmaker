@@ -1,4 +1,4 @@
-# processes
+# Find and kill processes
 
 [start]
 command = "ps -ef"

@@ -483,6 +483,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         Action::Become(payload) => {
                             state.set_interrupt(Interrupt::Become, payload);
                         }
+                        Action::BecomeSilent(payload) => {
+                            state.set_interrupt(Interrupt::BecomeSilent, payload);
+                        }
                         Action::Reload(payload) => {
                             state.set_interrupt(Interrupt::Reload, payload);
                         }

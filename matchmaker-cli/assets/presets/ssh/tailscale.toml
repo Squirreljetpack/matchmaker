@@ -1,3 +1,5 @@
+# Browse and ssh into your tailnet
+
 [start]
 command = "tailscale status | awk 'NF{print; next} {exit}'"
 
@@ -7,12 +9,15 @@ command = "tailscale status | awk 'NF{print; next} {exit}'"
 split = '\s+'
 names = ["ip", "hostname", "user", "os", "status"]
 
+[envs]
+TAILSCALE_BE_CLI="1" 
+
 # --- Preview ---
 [preview]
 show = true
 
 [[preview.layout]]
-command = "TAILSCALE_BE_CLI=1 tailscale ping --verbose {hostname}"
+command = "tailscale ping --verbose {hostname}"
 
 [[preview.layout]]
 

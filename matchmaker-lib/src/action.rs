@@ -106,6 +106,8 @@ pub enum Action<A: ActionExt = NullActionExt> {
     ExecuteSilent(String),
     /// Exit and become
     Become(String),
+    /// Become without exiting the TUI
+    BecomeSilent(String),
     /// Reload matcher/worker
     Reload(String),
     /// Print via handler
@@ -352,7 +354,7 @@ enum_from_str_display!(
     ForwardChar,BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord, DeleteLineStart, DeleteLineEnd, Cancel, Redraw, NextColumn, PrevColumn, PrintKey;
 
     tuples:
-    Execute, ExecuteSilent, Become, Preview,
+    Execute, ExecuteSilent, Become, BecomeSilent, Preview,
     SetQuery, Pos, QueryPos, SwitchColumn, Store;
 
     defaults:

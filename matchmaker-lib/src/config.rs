@@ -11,7 +11,7 @@ pub use crate::utils::{Percentage, serde::StringOrVec};
 use crate::{
     MAX_SPLITS,
     tui::IoStream,
-    utils::serde::{escaped_opt_char, escaped_opt_string, serde_duration_ms},
+    utils::serde::{escaped_opt_char, escaped_opt_string},
 };
 
 use cba::serde::transform::{camelcase_normalized, camelcase_normalized_option};
@@ -160,12 +160,14 @@ pub struct TerminalConfig {
     pub redraw_on_resize: bool,
     // https://docs.rs/crossterm/latest/crossterm/event/struct.PushKeyboardEnhancementFlags.html
     pub extended_keys: bool,
-    #[serde(with = "serde_duration_ms")]
-    pub sleep_ms: std::time::Duration, // necessary to give ratatui a small delay before resizing after entering and exiting
+    pub sleep_ms: u64, // necessary to give ratatui a small delay before resizing after entering and exiting
     #[serde(flatten)]
     #[partial(recurse)]
     pub layout: Option<TerminalLayoutSettings>, // None for fullscreen
     pub clear_on_exit: bool,
+
+    // unimplemented: currently favoring Execute2
+    pub clear_after_execute: bool,
 }
 
 impl Default for TerminalConfig {
@@ -174,10 +176,11 @@ impl Default for TerminalConfig {
             stream: IoStream::default(),
             restore_fullscreen: true,
             redraw_on_resize: bool::default(),
-            sleep_ms: std::time::Duration::default(),
+            sleep_ms: 100,
             layout: Option::default(),
             extended_keys: true,
             clear_on_exit: true,
+            clear_after_execute: true,
         }
     }
 }

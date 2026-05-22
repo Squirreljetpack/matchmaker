@@ -238,7 +238,10 @@ impl Default for QueryConfig {
         Self {
             border: Default::default(),
             style: Default::default(),
-            prompt_style: Default::default(),
+            prompt_style: StyleSetting {
+                modifier: Modifier::ITALIC,
+                ..Default::default()
+            },
             prompt: "> ".to_string(),
             cursor: Default::default(),
             initial: Default::default(),
@@ -558,7 +561,6 @@ impl Default for DisplayConfig {
             match_indent: true,
             style: StyleSetting {
                 fg: Some(Color::Blue),
-                modifier: Modifier::ITALIC,
                 ..Default::default()
             },
             wrap: false,

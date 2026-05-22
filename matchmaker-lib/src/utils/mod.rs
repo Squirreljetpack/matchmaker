@@ -1,6 +1,5 @@
 mod percentage;
 pub use percentage::Percentage;
-mod seperator;
 
 pub mod serde;
 pub mod text;

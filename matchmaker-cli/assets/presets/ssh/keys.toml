@@ -20,6 +20,7 @@ cat {} | tee >(eval $CLIPcmd) 2>/dev/null
 "@accept_2" = ["@copy", "Accept"]
 "@open_2" = '''Execute(priv={}; priv="${priv%%.pub}"; [[ -f $priv ]] && $EDITOR "$priv")'''
 "@next" = "BecomeSilent(mm -o ssh/known)"
+"@prev" = "BecomeSilent(mm -o ssh/hosts)"
 
 # --- Scripts ---
 "@bind_to_host" = '''

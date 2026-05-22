@@ -8,16 +8,12 @@
   - api
 
 - better hr styling (dim etc.)
-- bind modes
-- status/header click events
 - ExecuteAsync: support chaining actions without blocking ui
 - improve/test wrap_text and hscroll on non filtering
 - Bottom scroll padding not working with --reverse (maybe we want to increase self.cursor if height before is insufficient).
 - reload should send to preview_tx
 - should QuitEmpty have nonzero exit code
-- switch preset can read remote from {$1} instead of assuming origin
-- ord on prev layouts for better composability
-- descriptions to override help actions
+- ordfield  on prev layouts for better composability
 - vty to support animated previews
 
 # Previewer
@@ -62,4 +58,5 @@
    "command" when mm is started using command, and "piped" when mm is started using
    stdin. Add an action SetMode(String), which sets the mode string. Actions now become vec<Option<String>, Actions> <- seems heavy handed
 - renderloop optimization: pass available height?
-- Mode: filters which binds activate (starts off as either "command", or "piped")
+- descriptions to override help actions
+- switch preset can read remote from {$1} instead of assuming origin

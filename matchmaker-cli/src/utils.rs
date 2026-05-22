@@ -1,4 +1,4 @@
-use cba::{ebog, nbog};
+use cba::{ebog, ibog};
 use std::{
     fs::{self},
     path::{Path, PathBuf},
@@ -18,7 +18,7 @@ pub fn handle_download(cli: &crate::clap::Cli) {
     }
     fs::create_dir_all(&temp_dir).unwrap();
 
-    nbog!("Downloading presets from GitHub...");
+    ibog!("Downloading presets from GitHub...");
     let zip_path = temp_dir.join("matchmaker.zip");
 
     let mut curl_cmd = Command::new("curl");
@@ -35,7 +35,7 @@ pub fn handle_download(cli: &crate::clap::Cli) {
         exit(1);
     }
 
-    nbog!("Extracting...");
+    ibog!("Extracting...");
     #[cfg(unix)]
     {
         let status = Command::new("unzip")
@@ -92,7 +92,7 @@ pub fn handle_download(cli: &crate::clap::Cli) {
                         fs::create_dir_all(&dest).unwrap();
                     }
                     fs::copy(&win_path, dest.join(subfolder)).unwrap();
-                    nbog!(
+                    ibog!(
                         "Preset file successfully downloaded to: {}",
                         dest.join(subfolder).display()
                     );
@@ -113,7 +113,7 @@ pub fn handle_download(cli: &crate::clap::Cli) {
                         fs::create_dir_all(&dest).unwrap();
                     }
                     fs::copy(&plain_path, dest.join(subfolder)).unwrap();
-                    nbog!(
+                    ibog!(
                         "Preset file successfully downloaded to: {}",
                         dest.join(subfolder).display()
                     );
@@ -144,7 +144,7 @@ pub fn handle_download(cli: &crate::clap::Cli) {
                 source_root
                     .join(&candidate)
                     .is_file()
-                    .then(|| candidate.display().to_string())
+                    .then(|| parent.join(file_name).display().to_string())
             } else {
                 None
             };
@@ -169,7 +169,7 @@ pub fn handle_download(cli: &crate::clap::Cli) {
         exit(1);
     }
 
-    nbog!("Presets successfully downloaded to: {}", dest.display());
+    ibog!("Presets successfully downloaded to: {}", dest.display());
     fs::remove_dir_all(&temp_dir).ok();
     exit(0);
 }

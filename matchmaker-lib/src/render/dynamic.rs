@@ -13,12 +13,10 @@ pub type BoxedHandler<T, S> = Box<dyn FnMut(&mut MMState<'_, '_, T, S>)>;
 
 pub type DynamicHandlers<T, S> = (EventHandlers<T, S>, InterruptHandlers<T, S>);
 
-#[allow(clippy::type_complexity)]
 pub struct EventHandlers<T: SSS, S: Selection> {
     handlers: Vec<(Event, DynamicMethod<T, S, Event>)>,
 }
 
-#[allow(clippy::type_complexity)]
 pub struct InterruptHandlers<T: SSS, S: Selection> {
     handlers: Vec<(Interrupt, Vec<BoxedHandler<T, S>>)>,
 }

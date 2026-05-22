@@ -8,11 +8,13 @@ use log::{debug, error};
 use matchmaker::{
     Action, Actions, ConfigMMInnerItem, ConfigMMItem,
     binds::Trigger,
+    config::PartialRenderConfig,
     event::BindSender,
     message::{BindDirective, Interrupt, RenderCommand},
     nucleo::Line,
     ui::StatusUI,
 };
+use matchmaker_partial::{Apply, Set};
 
 use matchmaker::preview::AppendOnly;
 
@@ -68,6 +70,8 @@ pub enum MMAction {
     HistoryDown,
     /// non-blocking [`matchmaker::Action::Execute`]: subsequent actions in the batch begin after its completion
     ExecuteAsync(String),
+    /// non-blocking [`matchmaker::Action::Execute`]: subsequent actions in the batch begin after its completion, only if successful
+    ExecuteThen(String),
     /// [`matchmaker::Action::Execute`], confirm on error
     ExecuteOrConfirm(String),
     /// [`matchmaker::Action::Execute`], quit on success
@@ -76,6 +80,8 @@ pub enum MMAction {
     BecomeOr(String),
     /// Execute command and parse output as actions
     Transform(String),
+    /// Execute command and parse output as configuration
+    TransformConfig(String),
 }
 
 pub struct ActionContext {
@@ -250,6 +256,9 @@ pub fn action_handler(
         MMAction::ExecuteAsync(s) => {
             state.set_interrupt(Interrupt::Execute, s);
         }
+        MMAction::ExecuteThen(s) => {
+            state.set_interrupt(Interrupt::Execute, s);
+        }
         MMAction::ExecuteOrConfirm(s) => {
             state.discriminant_payload = Some(0);
             state.set_interrupt(Interrupt::Execute, s);
@@ -286,6 +295,59 @@ pub fn action_handler(
                         Err(_) => {
                             error!("Failed to parse action from transform output: {}", line);
                         }
+                    }
+                }
+            }
+        }
+        MMAction::TransformConfig(payload) => {
+            let cmd = format_cli(state, &payload, None);
+            if cmd.is_empty() {
+                error!("Failed to format transform-config command: {payload}");
+                return;
+            }
+            let vars = state.make_env_vars();
+
+            if let Some(contents) = Command::from_script(&cmd)
+                .envs(vars)
+                .read_to_string()
+                ._elog()
+            {
+                debug!("TransformConfig output:\n{}", contents);
+
+                let words: Vec<String> = contents.lines().map(|s| s.to_string()).collect();
+                match crate::parse::get_pairs(words) {
+                    Ok(pairs) => {
+                        let mut partial = PartialRenderConfig::default();
+                        for (path, val) in pairs {
+                            let mut parts = split_on_unescaped_delimiter(&val, "|||");
+                            if let Err(e) = crate::parse::try_split_kv(&mut parts, false) {
+                                error!("Failed to split KV for {}: {e}", path.join("."));
+                                continue;
+                            }
+
+                            if let Err(e) = partial.set(path.as_slice(), &parts) {
+                                error!("Failed to set partial for {}: {e}", path.join("."));
+                            }
+                        }
+
+                        log::debug!("Parsed config update: {partial:?}");
+
+                        // Apply the partial to UI components
+                        state.ui.config.apply(partial.ui);
+                        state.picker_ui.query.config.apply(partial.query);
+                        state.picker_ui.results.config.apply(partial.results);
+                        state.picker_ui.results.status_config.apply(partial.status);
+                        state.footer_ui.config.apply(partial.footer);
+                        state.picker_ui.header.config.apply(partial.header);
+
+                        if let Some(preview_ui) = state.preview_ui.as_mut() {
+                            preview_ui.config.apply(partial.preview);
+                        }
+
+                        let _ = render_tx.send(RenderCommand::Refresh);
+                    }
+                    Err(e) => {
+                        error!("Failed to parse pairs from TransformConfig output: {e}");
                     }
                 }
             }
@@ -356,7 +418,7 @@ enum_from_str_display! {
 
 
     tuples:
-    Bind, Unbind, PushBind, PopBind, ExecuteAsync, ExecuteOrConfirm, ExecuteAndQuit, BecomeOr, Transform, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter, RunPreview;
+    Bind, Unbind, PushBind, PopBind, ExecuteAsync, ExecuteThen, ExecuteOrConfirm, ExecuteAndQuit, BecomeOr, Transform, TransformConfig, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter, RunPreview;
 
     defaults:
     ;

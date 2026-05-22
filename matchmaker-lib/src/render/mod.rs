@@ -166,6 +166,10 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     ui.update_dimensions(area);
                 }
                 RenderCommand::Refresh => {
+                    picker_ui.header.init();
+                    footer_ui.init();
+                    picker_ui.query.set_prompt(None);
+                    picker_ui.results.set_status_line(None);
                     tui.redraw();
                 }
                 RenderCommand::HeaderTable(columns) => {

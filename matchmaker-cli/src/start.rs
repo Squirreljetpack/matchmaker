@@ -229,6 +229,23 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
 
     let mut event_loop = EventLoop::with_binds(binds).with_tick_rate(render.tick_rate());
 
+    let mut initial_index = 0;
+    if additional_commands.len() > 1 {
+        if let Ok(index_str) = std::env::var("MM_INDEX") {
+            if let Ok(index) = index_str.parse::<usize>() {
+                if index < additional_commands.len() {
+                    initial_index = index;
+                }
+            }
+        }
+    }
+
+    let command = if initial_index > 0 {
+        additional_commands[initial_index].clone()
+    } else {
+        command
+    };
+
     let mut default_reload = (!command.is_empty() && atty::is(atty::Stream::Stdin) || no_read)
         .then_some(command.clone())
         .unwrap_or_default();
@@ -284,7 +301,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             s.envs.extend(envs.into_iter().filter(|p| !p.1.is_empty()));
 
             if set_index {
-                s.envs.set("MM_INDEX", 0);
+                s.envs.set("MM_INDEX", initial_index);
             }
 
             if s.envs
@@ -372,7 +389,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let mut action_context = ActionContext {
         bind_tx,
         render_tx: render_tx.clone(),
-        additional_commands: (additional_commands, 0),
+        additional_commands: (additional_commands, initial_index),
         output_template,
         print_handle: print_handle.clone(),
         output_separator: output_separator.clone(),

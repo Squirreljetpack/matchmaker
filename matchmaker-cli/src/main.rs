@@ -6,6 +6,7 @@ pub mod formatter;
 mod logger;
 mod parse;
 mod paths;
+mod register;
 mod start;
 mod utils;
 
@@ -53,7 +54,9 @@ async fn main() {
 
     // begin
     match start(config, no_read).await {
-        Ok(_) => {}
+        Ok(_) => {
+            log::debug!("Execution Complete");
+        }
         Err(err) => match err {
             MatchError::Abort(i) => {
                 exit(i);

@@ -66,8 +66,14 @@ pub enum MMAction {
     HistoryUp,
     /// History down (TODO)
     HistoryDown,
-    /// [`matchmaker::Action::Execute`] but silent (TODO)
+    /// non-blocking [`matchmaker::Action::Execute`]: subsequent actions in the batch begin after its completion
     ExecuteAsync(String),
+    /// [`matchmaker::Action::Execute`], confirm on error
+    ExecuteOrConfirm(String),
+    /// [`matchmaker::Action::Execute`], quit on success
+    ExecuteAndQuit(String),
+    /// [`matchmaker::Action::Execute`], quit on success, confirm on error
+    BecomeOr(String),
     /// Execute command and parse output as actions
     Transform(String),
 }
@@ -242,7 +248,19 @@ pub fn action_handler(
             state.picker_ui.query.set_prompt(s.map(Line::raw));
         }
         MMAction::ExecuteAsync(s) => {
-            state.set_interrupt(Interrupt::ExecuteSilent, s);
+            state.set_interrupt(Interrupt::Execute, s);
+        }
+        MMAction::ExecuteOrConfirm(s) => {
+            state.discriminant_payload = Some(0);
+            state.set_interrupt(Interrupt::Execute, s);
+        }
+        MMAction::ExecuteAndQuit(s) => {
+            state.discriminant_payload = Some(1);
+            state.set_interrupt(Interrupt::Execute, s);
+        }
+        MMAction::BecomeOr(s) => {
+            state.discriminant_payload = Some(2);
+            state.set_interrupt(Interrupt::Execute, s);
         }
         MMAction::Transform(payload) => {
             let cmd = format_cli(state, &payload, None);
@@ -338,7 +356,7 @@ enum_from_str_display! {
 
 
     tuples:
-    Bind, Unbind, PushBind, PopBind, ExecuteAsync, Transform, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter, RunPreview;
+    Bind, Unbind, PushBind, PopBind, ExecuteAsync, ExecuteOrConfirm, ExecuteAndQuit, BecomeOr, Transform, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter, RunPreview;
 
     defaults:
     ;

@@ -9,12 +9,20 @@
 
 - better hr styling (dim etc.)
 - ExecuteAsync: support chaining actions without blocking ui
+  - move it to actions.rs of lib and create interrupt, store a single Actions in state, on receipt of interrupt, save remaining (holding because of this as we use drain rn), execute_handler for the ExecuteAsync interrupt: pop the latest to variable, tokio spawn: tokio await cmd completion then reseed actions to render_tx.
+- ExecuteThen: Transmits to ExecuteAsync but prefixes with \0\0\0. This causes the handler to execute without spawning, then check wait.success. Only if succeed, reseed.
+- Finally, support reading from MM_INDEX for initialization when additional_commands.len() > 1
+
+
 - improve/test wrap_text and hscroll on non filtering
 - Bottom scroll padding not working with --reverse (maybe we want to increase self.cursor if height before is insufficient).
 - reload should send to preview_tx
-- should QuitEmpty have nonzero exit code
-- ordfield  on prev layouts for better composability
 - vty to support animated previews
+- improve restore: exit(clear: Option<bool>)
+  - None: move up by input.y-area.y 
+  - true: move to area.y and clear
+  - false: nothing
+  - config.clear_on_exit: None -> true
 
 # Previewer
 
@@ -53,6 +61,7 @@
 - I feel that having matcher and worker in seperate fields and supporting deny_unknown outweighs the minor confusion it could introduce
 - Non grapheme aware option to speed up rendering? This would require frizbee (and be required by?).
 - Adaptable preview percentage (higher on smaller)
+- ord field on prev layouts for better composability?
 
 - modes for binds? the event listener with a mode variable, which is initialized to
    "command" when mm is started using command, and "piped" when mm is started using

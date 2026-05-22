@@ -211,6 +211,7 @@ impl<A: ActionExt> EventLoop<A> {
         loop {
             self.txs.retain(|tx| !tx.is_closed());
             if self.txs.is_empty() {
+                log::trace!("Event loop completed");
                 break;
             }
 

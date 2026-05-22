@@ -1,6 +1,7 @@
 mod dynamic;
 mod state;
 
+use cba::bait::ResultExt;
 use crossterm::event::{MouseButton, MouseEventKind};
 pub use dynamic::*;
 pub use state::*;
@@ -91,9 +92,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         if state.iterations == 0 {
             log::debug!("Render loop started");
         }
-        let mut did_pause = false;
-        let mut did_exit = false;
-        let mut did_resize = false;
+        let (mut did_pause, mut did_reload, mut did_exit, mut did_resize) =
+            (false, false, None, false);
 
         if let Some(aliaser) = &mut ext_aliaser {
             apply_aliases(
@@ -478,6 +478,10 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         Action::Execute(payload) => {
                             state.set_interrupt(Interrupt::Execute, payload);
                         }
+                        // Action::Execute2(payload) => {
+                        //     did_exit = Some(false);
+                        //     state.set_interrupt(Interrupt::Execute, payload);
+                        // }
                         Action::ExecuteSilent(payload) => {
                             state.set_interrupt(Interrupt::ExecuteSilent, payload);
                         }
@@ -630,20 +634,23 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             match interrupt {
                 Interrupt::None => continue,
                 Interrupt::Execute => {
+                    // because of this, we don't want to send controller events until after resuming at batch end
                     if controller_tx.send(Event::Pause).is_err() {
                         break;
                     }
                     tui.enter_execute();
-                    did_exit = true;
+                    if did_exit.is_none() {
+                        did_exit = Some(true);
+                    }
                     did_pause = true;
                 }
                 Interrupt::Reload => {
                     picker_ui.worker.restart(false);
                     state.synced = [false; 2];
-                    let _ = controller_tx.send(Event::Reloaded);
+                    did_reload = true;
                 }
                 Interrupt::Become => {
-                    tui.exit();
+                    tui.exit(None);
                 }
                 _ => {}
             }
@@ -697,8 +704,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         }
 
         // resume tui
-        if did_exit {
-            tui.return_execute()
+        if let Some(clear) = did_exit {
+            tui.return_execute(clear)
                 .map_err(|e| MatchError::TUIError(e.to_string()))?;
             tui.redraw();
         }
@@ -752,7 +759,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
                 let [input, status, header, results] = picker_ui.layout(picker_area);
 
-                // compare and save dimensions
+                // save dimensions and check if dimensions changed
                 did_resize = state.update_layout(Layout {
                     preview,
                     input,
@@ -802,7 +809,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
         if did_resize {
             // useful to clear artifacts
-            if tui.config.redraw_on_resize && !did_exit {
+            if tui.config.redraw_on_resize && did_exit.is_none() {
                 tui.redraw();
             }
         }
@@ -840,9 +847,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         // ------------------------------
         // send events into controller
         for e in events.iter() {
-            controller_tx
-                .send(e)
-                .unwrap_or_else(|err| eprintln!("send failed: {:?}", err));
+            controller_tx.send(e)._elog();
         }
         // =================================
 
@@ -858,6 +863,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     break;
                 }
             }
+        }
+        if did_reload {
+            controller_tx.send(Event::Reloaded)._elog();
         }
 
         click.process(&mut buffer, &bind_tx);
@@ -888,7 +896,7 @@ impl Click {
             Self::Semantic(s) => {
                 bind_tx
                     .send(BindDirective::Action(Action::Semantic(s.clone())))
-                    .unwrap_or_else(|err| log::error!("bind send failed: {:?}", err));
+                    ._elog();
                 log::debug!("Click triggered: @{s}");
             }
             _ => {}

@@ -64,7 +64,7 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
     #[cfg(debug_assertions)]
     if cli.config.is_none() {
         #[cfg(target_os = "windows")]
-        write_str(cfg_path, include_str!("../assets/dev.win.toml")).unwrap();
+        write_str(cfg_path, include_str!("../assets/win.dev.toml")).unwrap();
 
         #[cfg(not(target_os = "windows"))]
         write_str(cfg_path, include_str!("../assets/dev.toml")).unwrap();

@@ -1,4 +1,4 @@
-use cba::{bog::BogOkExt, ebog, nbog};
+use cba::{ebog, nbog};
 use std::{
     fs::{self},
     path::{Path, PathBuf},
@@ -67,101 +67,146 @@ pub fn handle_download(cli: &crate::clap::Cli) {
         }
     }
 
-    let mut source = temp_dir.join("matchmaker-main/matchmaker-cli/assets/presets");
+    let source_root = temp_dir.join("matchmaker-main/matchmaker-cli/assets/presets");
+    let mut source = source_root.clone();
     let mut dest = presets_dir.to_path_buf();
 
     if !subfolder.is_empty() {
-        #[allow(unused_mut)]
-        let mut sub_path = source.join(subfolder);
+        let sub_path = source_root.join(subfolder);
         if sub_path.is_dir() {
             source = sub_path;
             dest = dest.join(subfolder);
-        } else if subfolder.ends_with(".toml") && sub_path.is_file() {
+        } else if subfolder.ends_with(".toml") {
+            let path = Path::new(subfolder);
+            let parent = path.parent().unwrap_or(Path::new(""));
+            let file_name = path.file_name().unwrap().to_str().unwrap();
+
+            let win_file_name = format!("win.{}", file_name);
+            let win_path = source_root.join(parent).join(&win_file_name);
+            let plain_path = source_root.join(subfolder);
+
             #[cfg(windows)]
             {
-                sub_path = sub_path
-                    .with_extension("")
-                    .with_extension("")
-                    .with_extension("win")
-                    .with_extension("toml");
+                if win_path.is_file() {
+                    if !dest.exists() {
+                        fs::create_dir_all(&dest).unwrap();
+                    }
+                    fs::copy(&win_path, dest.join(subfolder)).unwrap();
+                    nbog!(
+                        "Preset file successfully downloaded to: {}",
+                        dest.join(subfolder).display()
+                    );
+                    fs::remove_dir_all(&temp_dir).ok();
+                    exit(0);
+                } else if plain_path.is_file() {
+                    ebog!("Source '{}' is not available for your platform.", subfolder);
+                    exit(1);
+                } else {
+                    ebog!("'{}' unavailable.", subfolder);
+                    exit(1);
+                }
             }
-
-            if !dest.exists() {
-                fs::create_dir_all(&dest).unwrap();
+            #[cfg(not(windows))]
+            {
+                if plain_path.is_file() {
+                    if !dest.exists() {
+                        fs::create_dir_all(&dest).unwrap();
+                    }
+                    fs::copy(&plain_path, dest.join(subfolder)).unwrap();
+                    nbog!(
+                        "Preset file successfully downloaded to: {}",
+                        dest.join(subfolder).display()
+                    );
+                    fs::remove_dir_all(&temp_dir).ok();
+                    exit(0);
+                } else if win_path.is_file() {
+                    ebog!("Source '{}' is not available for your platform.", subfolder);
+                    exit(1);
+                } else {
+                    ebog!("'{}' unavailable.", subfolder);
+                    exit(1);
+                }
             }
-            let name = sub_path.file_name().unwrap();
-            let copied = copy_single_file(&sub_path, &dest.join(name));
+        } else {
+            let suggested = if subfolder.ends_with(".toml") {
+                let path = Path::new(subfolder);
 
-            if !copied {
-                ebog!("Source '{}' is not available for your platform.", subfolder);
-                exit(1);
-            }
+                let parent = path.parent().unwrap_or(Path::new(""));
 
-            let final_name = if cfg!(windows) {
-                name.to_string_lossy().replace(".win.toml", ".toml")
+                let file_name = path.file_name().unwrap().to_str().unwrap();
+
+                #[cfg(windows)]
+                let candidate = parent.join(format!("win.{}", file_name));
+
+                #[cfg(not(windows))]
+                let candidate = parent.join(file_name);
+
+                source_root
+                    .join(&candidate)
+                    .is_file()
+                    .then(|| candidate.display().to_string())
             } else {
-                name.to_string_lossy().into_owned()
+                None
             };
 
-            nbog!(
-                "Preset file successfully downloaded to: {}",
-                dest.join(final_name).display()
-            );
-            fs::remove_dir_all(&temp_dir).ok();
-            exit(0);
-        } else {
-            ebog!("'{}' not found in the repository.", subfolder);
+            if let Some(suggested) = suggested {
+                ebog!(
+                    "'{}' not found in the repository. Did you mean '{}'?",
+                    subfolder,
+                    suggested
+                );
+            } else {
+                ebog!("'{}' not found in the repository.", subfolder);
+            }
+
             exit(1);
         }
     }
 
-    copy_and_process(&source, &dest);
+    let count = copy_and_process(&source, &dest);
+    if count == 0 {
+        ebog!("Source is not available for your platform.");
+        exit(1);
+    }
 
     nbog!("Presets successfully downloaded to: {}", dest.display());
     fs::remove_dir_all(&temp_dir).ok();
     exit(0);
 }
 
-fn copy_single_file(path: &Path, dest_path: &Path) -> bool {
-    let name = path.file_name().unwrap().to_string_lossy();
-    #[cfg(windows)]
-    {
-        if name_str.ends_with(".win.toml") {
-            let new_name = name_str.replace(".win.toml", ".toml");
-            fs::copy(path, dest_path.with_file_name(new_name)).__ebog();
-            return true;
-        } else if name_str.ends_with(".md") {
-            fs::copy(path, dest_path).__ebog();
-        }
-        false
-    }
-    #[cfg(not(windows))]
-    {
-        if name.ends_with(".win.toml") {
-            return false;
-        }
-        fs::copy(path, dest_path).__ebog();
-        true
-    }
-}
-
-fn copy_and_process(src: &Path, dst: &Path) {
+fn copy_and_process(src: &Path, dst: &Path) -> usize {
     if !dst.exists() {
-        fs::create_dir_all(dst).__ebog();
+        fs::create_dir_all(dst).unwrap();
     }
 
-    for entry in fs::read_dir(src).__ebog() {
+    let mut count = 0;
+    for entry in fs::read_dir(src).unwrap() {
         let entry = entry.unwrap();
         let path = entry.path();
-        let name = path.file_name().unwrap();
-        let dest_path = dst.join(name);
+        let name_os = path.file_name().unwrap();
+        let name = name_os.to_string_lossy();
 
         if path.is_dir() {
-            copy_and_process(&path, &dest_path);
-        } else {
-            copy_single_file(&path, &dest_path);
+            count += copy_and_process(&path, &dst.join(name_os));
+            continue;
+        }
+
+        #[cfg(windows)]
+        {
+            if let Some(stripped) = name.strip_prefix("win.") {
+                fs::copy(&path, dst.join(stripped)).unwrap();
+                count += 1;
+            }
+        }
+        #[cfg(not(windows))]
+        {
+            if !name.starts_with("win.") {
+                fs::copy(&path, dst.join(name.as_ref())).unwrap();
+                count += 1;
+            }
         }
     }
+    count
 }
 
 pub fn expand_tilde(path: PathBuf) -> PathBuf {

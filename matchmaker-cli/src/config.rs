@@ -67,7 +67,7 @@ pub struct Config {
 #[cfg(not(windows))]
 pub const DEFAULT_CONFIG: &str = include_str!("../assets/config.toml");
 #[cfg(windows)]
-pub const DEFAULT_CONFIG: &str = include_str!("../assets/config.win.toml");
+pub const DEFAULT_CONFIG: &str = include_str!("../assets/win.config.toml");
 
 impl Default for Config {
     fn default() -> Self {

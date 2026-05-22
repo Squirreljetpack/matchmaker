@@ -373,6 +373,7 @@ impl QueryUI {
     }
 
     /// Set the input ui prefix. The prompt style from the config overrides the Line style (but not the span styles).
+    /// None restores the prompt defined in the config.
     pub fn set_prompt(&mut self, template: Option<Line<'static>>) {
         let line = template
             .unwrap_or_else(|| self.config.prompt.clone().into())

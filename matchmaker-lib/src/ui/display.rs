@@ -13,7 +13,7 @@ use crate::{
     },
 };
 pub type HeaderTable = Vec<Vec<Line<'static>>>;
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct DisplayUI {
     width: u16,
     height: u16,
@@ -25,7 +25,18 @@ pub struct DisplayUI {
 
 impl DisplayUI {
     pub fn new(config: DisplayConfig) -> Self {
-        let (text, height) = match &config.content {
+        let mut ret = Self {
+            config,
+            ..Default::default()
+        };
+        ret.init();
+
+        ret
+    }
+
+    /// Refresh content and interactions from config.
+    pub fn init(&mut self) {
+        let (text, height) = match &self.config.content {
             Some(StringOrVec::String(s)) => {
                 let text = Text::from(s.clone());
                 let height = text.height() as u16;
@@ -39,19 +50,13 @@ impl DisplayUI {
             _ => (vec![], 0),
         };
 
-        let mut config = config;
-        for line in &mut config.interactions {
+        for line in &mut self.config.interactions {
             line.sort_by_key(|(i, _)| *i);
         }
 
-        Self {
-            height,
-            width: 0,
-            show: config.content.is_some() || config.header_lines > 0,
-            lines: Vec::new(),
-            text,
-            config,
-        }
+        self.text = text;
+        self.height = height;
+        self.show = self.config.content.is_some() || self.config.header_lines > 0;
     }
 
     pub fn update_width(&mut self, width: u16) {

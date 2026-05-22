@@ -213,19 +213,26 @@ Actions are the operations performed when a trigger is activated.
 
 ### Programmable and Miscellaneous
 
-| Action             | Description                                                              |
-| ------------------ | ------------------------------------------------------------------------ |
-| `Execute(cmd)`     | Run a shell command (replaces TUI).                                      |
-| `ExecuteSilent(c)` | Run a shell command in the background.                                   |
-| `Become(cmd)`      | Exit Matchmaker and execute the command.                                 |
-| `Reload(cmd)`      | Rerun the initial command or a new one.                                  |
-| `ReloadNext(n)`    | Cycle through `additional_commands`.                                     |
-| `ReloadPrev`       | Cycle backwards through `additional_commands`.                           |
-| `Transform(cmd)`   | Run command and parse its output as a stream of Actions.                 |
-| `Store(str)`       | Set the value of `MM_STORE`.                                             |
-| `Print(s)`         | Print a string to stdout on exit.                                        |
-| `PrintKey`         | Print the activating key.                                                |
-| `@name`            | Execute the actions associated with semantic trigger `name`.             |
+| Action                 | Description                                                                              |
+| ---------------------- | ---------------------------------------------------------------------------------------- |
+| `Execute(cmd)`         | Run a shell command.                                                      |
+| `ExecuteSilent(c)`     | Run and detach a shell command silently.                                                   |
+| `ExecuteAsync(cmd)`    | Run asynchronously; subsequent actions in the same batch execute after its completion.   |
+| `ExecuteThen(cmd)`     | Run asynchronously; subsequent actions execute after completion and only if it succeeds. |
+| `ExecuteOrConfirm(c)`  | Run a shell command (replaces TUI), but ask for confirmation if it fails.                |
+| `ExecuteAndQuit(cmd)`  | Run a shell command (replaces TUI) and then quit.                                        |
+| `Become(cmd)`          | Transform the process into the command.                                                 |
+| `BecomeSilent(cmd)`    | Transform the process into the command without clearing the screen (useful for transitioning between different matchmaker presets).                    |
+| `BecomeOr(cmd)`        | Execute the command, ask for confirmation on failure, quit on success, resume on interrupt.           |
+| `Reload(cmd)`          | Rerun the initial command or a new one.                                                  |
+| `ReloadNext(n)`        | Cycle through `additional_commands`.                                                     |
+| `ReloadPrev`           | Cycle backwards through `additional_commands`.                                           |
+| `Transform(cmd)`       | Run command and parse its output as a stream of Actions.                                |
+| `TransformConfig(cmd)` | Run command and parse its output as configuration pairs (analogously to the cli input, one per line).                  |
+| `Store(str)`           | Set the value of `MM_STORE`.                                                             |
+| `Print(s)`             | Print a string to stdout on exit.                                                        |
+| `PrintKey`             | Print the activating key.                                                                |
+| `@name`                | Execute the actions associated with semantic trigger `name`.                             |
 
 Note: Commands executed via these actions have access to various [environment variables](template.md#environment-variables).
 

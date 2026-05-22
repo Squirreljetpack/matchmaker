@@ -1,3 +1,10 @@
+
+## [0.0.30] - 2026-05-22
+
+### 🚀 Features
+
+- Improvements to preview tail, presets, and others
+
 ## [0.0.29] - 2026-05-18
 
 ### 🚀 Features

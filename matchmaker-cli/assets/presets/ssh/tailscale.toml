@@ -40,6 +40,7 @@ prompt_style.modifier = "ITALIC"
 "@open" = "Become(tailscale ssh {hostname})"
 "@open_2" = "ExecuteSilent(fs :o https://login.tailscale.com/admin/machines)"
 "@next" = "BecomeSilent(mm -o ssh/hosts)"
+"@prev" = "BecomeSilent(mm -o ssh/known)"
 
 # --- Scripts ---
 "@netcheck" = "Preview(tailscale netcheck)"

@@ -1,17 +1,17 @@
-mod _log;
 mod action;
 mod clap;
 mod config;
 mod crokey;
 pub mod formatter;
+mod logger;
 mod parse;
 mod paths;
 mod start;
 mod utils;
 
-use _log::*;
 use clap::*;
 use config::PartialConfig;
+use logger::*;
 use paths::*;
 use start::*;
 use utils::*;

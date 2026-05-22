@@ -33,19 +33,21 @@ always_trigger = false
 command = '''
 git diff --color=always --exit-code {1} && $PAGER {1}
 '''
-# side = "right"
-# percentage = 40
-# min = 30
-# max = 120
+border = { type = "LightDoubleDashed", color = "DarkGray" }
+side = "top"
+percentage = 50
+min = 5
+padding = 0
 
 [[preview.layout]]
 command = '''
 git diff --cached --color=always --exit-code {1} && echo "no staged changes"
 '''
-side = "right"
-percentage = 40
-min = 30
-max = 120
+border = { type = "LightDoubleDashed", color = "DarkGray" }
+side = "top"
+percentage = 50
+min = 5
+padding = 0
 
 [[preview.layout]]
 # alternate history: git -c color.ui=always log --decorate --stat --summary -p -- {1}
@@ -56,10 +58,14 @@ git -c  color.ui=always log --ext-diff -D -p -- {1}
 # --- UI ---
 [tui]
 percentage = 100
+[query]
+prompt = "status> "
 
 [binds]
 "@accept" = ["@stage", "Reload"]
 "@accept_2" = ["Print({=1})", "Quit"]
+"@next" = "BecomeSilent(mm -o git/restore)"
+"@prev" = "BecomeSilent(mm -o git/grep)"
 
 "ctrl-c" = ["@commit", "Reload"]
 "ctrl-shift-c" = ["@ai_commit", "Reload"]

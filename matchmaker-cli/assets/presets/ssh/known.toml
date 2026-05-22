@@ -38,6 +38,7 @@ prompt_style.modifier = "ITALIC"
 
 "@open" = "Execute(ssh -vT {host} 2>&1)"
 "@next" = "BecomeSilent(mm -o ssh/tailscale)"
+"@prev" = "BecomeSilent(mm -o ssh/keys)"
 
 # --- Scripts ---
 "@delete" = ["Execute(ssh-keygen -R {host})", "Reload"]

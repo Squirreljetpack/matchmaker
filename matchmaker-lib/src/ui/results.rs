@@ -594,17 +594,26 @@ impl ResultsUI {
         // topside padding is not self-correcting, and can only do its best to stay at #padding lines without obscuring cursor on cursor movement events.
         let mut remaining_height = self.height.saturating_sub(total_height);
 
-        for (mut i, (mut row, item)) in results.drain(start_index as usize..).enumerate() {
-            i += self.bottom_clip.is_some() as usize;
+        let mut i = self.bottom_clip.is_some() as usize;
 
-            // this is technically one step out of sync but idc
-            if let Click::ResultPos(c) = click
-                && self.height - remaining_height > *c
-            {
-                let idx = self.bottom as u32 + i as u32 - 1;
-                log::debug!("Mapped click position to index: {c} -> {idx}",);
-                *click = Click::ResultIdx(idx);
+        for (mut row, item) in results.drain(start_index as usize..) {
+            // note that the index changes *next* frame
+            if let Click::ResultPos(c) = click {
+                let c = if self.reverse() {
+                    self.height.saturating_sub(*c).saturating_sub(1)
+                } else {
+                    *c
+                };
+                log::debug!("{i} {c}");
+                if self.height - remaining_height > c {
+                    let idx = self.bottom as u32 + i as u32 - 1;
+                    log::debug!(
+                        "Mapped click position to index: {c} -> {idx} with remaining {remaining_height}",
+                    );
+                    *click = Click::ResultIdx(idx);
+                }
             }
+
             if self.is_current(i) {
                 self.cursor_above = self.height - remaining_height;
             }
@@ -810,6 +819,13 @@ impl ResultsUI {
                 }
                 rows.extend(push);
             }
+            i += 1;
+        }
+
+        // doesn't loop back after results is exhausted so we have to set here
+        if let Click::ResultPos(_c) = click {
+            log::debug!("Mapped click to last row = {i}");
+            *click = Click::ResultIdx(self.bottom as u32 + i as u32 - 1);
         }
 
         if self.reverse() {

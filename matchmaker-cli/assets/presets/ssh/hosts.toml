@@ -88,6 +88,7 @@ prompt_style.modifier = "ITALIC"
 "@open" = "Execute($EDITOR {file})"
 "@open_2" = "Become($EDITOR {file})"
 "@next" = "BecomeSilent(mm -o ssh/keys)"
+"@prev" = "BecomeSilent(mm -o ssh/tailscale)"
 
 # --- Scripts ---
 "@test" = "Execute(ssh -vT {host} 2>&1)"

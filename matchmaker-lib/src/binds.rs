@@ -119,76 +119,98 @@ impl<A: ActionExt> BindMap<A> {
     /// # Note
     /// This method assumes that [Self::check_cycles] has been called and succeeded.
     pub fn resolve_semantics(&mut self) {
-        let mut triggers_to_remove = Vec::new();
         let mut triggers_to_update = Vec::new();
 
+        // Step 1: Build semantic resolution mapping strictly for mode-less fallbacks
+        let mut semantic_map: std::collections::HashMap<String, Option<String>> =
+            std::collections::HashMap::new();
+
+        for (trigger, actions) in self.iter().filter(|(t, _)| t.mode.is_empty()) {
+            if let TriggerKind::Semantic(ref s) = trigger.kind {
+                if actions.len() == 1
+                    && let Action::Semantic(next_s) = &actions[0]
+                {
+                    semantic_map
+                        .entry(s.clone())
+                        .and_modify(|v| *v = None)
+                        .or_insert_with(|| Some(next_s.clone()));
+                } else {
+                    // Ambiguous or non-semantic terminal
+                    semantic_map
+                        .entry(s.clone())
+                        .and_modify(|v| *v = None)
+                        .or_insert(None);
+                }
+            }
+        }
+
+        // Step 2: Iterate over ALL triggers and prune/chain semantic actions
         for (trigger, actions) in self.iter() {
-            let mut any_unbound = false;
-            let mut updated_actions = Vec::new();
+            let mut updated_actions = Actions::default();
             let mut changed = false;
 
             for action in actions.iter() {
                 if let Action::Semantic(start_s) = action {
                     let mut current_s = start_s.clone();
-                    let mut last_valid_s = start_s.clone();
                     let mut is_unbound = false;
 
                     // Trace the chain of single semantic actions
                     loop {
-                        let next_trigger = Trigger {
-                            kind: TriggerKind::Semantic(current_s.clone()),
-                            mode: String::new(),
-                        };
-                        match self.get(&next_trigger) {
-                            Some(next_actions) if next_actions.len() == 1 => {
-                                if let Action::Semantic(next_s) = &next_actions[0] {
-                                    last_valid_s = current_s;
+                        // 1. Try finding the semantic trigger specific to the current mode first
+                        if !trigger.mode.is_empty() {
+                            let next_trigger = Trigger {
+                                kind: TriggerKind::Semantic(current_s.clone()),
+                                mode: trigger.mode.clone(),
+                            };
+
+                            if let Some(next_actions) = self.get(&next_trigger) {
+                                if next_actions.len() == 1
+                                    && let Action::Semantic(next_s) = &next_actions[0]
+                                {
                                     current_s = next_s.clone();
-                                } else {
-                                    // Chain ends at a single non-semantic action
-                                    last_valid_s = current_s;
-                                    break;
+                                    continue;
                                 }
+                                break; // Found a terminal for this specific mode
                             }
-                            Some(next_actions) if !next_actions.is_empty() => {
-                                // Chain ends at multiple actions
-                                last_valid_s = current_s;
-                                break;
+                        }
+
+                        // 2. Fallback to the global mapping (mode = "")
+                        match semantic_map.get(&current_s) {
+                            Some(Some(next_s)) => {
+                                current_s = next_s.clone(); // Chain further
                             }
-                            _ => {
-                                // Dead end
-                                is_unbound = true;
+                            Some(None) => {
+                                break; // Do nothing (resolves to concrete or multiple actions)
+                            }
+                            None => {
+                                is_unbound = true; // Not in mapping, prune
                                 break;
                             }
                         }
                     }
 
-                    if is_unbound {
-                        any_unbound = true;
-                        break;
-                    } else if last_valid_s != *start_s && actions.len() == 1 {
-                        updated_actions.push(Action::Semantic(last_valid_s));
-                        changed = true;
-                    } else {
-                        updated_actions.push(action.clone());
+                    if !is_unbound {
+                        if &current_s != start_s {
+                            changed = true
+                        }
+                        updated_actions.push(Action::Semantic(current_s));
                     }
                 } else {
                     updated_actions.push(action.clone());
                 }
             }
 
-            if any_unbound {
-                triggers_to_remove.push(trigger.clone());
-            } else if changed {
-                triggers_to_update.push((trigger.clone(), updated_actions.into_iter().collect()));
+            if changed {
+                triggers_to_update.push((trigger.clone(), updated_actions));
             }
         }
 
-        for t in triggers_to_remove {
-            self.remove(&t);
-        }
         for (t, a) in triggers_to_update {
-            self.insert(t, a);
+            if a.is_empty() {
+                self.remove(&t);
+            } else {
+                self.insert(t, a);
+            }
         }
     }
 }

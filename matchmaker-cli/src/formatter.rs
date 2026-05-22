@@ -444,9 +444,13 @@ mod tests {
     use matchmaker::nucleo::nucleo::{Config as NucleoConfig, Matcher};
     use matchmaker::render::State;
     use matchmaker::ui::UI;
+    use std::sync::Mutex;
     use tokio::sync::mpsc;
 
-    fn setup_test_mm() -> (matchmaker::ConfigMatchmaker, matchmaker::ConfigInjector) {
+    static TEST_MUTEX: Mutex<()> = Mutex::new(());
+
+    fn setup_test_mm() -> (matchmaker::ConfigMatchmaker, matchmaker::ConfigInjector, std::sync::MutexGuard<'static, ()>) {
+        let guard = TEST_MUTEX.lock().unwrap();
         let mut columns_config = ColumnsConfig::default();
         columns_config.names = vec![
             matchmaker::config::ColumnSetting {
@@ -476,12 +480,12 @@ mod tests {
             Default::default(),
             Default::default(),
         );
-        (mm, injector)
+        (mm, injector, guard)
     }
 
     #[tokio::test]
     async fn test_format_cli_basic() {
-        let (mut mm, injector) = setup_test_mm();
+        let (mut mm, injector, _guard) = setup_test_mm();
         injector.push("a,b,c".to_string()).unwrap();
         mm.worker.nucleo.tick(10);
 
@@ -530,7 +534,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_format_cli_ranges() {
-        let (mut mm, injector) = setup_test_mm();
+        let (mut mm, injector, _guard) = setup_test_mm();
         injector.push("a,b,c".to_string()).unwrap();
         mm.worker.nucleo.tick(10);
 
@@ -572,7 +576,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_format_cli_selections() {
-        let (mut mm, injector) = setup_test_mm();
+        let (mut mm, injector, _guard) = setup_test_mm();
         injector.push("a,b,c".to_string()).unwrap();
         injector.push("1,2,3".to_string()).unwrap();
         mm.worker.nucleo.tick(10);
@@ -614,6 +618,7 @@ mod tests {
             mm_state.picker_ui.update();
 
             let result = format_cli(&mut mm_state, "echo {+} {-col1} {-!} {+!}", None);
+            dbg!(picker_ui.selector);
             // {+} -> 'a,b,c' '1,2,3'
             // {-col1} -> a 1
             // {-!} -> b 2 (active col is col2 because of %col2 )
@@ -624,7 +629,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_format_cli_invalid_key() {
-        let (mut mm, injector) = setup_test_mm();
+        let (mut mm, injector, _guard) = setup_test_mm();
         injector.push("a,b,c".to_string()).unwrap();
         mm.worker.nucleo.tick(10);
 
@@ -668,7 +673,7 @@ mod tests {
             args.push("arg with space".into());
         }
 
-        let (mut mm, injector) = setup_test_mm();
+        let (mut mm, injector, _guard) = setup_test_mm();
         injector.push("a,b,c".to_string()).unwrap();
         mm.worker.nucleo.tick(10);
 

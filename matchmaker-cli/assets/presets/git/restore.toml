@@ -65,9 +65,10 @@ prompt = "restore> "
 
 [binds]
 "enter" = "@checkout"
-"ctrl-t" = ["@tag_or_drop", "Reload"]
+"ctrl-t" = ["@tag", "Reload"]
 "alt-r" = "@soft_reset"
 "alt-s" = "@show"
+"ctrl-d" = ["@clean", "Reload"]
 
 "@next" = "BecomeSilent(mm -o git/switch)"
 "@prev" = "BecomeSilent(mm -o git/status)"
@@ -93,6 +94,7 @@ prompt = "restore> "
 
 "@checkout" = '''
 Become(
+set -e
 git --no-pager diff --stat {1} -- {$1}
 
 [ -n "$(git status --porcelain -- {$1})" ] &&
@@ -112,8 +114,7 @@ git checkout {1} -- {$1}
 )
 '''
 
-"@accept_2" = '''
-Become(
+"@accept_2" = '''Become(
 case $MM_INDEX in
 0|3) printf '%s\n' {+1} ;;
 1) git stash apply {1} ;;
@@ -123,7 +124,6 @@ esac
 
 "@soft_reset" = '''Become(
 set -e
-
 case $MM_INDEX in
 1)
   TARGET={1}
@@ -207,7 +207,7 @@ case $MM_INDEX in
 esac
 )'''
 
-"@tag_or_drop" = '''
+"@tag" = '''
 Execute(
 set -e
 
@@ -239,11 +239,11 @@ case $MM_INDEX in
     echo "Tagged {1} as $tag_name"
   fi
 
-  printf "(force) push tag '%s' to $remote? [y/f/N] " "$tag_name"
+  printf "push tag '%s' to $remote? [y/(f)orce/N] " "$tag_name"
   read -r ans
 
   case "$ans" in
-    [fF]*|force)
+    [fF]*)
       git push --force $delete $remote "$tag_name"
       ;;
     [yY]*)
@@ -254,16 +254,68 @@ case $MM_INDEX in
       ;;
   esac
   ;;
-2)
-  printf "Bookmark reflog %s with new branch name: " {1}
-  read -r bname
-  if [ -n "$bname" ]; then
-    git branch "$bname" "{1}"
-    echo "Created branch '$bname'"
+1)
+  printf "Branch name for %s: " {1}
+  read -r ans
+  if [ -n "$ans" ]; then
+    git stash branch "$ans" {1}
   fi
   ;;
-1)
-  git stash drop {1}
+2)
+  printf "Branch name for reflog entry %s: " {1}
+  read -r ans
+  if [ -n "$ans" ]; then
+    git branch "$ans" {1}
+  fi
   ;;
 esac
+)'''
+
+"@clean" = '''
+Execute(
+set -e
+
+case $MM_INDEX in
+0)
+  printf "Run aggressive GC (rewrites object storage, removes unreachable data)? [y/N] "
+  read -r ans
+  case "$ans" in
+    [yY]*)
+      git gc --prune=now --aggressive
+      ;;
+    *)
+      echo "cancelled"
+      exit
+      ;;
+  esac
+  ;;
+
+1)
+  git stash drop {1}
+  exit
+  ;;
+
+2)
+  printf "Run full cleanup GC (expires reflogs + removes unreachable objects immediately)? [y/N] "
+  read -r ans
+  case "$ans" in
+    [yY]*)
+      git -c gc.reflogExpire=0 -c gc.reflogExpireUnreachable=0 \
+      -c gc.rerere.rresolved=0 -c gc.rerere.unresolved=0 \
+      -c gc.pruneExpire=now gc
+      ;;
+    *)
+      echo "cancelled"
+      exit
+      ;;
+  esac
+  ;;
+
+3)
+  exit
+;;
+esac
+
+printf "\nPress enter to continue..."
+read -r
 )'''

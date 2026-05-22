@@ -156,6 +156,7 @@ printf "$out" | eval $CLIPcmd
 '''
 
 # test
+"ctrl-t" = "Become(set -e; false; echo hi;)"
 "alt-t" = "@test"
 "@test" = "Execute(echo ----; read v; echo $v; echo ----)"
 

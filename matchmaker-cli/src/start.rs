@@ -11,6 +11,7 @@ use crate::{
     clap::Cli,
     config::PartialConfig,
     paths::{last_key_path, presets_path},
+    register::MMExt,
     utils::expand_tilde,
 };
 use crate::{config::Config, paths::default_config_path};
@@ -90,6 +91,10 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
         config.envs.insert("MM_OVERRIDE".to_string(), path_str);
     }
 
+    #[cfg(debug_assertions)]
+    {
+        config.tui.clear_on_exit = false;
+    }
     config.apply(partial); // resolve config.exit first
 
     if !cli.args.is_empty() {
@@ -314,7 +319,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
 
     // ---------------------- register handlers ---------------------------
     // print handler (no quoting)
-    mm.register_print_handler(
+    mm._register_print_handler(
         print_handle.clone(),
         output_separator.clone(),
         cli_formatter.clone(),
@@ -322,7 +327,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
 
     // execute handlers
     mm.register_execute_handler(cli_formatter.clone());
-    mm.register_become_handler(cli_formatter.clone());
+    mm._register_become_handler(cli_formatter.clone());
 
     // reload handler
     let reload_formatter = cli_formatter.clone();
@@ -419,6 +424,8 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         log::trace!("{s}"); // this apparently helps with a race condition that erases output?
         print!("{}{}", s, output_separator);
     });
+
+    log::trace!("Print complete");
 
     ret.map(|_| {})
 }

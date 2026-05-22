@@ -1219,6 +1219,7 @@ dependencies = [
  "cli_boilerplate_automation",
  "crokey",
  "dirs",
+ "easy-ext",
  "env_logger",
  "log",
  "matchmaker-lib",

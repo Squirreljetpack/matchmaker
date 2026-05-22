@@ -51,6 +51,12 @@ pub struct State {
     /// Setting this to true finishes the picker with [`crate::MatchError::NoMatch`].
     pub should_quit_nomatch: bool,
     pub filtering: bool,
+
+    /// This field is never touched by the rendering loop and is reserved for
+    /// consumers to use to store values, such as distinguishing between multiple
+    /// sources of a payload for an interrupt. The responsibility is on the consumer
+    /// to to ensure the value is emptied by the handler corresponding to an interrupt.
+    pub discriminant_payload: Option<u8>,
 }
 
 impl State {
@@ -78,6 +84,8 @@ impl State {
             should_quit: false,
             should_quit_nomatch: false,
             filtering: true,
+
+            discriminant_payload: None,
         }
     }
     // ------ properties -----------

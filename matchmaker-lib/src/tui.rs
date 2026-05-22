@@ -24,7 +24,8 @@ where
     pub terminal: ratatui::Terminal<CrosstermBackend<W>>,
     pub area: Rect,
     pub config: TerminalConfig,
-    pub fullscreen: bool, // initially fullscreen
+
+    in_execute: bool,
 }
 
 impl<W> Tui<W>
@@ -33,12 +34,9 @@ where
 {
     // waiting on https://github.com/ratatui/ratatui/issues/984 to implement growable inline, currently just tries to request max
     // if max > than remainder, then scrolls up a bit
-    pub fn new_with_writer(writer: W, mut config: TerminalConfig) -> Result<Self> {
+    pub fn new_with_writer(writer: W, config: TerminalConfig) -> Result<Self> {
         let mut backend = CrosstermBackend::new(writer);
         let mut options = TerminalOptions::default();
-        if config.sleep_ms.is_zero() {
-            config.sleep_ms = Duration::from_millis(100)
-        };
 
         // important for getting cursor
         crossterm::terminal::enable_raw_mode()?;
@@ -49,10 +47,11 @@ where
                 .percentage
                 .compute_clamped(height, layout.min, layout.max);
 
-            let cursor_y = Self::get_cursor_y(config.sleep_ms).unwrap_or_else(|e| {
-                error!("Failed to read cursor: {e}");
-                height - 1 // overestimate
-            });
+            let cursor_y = Self::get_cursor_y(Duration::from_millis(config.sleep_ms))
+                .unwrap_or_else(|e| {
+                    error!("Failed to read cursor: {e}");
+                    height - 1 // overestimate
+                });
 
             let initial_height = height.saturating_sub(cursor_y);
 
@@ -60,11 +59,12 @@ where
             debug!("TUI dimensions: {width}, {height}. Cursor_y: {cursor_y}.",);
 
             // ensure available by scrolling
-            let cursor_y = match Self::scroll_up(&mut backend, scroll) {
-                Ok(_) => {
+            let cursor_y = match Self::scroll_up(&mut backend, scroll)._elog() {
+                Some(_) => {
                     cursor_y.saturating_sub(scroll) // the requested cursor doesn't seem updated so we assume it succeeded
+                    // todo: highpri: scroll doesn't actually seem happening tho, erasing buffer
                 }
-                Err(_) => cursor_y,
+                None => cursor_y,
             };
             let available_height = height.saturating_sub(cursor_y);
 
@@ -98,9 +98,9 @@ where
         let terminal = Terminal::with_options(backend, options)?;
         Ok(Self {
             terminal,
-            fullscreen: config.layout.is_none(),
             config,
             area,
+            in_execute: false,
         })
     }
 
@@ -109,7 +109,7 @@ where
 
         crossterm::terminal::enable_raw_mode()?;
         if fullscreen {
-            self.enter_alternate_screen()?;
+            self.enter_alternate_screen(true)?;
         }
 
         let backend = self.terminal.backend_mut();
@@ -131,39 +131,61 @@ where
         Ok(())
     }
 
-    // call iff self.fullscreen
-    pub fn enter_alternate_screen(&mut self) -> Result<()> {
+    // call iff self.is_fullscreen
+    pub fn enter_alternate_screen(&mut self, clear: bool) -> Result<()> {
         let backend = self.terminal.backend_mut();
         execute!(backend, EnterAlternateScreen)?;
-        execute!(backend, crossterm::terminal::Clear(ClearType::All))?;
-        self.terminal.clear()?;
+
+        if clear {
+            execute!(backend, crossterm::terminal::Clear(ClearType::All))?;
+            self.terminal.clear()?;
+        }
+
         debug!("Entered alternate screen");
         Ok(())
     }
 
+    fn sleep(&self) -> Duration {
+        std::time::Duration::from_millis(self.config.sleep_ms)
+    }
+
     pub fn enter_execute(&mut self) {
-        self.exit();
-        sleep(self.config.sleep_ms); // necessary to give resize some time
+        self.exit(None);
+        sleep(self.sleep()); // necessary to give resize some time
         debug!("state: {:?}", crossterm::terminal::is_raw_mode_enabled());
+        self.in_execute = true;
 
         // do we ever need to scroll up?
     }
 
-    pub fn return_execute(&mut self) -> Result<()> {
-        self.config.layout = None; // force fullscreen
+    pub fn return_execute(&mut self, clear: bool) -> Result<()> {
+        if self.config.restore_fullscreen {
+            self.config.layout = None;
+        }
+
+        // somehow this scroll amount is wrong. Also previously rendered execute are not visible.
+        // if let Some(y) = Self::get_cursor_y(self.sleep())._elog() {
+        //     let lines = y.saturating_sub(self.area.y);
+        //     if lines > 0 {
+        //         Self::scroll_up(self.terminal.backend_mut(), lines)._elog();
+        //     }
+        // }
         self.enter()?;
 
-        sleep(self.config.sleep_ms);
-        log::trace!("During return, slept {}", self.config.sleep_ms.as_millis());
+        // not sure if clear does anything
+        if clear {
+            sleep(self.sleep());
+            log::trace!("During return, slept {}", self.sleep().as_millis());
 
-        execute!(
-            self.terminal.backend_mut(),
-            crossterm::terminal::Clear(ClearType::All)
-        )
-        ._wlog();
+            execute!(
+                self.terminal.backend_mut(),
+                crossterm::terminal::Clear(ClearType::All)
+            )
+            ._wlog();
+        }
 
         // resize
-        if self.is_fullscreen() || self.config.restore_fullscreen {
+        if self.is_fullscreen() {
             if let Some((width, height)) = Self::full_size() {
                 self.resize(Rect::new(0, 0, width, height));
             } else {
@@ -173,11 +195,19 @@ where
         } else {
             self.resize(self.area);
         }
+        self.in_execute = false;
 
         Ok(())
     }
 
-    pub fn exit(&mut self) {
+    pub fn exit(&mut self, mut clear: Option<bool>) {
+        if self.in_execute {
+            // let backend = self.terminal.backend_mut();
+            // execute!(backend, LeaveAlternateScreen, DisableMouseCapture)._wlog();
+            // disable_raw_mode()._wlog();
+            log::debug!("Skipped teardown after already having left");
+            return;
+        }
         let backend = self.terminal.backend_mut();
 
         execute!(backend, LeaveAlternateScreen, DisableMouseCapture)._wlog();
@@ -186,14 +216,36 @@ where
             execute!(backend, PopKeyboardEnhancementFlags)._elog();
         }
 
-        if self.config.clear_on_exit && !cfg!(debug_assertions) {
-            execute!(
-                backend,
-                crossterm::cursor::MoveToRow(self.area.y),
-                crossterm::cursor::MoveToColumn(0),
-                crossterm::terminal::Clear(ClearType::FromCursorDown)
-            )
-            ._elog();
+        if clear.is_none() {
+            if !self.config.clear_on_exit {
+                clear = Some(false)
+            } else
+            // todo: condition allowing for None variant
+            {
+                clear = Some(true)
+            }
+        }
+
+        match clear {
+            Some(true) => {
+                execute!(
+                    backend,
+                    crossterm::cursor::MoveToRow(self.area.y),
+                    crossterm::cursor::MoveToColumn(0),
+                    crossterm::terminal::Clear(ClearType::FromCursorDown)
+                )
+                ._elog();
+            }
+            None => {
+                execute!(
+                    backend,
+                    crossterm::cursor::MoveUp(0), // todo
+                    crossterm::cursor::MoveToColumn(0),
+                    crossterm::terminal::Clear(ClearType::FromCursorDown)
+                )
+                ._elog();
+            }
+            _ => {}
         }
 
         self.terminal.show_cursor()._wlog();
@@ -263,7 +315,7 @@ where
     W: Write,
 {
     fn drop(&mut self) {
-        self.exit();
+        self.exit(None);
     }
 }
 

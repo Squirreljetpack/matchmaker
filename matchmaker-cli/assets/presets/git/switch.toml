@@ -81,18 +81,14 @@ border.padding = [2, 0]
 [tui]
 percentage = 100
 
-[header]
-content = "branches"
-
 [query]
 prompt = "switch> "
 
 [binds]
-"Start" = "Store(0)"
 "enter" = "@switch"
 "ctrl-d" = ["@delete", "Reload"]
-"alt-r" = ["@rename", "Reload"]
 
+"ctrl-s" = ["@switch_silent", "Reload"]
 "ctrl-u" = ["@update", "Reload"]
 "ctrl-a" = ["@add_remote", "Reload"]
 "ctrl-n" = ["@add_branch", "Reload"]
@@ -101,6 +97,17 @@ prompt = "switch> "
 "@prev" = "BecomeSilent(mm -o git/restore)"
 
 # --- Scripts ---
+"Start" = '''Transform(
+    HEADERS=(
+      branches
+      tags
+      remotes
+    )
+    setopt KSH_ARRAYS 2>/dev/null
+    ref="$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD)"
+    echo "SetHeader(${HEADERS[$MM_INDEX]} ($ref))"
+)
+'''
 "Reloaded" = '''Transform(
     HEADERS=(
       branches
@@ -108,14 +115,15 @@ prompt = "switch> "
       remotes
     )
     setopt KSH_ARRAYS 2>/dev/null
-    echo "SetHeader(${HEADERS[$MM_INDEX]})"
+    ref="$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD)"
+    echo "SetHeader(${HEADERS[$MM_INDEX]} ($ref))"
 )
 '''
 "@reload" = "ReloadNext"
 "@reload_2" = "ReloadPrev"
 
 "@update" = '''
-Execute(
+ExecuteOrKeep(
 case "$MM_INDEX" in
 0)
     ref={2}
@@ -147,6 +155,7 @@ read -r
 )
 '''
 
+# Switch and exit: less spurious than switch_silent
 "@switch" = '''
 Become(
 set -e
@@ -189,8 +198,35 @@ esac
 )
 '''
 
+"@switch_silent" = '''Execute(
+case "$MM_INDEX" in
+0)
+    ref={2}
+    ref=${ref#*:}
+    git switch "$ref"
+    ;;
+1)
+    git switch --detach {2}
+    ;;
+2)
+    ref={2}
+    case "$ref" in
+    refs/heads/*)
+        name="${ref#refs/heads/}"
+        git fetch "$remote" "$ref:$name"
+        git switch "$name"
+        ;;
+    refs/tags/*)
+        git fetch "$remote" "$ref"
+        git switch --detach FETCH_HEAD
+        ;;
+    esac
+;;
+esac
+)'''
+
 "@delete" = '''
-Execute(
+ExecuteOrKeep(
 set -e
 case "$MM_INDEX" in
 0)
@@ -219,7 +255,7 @@ case "$MM_INDEX" in
 
                     case "$rans" in
                         [yY]*)
-                            git push "$remote" --delete "$branch" && exit || :
+                            git push "$remote" --delete "$branch"
                             ;;
                     esac
                 fi
@@ -235,7 +271,7 @@ case "$MM_INDEX" in
             git tag -d {2}
             printf "Delete remote tag too? [y/N] "
             read -r rans
-            case "$rans" in [yY]*) git push origin --delete refs/tags/{2} && exit || : ;; esac
+            case "$rans" in [yY]*) git push origin --delete refs/tags/{2} ;; esac
             ;;
     esac
     ;;
@@ -249,7 +285,7 @@ read -r
 '''
 
 "@rename" = '''
-Execute(
+ExecuteOrKeep(
 set -e
 case "$MM_INDEX" in
 0)
@@ -258,26 +294,23 @@ case "$MM_INDEX" in
         old_remote="${ref%%:*}"
         printf "Rename REMOTE %s to: " "$old_remote"
         read -r new_name
-        [ -z "$new_name" ] && exit 0
+        [ -n "$new_name" ] || exit
         git remote rename "$old_remote" "$new_name"
     else
         printf "Rename branch %s to: " "$ref"
         read -r new_name
-        [ -n "$new_name" ]
+        [ -n "$new_name" ] || exit
         git branch -m "$ref" "$new_name"
 
-        printf "Push / create only? [y/c/N] "
+        printf "push? [y/N] "
         read -r ans
         case "$ans" in
         [y]*)
             git push origin "$new_name" &&
-            git push origin --delete "$ref" && exit || :
+            git push origin --delete "$ref"
             ;;
-        [c]*)
-            git push origin "$new_name" && exit || :
-            ;;
-        *)
-            echo "cancelled" && exit || :
+        [nN]*|'')
+            git push origin "$new_name"
             ;;
         esac
     fi
@@ -285,37 +318,33 @@ case "$MM_INDEX" in
 1)
     printf "Rename tag %s to: " {2}
     read -r new_tag
-    [ -n "$new_tag" ]
+    [ -n "$new_tag" ] || exit
 
     git tag "$new_tag" {2}
     git tag -d {2}
 
-    printf "Push / create only? [y/c/f/N] "
+    printf "push? [y/N] "
     read -r ans
     case "$ans" in
         [yY]*)
             git push origin "$new_tag" &&
-            git push origin --delete "{2}" && exit || :
+            git push origin --delete "{2}"
             ;;
-        [cC]*)
-            git push origin "$new_tag" && exit || :
-            ;;
-        *)
-            echo "cancelled" && exit || :
+        [nN]*|'')
+            git push origin "$new_tag"
             ;;
     esac
     ;;
 *)
     echo "Unavailable"
+    false
     ;;
 esac
-printf "\nPress enter to continue..."
-read -r
 )
 '''
 
 "@add_remote" = '''
-Execute(
+ExecuteOrKeep(
 set -e
 printf "Remote name: "
 read -r name
@@ -324,28 +353,13 @@ printf "Remote URL: "
 read -r url
 [ -n "$url" ]
 git remote add "$name" "$url"
-echo "Added remote $name"
-printf "\nPress enter to continue..."
-read -r
 )
 '''
 
-"@add_branch" = '''Execute(
-set -eu
-while :; do
-  printf "New branch name: "
-  read -r branch
-
-  [ -n "$branch" ] || exit 0
-
-  if git show-ref --verify --quiet "refs/heads/$branch"; then
-    printf "Branch '%s' already exists. Try another name.\n" "$branch"
-    continue
-  fi
-
-  break
-done
-
+"@add_branch" = '''ExecuteOrKeep(
+set -e
+printf "New branch name: "
+read -r branch
+[ -n "$branch" ] || exit
 git switch -c "$branch"
-echo "Created and switched to $branch"
 )'''

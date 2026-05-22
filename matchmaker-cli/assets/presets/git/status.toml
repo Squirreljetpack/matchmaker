@@ -25,6 +25,9 @@ sort = 20
 [envs]
 DFT_COLOR = "always"
 
+[exit]
+abort_empty = false
+
 # --- Preview ---
 [previewer]
 always_trigger = false
@@ -58,6 +61,7 @@ git -c  color.ui=always log --ext-diff -D -p -- {1}
 # --- UI ---
 [tui]
 percentage = 100
+
 [query]
 prompt = "status> "
 
@@ -67,8 +71,10 @@ prompt = "status> "
 "@next" = "BecomeSilent(mm -o git/restore)"
 "@prev" = "BecomeSilent(mm -o git/grep)"
 
-"ctrl-c" = ["@commit", "Reload"]
-"ctrl-shift-c" = ["@ai_commit", "Reload"]
+"ctrl-s" = ["@unstage", "Reload"]
+"ctrl-c" = ["@commit", "Quit"]
+"alt-c" = ["Execute(git add . && echo 'All changes staged' || echo 'git add . failed')", "@commit", "Quit"]
+"ctrl-shift-c" = ["@commit_ai", "Reload"]
 "alt-r" = ["@restore", "Reload"]
 "ctrl-t" = ["@stash", "Reload"]
 "ctrl-d" = ["@remove", "Reload"]
@@ -77,8 +83,18 @@ prompt = "status> "
 "alt-i" = ["@ignore", "Reload"]
 
 # --- Scripts ---
+"@rename" = '''ExecuteOrKeep(
+set -- {+1}
+echo "Rename $1 to: "
+read -r new_name
+[ -n "$new_name" ] || exit
+mkdir -p "$(dirname "$new_name")"
+git mv "$1" "$new_name"
+)
+'''
+
 "@stage" = '''
-ExecuteSilent(
+ExecuteAsync(
 set -e
 set -- {+1}
 ac=true
@@ -93,6 +109,31 @@ if $ad; then git add -- "$@"; else git reset -q -- "$@"; fi
 )
 '''
 
+"@unstage" = '''
+ExecuteAsync(
+set -e
+
+if ((MM_SELECT_COUNT)); then
+  set -- {+1}
+else
+  set -- .
+fi
+
+ac=true
+ad=true
+
+for f; do
+  git diff --cached --quiet -- "$f" && ad=false || ac=false
+done
+
+if $ac; then
+  git add -- "$@"
+else
+  git reset -q -- "$@"
+fi
+)
+'''
+
 "@restore" = '''
 Execute(
 set -e
@@ -102,7 +143,7 @@ if (( $# == 1 )); then
   if git diff --cached --quiet -- "$file" 2>/dev/null; then
     printf "Restore %s to HEAD? [y/N] " "$file"
   else
-    printf "Restore %s? [y(HEAD)/N/s(taged)] " "$file"
+    printf "Restore %s to HEAD? [y(HEAD)/N/s(taging)] " "$file"
   fi
   read -r ans
   case "$ans" in
@@ -110,7 +151,7 @@ if (( $# == 1 )); then
     [sS]*) git restore -- "$file" ;;
   esac
 else
-  printf "Restore %d files? [y(HEAD)/N/s(taged)] " "$#"
+  printf "Restore %d files? [y(HEAD)/N/s(taging)] " "$#"
   read -r ans
   case "$ans" in
     [yY]*) git restore --source=HEAD --staged --worktree -- "$@" ;;
@@ -182,9 +223,12 @@ done
 "@commit" = '''
 Execute(
 set -e
+if git diff --cached --quiet; then
+  git add .
+fi
 git --no-pager diff --cached --compact-summary
 echo
-printf "Commit message: "
+echo "Commit message: "
 msg=""
 while IFS= read -r line; do
   if [[ "$line" == *'\' ]]; then
@@ -204,6 +248,6 @@ fi
 )
 '''
 
-"@ai_commit" = '''
-Execute(:)
-'''
+# "@commit_ai" = '''
+# Execute(:)
+# '''

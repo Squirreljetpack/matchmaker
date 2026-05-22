@@ -384,6 +384,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
 
         // important to start after tui
         let event_controller = event_loop.controller();
+        let event_controller_ = event_controller.clone();
         let bind_controller = event_loop.bind_controller();
         let event_loop_handle = tokio::spawn(async move {
             let _ = event_loop.run().await;
@@ -438,7 +439,9 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
         )
         .await;
 
-        if wait {
+        log::trace!("render loop finished");
+
+        if wait && event_controller_.send(Event::Resume).is_ok() {
             let _ = event_loop_handle.await;
             log::debug!("event loop finished");
         }
@@ -672,10 +675,13 @@ pub fn use_formatter<T: SSS, S: Selection>(
 }
 
 // todo: this static bound shouldn't be necessary on S i don't know why its needed
+
+/// A set of methods for registering the "standard" functionality for various interrupts/events.
+/// These methods are prefixed with _ to indicate that consumers will often prefer to override them.
 impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
     // technically we don't need concurrency but the cost should be negligable
     /// Causes [`Action::Print`] to print to stdout.
-    pub fn register_print_handler(
+    pub fn _register_print_handler(
         &mut self,
         print_handle: AppendOnly<String>,
         output_separator: String,
@@ -701,12 +707,13 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
     /// Note:
     /// - not intended for direct use.
     /// - Assumes preview and cmd formatter are the same.
-    pub fn register_execute_handler(&mut self, formatter: AttachmentFormatter<T, S>) {
+    pub fn _register_execute_handler(&mut self, formatter: AttachmentFormatter<T, S>) {
         let _formatter = formatter.clone();
         self.register_interrupt_handler(Interrupt::Execute, move |state| {
-            let template = state.payload().clone();
+            let template = state.payload();
+
             if !template.is_empty() {
-                let cmd = use_formatter(&formatter, state, &template, None);
+                let cmd = use_formatter(&formatter, state, template, None);
                 if cmd.is_empty() {
                     return;
                 }
@@ -726,7 +733,7 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
                 {
                     match child.wait() {
                         Ok(i) => {
-                            info!("Command [{cmd}] exited with {i}")
+                            info!("Command [{cmd}] exited with {i}");
                         }
                         Err(e) => {
                             info!("Failed to wait on command [{cmd}]: {e}")
@@ -773,7 +780,7 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
     /// Note:
     /// - not intended for direct use.
     /// - Assumes preview and cmd formatter are the same.
-    pub fn register_become_handler(&mut self, formatter: AttachmentFormatter<T, S>) {
+    pub fn _register_become_handler(&mut self, formatter: AttachmentFormatter<T, S>) {
         let formatter_2 = formatter.clone();
         self.register_interrupt_handler(Interrupt::Become, move |state| {
             let template = state.payload().clone();

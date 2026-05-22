@@ -68,6 +68,8 @@ pub enum MMAction {
     HistoryDown,
     /// [`matchmaker::Action::Execute`] but silent (TODO)
     ExecuteAsync(String),
+    /// [`matchmaker::Action::Execute`] but silent (TODO)
+    ExecuteOrKeep(String),
     /// Execute command and parse output as actions
     Transform(String),
 }
@@ -242,7 +244,11 @@ pub fn action_handler(
             state.picker_ui.query.set_prompt(s.map(Line::raw));
         }
         MMAction::ExecuteAsync(s) => {
-            state.set_interrupt(Interrupt::ExecuteSilent, s);
+            state.set_interrupt(Interrupt::Execute, s);
+        }
+        MMAction::ExecuteOrKeep(s) => {
+            state.discriminant_payload = Some(0);
+            state.set_interrupt(Interrupt::Execute, s);
         }
         MMAction::Transform(payload) => {
             let cmd = format_cli(state, &payload, None);
@@ -338,7 +344,7 @@ enum_from_str_display! {
 
 
     tuples:
-    Bind, Unbind, PushBind, PopBind, ExecuteAsync, Transform, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter, RunPreview;
+    Bind, Unbind, PushBind, PopBind, ExecuteAsync, ExecuteOrKeep, Transform, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter, RunPreview;
 
     defaults:
     ;

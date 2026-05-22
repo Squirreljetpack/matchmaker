@@ -84,6 +84,9 @@ percentage = 100
 [header]
 content = "branches"
 
+[query]
+prompt = "switch> "
+
 [binds]
 "Start" = "Store(0)"
 "enter" = "@switch"
@@ -93,6 +96,9 @@ content = "branches"
 "ctrl-u" = ["@update", "Reload"]
 "ctrl-a" = ["@add_remote", "Reload"]
 "ctrl-n" = ["@add_branch", "Reload"]
+
+"@next" = "BecomeSilent(mm -o git/grep)"
+"@prev" = "BecomeSilent(mm -o git/restore)"
 
 # --- Scripts ---
 "Reloaded" = '''Transform(

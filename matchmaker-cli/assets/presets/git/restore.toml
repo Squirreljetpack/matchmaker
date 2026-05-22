@@ -4,8 +4,8 @@
 command = 'git log --pretty=format:"%h%x1f%ad%x1f%s" --date=human -- "${1:-.}"'
 additional_commands = [
   'git log --pretty=format:"%h%x1f%ad%x1f%s" --date=human -- "${1:-.}"',
-  'git reflog --date=human --format="%h%x1f%ad%x1f%s" -- "${1:-.}"',
   'git stash list --format="%gd%x1f%cr%x1f%gs"',
+  'git reflog --date=human --format="%h%x1f%ad%x1f%s" -- "${1:-.}"',
   'git log --all --pretty=format:"%h%x1f%ad%x1f%s" --date=human -- "${1:-.}"',
 ]
 
@@ -39,8 +39,8 @@ percentage = 50
 min = 5
 max = 50
 command = '''
-if ((MM_INDEX == 2)); then
-  git -c color.ui=always stash show -p {1} -- {$0}
+if ((MM_INDEX == 1)); then
+  git stash show -p {1} -- {$0}
 else
   git diff --color=always --exit-code {1} -- {$0} && echo "no change"
 fi
@@ -60,19 +60,25 @@ content = "[history]"
 style.fg = "Blue"
 style.modifier = ""
 
+[query]
+prompt = "restore> "
+
 [binds]
 "enter" = "@checkout"
 "ctrl-t" = ["@tag_or_drop", "Reload"]
 "alt-r" = "@soft_reset"
 "alt-s" = "@show"
 
+"@next" = "BecomeSilent(mm -o git/switch)"
+"@prev" = "BecomeSilent(mm -o git/status)"
+
 # --- Scripts ---
 "Start" = ["Store(0)"]
 "Reloaded" = '''Transform(
     HEADERS=(
       '[history]'
-      '[reflog]'
       '[stash]'
+      '[reflog]'
       '[all_refs]'
     )
     setopt KSH_ARRAYS 2>/dev/null
@@ -84,16 +90,6 @@ style.modifier = ""
 
 "@open" = "Execute($EDITOR {$1})"
 "@open_2" = []
-
-# "@show" = '''
-# Execute(
-# if ((MM_INDEX == 2)); then
-#   git -c color.ui=always stash show -p {1} -- {$0}
-# else
-#   git diff --color=always --exit-code {1} -- {$0} && echo "no change"
-# fi
-# )
-# '''
 
 "@checkout" = '''
 Become(
@@ -120,8 +116,8 @@ git checkout {1} -- {$1}
 Become(
 case $MM_INDEX in
 0|3) printf '%s\n' {+1} ;;
-1) git reset --hard {1} ;;
-2) git stash apply {1} ;;
+1) git stash apply {1} ;;
+2) git reset --hard {1} ;;
 esac
 )'''
 
@@ -129,7 +125,7 @@ esac
 set -e
 
 case $MM_INDEX in
-2)
+1)
   TARGET={1}
   FILES="$(git stash show --name-only "$TARGET" 2>/dev/null || true)"
   STASHED="$(git rev-parse refs/stash 2>/dev/null || true)"

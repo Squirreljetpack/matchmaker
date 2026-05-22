@@ -179,7 +179,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     match mouse.kind {
                         MouseEventKind::Down(MouseButton::Left) => {
                             if layout.results.contains(pos) {
-                                click = Click::ResultPos(mouse.row - layout.results.top());
+                                let y = mouse.row - layout.results.top();
+                                debug!("Results clicked at: {y}");
+                                click = Click::ResultPos(y);
                             } else if layout.input.contains(pos) {
                                 // The X offset of the start of the visible text relative to the terminal
                                 let text_start_x = layout.input.x + picker_ui.query.left();

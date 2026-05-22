@@ -22,6 +22,9 @@ BEGIN {
 '
 '''
 
+[exit]
+abort_empty = false
+
 [columns]
 split = "\\x1f"
 max = 3
@@ -64,5 +67,12 @@ git show {1}:{2}
 # --- UI ---
 [tui]
 percentage = 100
+
+[query]
+prompt = "grep> "
+
+[binds]
+"@next" = "BecomeSilent(mm -o git/status)"
+"@prev" = "BecomeSilent(mm -o git/switch)"
 
 # --- Scripts ---

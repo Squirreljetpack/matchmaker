@@ -681,6 +681,7 @@ impl Default for PreviewInitialSetting {
 #[serde(default, deny_unknown_fields)]
 pub struct PreviewerConfig {
     pub try_lossy: bool,
+    pub delay_clear: bool,
 
     // todo
     pub cache: u8,
@@ -702,6 +703,7 @@ impl Default for PreviewerConfig {
     fn default() -> Self {
         Self {
             try_lossy: false,
+            delay_clear: true,
             cache: 0,
             debounce_ms: 0,
             max_procs: 4,

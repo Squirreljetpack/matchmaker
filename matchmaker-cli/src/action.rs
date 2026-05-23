@@ -194,7 +194,12 @@ pub fn action_handler(
             state.set_interrupt(Interrupt::Reload, payload.clone());
         }
 
-        MMAction::RunPreview(cmd) => {}
+        MMAction::RunPreview(cmd) => {
+            if let Some(p) = state.preview_ui {
+                p.show(true);
+                state.update_preview_set(Ok(cmd));
+            }
+        }
 
         // binds
         MMAction::Bind(s) => {

@@ -16,13 +16,14 @@ use crate::{
 };
 use crate::{config::Config, paths::default_config_path};
 use cba::{
+    _wbog,
     bait::{OptionExt, ResultExt, TransformExt},
     bo::{
         MapReaderError, load_type_or_default, map_chunks, map_reader_lines, read_to_chunks,
         write_str,
     },
     bog::BogOkExt,
-    ebog, ibog, prints,
+    ebog, ibog, prints, wbog,
 };
 use cba::{bo::load_type, broc::CommandExt};
 use log::debug;
@@ -77,6 +78,10 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
         load_type_or_default(cfg_path, |s| toml::from_str(s))
     };
 
+    if config.source.is_some() {
+        wbog!("'source' field is not supported in the main config.");
+    }
+
     if config.render.status.template.is_empty() {
         config.render.status.template = r#"\m/\t"#.to_string();
     }
@@ -90,7 +95,10 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
 
         if let Some(q) = &o.source {
             let source = p.parent().as_ref().unwrap().join(q);
-            let o = load_type(source, |s| toml::from_str(s))?;
+            let o: PartialConfig = load_type(source, |s| toml::from_str(s))?;
+            if o.source.is_some() {
+                _wbog!("Ignoring 'source' field in nested override.");
+            }
             config.apply(o);
         }
 
@@ -425,9 +433,6 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         .ext_handler(move |x, y| action_handler(x, y, &mut action_context))
         .ext_aliaser(|a, _state| match a {
             Action::Accept => acs![MMAction::Accept],
-            Action::Custom(MMAction::RunPreview(c)) => {
-                acs![Action::Execute(c)]
-            }
             _ => acs![a],
         });
 

@@ -39,6 +39,7 @@ style.modifier = "ITALIC"
 
 [previewer]
 try_lossy = false
+delay_clear = true
 max_procs = 4
 always_trigger = true
 

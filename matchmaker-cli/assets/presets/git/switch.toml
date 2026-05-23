@@ -27,7 +27,7 @@ max = 2
 default = 2
 
 [matcher]
-sort = 20
+sort = 40
 
 [envs]
 DFT_COLOR = "always"

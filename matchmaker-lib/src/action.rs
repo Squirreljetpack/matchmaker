@@ -58,7 +58,7 @@ pub enum Action<A: ActionExt = NullActionExt> {
     Preview(String),
     /// Show help in preview
     Help(String),
-    /// Set preview layout;
+    /// Set preview layout
     /// None restores the command of the current layout.
     SetPreview(Option<u8>),
     /// Switch preview layout: if the index is already current, the preview is hidden.

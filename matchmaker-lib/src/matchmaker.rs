@@ -839,6 +839,7 @@ pub fn make_previewer<T: SSS, S: Selection + 'static>(
     // initialize previewer
     let (previewer, tx) = Previewer::new(previewer_config);
     let preview_tx = tx.clone();
+    let formatter_clone = formatter.clone();
 
     // preview handler
     mm.register_event_handler(Event::CursorChange | Event::PreviewChange | Event::Synced, move |state, _| {
@@ -861,6 +862,7 @@ pub fn make_previewer<T: SSS, S: Selection + 'static>(
                     warn!("Failed to send to preview: {}", msg)
                 }
 
+                // -----------------
                 let target = state.preview_ui.as_ref().and_then(|p| p.config.initial.index.as_ref().and_then(|index_col| {
                     state.current_raw().and_then(|item| {
                         state.picker_ui.worker.format_with(item, index_col).and_then(|t| atoi::atoi(t.as_bytes()))
@@ -876,21 +878,36 @@ pub fn make_previewer<T: SSS, S: Selection + 'static>(
                 warn!("Failed to send to preview: stop")
             }
 
-            state.preview_set_payload = None;
+            state.preview_set_payload = None; // reset None here instead of on consume so that ::Help can toggle
         }
     );
 
     mm.register_event_handler(Event::PreviewSet, move |state, _event| {
         if state.preview_visible() {
-            let msg = if let Some(m) = state.preview_set_payload() {
-                let m = if m.is_empty() && !help_str.lines.is_empty() {
-                    help_str.clone()
-                } else {
-                    Text::from(m)
-                };
-                PreviewMessage::Set(m)
-            } else {
-                PreviewMessage::Unset
+            let msg = match state.preview_set_payload() {
+                Some(Err(m)) => {
+                    let m = if m.lines.is_empty() && !help_str.lines.is_empty() {
+                        help_str.clone()
+                    } else {
+                        m
+                    };
+                    PreviewMessage::Set(m)
+                }
+                None => PreviewMessage::Unset,
+                Some(Ok(template)) => {
+                    let cmd = use_formatter(&formatter_clone, state, &template, None);
+                    if cmd.is_empty() {
+                        PreviewMessage::Stop
+                    } else {
+                        let mut envs = state.make_env_vars();
+                        let extra = env_vars!(
+                            "COLUMNS" => state.previewer_area().map_or("0".to_string(), |r| r.width.to_string()),
+                            "LINES" => state.previewer_area().map_or("0".to_string(), |r| r.height.to_string()),
+                        );
+                        envs.extend(extra);
+                        PreviewMessage::Run(cmd, envs)
+                    }
+                }
             };
 
             if tx.send(msg.clone()).is_err() {

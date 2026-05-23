@@ -16,7 +16,7 @@ max = 3
 default = 3
 
 [matcher]
-sort = 20
+sort = 40
 
 [envs]
 DFT_COLOR = "always"
@@ -49,7 +49,7 @@ fi
 
 [[preview.layout]]
 command = '''
-git show {1}:{$1}
+git show --color=always {1} -- {$0}
 '''
 
 # --- UI ---

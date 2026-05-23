@@ -27,6 +27,7 @@
   - false: nothing
   - config.clear_on_exit: None -> true
 
+
 # Previewer
 
 - Offload large previews to disk
@@ -72,3 +73,4 @@
 - renderloop optimization: pass available height?
 - descriptions to override help actions
 - switch preset can read remote from {$1} instead of assuming origin
+

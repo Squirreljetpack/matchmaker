@@ -1,4 +1,5 @@
 use cba::{bait::TransformExt, broc::EnvVars, env_vars, unwrap};
+use ratatui::text::Text;
 
 use crate::{
     SSS, Selection, Selector,
@@ -20,6 +21,9 @@ pub struct Layout {
     pub footer: Rect,
 }
 
+/// In the "standard implementation", None represents unset, String: command, Text: display
+pub type PreviewSetPayload = Option<Result<String, Text<'static>>>;
+
 #[derive(Default, Debug)]
 pub struct State {
     last_id: Option<u32>,
@@ -38,7 +42,7 @@ pub struct State {
     pub(crate) events: Event,
 
     /// The String passed to SetPreview
-    pub preview_set_payload: Option<String>,
+    pub preview_set_payload: PreviewSetPayload,
     /// The payload left by [`crate::action::Action::Preview`]
     pub preview_payload: String,
     pub envs: EnvVars,
@@ -119,7 +123,7 @@ impl State {
     pub fn overlay_index(&self) -> Option<usize> {
         self.overlay_index
     }
-    pub fn preview_set_payload(&self) -> Option<String> {
+    pub fn preview_set_payload(&self) -> Option<Result<String, Text<'static>>> {
         self.preview_set_payload.clone()
     }
     pub fn preview_payload(&self) -> &String {
@@ -146,7 +150,7 @@ impl State {
         changed
     }
 
-    pub(crate) fn update_preview_set(&mut self, context: String) -> bool {
+    pub fn update_preview_set(&mut self, context: Result<String, Text<'static>>) -> bool {
         let next = Some(context);
         let changed = self.preview_set_payload.cmp_replace(next);
         if changed {
@@ -232,6 +236,9 @@ impl State {
         if changed {
             self.last_id = new_id;
             self.insert(Event::CursorChange);
+            if self.last_id.is_none() {
+                self.insert(Event::CursorLost);
+            }
         }
         // log::trace!("{self:?}");
     }

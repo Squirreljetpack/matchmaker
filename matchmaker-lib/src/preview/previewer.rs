@@ -196,6 +196,11 @@ impl Previewer {
                     #[cfg(not(target_os = "windows"))]
                     cmd_builder.detach();
 
+                    if !self.config.delay_clear {
+                        self.lines.clear();
+                        self.changed.store(true, Ordering::Relaxed);
+                    }
+
                     // we need the child handle
                     if let Some(mut child) = cmd_builder._spawn() {
                         if let Some(stdout) = child.stdout.take() {
@@ -216,7 +221,7 @@ impl Previewer {
                                         break;
                                     }
 
-                                    if first {
+                                    if first && self.config.delay_clear {
                                         lines.clear();
                                         guard = lines.read(); // get new consistent snapshot
                                         changed.store(true, Ordering::Relaxed);
@@ -268,7 +273,8 @@ impl Previewer {
                                     leftover = rest.to_vec();
                                 }
 
-                                if first {
+                                // no lines read, clear
+                                if first && !self.config.delay_clear {
                                     lines.clear();
                                     changed.store(true, Ordering::Relaxed);
                                 } else if !leftover.is_empty() && !lines.is_expired(&guard) {

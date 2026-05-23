@@ -677,7 +677,7 @@ pub fn use_formatter<T: SSS, S: Selection>(
 // todo: this static bound shouldn't be necessary on S i don't know why its needed
 
 /// A set of methods for registering the "standard" functionality for various interrupts/events.
-/// These methods are prefixed with _ to indicate that consumers will often prefer to override them.
+/// These methods are prefixed with _ to indicate that library users will often prefer to override them.
 impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
     // technically we don't need concurrency but the cost should be negligable
     /// Causes [`Action::Print`] to print to stdout.

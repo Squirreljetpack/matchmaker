@@ -53,9 +53,9 @@ pub struct State {
     pub filtering: bool,
 
     /// This field is never touched by the rendering loop and is reserved for
-    /// consumers to use to store values, such as distinguishing between multiple
-    /// sources of a payload for an interrupt. The responsibility is on the consumer
-    /// to to ensure the value is emptied by the handler corresponding to an interrupt.
+    /// callers to use to store values, such as distinguishing between multiple
+    /// sources of a payload for an interrupt. The responsibility is on the caller
+    /// to ensure the value is emptied by the handler corresponding to an interrupt.
     pub discriminant_payload: Option<u8>,
 }
 

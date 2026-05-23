@@ -689,7 +689,7 @@ pub struct PreviewerConfig {
     pub max_procs: usize,
     pub always_trigger: bool,
 
-    pub help_colors: HelpColorConfig,
+    pub help: HelpDisplayConfig,
     pub shell: Option<Vec<OsString>>,
     pub trim_commands: bool,
     pub hide_semantic_help: bool,
@@ -706,12 +706,33 @@ impl Default for PreviewerConfig {
             debounce_ms: 0,
             max_procs: 4,
             always_trigger: true,
-            help_colors: HelpColorConfig::default(),
+            help: Default::default(),
             shell: None,
             trim_commands: false,
             hide_semantic_help: true,
 
             command_args: Default::default(),
+        }
+    }
+}
+
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct HelpDisplayConfig {
+    pub colors: Option<HelpColorConfig>,
+    pub hide_semantic: bool,
+    pub seq_brackets: Option<[char; 2]>,
+    pub max_len: usize,
+}
+
+impl Default for HelpDisplayConfig {
+    fn default() -> Self {
+        Self {
+            colors: Some(Default::default()),
+            hide_semantic: true,
+            seq_brackets: Some(['[', ']']),
+            max_len: 25, // Requested default
         }
     }
 }

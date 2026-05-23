@@ -22,7 +22,7 @@ use cba::{
         write_str,
     },
     bog::BogOkExt,
-    ibog, prints,
+    ebog, ibog, prints,
 };
 use cba::{bo::load_type, broc::CommandExt};
 use log::debug;
@@ -85,10 +85,19 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
         if p.is_relative() && p.extension().is_none() {
             p = presets_path().join(p.with_extension("toml"));
         }
-        let path_str = p.to_string_lossy().to_string();
-        let o = load_type(p, |s| toml::from_str(s))?;
+        // no recursion because tail bad
+        let o: PartialConfig = load_type(&p, |s| toml::from_str(s))?;
+
+        if let Some(q) = &o.source {
+            let source = p.parent().as_ref().unwrap().join(q);
+            let o = load_type(source, |s| toml::from_str(s))?;
+            config.apply(o);
+        }
+
         config.apply(o);
-        config.envs.insert("MM_OVERRIDE".to_string(), path_str);
+        config
+            .envs
+            .insert("MM_OVERRIDE".to_string(), p.to_string_lossy().to_string());
     }
 
     #[cfg(debug_assertions)]
@@ -210,11 +219,33 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             },
         mut exit,
         envs,
+        source: _,
     } = config;
 
     if let Some(mut d) = directory {
-        d = expand_tilde(d);
-        set_current_dir(d)._wbog();
+        let s = d.to_string_lossy();
+        let mut failed = false;
+        if s.starts_with("$(") && s.ends_with(')') {
+            let cmd = &s[2..s.len() - 1];
+            if let Some(new_d) = Command::from_script(cmd).read_to_string()._elog() {
+                let new_d = Path::new(new_d.trim()).to_path_buf();
+                if new_d.exists() {
+                    d = new_d;
+                } else {
+                    ebog!("Directory does not exist: {}", new_d.display());
+                    failed = true;
+                }
+            } else {
+                ebog!("Failed to execute script for directory: {}", s);
+                failed = true;
+            }
+        } else {
+            d = expand_tilde(d);
+        }
+
+        if !failed {
+            set_current_dir(d)._wbog();
+        }
     }
 
     let abort_empty = exit.abort_empty;
@@ -272,12 +303,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         return Err(MatchError::Abort(1));
     }
     // make previewer
-    let help_str = display_binds(
-        &event_loop.binds,
-        Some(&previewer.help_colors),
-        previewer.hide_semantic_help,
-        Some(['[', ']']),
-    );
+    let help_str = display_binds(&event_loop.binds, &previewer.help);
     let cli_formatter = Either::Right(
         crate::formatter::format_cli
             as for<'a, 'b, 'c> fn(

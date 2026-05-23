@@ -1,21 +1,37 @@
 # interactive git status
+source = 'base.toml'
 
-[start]
+[start.command]
 command = '''
-git -c color.status=always status -sz |
+git status -sz |
 while IFS= read -r -d '' entry; do
-  entry="${entry# }"
-  st="${entry%% *}"
-  file="${entry#* }"
-  file="${file# }"
+  st_staged="${entry:0:1}"
+  st_worktree="${entry:1:1}"
+  file="${entry:3}"
 
-  printf '%s\x1f%s\n' "$file" "$st"
+  RED=$'\033[31m'
+  GREEN=$'\033[32m'
+  RESET=$'\033[m'
+
+  case "$st_staged" in
+    M|A|R|C|D) colored_staged="${GREEN}${st_staged}${RESET}" ;;
+  esac
+
+  case "$st_worktree" in
+    M|D) colored_worktree="${RED}${st_worktree}${RESET}" ;;
+    \?)  colored_worktree="${RED}${st_worktree}${RESET}" ; colored_staged="${RED}${st_staged}${RESET}" ;;
+  esac
+
+  printf '%s\0%s%s\n' "$file" "$colored_staged" "$colored_worktree"
 done
 '''
+directory = "$(git rev-parse --show-toplevel)"
+
+[start]
 ansi = true
 
 [columns]
-split = "\\x1f"
+split = "\\x00"
 max = 2
 default = 1
 
@@ -26,7 +42,7 @@ sort = 20
 DFT_COLOR = "always"
 
 [exit]
-abort_empty = false
+# abort_empty = false
 
 # --- Preview ---
 [previewer]
@@ -34,7 +50,7 @@ always_trigger = false
 
 [[preview.layout]]
 command = '''
-git diff --color=always --exit-code {1} && $PAGER {1}
+git diff --color=always --exit-code {1} && if [ -e {1} ]; then $PAGER {1}; else git show HEAD:{1}; fi
 '''
 border = { type = "LightDoubleDashed", color = "DarkGray" }
 side = "top"
@@ -71,13 +87,13 @@ prompt = "status> "
 "@next" = "BecomeSilent(mm -o git/restore)"
 "@prev" = "BecomeSilent(mm -o git/grep)"
 
-"ctrl-s" = ["@unstage", "Reload"]
+"ctrl-u" = ["@unstage", "Reload"]
 "ctrl-c" = ["@commit", "Quit"]
 "alt-c" = ["Execute(git add . && echo 'All changes staged' || echo 'git add . failed')", "@commit", "Quit"]
 "ctrl-shift-c" = ["@commit_ai", "Reload"]
 "alt-r" = ["@restore", "Reload"]
 "ctrl-t" = ["@stash", "Reload"]
-"ctrl-d" = ["@remove", "Reload"]
+"@rm" = ["@untrack", "Reload"]
 "ctrl-shift-d" = ["@delete", "Reload"]
 "alt-d" = ["@disk-delete", "Reload"]
 "alt-i" = ["@ignore", "Reload"]
@@ -174,8 +190,8 @@ fi
 )
 '''
 
-"@remove" = '''
-Execute(
+"@untrack" = '''
+ExecuteOrConfirm(
 set -e
 
 tracked=$(git ls-files -z --cached --exclude-standard -- {+1})
@@ -184,12 +200,12 @@ while IFS= read -r -d '' file; do
   files+=("$file")
 done
 
-[ ${#files[@]} -eq 0 ] && exit 0
+[ ${#files[@]} -eq 0 ] && echo "No tracked files selected" && exit 1
 
 if git rm --cached -n -- "${files[@]}" >/dev/null; then
   git rm --cached -- "${files[@]}"
 else
-  printf "Force remove ${#files} files? [y/N] "
+  printf "Force untrack ${#files} files? [y/N] "
   read -r ans
   case "$ans" in
     [yY]*) git rm --cached -f -- "${files[@]}" ;;
@@ -198,24 +214,21 @@ fi
 )
 '''
 
-"@disk-delete" = "Execute(rm -rf -- {+1})"
+"@disk-delete" = "ExecuteOrConfirm(rm -rf -- {+1})"
 
 "@delete" = '''
-Execute(
+ExecuteOrConfirm(
 git add -- {+1}
 git rm -rf -- {+1}
 )
 '''
 
 "@ignore" = '''
-Execute(
+ExecuteOrConfirm(
+set -e
 for f in {+1}; do
   git rm -r --cached "$f" 2>/dev/null &&
-  echo "$f" >> .gitignore ||
-  {
-    read
-    exit 1
-  }
+  echo "$f" >> .gitignore
 done
 )
 '''

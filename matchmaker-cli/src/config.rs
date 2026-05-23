@@ -22,14 +22,14 @@ pub struct Config {
 
     #[serde(default)]
     #[serde(alias = "env")]
-    #[partial(recurse = "", unwrap)]
+    #[partial(no_recurse, unwrap)]
     pub envs: HashMap<String, String>,
 
     // configure binds ( keypress/mouseevent/event => Actions )
     #[partial(attr)]
     #[serde(default)]
     #[partial(alias = "b")]
-    #[partial(recurse = "", unwrap)]
+    #[partial(no_recurse, unwrap)]
     pub binds: HashMap<Trigger, Actions<MMAction>>,
 
     // configure the tui
@@ -60,6 +60,11 @@ pub struct Config {
     #[partial(attr, alias = "e")]
     #[serde(default)]
     pub exit: ExitConfig,
+
+    /// imports: only supported on overrides and with one nesting level
+    #[serde(default)]
+    #[partial(no_recurse)]
+    pub source: Option<std::path::PathBuf>,
 }
 
 // -----------------------

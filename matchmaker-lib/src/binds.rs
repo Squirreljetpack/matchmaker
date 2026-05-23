@@ -5,6 +5,7 @@ use std::{
     str::FromStr,
 };
 
+use cba::bring::StrExt;
 use serde::{
     Deserializer,
     de::{self, Visitor},
@@ -13,7 +14,7 @@ use serde::{
 
 use crate::{
     action::{Action, ActionExt, Actions, NullActionExt},
-    config::HelpColorConfig,
+    config::HelpDisplayConfig,
     message::Event,
     utils::string::allowed_semantic_char,
 };
@@ -189,11 +190,15 @@ impl<A: ActionExt> BindMap<A> {
                         }
                     }
 
+                    log::debug!("{is_unbound}");
+
                     if !is_unbound {
                         if &current_s != start_s {
                             changed = true
                         }
                         updated_actions.push(Action::Semantic(current_s));
+                    } else {
+                        changed = true
                     }
                 } else {
                     updated_actions.push(action.clone());
@@ -355,7 +360,7 @@ impl Display for TriggerKind {
 impl Display for Trigger {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if !self.mode.is_empty() {
-            write!(f, "{}^^", self.mode)?;
+            write!(f, "{} ({})", self.kind, self.mode)?;
         }
         write!(f, "{}", self.kind)
     }
@@ -495,14 +500,15 @@ use ratatui::text::{Line, Span, Text};
 
 pub fn display_binds<A: ActionExt + Display>(
     binds: &BindMap<A>,
-    colors: Option<&HelpColorConfig>,
-    hide_semantic: bool,
-    seq_brackets: Option<[char; 2]>,
+    config: &HelpDisplayConfig,
 ) -> Text<'static> {
+    use fmt::Alignment::Center;
     // Collect trigger and action strings
     let mut entries: Vec<(String, Vec<String>)> = binds
         .iter()
-        .filter(|(trigger, _)| !hide_semantic || !matches!(trigger.kind, TriggerKind::Semantic(_)))
+        .filter(|(trigger, _)| {
+            !config.hide_semantic || !matches!(trigger.kind, TriggerKind::Semantic(_))
+        })
         .map(|(trigger, actions)| {
             (
                 trigger.to_string(),
@@ -515,15 +521,20 @@ pub fn display_binds<A: ActionExt + Display>(
     entries.sort_by(|a, b| a.1.cmp(&b.1));
 
     // Build output
-    let Some(cfg) = colors else {
+    let Some(cfg) = &config.colors else {
         // fallback plain text
         let mut text = Text::default();
         for (trigger, actions) in entries {
             let value = if actions.len() == 1 {
-                actions[0].clone()
+                actions[0].ellipsize(config.max_len, Center)
             } else {
-                let inner = actions.join(", ");
-                if let Some([open, close]) = seq_brackets {
+                let inner = actions
+                    .into_iter()
+                    .map(|a| a.ellipsize(config.max_len, Center))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
+                if let Some([open, close]) = config.seq_brackets {
                     format!("{open}{inner}{close}")
                 } else {
                     inner
@@ -546,7 +557,7 @@ pub fn display_binds<A: ActionExt + Display>(
         // Value
         if actions.len() > 1 {
             // multi-action list: color each item
-            if let Some([open, _]) = seq_brackets {
+            if let Some([open, _]) = config.seq_brackets {
                 spans.push(Span::raw(open.to_string()));
             }
 
@@ -554,18 +565,17 @@ pub fn display_binds<A: ActionExt + Display>(
                 if i > 0 {
                     spans.push(Span::raw(", "));
                 }
-                spans.push(Span::styled(item, Style::default().fg(cfg.value)));
+                let truncated = item.ellipsize(config.max_len, Center);
+                spans.push(Span::styled(truncated, Style::default().fg(cfg.value)));
             }
 
-            if let Some([_, close]) = seq_brackets {
+            if let Some([_, close]) = config.seq_brackets {
                 spans.push(Span::raw(close.to_string()));
             }
         } else {
             // single action
-            spans.push(Span::styled(
-                actions[0].clone(),
-                Style::default().fg(cfg.value),
-            ));
+            let truncated = actions[0].ellipsize(config.max_len, Center);
+            spans.push(Span::styled(truncated, Style::default().fg(cfg.value)));
         }
 
         spans.push(Span::raw("\n"));
@@ -786,14 +796,13 @@ mod test {
         );
 
         // With semantic help
-        let colors = HelpColorConfig::default();
-        let help_show = display_binds(&binds, Some(&colors), false, None);
+        let help_show = display_binds(&binds, &Default::default());
         let help_show_str = help_show.to_string();
         assert!(help_show_str.contains("a = Print(a)"));
         assert!(help_show_str.contains("@foo = Print(foo)"));
 
         // Without semantic help
-        let help_hide = display_binds(&binds, Some(&colors), true, None);
+        let help_hide = display_binds(&binds, &Default::default());
         let help_hide_str = help_hide.to_string();
         assert!(help_hide_str.contains("a = Print(a)"));
         assert!(!help_hide_str.contains("@foo = Print(foo)"));

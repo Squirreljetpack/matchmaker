@@ -24,19 +24,19 @@ wrap = true
 
 [[preview.layout]]
 command = '''
-if [ -d {} ]; then
+if [ -d {1} ]; then
     if command -v eza >/dev/null 2>&1; then
-        eza --color=always -T -L 2 {}
+        eza --color=always -T -L 2 {1}
     else
-        find {} -maxdepth 2 | sed 's|[^/]*/|  |g'
+        find {1} -maxdepth 2 | sed 's|[^/]*/|  |g'
     fi
 else
     if command -v bat >/dev/null 2>&1; then
-        bat --binary no-printing --color=always {}
+        bat --binary no-printing --color=always {1}
     elif command -v $PAGER >/dev/null 2>&1; then
-        $PAGER {}
+        $PAGER {1}
     else
-        cat {}
+        cat {1}
     fi
 fi
 '''
@@ -143,7 +143,7 @@ separator = "\\0"
 "F1" = "@help"
 "F2" = "@rename"
 "F3" = "@search"
-"F4" = "@focus"
+"F4" = "@rm"
 "F5" = "@reload"
 "F6" = "@cycle"
 "F7" = "@build"
@@ -152,7 +152,6 @@ separator = "\\0"
 "F10" = "@menu"
 "F11" = "@look"
 "F12" = "@save"
-"ctrl-s" = "@show"
 
 # Programmable
 "ctrl-l" = "@look" # "maximize" the preview
@@ -162,12 +161,16 @@ separator = "\\0"
 "ctrl-shift-r" = "@reload_2"
 "ctrl-shift-n" = "@next"
 "ctrl-shift-p" = "@prev"
+"ctrl-tab" = "@next"
+"ctrl-shift-tab" = "@prev"
+"ctrl-d" = "@rm"
+"ctrl-s" = "@show"
 
 "@accept" = "Accept"
 "@accept_2" = "Accept"
 "@look" = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)"
-"@open" = "Execute($EDITOR {})"
-"@open_2" = "Become($EDITOR {})"
+"@open" = "Execute($EDITOR {1})"
+"@open_2" = "Become($EDITOR {1})"
 "@reload" = "Reload"
 "@next" = "ReloadNext"
 "@prev" = "ReloadPrev"
@@ -190,7 +193,7 @@ printf "$out" | eval $CLIPcmd
 '''
 "@copy_all" = '''
 ExecuteSilent(
-printf '%s' {} | eval $CLIPcmd
+printf '%s' {1} | eval $CLIPcmd
 )
 '''
 "@copy_active" = '''

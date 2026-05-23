@@ -197,6 +197,7 @@ impl<A: ActionExt> EventLoop<A> {
 
     // todo: should its return type carry info
     pub async fn run(&mut self) {
+        log::trace!("{:?}", self.binds);
         self.event_stream = Some(EventStream::new());
         let mut interval = time::interval(self.tick_interval);
 

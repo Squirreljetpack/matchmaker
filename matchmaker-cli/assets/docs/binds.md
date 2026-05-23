@@ -172,6 +172,7 @@ Actions are the operations performed when a trigger is activated.
 | `PreviewDown(n)`      | Scroll the preview window down by `n` lines (default: 1). |
 | `PreviewHalfPageUp`   | Scroll the preview up by half a page.                     |
 | `PreviewHalfPageDown` | Scroll the preview down by half a page.                   |
+| `RunPreview(cmd)`     | Run a one-off shell command and display its output in the preview window. |
 | `Help(section)`       | Display the specified help section in the preview.        |
 
 ### Columns

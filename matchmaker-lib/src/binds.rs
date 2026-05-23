@@ -190,8 +190,6 @@ impl<A: ActionExt> BindMap<A> {
                         }
                     }
 
-                    log::debug!("{is_unbound}");
-
                     if !is_unbound {
                         if &current_s != start_s {
                             changed = true

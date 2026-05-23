@@ -33,7 +33,7 @@ max = 3
 default = 3
 
 [matcher]
-sort = 20
+sort = 40
 
 [envs]
 DFT_COLOR = "always"
@@ -49,12 +49,12 @@ min = 5
 max = 50
 command = '''
 git diff --color=always {1}\^ {1} -- {2} ||
-git show {1}:{2}
+git show --color=always {1} -- {2}
 '''
 
 [[preview.layout]]
 command = '''
-git -c color.ui=always show --stat --summary {1}
+git show --color=always --stat --summary {1}
 '''
 side = "right"
 percentage = 40
@@ -63,7 +63,7 @@ max = 120
 
 [[preview.layout]]
 command = '''
-git show {1}:{2}
+git show --color=always {1} -- {2}
 '''
 
 # --- UI ---

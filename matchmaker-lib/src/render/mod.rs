@@ -443,7 +443,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         Action::Help(context) => {
                             if let Some(p) = preview_ui.as_mut() {
                                 // empty payload signifies help
-                                if !state.update_preview_set(context) {
+                                if !state.update_preview_set(Err(context.into())) {
                                     state.update_preview_unset()
                                 } else {
                                     p.show(true);

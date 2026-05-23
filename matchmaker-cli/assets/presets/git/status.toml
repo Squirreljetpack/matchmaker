@@ -3,7 +3,7 @@ source = 'base.toml'
 
 [start.command]
 command = '''
-git status -sz |
+git status --ignore-submodules=dirty -sz |
 while IFS= read -r -d '' entry; do
   st_staged="${entry:0:1}"
   st_worktree="${entry:1:1}"
@@ -36,7 +36,7 @@ max = 2
 default = 1
 
 [matcher]
-sort = 20
+sort = 40
 
 [envs]
 DFT_COLOR = "always"
@@ -87,6 +87,7 @@ prompt = "status> "
 "@next" = "BecomeSilent(mm -o git/restore)"
 "@prev" = "BecomeSilent(mm -o git/grep)"
 
+"ctrl-1" = "@summary"
 "ctrl-u" = ["@unstage", "Reload"]
 "ctrl-c" = ["@commit", "Quit"]
 "alt-c" = ["Execute(git add . && echo 'All changes staged' || echo 'git add . failed')", "@commit", "Quit"]
@@ -99,6 +100,8 @@ prompt = "status> "
 "alt-i" = ["@ignore", "Reload"]
 
 # --- Scripts ---
+"@summary" = "RunPreview(git -c color.ui=always status -sbu && echo && git --no-pager diff --color=always --compact-summary && false)"
+
 "@rename" = '''ExecuteOrConfirm(
 set -- {+1}
 echo "Rename $1 to: "

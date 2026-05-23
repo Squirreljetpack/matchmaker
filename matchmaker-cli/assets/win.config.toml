@@ -16,7 +16,7 @@ wrap = true
 
 [[preview.layout]]
 command = '''
-$p = {}
+$p = {1}
 if (Test-Path -LiteralPath $p -PathType Container) {
     if (Get-Command eza -ErrorAction SilentlyContinue) {
         eza --color=always -T -L 2 $p
@@ -112,8 +112,8 @@ border.padding = [2, 0]
 "ctrl-r" = "@reload"
 
 "@look" = "Execute(%MM_PREVIEW_COMMAND% | %PAGER%)"
-"@open" = "Execute(%EDITOR% {})"
-"@enter" = "Become(%EDITOR% {})"
+"@open" = "Execute(%EDITOR% {1})"
+"@enter" = "Become(%EDITOR% {1})"
 "@reload" = "Reload"
 
 [start]

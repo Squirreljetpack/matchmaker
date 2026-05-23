@@ -191,6 +191,8 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                             // Enable recursion using default naming convention
                             field_recurse = true;
                         }
+                    } else if meta.path.is_ident("no_recurse") {
+                        recurse_override = Some(None);
                     } else if meta.path.is_ident("attr") {
                         field_attrs_for_mirror.clear();
                         if meta.input.peek(syn::token::Paren) {

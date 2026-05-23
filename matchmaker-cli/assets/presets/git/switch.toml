@@ -1,4 +1,5 @@
 # Intelligently switch to any ref
+source = 'base.toml'
 
 [start]
 command = '''
@@ -51,7 +52,9 @@ git log --color=always --left-right --oneline ...{1}
 # max = 120
 
 [[preview.layout]]
-command = '''git diff --color=always --exit-code {1} -- {$0} && echo "no change"'''
+command = '''
+git diff --color=always --exit-code {1} -- {$0} && echo "no change"
+'''
 # side = "top"
 # percentage = 50
 # min = 5
@@ -85,10 +88,10 @@ percentage = 100
 prompt = "switch> "
 
 [binds]
-"enter" = "@switch"
-"ctrl-d" = ["@delete", "Reload"]
+"@accept" = "@switch"
+"@accept_2" = ["@switch_silent", "Reload"]
+"@rm" = ["@delete", "Reload"]
 
-"ctrl-s" = ["@switch_silent", "Reload"]
 "ctrl-u" = ["@update", "Reload"]
 "ctrl-a" = ["@add_remote", "Reload"]
 "ctrl-n" = ["@add_branch", "Reload"]
@@ -119,8 +122,6 @@ prompt = "switch> "
     echo "SetHeader(${HEADERS[$MM_INDEX]} ($ref))"
 )
 '''
-"@reload" = "ReloadNext"
-"@reload_2" = "ReloadPrev"
 
 "@update" = '''
 ExecuteOrConfirm(

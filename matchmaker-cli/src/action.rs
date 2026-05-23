@@ -356,6 +356,7 @@ pub fn action_handler(
 }
 
 impl MMAction {
+    /// Validate Bind/PushBind/Unbind/PopBind instructions
     pub fn validate(&self) -> Result<(), StringError> {
         match self {
             MMAction::Bind(s) => {

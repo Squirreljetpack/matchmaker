@@ -1,6 +1,8 @@
 # grep for a line of change
+source = 'base.toml'
 
 [start]
+# use x1f because awk cannot print null
 command = '''
 git log -Dp |
 awk '

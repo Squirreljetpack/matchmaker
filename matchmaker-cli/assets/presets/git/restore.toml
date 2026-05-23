@@ -1,16 +1,17 @@
 # restore a file or revision
+source = 'base.toml'
 
 [start]
-command = 'git log --pretty=format:"%h%x1f%ad%x1f%s" --date=human -- "${1:-.}"'
+command = 'git log --pretty=format:"%h%x00%ad%x00%s" --date=human -- "${1:-.}"'
 additional_commands = [
-  'git log --pretty=format:"%h%x1f%ad%x1f%s" --date=human -- "${1:-.}"',
-  'git stash list --format="%gd%x1f%cr%x1f%gs"',
-  'git reflog --date=human --format="%h%x1f%ad%x1f%s" -- "${1:-.}"',
-  'git log --all --pretty=format:"%h%x1f%ad%x1f%s" --date=human -- "${1:-.}"',
+  'git log --pretty=format:"%h%x00%ad%x00%s" --date=human -- "${1:-.}"',
+  'git stash list --format="%gd%x00%cr%x00%gs"',
+  'git reflog --date=human --format="%h%x00%ad%x00%s" -- "${1:-.}"',
+  'git log --all --pretty=format:"%h%x00%ad%x00%s" --date=human -- "${1:-.}"',
 ]
 
 [columns]
-split = "\\x1f"
+split = "\\x00"
 max = 3
 default = 3
 
@@ -64,11 +65,17 @@ style.modifier = ""
 prompt = "restore> "
 
 [binds]
-"enter" = "@checkout"
+"@accept" = "@checkout"
+"@accept_2" = '''Become(
+case $MM_INDEX in
+0|3) printf '%s\n' {+1} ;;
+1) git stash apply {1} ;;
+2) git reset --hard {1} ;;
+esac
+)'''
 "ctrl-t" = ["@tag", "Reload"]
 "alt-r" = "@soft_reset"
-"alt-s" = "@show"
-"ctrl-d" = ["@clean", "Reload"]
+"@rm" = ["@clean", "Reload"]
 
 "@next" = "BecomeSilent(mm -o git/switch)"
 "@prev" = "BecomeSilent(mm -o git/status)"
@@ -95,10 +102,21 @@ prompt = "restore> "
 "@checkout" = '''
 Become(
 set -e
-git --no-pager diff --stat {1} -- {$1}
+
+echo $MM_INDEX {1}
+case $MM_INDEX in
+  0|3) git --no-pager diff --stat {1} -- {$1} ;;
+  1)
+    echo "\n###############\nWorking directory: \n###############\n"
+    git --no-pager diff --stat
+    echo "\n###############\nStash changes: \n###############\n"
+    git --no-pager stash show {1}
+    echo
+  ;;
+esac
 
 [ -n "$(git status --porcelain -- {$1})" ] &&
-printf 'Proceed? [y/N/s] ' ||
+printf 'Proceed (or stash changes)? [y/N/s] ' ||
 printf 'Proceed? [y/N] '
 
 read -r c
@@ -110,17 +128,13 @@ case $c in
   [y]) ;;
   *) exit 0 ;;
 esac
-git checkout {1} -- {$1}
+
+case $MM_INDEX in
+  0|3) git checkout {1} -- {$1} ;;
+  1) git stash pop {1} ;;
+esac
 )
 '''
-
-"@accept_2" = '''Become(
-case $MM_INDEX in
-0|3) printf '%s\n' {+1} ;;
-1) git stash apply {1} ;;
-2) git reset --hard {1} ;;
-esac
-)'''
 
 "@soft_reset" = '''BecomeOr(
 set -e

@@ -2,13 +2,10 @@
 source = 'base.toml'
 
 [start]
-# use x1f because awk cannot print null
-command = '''
+    # use x1f because awk cannot print null
+    command = '''
 git log -Dp |
-awk '
-BEGIN {
-    OFS = "\x1f"
-}
+awk -v OFS='\x00' '
 /^commit [0-9a-f]/ {
     commit = substr($2, 1, 7)
 }
@@ -25,56 +22,56 @@ BEGIN {
 '''
 
 [exit]
-abort_empty = false
+    abort_empty = false
 
 [columns]
-split = "\\x1f"
-max = 3
-default = 3
+    split   = "\\x00"
+    max     = 3
+    default = 3
 
 [matcher]
-sort = 40
+    sort = 40
 
 [envs]
-DFT_COLOR = "always"
+    DFT_COLOR = "always"
 
 # --- Preview ---
 [previewer]
-always_trigger = false
+    always_trigger = false
 
 [[preview.layout]]
-side = "top"
-percentage = 50
-min = 5
-max = 50
-command = '''
+    side = "top"
+    percentage = 50
+    min = 5
+    max = 50
+    command = '''
 git diff --color=always {1}\^ {1} -- {2} ||
 git show --color=always {1} -- {2}
 '''
 
 [[preview.layout]]
-command = '''
+    command = '''
 git show --color=always --stat --summary {1}
 '''
-side = "right"
-percentage = 40
-min = 30
-max = 120
+    side = "right"
+    percentage = 40
+    min = 30
+    max = 120
 
 [[preview.layout]]
-command = '''
+    command = '''
 git show --color=always {1} -- {2}
 '''
 
 # --- UI ---
 [tui]
-percentage = 100
+    percentage = 100
 
 [query]
-prompt = "grep> "
+    prompt = "grep> "
 
 [binds]
-"@next" = "BecomeSilent(mm -o git/status)"
-"@prev" = "BecomeSilent(mm -o git/switch)"
+    "@next" = "BecomeSilent(mm -o git/status)"
+    "@prev" = "BecomeSilent(mm -o git/switch)"
 
-# --- Scripts ---
+    # --- Scripts ---

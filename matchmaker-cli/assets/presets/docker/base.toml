@@ -1,0 +1,23 @@
+# Common binds and actions for Kubernetes presets
+
+[binds]
+    # Previews & Info
+    "alt-c" = "@follow_logs"
+    # "@show" = "#config"
+    "ctrl-y" = "@copy_id"
+    "alt-d"  = "@show_2"
+    "alt-l"  = "@show_config"
+    "alt-t"  = "@show_stats"
+
+    # Common Toggles
+    "ctrl-r" = [ "@restart", "Reload" ]
+    "ctrl-x" = [ "@toggle_start", "Reload" ]
+    "alt-x"  = [ "@toggle_pause", "Reload" ]
+
+    # --- Actions ---
+    # todo: suitable bind for @show
+    "@copy" = "ExecuteSilent(echo {id} | $CLIPcmd)"
+    "@next" = "Reload"
+
+[envs]
+    DOCKERcmd = "docker"

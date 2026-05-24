@@ -221,10 +221,12 @@ impl Previewer {
                                         break;
                                     }
 
-                                    if first && self.config.delay_clear {
-                                        lines.clear();
-                                        guard = lines.read(); // get new consistent snapshot
-                                        changed.store(true, Ordering::Relaxed);
+                                    if first {
+                                        if self.config.delay_clear {
+                                            lines.clear();
+                                            guard = lines.read(); // get new consistent snapshot
+                                            changed.store(true, Ordering::Relaxed);
+                                        }
                                         first = false;
                                     }
 
@@ -274,7 +276,7 @@ impl Previewer {
                                 }
 
                                 // no lines read, clear
-                                if first && !self.config.delay_clear {
+                                if first && self.config.delay_clear {
                                     lines.clear();
                                     changed.store(true, Ordering::Relaxed);
                                 } else if !leftover.is_empty() && !lines.is_expired(&guard) {

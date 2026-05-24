@@ -80,6 +80,11 @@ fn get_partial(config_args: Vec<String>) -> anyhow::Result<PartialConfig> {
     log::trace!("{split:?}");
     let mut partial = PartialConfig::default();
     for (path, val) in split {
+        if !path.is_empty() && (path[0] == "env" || path[0] == "envs") {
+            cba::wbog!("Ignoring manual override of environment variables via CLI: {}", path.join("."));
+            continue;
+        }
+
         let parts = {
             let mut parts = split_on_unescaped_delimiter(&val, "|||");
             let is_binds = path.len() == 1 && ["binds", "b"].contains(&path[0].as_ref());

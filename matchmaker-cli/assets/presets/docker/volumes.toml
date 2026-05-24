@@ -1,0 +1,48 @@
+# Docker/Podman volume viewer
+source = "base.toml"
+
+[start]
+    command         = '$DOCKERcmd volume ls --format "table {{.Driver}}\t{{.Name}}"'
+    input_separator = "\n"
+    trim            = true
+
+[header]
+    header_lines = 1
+    content      = "DRIVER\tVOLUME NAME"
+
+[columns]
+    split = "\\t"
+    names = [ "driver", "name" ]
+
+[preview]
+    show = true
+
+[[preview.layout]]
+    # Inspect
+    command = "$DOCKERcmd volume inspect {name} | PG_LANG=json $PAGER"
+
+[binds]
+    # Navigation
+    "shift-tab" = "Become(mm docker/compose)"
+    "enter"     = "Become(echo {name})"
+
+    # Management Actions
+    "alt-r" = "@rm"
+    "alt-p" = "@prune"
+    "alt-c" = "@create"
+
+    # --- Actions ---
+    "@config_exec" = "Execute($DOCKERcmd volume inspect {name} | PG_LANG=json $PAGER)"
+    "@stats"       = "Preview($DOCKERcmd volume inspect {name} | PG_LANG=json $PAGER)"
+
+    "@rm"     = [ "Execute($DOCKERcmd volume rm {name}) Status(Removing...)", "Reload" ]
+    "@prune"  = [ "Execute($DOCKERcmd volume prune -f) Status(Pruning...)", "Reload" ]
+    "@create" = [ "Execute(printf 'Enter volume name: ' && read vol_name && [[ -n \"$vol_name\" ]] && $DOCKERcmd volume create \"$vol_name\")", "Reload" ]
+
+[query]
+    prompt                = "volumes> "
+    prompt_style.fg       = "Yellow"
+    prompt_style.modifier = "ITALIC"
+
+[tui]
+    percentage = 100

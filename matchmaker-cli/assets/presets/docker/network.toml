@@ -1,0 +1,44 @@
+# Docker/Podman network viewer
+source = "base.toml"
+
+[start]
+    command         = '$DOCKERcmd network ls --format "table {{.ID}}\t{{.Name}}\t{{.Driver}}\t{{.Scope}}"'
+    input_separator = "\n"
+    trim            = true
+
+[header]
+    header_lines = 1
+    content      = "NETWORK ID\tNAME\tDRIVER\tSCOPE"
+
+[columns]
+    split = "\\t"
+    names = [ "id", "name", "driver", "scope" ]
+
+[preview]
+    show = true
+
+[[preview.layout]]
+    # Inspect
+    command = "$DOCKERcmd network inspect {id} | PG_LANG=json $PAGER"
+
+[binds]
+    # Navigation
+    "shift-tab" = "Become(mm docker/compose)"
+    "enter"     = "Become(echo {id})"
+
+    # Management Actions
+    "alt-r" = "@rm"
+
+    # --- Actions ---
+    "@config_exec" = "Execute($DOCKERcmd network inspect {id} | PG_LANG=json $PAGER)"
+    "@stats"       = "Preview($DOCKERcmd network inspect {id} | PG_LANG=json $PAGER)"
+
+    "@rm" = [ "Execute($DOCKERcmd network rm {id}) Status(Removing...)", "Reload" ]
+
+[query]
+    prompt                = "networks> "
+    prompt_style.fg       = "Green"
+    prompt_style.modifier = "ITALIC"
+
+[tui]
+    percentage = 100

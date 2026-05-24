@@ -156,7 +156,6 @@ curl -L https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchm
 mm --config ~/.config/matchmaker/presets/rg.toml
 ```
 
-
 ### Presets
 
 Matchmaker is really good for creating workflows. It's like a swiss army knife for building and sharing great TUIs -- check out the [collection](https://github.com/Squirreljetpack/matchmaker/tree/main/matchmaker-cli/assets/presets)![^50]
@@ -173,8 +172,8 @@ mm --download=rg.toml
 mm -o rg
 ```
 
-<img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/git-restore.png" alt="git-restore" style="width:416px;" /> <img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/git-help.png" alt="git-help" style="width:416px;" /> 
-<img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/ps.png" alt="procs" style="width:416px;" /> <img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/ssh-known.png" alt="ssh-hosts" style="width:416px;" />
+<img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/git-restore.png" alt="git-restore" style="width:416px;" /> <img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/git-help.png" alt="git-help" style="width:416px;" />
+<img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/ps.png" alt="procs" style="width:416px;" /> <img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/docker-containers.png" alt="docker-containers" style="width:416px;" />
 
 [^50]: Contributions welcome!
 

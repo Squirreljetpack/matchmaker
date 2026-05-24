@@ -1,0 +1,101 @@
+# Docker/Podman image viewer
+source = "base.toml"
+
+[start]
+    command         = '$DOCKERcmd image ls --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.CreatedAt}}\t{{.Size}}"'
+    input_separator = "\n"
+    trim            = true
+
+[header]
+    header_lines = 1
+    content      = "REPOSITORY\tTAG\tIMAGE ID\tCREATED\tSIZE"
+
+[columns]
+    split = "\\t"
+    names = [ "repo", "tag", "id", "created", "size" ]
+
+[preview]
+    show = true
+
+[[preview.layout]]
+    # History
+    command = "$DOCKERcmd image history {id}"
+
+[[preview.layout]]
+    # Inspect
+    command = "$DOCKERcmd image inspect {id} | PG_LANG=json $PAGER"
+
+[binds]
+    # Navigation
+    "ctrl-o" = "SwitchPreview(1)"
+
+    # Management Actions
+    "ctrl-r" = "@pull"
+    "alt-r"  = "@push"
+    "ctrl-d" = "@rmi"
+    "alt-d"  = "@rmi_id"
+    "alt-s"  = "@save_tar"
+    "ctrl-n" = "@copy_tag"
+    "alt-n"  = "@rename_tag"
+    "ctrl-t" = "@new_tag"
+    "alt-t"  = "@retag"
+
+    # --- Actions ---
+    "@config_exec" = "Execute($DOCKERcmd image inspect {id} | PG_LANG=json $PAGER)"
+    "@stats"       = "Preview($DOCKERcmd image history {id})"
+
+    "@pull" = 'Execute($DOCKERcmd image pull {repo}:{tag}) Status(Pulling...)'
+    "@push" = 'Execute($DOCKERcmd image push {repo}:{tag}) Status(Pushing...)'
+
+    "@rmi"    = [ "Execute($DOCKERcmd image rmi {repo}:{tag}) Status(Removing...)", "Reload" ]
+    "@rmi_id" = [ "Execute($DOCKERcmd image rmi {id}) Status(Removing by ID...)", "Reload" ]
+
+    "@save_tar" = '''Execute(
+        printf "Save as (filename): "
+        read -r filename
+        if [[ -n "$filename" ]]; then
+            $DOCKERcmd image save {id} -o "$filename"
+        fi
+    )'''
+
+    "@copy_tag" = '''Execute(
+        printf "Copy {repo}:{tag} to (new name): "
+        read -r newname
+        if [[ -n "$newname" ]]; then
+            $DOCKERcmd image tag {id} "$newname"
+        fi
+    )'''
+
+    "@rename_tag" = '''Execute(
+        printf "Rename {repo}:{tag} to (new name): "
+        read -r newname
+        if [[ -n "$newname" ]]; then
+            $DOCKERcmd image tag {id} "$newname" &&
+            $DOCKERcmd image rmi {repo}:{tag}
+        fi
+    )'''
+
+    "@new_tag" = '''Execute(
+        printf "New tag for {repo} -> {repo}:"
+        read -r newtag
+        if [[ -n "$newtag" ]]; then
+            $DOCKERcmd image tag {id} "{repo}:$newtag"
+        fi
+    )'''
+
+    "@retag" = '''Execute(
+        printf "Retag {repo}:{tag} -> {repo}:"
+        read -r newtag
+        if [[ -n "$newtag" ]]; then
+            $DOCKERcmd image tag {id} "{repo}:$newtag" &&
+            $DOCKERcmd image rmi {repo}:{tag}
+        fi
+    )'''
+
+[query]
+    prompt                = "images> "
+    prompt_style.fg       = "Magenta"
+    prompt_style.modifier = "ITALIC"
+
+[tui]
+    percentage = 100

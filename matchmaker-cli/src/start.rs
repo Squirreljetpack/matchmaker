@@ -168,7 +168,7 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
         }
     }
 
-    debug!("{config:?}");
+    debug!("Config computed: {config:?}");
 
     Ok(config)
 }
@@ -194,6 +194,7 @@ pub fn map_reader<E: SSS + std::fmt::Display>(
         {
             let _ = render_tx.send(matchmaker::message::RenderCommand::NoMatch);
         }
+        log::trace!("All items pushed");
         ret
     })
 }
@@ -312,6 +313,12 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     }
     // make previewer
     let help_str = display_binds(&event_loop.binds, &previewer.help);
+
+    if !event_loop.binds.strip_traces() {
+        wbog!(
+            "Action descriptions did not follow the required alternating (nonempty/empty) pattern."
+        );
+    }
     let cli_formatter = Either::Right(
         crate::formatter::format_cli
             as for<'a, 'b, 'c> fn(

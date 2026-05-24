@@ -153,6 +153,8 @@ pub enum Action<A: ActionExt = NullActionExt> {
     Overlay(usize),
     /// Alias for a semantic trigger
     Semantic(String),
+    /// A description of a binding, only used for help display.
+    Trace(String),
 }
 
 // --------------- MACROS ---------------
@@ -404,6 +406,9 @@ macro_rules! enum_from_str_display {
                     Self::Semantic(s) => {
                         write!(f, "@{s}")
                     }
+                    Self::Trace(s) => {
+                        write!(f, "#{s}")
+                    }
                 }
             }
         }
@@ -412,6 +417,8 @@ macro_rules! enum_from_str_display {
             type Err = String;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
+                use crate::utils::string::ALLOWED_CHARS;
+
                 let s = s.trim();
                 if let Ok(x) = s.parse::<A>() {
                     return Ok(Self::Custom(x))
@@ -420,9 +427,13 @@ macro_rules! enum_from_str_display {
                 if let Some(s) = s.strip_prefix("@") {
                     if s.chars().all(allowed_semantic_char) && !s.is_empty() {
                         return Ok(Self::Semantic(s.to_string()));
-                    } else if !s.is_empty() {
-                        return Err(format!("Invalid semantic trigger name: @{s}. Allowed characters are alphanumeric, space, and -_.:/+$@"));
+                    } else {
+                        return Err(format!("Invalid semantic trigger name: @{s}. Allowed characters are alphanumeric, space, and{}", ALLOWED_CHARS.iter().collect::<String>()));
                     }
+                }
+
+                if let Some(s) = s.strip_prefix("#") {
+                    return Ok(Self::Trace(s.to_string()));
                 }
 
                 let (name, data) = if let Some(pos) = s.find('(') {

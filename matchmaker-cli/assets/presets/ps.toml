@@ -69,13 +69,11 @@ initial.tail = true
 "@reload" = "ReloadNext"
 "@reload_2" = "ReloadPrev"
 
-"ctrl-r" = "@reload"
+"@accept" = ["#print pid", "Become(printf '%s\n' {+2})"]
+"@accept_2" = ["#print active", "Become(printf '%s\n' {+!})"]
 
-"@accept" = "Become(printf '%s\n' {+2})"
-"@accept_2" = "Become(printf '%s\n' {+!})"
-
-"ctrl-k" = "Execute(kill {2} || read)"
-"alt-k" = "Execute(kill -9 {2} || read)"
+"ctrl-k" = ["#kill", "Execute(kill {2} || read)"]
+"alt-k" = ["#kill -9", "Execute(kill -9 {2} || read)"]
 "@copy" = '''
 ExecuteSilent(
 printf '%s\n' {+2} | eval $CLIPcmd

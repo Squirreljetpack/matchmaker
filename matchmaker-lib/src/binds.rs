@@ -112,6 +112,8 @@ impl<A: ActionExt> BindMap<A> {
         Ok(())
     }
 
+    // This is not exactly what we'd like as ideally we'd resolve concrete triggers to actions directly, with traces delimiting untraced aliases. But because of modes, this is trickier.
+
     /// Simplifies semantic trigger chains and removes unbound triggers.
     ///
     /// - `key -> @s1 -> @s2 -> concrete` becomes `key -> @s2`.
@@ -191,10 +193,37 @@ impl<A: ActionExt> BindMap<A> {
                     }
 
                     if !is_unbound {
-                        if &current_s != start_s {
-                            changed = true
+                        // Check if the terminal actions start with a Trace
+                        let final_trigger = Trigger {
+                            kind: TriggerKind::Semantic(current_s.clone()),
+                            mode: trigger.mode.clone(),
+                        };
+
+                        let concretization = self.get(&final_trigger).or_else(|| {
+                            if !trigger.mode.is_empty() {
+                                self.get(&Trigger {
+                                    kind: TriggerKind::Semantic(current_s.clone()),
+                                    mode: String::new(),
+                                })
+                            } else {
+                                None
+                            }
+                        });
+
+                        if let Some(con) = concretization
+                            && let Some(Action::Trace(_)) = con.first()
+                        {
+                            changed = true;
+                            for a in con.iter() {
+                                updated_actions.push(a.clone());
+                            }
+                            updated_actions.push(Action::Trace(String::new()));
+                        } else {
+                            if &current_s != start_s {
+                                changed = true
+                            }
+                            updated_actions.push(Action::Semantic(current_s));
                         }
-                        updated_actions.push(Action::Semantic(current_s));
                     } else {
                         changed = true
                     }
@@ -215,6 +244,42 @@ impl<A: ActionExt> BindMap<A> {
                 self.insert(t, a);
             }
         }
+    }
+
+    /// Strips all `Action::Trace` from the bindings.
+    ///
+    /// Traces are required to be alternating: the first trace must be nonempty,
+    /// the second (if any) must be empty, the third nonempty, and so on.
+    ///
+    /// Returns `false` if the traces did not strictly follow this alternating
+    /// pattern (nonempty, empty, nonempty...) within any action sequence.
+    pub fn strip_traces(&mut self) -> bool {
+        let mut valid_alternating = true;
+
+        for actions in self.values_mut() {
+            let mut i = 0;
+            let mut expect_empty = false; // Starts with a required nonempty trace
+
+            while i < actions.len() {
+                if let Action::Trace(trace_content) = &actions[i] {
+                    // Check if the current trace matches the expected emptiness state
+                    let is_empty = trace_content.is_empty();
+                    if is_empty != expect_empty {
+                        valid_alternating = false;
+                    }
+
+                    // Flip the expectation for the next trace encounter
+                    expect_empty = !expect_empty;
+
+                    // Strip the trace from the actions vector
+                    actions.remove(i);
+                } else {
+                    i += 1;
+                }
+            }
+        }
+
+        valid_alternating
     }
 }
 
@@ -495,43 +560,81 @@ impl<'de> serde::Deserialize<'de> for Trigger {
 
 use ratatui::style::Style;
 use ratatui::text::{Line, Span, Text};
-
 pub fn display_binds<A: ActionExt + Display>(
     binds: &BindMap<A>,
     config: &HelpDisplayConfig,
 ) -> Text<'static> {
-    use fmt::Alignment::Center;
     // Collect trigger and action strings
-    let mut entries: Vec<(String, Vec<String>)> = binds
+    let mut entries: Vec<(String, Vec<Action<A>>)> = binds
         .iter()
         .filter(|(trigger, _)| {
             !config.hide_semantic || !matches!(trigger.kind, TriggerKind::Semantic(_))
         })
-        .map(|(trigger, actions)| {
-            (
-                trigger.to_string(),
-                actions.iter().map(|a| a.to_string()).collect(),
-            )
-        })
+        .map(|(trigger, actions)| (trigger.to_string(), actions.iter().cloned().collect()))
         .collect();
 
     // Sort by actions (values) instead of triggers
-    entries.sort_by(|a, b| a.1.cmp(&b.1));
+    entries.sort_by(|a, b| {
+        let s1: Vec<String> = a.1.iter().map(|a| a.to_string()).collect();
+        let s2: Vec<String> = b.1.iter().map(|a| a.to_string()).collect();
+        s1.cmp(&s2)
+    });
+
+    // Process all bindings into their final visible string sequences. Items betweent trace delimiters are replaced by the trace message
+    let entries_processed: Vec<(String, Vec<String>)> = entries
+        .into_iter()
+        .map(|(trigger, actions)| {
+            let mut visible_items = Vec::new();
+            let mut skipping = false;
+            let mut last_trace = String::new();
+
+            for action in actions {
+                if let Action::Trace(s) = action {
+                    if s.is_empty() {
+                        if skipping {
+                            // Expected empty, push the saved nonempty trace
+                            visible_items.push(last_trace);
+                        } // Empty signals resume
+
+                        last_trace = String::new();
+                        skipping = false;
+                    } else {
+                        if skipping {
+                            // Expected empty, got nonempty (treat as if extra empty before)
+                            visible_items.push(last_trace);
+                        }
+                        // Start or continue skipping
+                        last_trace = if config.quote_traces {
+                            format!("\"{s}\"")
+                        } else {
+                            s
+                        };
+                        skipping = true;
+                    }
+                } else if !skipping {
+                    visible_items.push(
+                        action
+                            .to_string()
+                            .ellipsize(config.max_len, fmt::Alignment::Left),
+                    );
+                }
+            }
+
+            (trigger, visible_items)
+        })
+        .collect();
 
     // Build output
     let Some(cfg) = &config.colors else {
         // fallback plain text
         let mut text = Text::default();
-        for (trigger, actions) in entries {
-            let value = if actions.len() == 1 {
-                actions[0].ellipsize(config.max_len, Center)
+        for (trigger, actions) in entries_processed {
+            let value = if actions.is_empty() {
+                String::new()
+            } else if actions.len() == 1 {
+                actions[0].clone()
             } else {
-                let inner = actions
-                    .into_iter()
-                    .map(|a| a.ellipsize(config.max_len, Center))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-
+                let inner = actions.join(", ");
                 if let Some([open, close]) = config.seq_brackets {
                     format!("{open}{inner}{close}")
                 } else {
@@ -545,16 +648,13 @@ pub fn display_binds<A: ActionExt + Display>(
 
     let mut text = Text::default();
 
-    for (trigger, actions) in entries {
+    for (trigger, actions) in entries_processed {
         let mut spans = vec![
-            // Trigger
             Span::styled(trigger, Style::default().fg(cfg.key)),
             Span::raw(" = "),
         ];
 
-        // Value
         if actions.len() > 1 {
-            // multi-action list: color each item
             if let Some([open, _]) = config.seq_brackets {
                 spans.push(Span::raw(open.to_string()));
             }
@@ -563,17 +663,17 @@ pub fn display_binds<A: ActionExt + Display>(
                 if i > 0 {
                     spans.push(Span::raw(", "));
                 }
-                let truncated = item.ellipsize(config.max_len, Center);
-                spans.push(Span::styled(truncated, Style::default().fg(cfg.value)));
+                spans.push(Span::styled(item, Style::default().fg(cfg.value)));
             }
 
             if let Some([_, close]) = config.seq_brackets {
                 spans.push(Span::raw(close.to_string()));
             }
-        } else {
-            // single action
-            let truncated = actions[0].ellipsize(config.max_len, Center);
-            spans.push(Span::styled(truncated, Style::default().fg(cfg.value)));
+        } else if let Some(single_item) = actions.first() {
+            spans.push(Span::styled(
+                single_item.clone(),
+                Style::default().fg(cfg.value),
+            ));
         }
 
         spans.push(Span::raw("\n"));
@@ -656,7 +756,7 @@ mod test {
         let t = Trigger::from_str("vim^^a").unwrap();
         assert_eq!(t.mode, "vim".to_string());
         assert_eq!(t.kind, TriggerKind::Key(key!(a)));
-        assert_eq!(t.to_string(), "vim^^a");
+        assert_eq!(t.to_string(), "a (vim)a");
 
         let t2 = Trigger::from_str("a").unwrap();
         assert_eq!(t2.mode, String::new());
@@ -784,6 +884,41 @@ mod test {
     }
 
     #[test]
+    fn test_resolve_semantics_with_trace() {
+        use crate::action::NullActionExt;
+        use crate::bindmap;
+
+        // Chain with Trace: key(a) -> @s1 -> @s2 -> [Trace("desc"), Accept]
+        let mut bind_map: BindMap<NullActionExt> = bindmap!(
+            key!(a) => Action::Semantic("s1".into()),
+            Trigger {
+                kind: TriggerKind::Semantic("s1".into()),
+                mode: String::new()
+            } => Action::Semantic("s2".into()),
+            Trigger {
+                kind: TriggerKind::Semantic("s2".into()),
+                mode: String::new()
+            } => [Action::Trace("desc".into()), Action::Accept],
+        );
+        bind_map.resolve_semantics();
+
+        // key(a) should resolve directly to [Trace("desc"), Accept]
+        let actions = bind_map.get(&key!(a).into()).unwrap();
+        assert_eq!(actions.len(), 2);
+        assert_eq!(actions.0[0], Action::Trace("desc".into()));
+        assert_eq!(actions.0[1], Action::Accept);
+
+        // @s1 should also resolve directly to [Trace("desc"), Accept]
+        let s1_trigger = Trigger {
+            kind: TriggerKind::Semantic("s1".into()),
+            mode: String::new(),
+        };
+        let s1_actions = bind_map.get(&s1_trigger).unwrap();
+        assert_eq!(s1_actions.len(), 2);
+        assert_eq!(s1_actions.0[0], Action::Trace("desc".into()));
+    }
+
+    #[test]
     fn test_display_binds_semantic_help() {
         let binds: BindMap<NullActionExt> = bindmap!(
             key!(a) => Action::Print("a".into()),
@@ -794,13 +929,17 @@ mod test {
         );
 
         // With semantic help
-        let help_show = display_binds(&binds, &Default::default());
+        let mut cfg = HelpDisplayConfig::default();
+        cfg.hide_semantic = false;
+        let help_show = display_binds(&binds, &cfg);
         let help_show_str = help_show.to_string();
         assert!(help_show_str.contains("a = Print(a)"));
         assert!(help_show_str.contains("@foo = Print(foo)"));
 
         // Without semantic help
-        let help_hide = display_binds(&binds, &Default::default());
+        let mut cfg_hide = HelpDisplayConfig::default();
+        cfg_hide.hide_semantic = true;
+        let help_hide = display_binds(&binds, &cfg_hide);
         let help_hide_str = help_hide.to_string();
         assert!(help_hide_str.contains("a = Print(a)"));
         assert!(!help_hide_str.contains("@foo = Print(foo)"));

@@ -39,7 +39,7 @@ style.modifier = "ITALIC"
 
 [previewer]
 try_lossy = false
-delay_clear = true
+delay_clear = false
 max_procs = 4
 always_trigger = true
 
@@ -133,8 +133,8 @@ max = 120
 "alt-p" = "@print"
 "alt-shift-p" = "@print_2"
 "ctrl-y" = "@copy"
-"ctrl-shift-y" = "@copy_2"
-"alt-y" = "@copy_3"
+"ctrl-shift-y" = "@copy_all"
+"alt-y" = "@copy_col"
 
 "@print" = "Print({-})"
 "@print_2" = "Print({-!})"
@@ -144,12 +144,12 @@ out="$(printf '%s\n' {+1})"
 printf "$out" | (pbcopy || wl-copy || xclip -selection clipboard || xsel --clipboard --input) 2>/dev/null
 )
 '''
-"@copy_2" = '''
+"@copy_all" = '''
 ExecuteSilent(
 printf '%s' {} | eval $CLIPcmd
 )
 '''
-"@copy_3" = '''
+"@copy_col" = '''
 ExecuteSilent(
 out="$(printf '%s\n' {+!})"
 printf "$out" | eval $CLIPcmd

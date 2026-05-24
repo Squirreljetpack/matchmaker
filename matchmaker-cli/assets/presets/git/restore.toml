@@ -66,13 +66,16 @@ prompt = "restore> "
 
 [binds]
 "@accept" = "@checkout"
-"@accept_2" = '''Become(
+"@accept_2" = [
+  "#apply stash/reset to reflog",
+  '''Become(
 case $MM_INDEX in
 0|3) printf '%s\n' {+1} ;;
 1) git stash apply {1} ;;
 2) git reset --hard {1} ;;
 esac
-)'''
+)''',
+]
 "ctrl-t" = ["@tag", "Reload"]
 "alt-r" = "@soft_reset"
 "@rm" = ["@clean", "Reload"]

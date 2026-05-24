@@ -83,7 +83,7 @@ prompt_style.modifier = "ITALIC"
 "ctrl-t" = ["@test", "Reload"]
 "alt-t" = ["@test", "Reload"]
 
-"@accept" = "Become(ssh {host})"
+"@accept" = ["#ssh", "Become(ssh {host})"]
 "@accept_2" = "Become(echo {host})"
 "@open" = "Execute($EDITOR {file})"
 "@open_2" = "Become($EDITOR {file})"

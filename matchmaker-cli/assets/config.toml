@@ -65,7 +65,6 @@ border.padding = [2, 0]
 
 [previewer]
 always_trigger = true
-delay_clear = true
 
 # --- Misc ---
 [matcher]

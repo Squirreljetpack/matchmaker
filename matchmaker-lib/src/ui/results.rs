@@ -358,7 +358,7 @@ impl ResultsUI {
             &width_limits,
             self.config.wrap,
             self.config.max_height,
-            self.config.r#match.into(),
+            self.config.match_style.into(),
             matcher,
             self.config.autoscroll,
             self.hscroll,
@@ -692,22 +692,22 @@ impl ResultsUI {
                             RowConnectionStyle::Disjoint => {
                                 if is_active_col {
                                     t = t.style(if is_current_row {
-                                        self.config.current
+                                        self.config.current_style
                                     } else {
                                         self.config.style
                                     });
                                 } else {
                                     t = t.style(if is_current_row {
-                                        self.config.inactive_current
+                                        self.config.inactive_current_style
                                     } else {
-                                        self.config.inactive
+                                        self.config.inactive_style
                                     });
                                 }
                             }
                             RowConnectionStyle::Capped => {
                                 if is_active_col {
                                     t = t.style(if is_current_row {
-                                        self.config.current
+                                        self.config.current_style
                                     } else {
                                         self.config.style
                                     });
@@ -733,8 +733,10 @@ impl ResultsUI {
 
                 if self.is_current(i) {
                     match self.config.row_connection {
-                        RowConnectionStyle::Capped => row = row.style(self.config.inactive_current),
-                        RowConnectionStyle::Full => row = row.style(self.config.current),
+                        RowConnectionStyle::Capped => {
+                            row = row.style(self.config.inactive_current_style)
+                        }
+                        RowConnectionStyle::Full => row = row.style(self.config.current_style),
                         _ => {}
                     }
                 }
@@ -780,22 +782,22 @@ impl ResultsUI {
                         RowConnectionStyle::Disjoint => {
                             if is_active_col {
                                 col = col.style(if is_current_row {
-                                    self.config.current
+                                    self.config.current_style
                                 } else {
                                     self.config.style
                                 });
                             } else {
                                 col = col.style(if is_current_row {
-                                    self.config.inactive_current
+                                    self.config.inactive_current_style
                                 } else {
-                                    self.config.inactive
+                                    self.config.inactive_style
                                 });
                             }
                         }
                         RowConnectionStyle::Capped => {
                             if is_active_col {
                                 col = col.style(if is_current_row {
-                                    self.config.current
+                                    self.config.current_style
                                 } else {
                                     self.config.style
                                 });
@@ -809,9 +811,9 @@ impl ResultsUI {
                     if is_current_row {
                         match self.config.row_connection {
                             RowConnectionStyle::Capped => {
-                                row = row.style(self.config.inactive_current)
+                                row = row.style(self.config.inactive_current_style)
                             }
-                            RowConnectionStyle::Full => row = row.style(self.config.current),
+                            RowConnectionStyle::Full => row = row.style(self.config.current_style),
                             _ => {}
                         }
                     }
@@ -897,9 +899,11 @@ impl ResultsUI {
 
         table = match self.config.row_connection {
             RowConnectionStyle::Full => table.style(self.config.style),
-            RowConnectionStyle::Capped => table.style(self.config.inactive),
+            RowConnectionStyle::Capped => table.style(self.config.inactive_style),
             _ => table,
         };
+
+        // log::trace!("{table:?}");
 
         table = table.block(self.config.border.as_static_block());
         table

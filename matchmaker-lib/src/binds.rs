@@ -29,6 +29,7 @@ pub type BindMap<A: ActionExt = NullActionExt> = HashMap<Trigger, Actions<A>>;
 #[easy_ext::ext(BindMapExt)]
 impl<A: ActionExt> BindMap<A> {
     pub fn default_binds() -> Self {
+        #[allow(unused_mut)]
         let mut ret = bindmap!(
             key!(ctrl-c) => Action::Quit(1),
             key!(esc) => Action::Quit(1),

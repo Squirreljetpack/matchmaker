@@ -1,6 +1,6 @@
 use std::{fmt, path::PathBuf};
 
-use cba::{bird::one_or_many, define_transparent_wrapper};
+use cba::define_transparent_wrapper;
 use ratatui::{
     style::{Color, Modifier, Style},
     widgets::Borders,
@@ -32,16 +32,13 @@ pub struct StyleSetting {
 
 impl From<StyleSetting> for Style {
     fn from(s: StyleSetting) -> Style {
-        let mut style = Style::default().add_modifier(s.modifier);
-
-        if let Some(fg) = s.fg {
-            style = style.fg(fg);
+        Style {
+            fg: s.fg,
+            bg: s.bg,
+            sub_modifier: !s.modifier,
+            add_modifier: s.modifier,
+            ..Default::default()
         }
-        if let Some(bg) = s.bg {
-            style = style.bg(bg);
-        }
-
-        style
     }
 }
 
@@ -166,40 +163,61 @@ impl<'de> Deserialize<'de> for Padding {
         D: Deserializer<'de>,
     {
         use serde::de::Error;
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum PaddingFormat {
+            Object(rPadding),
+            Sequence(Vec<u16>),
+            Single(u16),
+        }
 
-        let repr: Vec<u16> = one_or_many::deserialize(deserializer)?;
+        let format = PaddingFormat::deserialize(deserializer)?;
 
-        let inner = match repr.len() {
-            1 => {
-                let v = repr[0];
-                rPadding {
-                    top: v,
-                    right: v,
-                    bottom: v,
-                    left: v,
-                }
-            }
-            2 => {
-                let lr = repr[0];
-                let tb = repr[1];
-                rPadding {
-                    top: tb,
-                    right: lr,
-                    bottom: tb,
-                    left: lr,
-                }
-            }
-            4 => rPadding {
-                top: repr[0],
-                right: repr[1],
-                bottom: repr[2],
-                left: repr[3],
+        let inner = match format {
+            // Handle { "top": 10 } or {}
+            PaddingFormat::Object(obj) => obj,
+
+            // Handle a raw number: 10
+            PaddingFormat::Single(v) => rPadding {
+                top: v,
+                right: v,
+                bottom: v,
+                left: v,
             },
-            _ => {
-                return Err(D::Error::custom(
-                    "a number or an array of 1, 2, or 4 numbers",
-                ));
-            }
+
+            // Handle arrays: [10], [10, 20], or [10, 20, 30, 40]
+            PaddingFormat::Sequence(repr) => match repr.len() {
+                1 => {
+                    let v = repr[0];
+                    rPadding {
+                        top: v,
+                        right: v,
+                        bottom: v,
+                        left: v,
+                    }
+                }
+                2 => {
+                    let lr = repr[0];
+                    let tb = repr[1];
+                    rPadding {
+                        top: tb,
+                        right: lr,
+                        bottom: tb,
+                        left: lr,
+                    }
+                }
+                4 => rPadding {
+                    top: repr[0],
+                    right: repr[1],
+                    bottom: repr[2],
+                    left: repr[3],
+                },
+                _ => {
+                    return Err(D::Error::custom(
+                        "Expected an object, a number, or an array of 1, 2, or 4 numbers",
+                    ));
+                }
+            },
         };
 
         Ok(inner.into())

@@ -29,7 +29,6 @@ Overrides follow the pattern `path=value` or `path value`.
   - `header.content` -> `h`
   - `matcher.sort` -> `S`
 
-
 ### Collections (Lists/Vectors)
 
 Fields that are collections (like `preview.layout` or `binds`) are consumed additively:
@@ -99,7 +98,6 @@ All colors and modifiers come from ratatui:
   - Absolute alias: `a`.
 - `ax`, `additional_commands`: ([String]) Additional commands that can be cycled through using the ReloadNext action.
 - `mode`: (string) The initial mode of the application (e.g., `vim`). Default is `command` or `piped`.
-
 
 ### Exit (`exit.`, `e`)
 
@@ -256,7 +254,7 @@ Several UI components have a `style` block (or similar, like `prompt_style`):
 
 - `fg`: (color) Foreground color.
 - `bg`: (color) Background color.
-- `modifier`: (modifier) Style modifier (e.g., `bold`, `italic`, `dim`).
+- `modifier`: (modifier) Style modifier (e.g., `BOLD`, `ITALIC`, `DIM`, joined by `|`).
 
 ### Border Settings
 

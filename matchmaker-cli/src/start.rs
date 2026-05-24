@@ -227,9 +227,11 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 mode,
             },
         mut exit,
-        envs,
+        mut envs,
         source: _,
     } = config;
+
+    envs.retain(|_k, v| !v.is_empty());
 
     if let Some(mut d) = directory {
         let s = d.to_string_lossy();
@@ -279,6 +281,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             }
         }
     }
+    let set_index = !additional_commands.is_empty();
 
     let command = if initial_index > 0 {
         additional_commands[initial_index].clone()
@@ -330,16 +333,17 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let previewer = make_previewer(&mut mm, previewer, cli_formatter.clone(), help_str);
 
     // ---------------------- build options ---------------------------
-    let set_index = !additional_commands.is_empty();
 
     let bind_tx = event_loop.bind_controller();
+
+    let envs_ = envs.clone();
     let mut options = PickOptions::new()
         .event_loop(event_loop)
         .matcher(matcher.0)
         .previewer(previewer)
         .hidden_columns(hidden_columns)
         .initializer(move |s| {
-            s.envs.extend(envs.into_iter().filter(|p| !p.1.is_empty()));
+            s.envs.extend(envs_);
 
             if set_index {
                 s.envs.set("MM_INDEX", initial_index);
@@ -454,6 +458,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         )
     } else if !command.is_empty()
         && let Some(stdout) = Command::from_script(&command)
+            .envs(envs)
             .args(&*COMMAND_ARGS.lock().unwrap())
             .spawn_piped()
             ._ebog()

@@ -348,19 +348,23 @@ pub struct ResultsConfig {
     pub style: StyleSetting,
 
     // inactive_col styles
+    #[serde(alias = "inactive")]
     #[partial(recurse)]
-    pub inactive: StyleSetting,
+    pub inactive_style: StyleSetting,
 
     // inactive_col styles on the current item
+    #[serde(alias = "inactive_current")]
     #[partial(recurse)]
-    pub inactive_current: StyleSetting,
+    pub inactive_current_style: StyleSetting,
 
+    #[serde(alias = "match")]
     #[partial(recurse)]
-    pub r#match: StyleSetting,
+    pub match_style: StyleSetting,
 
     /// current item style
+    #[serde(alias = "current")]
     #[partial(recurse)]
-    pub current: StyleSetting,
+    pub current_style: StyleSetting,
 
     /// How the styles are applied across the row:
     /// Disjoint: Styles are applied per column.
@@ -423,20 +427,21 @@ impl Default for ResultsConfig {
             multi: true,
 
             style: Default::default(),
-            inactive: Default::default(),
-            inactive_current: StyleSetting {
-                fg: Some(Color::DarkGray),
-                bg: Some(Color::Black),
+            inactive_style: Default::default(),
+
+            inactive_current_style: StyleSetting {
+                // fg: Some(Color::DarkGray),
+                // bg: Some(Color::Black),
                 ..Default::default()
             },
 
-            r#match: StyleSetting {
+            match_style: StyleSetting {
                 fg: Some(Color::Green),
                 modifier: Modifier::ITALIC,
                 ..Default::default()
             },
 
-            current: StyleSetting {
+            current_style: StyleSetting {
                 bg: Some(Color::Black),
                 modifier: Modifier::BOLD,
                 ..Default::default()

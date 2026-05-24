@@ -2,111 +2,148 @@
 source = 'base.toml'
 
 [start]
-command = 'git log --pretty=format:"%h%x00%ad%x00%s" --date=human -- "${1:-.}"'
-additional_commands = [
-  'git log --pretty=format:"%h%x00%ad%x00%s" --date=human -- "${1:-.}"',
-  'git stash list --format="%gd%x00%cr%x00%gs"',
-  'git reflog --date=human --format="%h%x00%ad%x00%s" -- "${1:-.}"',
-  'git log --all --pretty=format:"%h%x00%ad%x00%s" --date=human -- "${1:-.}"',
-]
+  command = 'git log --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "${1:-.}"'
+  additional_commands = [
+    'git log --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "${1:-.}"',
+    '''git stash list --format="%gd%x00%at%x00%gs" | awk -F'\x00' -v OFS='\x00' -v fmt="$DATE_FORMAT" '{$2 = strftime(fmt, $2); print}'
+    ''',
+    '''git reflog --all --format="%h%x00%at%x00%gD: %gs" -- "${1:-.}" | awk -F'\x00' -v OFS='\x00' -v fmt="$DATE_FORMAT" '{$2 = strftime(fmt, $2); print}'
+    ''',
+    'git log --all --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "${1:-.}"',
+  ]
 
 [columns]
-split = "\\x00"
-max = 3
-default = 3
+  split   = "\\x00"
+  max     = 3
+  default = 1
 
 [matcher]
-sort = 40
+  sort = 40
 
 [envs]
-DFT_COLOR = "always"
+  DFT_COLOR = "always"
+  # --date=human looks better but is less searchable
+  DATE_FORMAT = "%Y-%m-%d %H:%M"
 
 # --- Preview ---
 [previewer]
-always_trigger = false
+  always_trigger = false
 
 [[preview.layout]]
-command = '''
+  command = '''
 git -c color.ui=always show --stat --summary --decorate {1}
 '''
-side = "right"
-percentage = 40
-min = 30
-max = 120
+  side = "right"
+  percentage = 40
+  min = 30
+  max = 120
 
 [[preview.layout]]
-side = "top"
-percentage = 50
-min = 5
-max = 50
-command = '''
+  side = "top"
+  percentage = 50
+  min = 5
+  max = 50
+  command = '''
 if ((MM_INDEX == 1)); then
+  echo "stash..stash base"
+  printf "%${COLUMNS}s\n" | tr ' ' '-'
   git -c color.ui=always stash show -p {1} -- {$0}
 else
+  echo {1}..
+  printf "%${COLUMNS}s\n" | tr ' ' '-'
   git diff --color=always --exit-code {1} -- {$0} && echo "no change"
 fi
 '''
 
 [[preview.layout]]
-command = '''
+  command = '''
 git show --color=always {1} -- {$0}
 '''
 
 # --- UI ---
 [tui]
-percentage = 100
+  percentage = 100
 
 [header]
-content = "[history]"
-style.fg = "Blue"
-style.modifier = ""
+  content        = "[history]"
+  style.fg       = "Blue"
+  style.modifier = ""
 
 [query]
-prompt = "restore> "
+  prompt = "restore> "
 
 [binds]
-"@accept" = "@checkout"
-"@accept_2" = [
-  "#apply stash/reset to reflog",
-  '''Become(
+  "@accept" = "@checkout"
+  "@accept_2" = [
+    "#apply stash/hard reset",
+    '''BecomeOr(
+set -e
 case $MM_INDEX in
-0|3) printf '%s\n' {+1} ;;
+  0|3)
+  echo hard resetting...
+  git --no-pager diff --stat {1} ;;
+  1)
+    echo "\n###############\nWorking directory: \n###############\n"
+    git --no-pager diff --stat
+    echo "\n###############\nStash changes: \n###############\n"
+    git --no-pager stash show {1}
+    echo
+  ;;
+esac
+
+printf 'Proceed? [y/N] '
+read -r c
+case $c in
+  [y]) ;;
+  [*]) kill $$ ;;
+esac
+
+case $MM_INDEX in
 1) git stash apply {1} ;;
-2) git reset --hard {1} ;;
+*) git reset --hard {1} ;;
 esac
 )''',
-]
-"ctrl-t" = ["@tag", "Reload"]
-"alt-r" = "@soft_reset"
-"@rm" = ["@clean", "Reload"]
+  ]
+  "ctrl-t" = [ "@tag", "Reload" ]
+  "alt-r" = "@soft_reset"
+  "@rm" = [ "@clean", "Reload" ]
+  "ctrl-c" = "@compare"
 
-"@next" = "BecomeSilent(mm -o git/switch)"
-"@prev" = "BecomeSilent(mm -o git/status)"
+  "@next" = "BecomeSilent(mm -o git/switch)"
+  "@prev" = "BecomeSilent(mm -o git/status)"
 
-# --- Scripts ---
-"Start" = ["Store(0)"]
-"Reloaded" = '''Transform(
+  # --- Scripts ---
+  "Reloaded" = '''Transform(
     HEADERS=(
       '[history]'
       '[stash]'
-      '[reflog]'
       '[all_refs]'
+      '[reachable]'
     )
     setopt KSH_ARRAYS 2>/dev/null
     echo "SetHeader(${HEADERS[$MM_INDEX]})"
 )
 '''
-"@reload" = "ReloadNext"
-"@reload_2" = "ReloadPrev"
+  "@reload" = "ReloadNext"
+  "@reload_2" = "ReloadPrev"
 
-"@open" = "Execute($EDITOR {$1})"
-"@open_2" = []
+  "@open"   = "Execute($EDITOR {$1})"
+  "@open_2" = [  ]
 
-"@checkout" = '''
+  "@compare" = '''RunPreview(
+set -- $(git rev-list --left-right --count HEAD..{1})
+behind=$1
+ahead=$2
+commits=$(git rev-list --count {1})
+echo "behind: $behind ahead: $ahead commits: $commits"
+printf "%${COLUMNS}s\n" | tr ' ' '-'
+git log --color=always --left-right --oneline ...{1}
+)'''
+
+  "@checkout" = '''
 Become(
 set -e
 
-echo $MM_INDEX {1}
 case $MM_INDEX in
   0|3) git --no-pager diff --stat {1} -- {$1} ;;
   1)
@@ -119,14 +156,14 @@ case $MM_INDEX in
 esac
 
 [ -n "$(git status --porcelain -- {$1})" ] &&
-printf 'Proceed (or stash changes)? [y/N/s] ' ||
+printf 'Proceed (or stash (all) changes)? [y/N/s/a] ' ||
 printf 'Proceed? [y/N] '
 
 read -r c
 case $c in
   [s])
   git stash push -- {$1} ;;
-  [u])
+  [au])
   git stash push -u -- {$1} ;;
   [y]) ;;
   *) exit 0 ;;
@@ -139,7 +176,7 @@ esac
 )
 '''
 
-"@soft_reset" = '''BecomeOr(
+  "@soft_reset" = '''BecomeOr(
 set -e
 case $MM_INDEX in
 1)
@@ -223,7 +260,7 @@ case $MM_INDEX in
 esac
 )'''
 
-"@tag" = '''
+  "@tag" = '''
 BecomeOr(
 set -e
 
@@ -287,8 +324,8 @@ case $MM_INDEX in
 esac
 )'''
 
-"@clean" = '''
-BecomeOr(
+  "@clean" = '''
+ExecuteOrConfirm(
 set -e
 
 case $MM_INDEX in
@@ -298,9 +335,7 @@ case $MM_INDEX in
   case "$ans" in
     [yY]*)
       git gc --prune=now --aggressive
-      ;;
-    *)
-      kill $$
+      false
       ;;
   esac
   ;;
@@ -317,15 +352,15 @@ case $MM_INDEX in
       git -c gc.reflogExpire=0 -c gc.reflogExpireUnreachable=0 \
       -c gc.rerere.rresolved=0 -c gc.rerere.unresolved=0 \
       -c gc.pruneExpire=now gc
-      ;;
-    *)
-      kill $$
+      false
       ;;
   esac
   ;;
 
 3)
-  exit
-;;
+  echo "Unavailable"
+  exit 1
+  ;;
+
 esac
 )'''

@@ -1,9 +1,13 @@
 [binds]
-"ctrl-s" = "@show"
-"ctrl-shift-s" = "@diff"
+    "ctrl-s"       = "@show"
+    "ctrl-shift-s" = "@diff"
 
-"@reload" = "ReloadNext"
-"@reload_2" = "ReloadPrev"
+    "@reload"   = "ReloadNext"
+    "@reload_2" = "ReloadPrev"
 
-"@diff" = "Execute({ git --paginate diff --color=always --exit-code {1} && echo no change; })"
-"@show" = "Execute(git --paginate show --color=always {1})"
+    "@diff" = "Execute({ git --paginate diff --color=always --exit-code {1} && echo no change; })"
+    "@show" = "Execute(git --paginate show --color=always {1})"
+
+[results]
+    inactive.modifier = "DIM"
+    # inactive_current.modifier = "DIM"

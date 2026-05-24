@@ -2,4 +2,4 @@
 *.log
 .cargo/config.toml
 *.txt
-matchmaker-cli/assets/presets/kube/
+matchmaker-cli/assets/presets/todo

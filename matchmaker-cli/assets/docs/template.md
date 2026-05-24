@@ -41,11 +41,11 @@ See examples for more information.
 
 If you passed trailing arguments to `mm` (after `--`), you can access them in your templates.
 
-| Placeholder | Description                                           |
-| ----------- | ----------------------------------------------------- |
-| `{$0}`      | All arguments (shell-quoted, space-separated)         |
-| `{$1}`      | The first argument (shell-quoted)                     |
-| `{$n}`      | The n-th argument                                     |
+| Placeholder | Description                                   |
+| ----------- | --------------------------------------------- |
+| `{$0}`      | All arguments (shell-quoted, space-separated) |
+| `{$1}`      | The first argument (shell-quoted)             |
+| `{$n}`      | The n-th argument                             |
 
 ## Ranges
 
@@ -193,6 +193,8 @@ When Matchmaker executes a command (e.g., via `Execute`, `Become`, or a preview 
 | `MM_PREVIEW_COMMAND` |                    | The current preview command                        |
 | `MM_STORE`           |                    | Current value stored in state (via `Store` action) |
 | `MM_INDEX`           |                    | Index of command being reloaded (in `ReloadNext`)  |
+
+The `envs` section of your config is also injected, as well as `$CLIPcmd` and `$PASTEcmd` -- the auto-determined clipboard commands if they are not otherwise set.
 
 ### Preview Environment
 

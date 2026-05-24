@@ -1,0 +1,79 @@
+# Interactive container viewer for a project/pod
+source = "base.toml"
+
+[start]
+    command         = '"$(dirname -- "$MM_OVERRIDE")"/containers.sh $@'
+    input_separator = "\\0"
+    trim            = true
+
+[columns]
+    split = "\\t"
+    names = [ "name", "status", "id", "image", "state" ]
+
+[envs]
+    JQ        = "jq"
+    DOCKERcmd = { value = 'echo "$(dirname -- "$MM_OVERRIDE")"/dispatcher.sh', exec = true, force = true }
+
+[preview]
+    show = true
+
+[[preview.layout]]
+    # Logs
+    command    = '"$DOCKERcmd" logs --tail 200 {id} | PG_LANG=log $PAGER'
+    side       = "top"
+    percentage = 50
+    min        = 5
+    padding    = 0
+
+[[preview.layout]]
+    # Inspect
+    command    = '"$DOCKERcmd" inspect {id} | PG_LANG=json $PAGER'
+    side       = "right"
+    percentage = 40
+    min        = 30
+    max        = 120
+
+[[preview.layout]]
+    # Top
+    command = '"$DOCKERcmd" top {id}'
+
+[binds]
+    "@prev" = "Become(mm -o kube/compose)"
+
+    "alt-d"  = "@diff"
+    "ctrl-k" = [ "@kill", "Reload" ]
+    "ctrl-e" = "@exec"
+    "alt-r"  = [ "@rm", "Reload" ]
+
+    # --- Scripts ---
+    "@follow_logs" = 'Preview("$DOCKERcmd" logs -f -t {id})'
+    "@show_2"      = [ '#diff', 'Preview("$DOCKERcmd" diff {id})' ]
+    "@show_stats"  = 'Preview("$DOCKERcmd" stats {id})'
+
+    "@restart" = 'Execute("$DOCKERcmd" restart {id}) Status(Restarting...)'
+    "@toggle_start" = '''Execute(
+    if [[ {state} == exited || {state} == created ]]; then
+        "$DOCKERcmd" start {id}
+    else
+        "$DOCKERcmd" stop {id}
+    fi
+)'''
+
+    "@toggle_pause" = '''Execute(
+    if [[ {state} == paused ]]; then
+        "$DOCKERcmd" unpause {id}
+    else
+        "$DOCKERcmd" pause {id}
+    fi
+)'''
+    "@kill" = 'Execute("$DOCKERcmd" kill {id}) Status(Killing...)'
+    "@exec" = 'Become("$DOCKERcmd" exec -it {id} sh -c "if command -v zsh > /dev/null 2>&1; then exec zsh; elif command -v bash > /dev/null 2>&1; then exec bash; else exec sh; fi")'
+    "@rm" = 'Execute("$DOCKERcmd" rm -f {id}) Status(Removing...)'
+
+[query]
+    prompt                = "containers> "
+    prompt_style.fg       = "Cyan"
+    prompt_style.modifier = "ITALIC"
+
+[tui]
+    percentage = 100

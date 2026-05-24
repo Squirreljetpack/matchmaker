@@ -1,0 +1,123 @@
+# Docker/Podman projects viewer
+source = "base.toml"
+
+[start]
+    command         = '"$(dirname -- "$MM_OVERRIDE")"/projects.sh'
+    input_separator = "\\0"
+
+[columns]
+    split = "\\t"
+    names = [ "name", "status", "id", { name = "source", hidden = true } ]
+
+[envs]
+    JQ = "jq"
+
+[preview]
+    show = true
+[previewer]
+    # delay_clear = false
+
+[[preview.layout]]
+    # Logs
+    command    = '"$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} logs {source} --tail 200 | PG_LANG=log $PAGER'
+    side       = "top"
+    percentage = 50
+    min        = 5
+    padding    = 0
+
+[[preview.layout]]
+    # Config
+    command    = '"$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} config {source} | PG_LANG=yaml $PAGER'
+    side       = "right"
+    percentage = 40
+    min        = 30
+    max        = 120
+
+[[preview.layout]]
+    # Top
+    command = '"$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} top {source}'
+
+[binds]
+    "tty^^@accept"  = "Become(mm -o kube/containers -- {id} {source})"
+    "tty^^@accept2" = [ "#lazydocker", "Become(lazydocker -f {id})" ]
+    "@accept"       = [ "Print({=id})", "Quit" ]
+
+
+    "alt-r"  = [ "@recreate", "Reload" ]
+    "ctrl-a" = [ "@restart_all", "Reload" ]
+    "alt-a"  = [ "@recreate_all", "Reload" ]
+    "ctrl-u" = [ "@toggle_up", "Reload" ]
+    "alt-u"  = [ "@toggle_up_full", "Reload" ]
+
+    "alt-." = "@edit_env"
+
+    # --- Scripts ---
+    "@follow_logs" = 'Preview("$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} logs {source} -f -t)'
+    "@show_2"      = "@ls"
+    "@show_stats"  = 'Preview("$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} stats {source})'
+
+    "@restart" = 'Execute("$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} restart {source} --no-deps) Status(Restarting...)'
+    "@toggle_start" = '''Execute(
+    if [[ {status} == *exited* || {status} == *stopped* || {status} == *created* ]]; then
+        "$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} start {source}
+    else
+        "$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} stop {source}
+    fi
+)'''
+
+    "@toggle_pause" = '''Execute(
+    if [[ {status} == *paused* ]]; then
+        "$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} unpause {source}
+    else
+        "$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} pause {source}
+    fi
+)'''
+
+    "@recreate"     = 'Execute("$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} up {source} --force-recreate) Status(Recreating...)'
+    "@restart_all"  = 'Execute("$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} restart {source}) Status(Restarting all...)'
+    "@recreate_all" = 'Execute("$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} up {source} --renew-anon-volumes --force-recreate) Status(Recreating all...)'
+
+    "@toggle_up" = '''Execute(
+    if [[ {status} == *down* || {status} == *exited* ]]; then
+        "$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} up {source} -d
+    else
+        "$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} down {source}
+    fi
+)'''
+
+    "@toggle_up_full" = '''Execute(
+    if [[ {status} == *down* || {status} == *exited* ]]; then
+        "$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} up {source} -w
+    else
+        "$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} down {source} -v --remove-orphans
+    fi
+)'''
+
+
+    "@ls" = '''RunPreview(
+    if [[ {source} == "file" || {source} == "compose" ]]; then
+        if [[ {id} == */* ]]; then cd "$(dirname -- {id})"; else cd "$DOCKERdir/{name}"; fi
+        fs :tool liza :u2 ::flatten
+    else
+        echo "No directory for pod source"
+    fi
+)'''
+    "@edit_env" = '''Execute(
+    if [[ {source} != "pod" ]]; then
+        if [[ {id} == */* ]]; then
+            $EDITOR "$(dirname {id})/.env"
+        else
+            $EDITOR "$DOCKERdir/{name}/.env"
+        fi
+    else
+        echo "No .env for pod source. Press Enter to continue." && read
+    fi
+)'''
+
+[query]
+    prompt                = "kube> "
+    prompt_style.fg       = "Blue"
+    prompt_style.modifier = "ITALIC"
+
+[tui]
+    percentage = 100

@@ -103,9 +103,10 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
         }
 
         config.apply(o);
-        config
-            .envs
-            .insert("MM_OVERRIDE".to_string(), p.to_string_lossy().to_string());
+        config.envs.insert(
+            "MM_OVERRIDE".to_string(),
+            crate::config::EnvValue::new(p.to_string_lossy().to_string()),
+        );
     }
 
     #[cfg(debug_assertions)]
@@ -227,12 +228,100 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 mode,
             },
         mut exit,
-        mut envs,
+        envs,
         source: _,
     } = config;
 
-    envs.retain(|_k, v| !v.is_empty());
+    // -------- set envs -----------
+    let mut envs = envs;
 
+    let mut initial_index = 0;
+    if additional_commands.len() > 1 {
+        if let Ok(index_str) = std::env::var("MM_INDEX") {
+            if let Ok(index) = index_str.parse::<usize>() {
+                if index < additional_commands.len() {
+                    initial_index = index;
+                }
+            }
+        }
+    }
+    let set_index = !additional_commands.is_empty();
+
+    if set_index {
+        envs.insert(
+            "MM_INDEX".to_string(),
+            crate::config::EnvValue::new(initial_index.to_string()),
+        );
+    }
+
+    if envs
+        .get("CLIPcmd")
+        .map(|x| !x.value.is_empty())
+        .unwrap_or_else(|| {
+            std::env::var("CLIPcmd")
+                .ok()
+                .map_or(false, |x| !x.is_empty())
+        })
+    {
+        if let Some((clip, paste)) = crate::utils::guess_clip_cmd() {
+            envs.insert("CLIPcmd".to_string(), crate::config::EnvValue::new(clip));
+
+            if envs
+                .get("PASTEcmd")
+                .map(|x| !x.value.is_empty())
+                .unwrap_or_else(|| {
+                    std::env::var("PASTEcmd")
+                        .ok()
+                        .map_or(false, |x| !x.is_empty())
+                })
+            {
+                envs.insert("PASTEcmd".to_string(), crate::config::EnvValue::new(paste));
+            }
+        }
+    }
+
+    let mut processed_envs = std::collections::HashMap::new();
+
+    // First pass: static envs
+    for (k, v) in &envs {
+        if !v.value.is_empty() && !v.exec {
+            if v.force || std::env::var_os(k).is_none() {
+                processed_envs.insert(k.clone(), v.value.to_string());
+            }
+        }
+    }
+
+    // Second pass: dynamic envs
+    for (k, v) in &envs {
+        if !v.value.is_empty() && v.exec {
+            if v.force || std::env::var_os(k).is_none() {
+                if let Some(output) = Command::from_script(&v.value)
+                    .envs(&processed_envs)
+                    .read_to_string()
+                    ._elog()
+                {
+                    processed_envs.insert(k.clone(), output.trim().to_string());
+                } else {
+                    _wbog!("Failed to execute env command for {}: {}", k, v.value);
+                }
+            }
+        }
+    }
+
+    let envs = processed_envs;
+
+    // -------- determine command ------------
+    let command = if initial_index > 0 {
+        additional_commands[initial_index].clone()
+    } else {
+        command
+    };
+
+    let mut default_reload = (!command.is_empty() && atty::is(atty::Stream::Stdin) || no_read)
+        .then_some(command.clone())
+        .unwrap_or_default();
+
+    // -------- set directory -----------
     if let Some(mut d) = directory {
         let s = d.to_string_lossy();
         let mut failed = false;
@@ -259,6 +348,8 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         }
     }
 
+    // ---------------------------------
+
     let abort_empty = exit.abort_empty;
     let header_lines = render.header.header_lines;
     let print_handle = AppendOnly::new();
@@ -271,35 +362,23 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
 
     let mut event_loop = EventLoop::with_binds(binds).with_tick_rate(render.tick_rate());
 
-    let mut initial_index = 0;
-    if additional_commands.len() > 1 {
-        if let Ok(index_str) = std::env::var("MM_INDEX") {
-            if let Ok(index) = index_str.parse::<usize>() {
-                if index < additional_commands.len() {
-                    initial_index = index;
-                }
-            }
+    // set event loop mode
+    event_loop.mode = if let Some(m) = mode {
+        m
+    } else {
+        match (
+            !default_reload.is_empty(), // has command => t0
+            atty::is(atty::Stream::Stdout),
+        ) {
+            (true, true) => "tty",
+            (true, false) => "t0",
+            (false, true) => "piped",
+            (false, false) => "t1",
         }
-    }
-    let set_index = !additional_commands.is_empty();
-
-    let command = if initial_index > 0 {
-        additional_commands[initial_index].clone()
-    } else {
-        command
+        .to_string()
     };
+    log::trace!("mode: {}", event_loop.mode);
 
-    let mut default_reload = (!command.is_empty() && atty::is(atty::Stream::Stdin) || no_read)
-        .then_some(command.clone())
-        .unwrap_or_default();
-
-    if let Some(m) = mode {
-        event_loop.mode = m;
-    } else if !default_reload.is_empty() {
-        event_loop.mode = "command".to_string();
-    } else {
-        event_loop.mode = "piped".to_string();
-    }
     // make matcher and matchmaker with matchmaker-and-matcher-maker
     let (
         mut mm,
@@ -344,36 +423,6 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         .hidden_columns(hidden_columns)
         .initializer(move |s| {
             s.envs.extend(envs_);
-
-            if set_index {
-                s.envs.set("MM_INDEX", initial_index);
-            }
-
-            if s.envs
-                .get("CLIPcmd")
-                .map(|x| !x.is_empty())
-                .unwrap_or_else(|| {
-                    std::env::var("CLIPcmd")
-                        .ok()
-                        .map_or(false, |x| !x.is_empty())
-                })
-            {
-                if let Some((clip, paste)) = crate::utils::guess_clip_cmd() {
-                    s.envs.set("CLIPcmd", clip);
-
-                    if s.envs
-                        .get("PASTEcmd")
-                        .map(|x| !x.is_empty())
-                        .unwrap_or_else(|| {
-                            std::env::var("PASTEcmd")
-                                .ok()
-                                .map_or(false, |x| !x.is_empty())
-                        })
-                    {
-                        s.envs.set("PASTEcmd", paste);
-                    }
-                }
-            }
         });
 
     let render_tx = options.render_tx();
@@ -421,6 +470,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             if let Some(stdout) = Command::from_script(&cmd)
                 .envs(vars)
                 .stdin(Stdio::null())
+                .args(&*COMMAND_ARGS.lock().unwrap())
                 .spawn_piped()
                 ._elog()
             {

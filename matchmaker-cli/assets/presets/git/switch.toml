@@ -43,7 +43,7 @@ behind=$1
 ahead=$2
 commits=$(git rev-list --count {1})
 echo "behind: $behind ahead: $ahead commits: $commits"
-printf '%*s\n' "$COLUMNS" '' | tr ' ' '#'
+printf "%${COLUMNS}s\n" | tr ' ' '-'
 git log --color=always --left-right --oneline ...{1}
 '''
 # side = "right"
@@ -53,6 +53,8 @@ git log --color=always --left-right --oneline ...{1}
 
 [[preview.layout]]
 command = '''
+echo {1}..
+printf "%${COLUMNS}s\n" | tr ' ' '-'
 git diff --color=always --exit-code {1} -- {$0} && echo "no change"
 '''
 # side = "top"

@@ -33,6 +33,7 @@ use crate::{
     render::{self, BoxedHandler, DynamicMethod, EventHandlers, InterruptHandlers, MMState},
     tui,
     ui::{Overlay, OverlayUI, UI},
+    utils::text::is_empty,
 };
 
 /// The main entrypoint of the library. To use:
@@ -884,9 +885,11 @@ pub fn make_previewer<T: SSS, S: Selection + 'static>(
 
     mm.register_event_handler(Event::PreviewSet, move |state, _event| {
         if state.preview_visible() {
-            let msg = match state.preview_set_payload() {
+            let payload = state.preview_set_payload();
+            log::trace!("Recieved PreviewSet: {payload:?}");
+            let msg = match payload {
                 Some(Err(m)) => {
-                    let m = if m.lines.is_empty() && !help_str.lines.is_empty() {
+                    let m = if is_empty(&m) && !help_str.lines.is_empty() {
                         help_str.clone()
                     } else {
                         m

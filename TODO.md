@@ -11,7 +11,6 @@
 - ExecuteAsync: support chaining actions without blocking ui
   - Slightly tricky because to expose this to dynamic handlers this needs go in state, but state is not generic over action. Idea is to create a static Mutex<hashmap<u8, Vec<Box<dyn<Action>>>> in state, add methods to Actions converting between x: Actions and this type erased vec, and dispatcher method which accepts an Actions and a discriminant and adds it to the concurrent hashmap, and a method which gets from the hashmap and downcasts to original type.
   - save remaining, execute_handler for the ExecuteAsync interrupt: pop the latest to variable, tokio spawn: tokio await cmd completion then reseed actions to render_tx.
-
   
 - ExecuteThen: Transmits to ExecuteAsync but with discriminant Some(1). This causes the handler to execute without spawning, then check wait.success. Only if succeed, reseed with remaining actions.
 - Finally, support reading from MM_INDEX for initialization when additional_commands.len() > 1
@@ -73,4 +72,4 @@
 - renderloop optimization: pass available height?
 - descriptions to override help actions
 - switch preset can read remote from {$1} instead of assuming origin
-
+- flicker-free reload: before interrupt save results or something + pause events?

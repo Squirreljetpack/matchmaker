@@ -7,6 +7,7 @@ git status --ignore-submodules=dirty -sz |
 while IFS= read -r -d '' entry; do
   st_staged="${entry:0:1}"
   st_worktree="${entry:1:1}"
+  st=""
   file="${entry:3}"
 
   RED=$'\033[31m'
@@ -14,15 +15,17 @@ while IFS= read -r -d '' entry; do
   RESET=$'\033[m'
 
   case "$st_staged" in
-    M|A|R|C|D) colored_staged="${GREEN}${st_staged}${RESET}" ;;
+    " "|\?) st="" ;;
+    *) st="${GREEN}${st_staged}${RESET}"
   esac
 
   case "$st_worktree" in
-    M|D) colored_worktree="${RED}${st_worktree}${RESET}" ;;
-    \?)  colored_worktree="${RED}${st_worktree}${RESET}" ; colored_staged="${RED}${st_staged}${RESET}" ;;
+    " ") st+=" " ;;
+    \?)  st+="${RED}??${RESET}" ;;
+    *) st+="${RED}${st_worktree}${RESET}" ;;
   esac
 
-  printf '%s\0%s%s\n' "$file" "$colored_staged" "$colored_worktree"
+  printf '%s\0%s\n' "$file" "$st"
 done
 '''
 directory = "$(git rev-parse --show-toplevel)"
@@ -82,8 +85,8 @@ percentage = 100
 prompt = "status> "
 
 [binds]
-"@accept" = ["@stage", "Reload"]
-"@accept_2" = ["Print({=1})", "Quit"]
+"@accept" = ["#stage", "@stage", "Reload"]
+"@accept_2" = ["#print", "Print({=1})", "Quit"]
 "@next" = "BecomeSilent(mm -o git/restore)"
 "@prev" = "BecomeSilent(mm -o git/grep)"
 
@@ -94,7 +97,7 @@ prompt = "status> "
 "ctrl-shift-c" = ["@commit_ai", "Reload"]
 "alt-r" = ["@restore", "Reload"]
 "ctrl-t" = ["@stash", "Reload"]
-"@rm" = ["@untrack", "Reload"]
+"@rm" = ["#untrack", "@untrack", "Reload"]
 "ctrl-shift-d" = ["@delete", "Reload"]
 "alt-d" = ["@disk-delete", "Reload"]
 "alt-i" = ["@ignore", "Reload"]

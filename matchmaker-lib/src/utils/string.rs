@@ -70,8 +70,11 @@ pub fn resolve_escapes(s: &str) -> String {
 
 /// Check if a character is allowed in a semantic trigger name.
 pub fn allowed_semantic_char(c: char) -> bool {
-    c.is_alphanumeric() || matches!(c, ' ' | '-' | '_' | '.' | ':' | '/' | '+' | '@' | '$')
+    c.is_alphanumeric() || ALLOWED_CHARS.contains(&c)
 }
+
+// important that aliases display well, don't contain ^ (mode) and " (trace)
+pub static ALLOWED_CHARS: &[char] = &[' ', '-', '_', '.', ':', '/', '+', '@', '$'];
 
 /// Allocates widths to a constrained available space while preserving order relations,
 /// ignoring zero-widths, and enforcing a minimum width floor.

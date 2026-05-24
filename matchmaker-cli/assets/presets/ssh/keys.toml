@@ -14,9 +14,7 @@ prompt_style.modifier = "ITALIC"
 [binds]
 "ctrl-b" = "@bind_to_host"
 
-"@accept" = '''Become(
-cat {} | tee >(eval $CLIPcmd) 2>/dev/null
-)'''
+"@accept" = ["#copy", "Become(cat {} | tee >(eval $CLIPcmd) 2>/dev/null"]
 "@accept_2" = ["@copy", "Accept"]
 "@open_2" = '''Execute(priv={}; priv="${priv%%.pub}"; [[ -f $priv ]] && $EDITOR "$priv")'''
 "@next" = "BecomeSilent(mm -o ssh/known)"

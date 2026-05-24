@@ -47,4 +47,4 @@ path = "src/main.rs"
 workspace = true
 
 [features]
-experimental = ["matchmaker-lib/experimental"]
+experimental = ["matchmaker-lib/experimental", "log/max_level_debug"]

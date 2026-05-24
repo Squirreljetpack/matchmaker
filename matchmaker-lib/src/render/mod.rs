@@ -628,6 +628,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         // unreachable
                         Action::PrintKey => {}
                         Action::Semantic(_) => {}
+                        Action::Trace(_) => {}
                     }
                 }
                 _ => {}

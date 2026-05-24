@@ -314,6 +314,10 @@ pub fn scrub_text_styles(text: &mut Text<'_>) {
     }
 }
 
+pub fn is_empty(text: &Text<'_>) -> bool {
+    text.lines.iter().all(|l| l.spans.is_empty())
+}
+
 /// Expand `placeholder` inside a Line and distribute spaces to reach `target_width`.
 pub fn expand_indents<'a>(
     input: Line<'a>,

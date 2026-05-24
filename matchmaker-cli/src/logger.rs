@@ -20,7 +20,8 @@ pub fn init_logger([q, v]: [u8; 2], log_path: &Path) {
                 .filter(None, log::LevelFilter::Info)
                 .filter(Some(LIBRARY_FULL), log::LevelFilter::Trace)
                 .filter(Some("cba"), log::LevelFilter::Trace)
-                .filter(Some(BINARY_SHORT), log::LevelFilter::Trace);
+                .filter(Some(BINARY_SHORT), log::LevelFilter::Trace)
+                .format_timestamp_micros();
         }
         #[cfg(not(debug_assertions))]
         {

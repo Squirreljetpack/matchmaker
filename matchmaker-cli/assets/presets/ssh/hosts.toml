@@ -1,8 +1,8 @@
 # ssh host selector
 
 [start]
-    # Not a perfect parse if host definitions are fragmented
-    command = '''
+# Not a perfect parse if host definitions are fragmented
+command = '''
 {
     setopt +o nomatch 2>/dev/null
 
@@ -48,46 +48,46 @@
 '''
 
 [columns]
-    split   = "\\x00"
-    max     = 5
-    default = 1
-    names   = [ "host", "address", "user", "port", { name = "file", hidden = true } ]
+split = "\\x00"
+max = 5
+default = 1
+names = ["host", "address", "user", "port", { name = "file", hidden = true }]
 
 # --- Preview ---
 [preview]
-    show = true
+show = true
 
 [[preview.layout]]
-    command = "echo '### Configuration ###\n'; ssh -G {host}"
+command = "echo '### Configuration ###\n'; ssh -G {host}"
 
 [[preview.layout]]
-    command = "(nc -w 5 -vz {host} 22 2>&1)&!; ping -c 3 -W 1000 {host}"
+command = "(nc -w 5 -vz {host} 22 2>&1)&!; ping -c 3 -W 1000 {host}"
 
 [[preview.layout]]
-    command = "echo '### Host keys ###\n'; ssh-keyscan {host}"
+command = "echo '### Host keys ###\n'; ssh-keyscan {host}"
 
 # --- UI ---
 [header]
-    content = [ "host", "address", "user", "port" ]
+content = ["host", "address", "user", "port"]
 
 [query]
-    prompt                = "hosts> "
-    prompt_style.fg       = "Blue"
-    prompt_style.modifier = "ITALIC"
+prompt = "hosts> "
+prompt_style.fg = "Blue"
+prompt_style.modifier = "ITALIC"
 
 [binds]
-    "ctrl-t" = [ "@test", "Reload" ]
-    "alt-t"  = [ "@test", "Reload" ]
+"ctrl-t" = ["@test", "Reload"]
+"alt-t" = ["@test", "Reload"]
 
-    "@accept"   = [ "#ssh", "Become(ssh {host})" ]
-    "@accept_2" = "Become(echo {host})"
-    "@open"     = "Execute($EDITOR {file})"
-    "@open_2"   = "Become($EDITOR {file})"
-    "@next"     = "Become(mm -o ssh/keys)"
-    "@prev"     = "Become(mm -o ssh/tailscale)"
+"@accept" = ["#ssh", "Become(ssh {host})"]
+"@accept_2" = "Become(echo {host})"
+"@open" = "Execute($EDITOR {file})"
+"@open_2" = "Become($EDITOR {file})"
+"@next" = "BecomeSilent(mm -o ssh/keys)"
+"@prev" = "BecomeSilent(mm -o ssh/tailscale)"
 
-    # --- Scripts ---
-    "@test" = "Execute(ssh -vT {host} 2>&1)"
+# --- Scripts ---
+"@test" = "Execute(ssh -vT {host} 2>&1)"
 
 [tui]
-    percentage = 100
+percentage = 100

@@ -1,4 +1,4 @@
-use std::{fmt, path::PathBuf};
+use std::fmt;
 
 use cba::define_transparent_wrapper;
 use ratatui::{
@@ -425,6 +425,56 @@ impl<'de> Deserialize<'de> for ColumnSetting {
 
 // -------------
 
+#[derive(Debug, Serialize, Clone, PartialEq, Default)]
+pub struct EnvValue {
+    pub value: String,
+    #[serde(default)]
+    pub force: bool,
+    #[serde(default)]
+    pub exec: bool,
+}
+
+impl<'de> Deserialize<'de> for EnvValue {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum RawEnvValue {
+            Short(String),
+            Long {
+                value: String,
+                #[serde(default)]
+                force: bool,
+                #[serde(default)]
+                exec: bool,
+            },
+        }
+
+        match RawEnvValue::deserialize(deserializer)? {
+            RawEnvValue::Short(value) => Ok(EnvValue {
+                value,
+                force: false,
+                exec: false,
+            }),
+            RawEnvValue::Long { value, force, exec } => Ok(EnvValue { value, force, exec }),
+        }
+    }
+}
+
+impl EnvValue {
+    pub fn new(value: impl Into<String>) -> Self {
+        Self {
+            value: value.into(),
+            force: false,
+            exec: false,
+        }
+    }
+}
+
+// -------------
+
 // #[matchmaker_partial_macros::partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[derive(Default, Debug, Clone, PartialEq, serde::Serialize)]
 pub struct CommandSetting {
@@ -434,9 +484,6 @@ pub struct CommandSetting {
 
     #[serde(alias = "cmd")]
     pub command: String,
-
-    #[serde(default)]
-    pub directory: Option<PathBuf>,
 }
 
 impl<'de> Deserialize<'de> for CommandSetting {
@@ -454,9 +501,6 @@ impl<'de> Deserialize<'de> for CommandSetting {
             #[serde(default)]
             pub separator: Option<char>,
 
-            #[serde(default)]
-            pub directory: Option<PathBuf>,
-
             #[serde(alias = "cmd")]
             pub command: String,
         }
@@ -471,13 +515,11 @@ impl<'de> Deserialize<'de> for CommandSetting {
         match CommandSettingDe::deserialize(deserializer)? {
             CommandSettingDe::String(command) => Ok(CommandSetting {
                 separator: None,
-                directory: None,
                 command,
             }),
 
             CommandSettingDe::Full(obj) => Ok(CommandSetting {
                 separator: obj.separator,
-                directory: obj.directory,
                 command: obj.command,
             }),
         }

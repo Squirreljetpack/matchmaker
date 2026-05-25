@@ -81,6 +81,9 @@ pub struct StartConfig {
     #[partial(alias = "ax")]
     pub additional_commands: Vec<String>,
 
+    #[partial(alias = "d")]
+    pub directory: EnvValue,
+
     pub sync: bool,
     /// Whether to parse ansi sequences from input
     #[partial(alias = "a")]

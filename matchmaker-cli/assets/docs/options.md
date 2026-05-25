@@ -93,7 +93,6 @@ All colors and modifiers come from ratatui:
   - If an object:
     - `command`: (string) The shell command.
     - `separator`: (char) Input separator (overrides `start.input_separator` for this command).
-    - `directory`: (string) Directory to execute the command in.
 - `input_separator`: (char) Character separating input items.
   - Absolute alias: `i`.
 - `os`, `output_separator`: (string) String separating output selections.
@@ -105,7 +104,13 @@ All colors and modifiers come from ratatui:
 - `ansi`: (bool) Parse ansi codes from input.
   - Absolute alias: `a`.
 - `ax`, `additional_commands`: ([String]) Additional commands that can be cycled through using the ReloadNext action.
-- `mode`: (string) The initial mode of the application (e.g., `vim`). Default is `command` or `piped`.
+- `mode`: (string) The initial mode of the application. Default values (`tty`, `t0`, `piped`, `t1`) depend on whether stdin and stdout are connected to /dev/tty.
+- `directory`: (string) Change directory context.
+  - `~` is resolved to home directory.
+  - If an object:
+    - `value`: (string) The directory path or command resolving to the directory path.
+    - `exec`: (bool) If true, the directory is read from the stdout of the executed value (default false).
+    - `force`: (bool) If true, exit application if directory could not be changed to.
 
 ### Exit (`exit.`, `e`)
 

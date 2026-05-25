@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     env::set_current_dir,
     io::Read,
     path::Path,
@@ -30,7 +31,7 @@ use log::debug;
 use matchmaker::{
     Action, ConfigInjector, MatchError, Matchmaker, OddEnds, PickOptions, SSS, acs,
     binds::{BindMap, BindMapExt, display_binds},
-    config::{CommandSetting, MatcherConfig, StartConfig},
+    config::{CommandSetting, EnvValue, MatcherConfig, StartConfig},
     event::{EventLoop, RenderSender},
     make_previewer,
     message::Interrupt,
@@ -77,7 +78,7 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
     } else {
         load_type_or_default(cfg_path, |s| toml::from_str(s))
     };
-
+    // check config
     if config.source.is_some() {
         wbog!("'source' field is not supported in the main config.");
     }
@@ -86,6 +87,7 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
         config.render.status.template = r#"\m/\t"#.to_string();
     }
 
+    // apply overrides
     for mut p in cli.r#override {
         if p.is_relative() && p.extension().is_none() {
             p = presets_path().join(p.with_extension("toml"));
@@ -105,7 +107,7 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
         config.apply(o);
         config.envs.insert(
             "MM_OVERRIDE".to_string(),
-            crate::config::EnvValue::new(p.to_string_lossy().to_string()),
+            EnvValue::new(p.to_string_lossy().to_string()),
         );
     }
 
@@ -124,6 +126,7 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
         *COMMAND_ARGS.lock().unwrap() = cli.args;
     }
 
+    // dispatch subcommands
     if cli.last_key {
         let path = config
             .exit
@@ -202,85 +205,26 @@ pub fn map_reader<E: SSS + std::fmt::Display>(
 
 pub static COMMAND_ARGS: Mutex<Vec<std::ffi::OsString>> = Mutex::new(Vec::new());
 
-pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
-    let Config {
-        render,
-        tui,
-        previewer,
-        matcher: MatcherConfig { matcher, worker },
-        columns,
-        binds,
-        start:
-            StartConfig {
-                input_separator,
-                command:
-                    CommandSetting {
-                        separator,
-                        command,
-                        directory,
-                    },
-                sync,
-                output_separator,
-                output_template,
-                ansi,
-                trim,
-                additional_commands,
-                mode,
-            },
-        mut exit,
-        envs,
-        source: _,
-    } = config;
+pub fn process_envs(mut envs: HashMap<String, EnvValue>) -> HashMap<String, String> {
+    let mut processed_envs = HashMap::new();
 
-    // -------- set envs -----------
-    let mut envs = envs;
-
-    let mut initial_index = 0;
-    if additional_commands.len() > 1 {
-        if let Ok(index_str) = std::env::var("MM_INDEX") {
-            if let Ok(index) = index_str.parse::<usize>() {
-                if index < additional_commands.len() {
-                    initial_index = index;
-                }
-            }
-        }
-    }
-    let set_index = !additional_commands.is_empty();
-
-    if set_index {
-        envs.insert(
-            "MM_INDEX".to_string(),
-            crate::config::EnvValue::new(initial_index.to_string()),
-        );
-    }
-
-    if envs
-        .get("CLIPcmd")
-        .map(|x| !x.value.is_empty())
-        .unwrap_or_else(|| {
-            std::env::var("CLIPcmd")
-                .ok()
-                .map_or(false, |x| !x.is_empty())
-        })
+    if envs.get("CLIPcmd").is_some()
+        || std::env::var("CLIPcmd")
+            .ok()
+            .map_or(false, |x| !x.is_empty())
     {
         if let Some((clip, paste)) = crate::utils::guess_clip_cmd() {
-            envs.insert("CLIPcmd".to_string(), crate::config::EnvValue::new(clip));
+            envs.insert("CLIPcmd".to_string(), EnvValue::new(clip));
 
-            if envs
-                .get("PASTEcmd")
-                .map(|x| !x.value.is_empty())
-                .unwrap_or_else(|| {
-                    std::env::var("PASTEcmd")
-                        .ok()
-                        .map_or(false, |x| !x.is_empty())
-                })
+            if envs.get("PASTEcmd").is_some()
+                || std::env::var("PASTEcmd")
+                    .ok()
+                    .map_or(false, |x| !x.is_empty())
             {
-                envs.insert("PASTEcmd".to_string(), crate::config::EnvValue::new(paste));
+                envs.insert("PASTEcmd".to_string(), EnvValue::new(paste));
             }
         }
     }
-
-    let mut processed_envs = std::collections::HashMap::new();
 
     // First pass: static envs
     for (k, v) in &envs {
@@ -308,43 +252,99 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         }
     }
 
-    let envs = processed_envs;
+    processed_envs
+}
+
+pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
+    let Config {
+        render,
+        tui,
+        previewer,
+        matcher: MatcherConfig { matcher, worker },
+        columns,
+        binds,
+        start:
+            StartConfig {
+                input_separator,
+                command: CommandSetting { separator, command },
+                directory,
+                sync,
+                output_separator,
+                output_template,
+                ansi,
+                trim,
+                additional_commands,
+                mode,
+            },
+        mut exit,
+        mut envs,
+        source: _,
+    } = config;
 
     // -------- determine command ------------
+    let mut initial_index = 0;
+    if additional_commands.len() > 1 {
+        if let Ok(index_str) = std::env::var("MM_INDEX") {
+            if let Ok(index) = index_str.parse::<usize>() {
+                if index < additional_commands.len() {
+                    initial_index = index;
+                }
+            }
+        }
+    }
+
     let command = if initial_index > 0 {
         additional_commands[initial_index].clone()
     } else {
         command
     };
 
-    let mut default_reload = (!command.is_empty() && atty::is(atty::Stream::Stdin) || no_read)
+    let initial_cmd = (!command.is_empty() && atty::is(atty::Stream::Stdin) || no_read)
         .then_some(command.clone())
         .unwrap_or_default();
 
-    // -------- set directory -----------
-    if let Some(mut d) = directory {
-        let s = d.to_string_lossy();
+    // -------- set envs/directory -----------
+    if !additional_commands.is_empty() {
+        envs.insert(
+            "MM_INDEX".to_string(),
+            EnvValue::new(initial_index.to_string()),
+        );
+    }
+    let envs = process_envs(envs);
+
+    if !directory.value.is_empty() {
+        let EnvValue { value, force, exec } = directory;
+
         let mut failed = false;
-        if s.starts_with("$(") && s.ends_with(')') {
-            let cmd = &s[2..s.len() - 1];
-            if let Some(new_d) = Command::from_script(cmd).read_to_string()._elog() {
+        if exec {
+            if let Some(new_d) = Command::from_script(&value)
+                .envs(&envs)
+                .read_to_string()
+                ._elog()
+            {
                 let new_d = Path::new(new_d.trim()).to_path_buf();
                 if new_d.exists() {
-                    d = new_d;
+                    failed = set_current_dir(&new_d)
+                        .prefix(format!("Failed to switch to {new_d:?}"))
+                        ._wbog()
+                        .is_some();
                 } else {
                     ebog!("Directory does not exist: {}", new_d.display());
                     failed = true;
                 }
             } else {
-                ebog!("Failed to execute script for directory: {}", s);
+                ebog!("Failed to execute script for directory: {}", value);
                 failed = true;
             }
         } else {
-            d = expand_tilde(d);
+            let path = expand_tilde(value.into());
+            set_current_dir(&path)
+                .prefix(format!("Failed to switch to {path:?}"))
+                ._wbog();
         }
 
-        if !failed {
-            set_current_dir(d)._wbog();
+        if failed && force {
+            std::process::exit(1);
         }
     }
 
@@ -367,7 +367,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         m
     } else {
         match (
-            !default_reload.is_empty(), // has command => t0
+            !initial_cmd.is_empty(), // has command => t0
             atty::is(atty::Stream::Stdout),
         ) {
             (true, true) => "tty",
@@ -444,6 +444,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let reload_formatter = cli_formatter.clone();
     let reload_render_tx = render_tx.clone();
 
+    let mut cmd = initial_cmd;
     mm.register_interrupt_handler(Interrupt::Reload, move |state| {
         let injector = state.injector();
         let injector = IndexedInjector::new_globally_indexed(injector);
@@ -457,10 +458,8 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         );
 
         if !state.payload().is_empty() {
-            default_reload = use_formatter(&reload_formatter, state, state.payload(), None);
+            cmd = use_formatter(&reload_formatter, state, state.payload(), None);
         };
-
-        let cmd = &default_reload;
 
         if !cmd.is_empty() {
             let vars = state.make_env_vars();

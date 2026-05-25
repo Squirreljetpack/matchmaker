@@ -95,7 +95,6 @@ fn get_partial(config_args: Vec<String>) -> anyhow::Result<PartialConfig> {
             parts
         };
 
-        log::trace!("{parts:?}");
         _dbg!(&path, &parts);
         partial
             .set(path.as_slice(), &parts)

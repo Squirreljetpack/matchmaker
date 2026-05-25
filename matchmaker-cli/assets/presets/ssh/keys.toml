@@ -2,6 +2,8 @@
 
 [start.command]
 command = "ls *.pub 2>/dev/null"
+
+[start]
 directory = "~/.ssh"
 
 # --- Preview ---

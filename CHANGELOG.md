@@ -1,3 +1,40 @@
+## [0.0.30] - 2026-05-25
+
+### 🚀 Features
+
+- Git-grep preset + more previewer configuration settings
+- Support disabling of preview layout
+- Git presets
+- Preset downloading
+- Better no_match/empty semantics
+- Ssh, ps presets
+- PushHeader, command.directory, improved ssh presets
+- Env config, various improvements
+- Improvements to preview tail, presets, and others
+- Doc updates
+- Trigger mode
+- Bug fixes
+- Doc updates, read MM_INDEX from env
+- Config inheritance
+- RunPreview action
+- Improve help display
+- Source envs for initial command
+- Kube presets
+
+### 🐛 Bug Fixes
+
+- Various bug fixes and improvements
+- Bugfixes
+- Incorrect COLUMNS for preview
+- Doc update
+- More flexible download
+- Click indexing
+- Execute display + improved presets
+
+### ⚙️ Miscellaneous Tasks
+
+- Update ci
+## [0.0.29] - 2026-05-18
 ## [0.0.29] - 2026-05-18
 
 ### 🚀 Features

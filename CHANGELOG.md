@@ -1,3 +1,13 @@
+## [0.0.31] - 2026-05-25
+
+### 🚀 Features
+
+- Doc update
+
+### ⚙️ Miscellaneous Tasks
+
+- Dep updates, preset tweaks
+
 ## [0.0.30] - 2026-05-25
 
 ### 🚀 Features

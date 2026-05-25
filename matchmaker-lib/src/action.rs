@@ -72,6 +72,10 @@ pub enum Action<A: ActionExt = NullActionExt> {
     PreviewUp(u16),
     /// Scroll preview down
     PreviewDown(u16),
+    /// Expand preview dimension
+    ExpandPreview(u16),
+    /// Shrink preview dimension
+    ShrinkPreview(u16),
     /// Scroll preview half page up in rows.
     /// If wrapping is enabled, the visual distance may exceed half a page.
     PreviewHalfPageUp,
@@ -361,7 +365,7 @@ enum_from_str_display!(
     SetQuery, Pos, QueryPos, SwitchColumn, Store;
 
     defaults:
-    (Up, 1), (Down, 1), (PreviewUp, 1), (PreviewDown, 1), (Quit, 1), (Overlay, 0), (Print, String::new()), (Help, String::new()), (Reload, String::new()), (PreviewScroll, 1), (PreviewHScroll, 1), (HScroll, 0), (VScroll, 0);
+    (Up, 1), (Down, 1), (PreviewUp, 1), (PreviewDown, 1), (Quit, 1), (Overlay, 0), (Print, String::new()), (Help, String::new()), (Reload, String::new()), (PreviewScroll, 1), (PreviewHScroll, 1), (HScroll, 0), (VScroll, 0), (ExpandPreview, 1), (ShrinkPreview, 1);
 
     options:
     SwitchPreview, SetPreview, ToggleColumn, ShowColumn

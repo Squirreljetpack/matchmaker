@@ -176,12 +176,66 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     picker_ui.header.header_table(columns);
                 }
                 RenderCommand::Mouse(mouse) => {
+                    use crate::config::Side;
                     // we could also impl this in the aliasing step
                     let pos = Position::from((mouse.column, mouse.row));
                     let layout = state.layout;
 
                     match mouse.kind {
                         MouseEventKind::Down(MouseButton::Left) => {
+                            if let Some(p) = preview_ui.as_mut()
+                                && p.visible()
+                                && let drag_width = p.drag_width()
+                                && drag_width > 0
+                                && let Some(side) = p.setting().map(|s| &s.layout.side)
+                            {
+                                let is_in_drag_area = match side {
+                                    Side::Right => {
+                                        let drag_area = Rect {
+                                            x: layout.preview.x,
+                                            y: layout.preview.y,
+                                            width: drag_width,
+                                            height: layout.preview.height,
+                                        };
+                                        drag_area.contains(pos)
+                                    }
+                                    Side::Left => {
+                                        let drag_area = Rect {
+                                            x: layout.preview.x
+                                                + layout.preview.width.saturating_sub(drag_width),
+                                            y: layout.preview.y,
+                                            width: drag_width,
+                                            height: layout.preview.height,
+                                        };
+                                        drag_area.contains(pos)
+                                    }
+                                    Side::Bottom => {
+                                        let drag_area = Rect {
+                                            x: layout.preview.x,
+                                            y: layout.preview.y,
+                                            width: layout.preview.width,
+                                            height: drag_width,
+                                        };
+                                        drag_area.contains(pos)
+                                    }
+                                    Side::Top => {
+                                        let drag_area = Rect {
+                                            x: layout.preview.x,
+                                            y: layout.preview.y
+                                                + layout.preview.height.saturating_sub(drag_width),
+                                            width: layout.preview.width,
+                                            height: drag_width,
+                                        };
+                                        drag_area.contains(pos)
+                                    }
+                                };
+
+                                if is_in_drag_area {
+                                    state.dragging = Some(pos);
+                                    continue;
+                                }
+                            }
+
                             if layout.results.contains(pos) {
                                 let y = mouse.row - layout.results.top();
                                 debug!("Results clicked at: {y}");
@@ -265,7 +319,48 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                 }
                             }
                         }
-                        // Drag tracking: todo
+                        MouseEventKind::Drag(MouseButton::Left) => {
+                            if let Some(start_pos) = state.dragging {
+                                if let Some(p) = preview_ui.as_mut() {
+                                    let side =
+                                        p.setting().map(|s| &s.layout.side).unwrap_or(&Side::Right);
+                                    match side {
+                                        Side::Right => {
+                                            if pos.x < start_pos.x {
+                                                p.expand(start_pos.x - pos.x);
+                                            } else if pos.x > start_pos.x {
+                                                p.shrink(pos.x - start_pos.x);
+                                            }
+                                        }
+                                        Side::Left => {
+                                            if pos.x > start_pos.x {
+                                                p.expand(pos.x - start_pos.x);
+                                            } else if pos.x < start_pos.x {
+                                                p.shrink(start_pos.x - pos.x);
+                                            }
+                                        }
+                                        Side::Bottom => {
+                                            if pos.y < start_pos.y {
+                                                p.expand(start_pos.y - pos.y);
+                                            } else if pos.y > start_pos.y {
+                                                p.shrink(pos.y - start_pos.y);
+                                            }
+                                        }
+                                        Side::Top => {
+                                            if pos.y > start_pos.y {
+                                                p.expand(pos.y - start_pos.y);
+                                            } else if pos.y < start_pos.y {
+                                                p.shrink(start_pos.y - pos.y);
+                                            }
+                                        }
+                                    }
+                                    state.dragging = Some(pos);
+                                }
+                            }
+                        }
+                        MouseEventKind::Up(MouseButton::Left) => {
+                            state.dragging = None;
+                        }
                         _ => {}
                     }
                 }
@@ -395,6 +490,16 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         Action::PreviewDown(n) => {
                             if let Some(p) = preview_ui.as_mut() {
                                 p.down(n)
+                            }
+                        }
+                        Action::ExpandPreview(n) => {
+                            if let Some(p) = preview_ui.as_mut() {
+                                p.expand(n)
+                            }
+                        }
+                        Action::ShrinkPreview(n) => {
+                            if let Some(p) = preview_ui.as_mut() {
+                                p.shrink(n)
                             }
                         }
                         Action::PreviewHalfPageUp | Action::PreviewHalfPageDown => {
@@ -742,11 +847,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
                 let [preview, picker_area, footer] = if let Some(preview_ui) = preview_ui.as_mut()
                     && preview_ui.visible()
-                    && let Some(setting) = preview_ui.setting()
                 {
-                    let layout = &setting.layout;
-
-                    let [preview, mut picker_area] = layout.split(_area);
+                    let [preview, mut picker_area] = preview_ui.split(_area);
 
                     if state.iterations == 0 && picker_area.width <= 5 {
                         warn!("UI too narrow, hiding preview");

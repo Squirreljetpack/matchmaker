@@ -225,7 +225,7 @@ impl<'a, T: SSS, O: Selection> PickerUI<'a, T, O> {
 }
 
 impl PreviewLayout {
-    pub fn split(&self, area: Rect) -> [Rect; 2] {
+    pub fn split(&self, area: Rect, override_size: Option<u16>) -> [Rect; 2] {
         use crate::config::Side;
         use ratatui::layout::{Constraint, Direction, Layout};
 
@@ -242,23 +242,27 @@ impl PreviewLayout {
             area.height
         };
 
-        let min = if self.min < 0 {
-            total.saturating_sub((-self.min) as u16)
+        let side_size = if let Some(size) = override_size {
+            size.min(total)
         } else {
-            self.min as u16
-        };
+            let min = if self.min < 0 {
+                total.saturating_sub((-self.min) as u16)
+            } else {
+                self.min as u16
+            };
 
-        let max = if self.max < 0 {
-            total.saturating_sub((-self.max) as u16)
-        } else {
-            self.max as u16
-        };
+            let max = if self.max < 0 {
+                total.saturating_sub((-self.max) as u16)
+            } else {
+                self.max as u16
+            };
 
-        let side_size = if min <= max {
-            self.percentage.compute_clamped(total, min, max)
-        } else {
-            log::error!("PreviewLayout min > max: {min} > {max}. Ignoring max.");
-            self.percentage.compute_clamped(total, min, 0)
+            if min <= max {
+                self.percentage.compute_clamped(total, min, max)
+            } else {
+                log::error!("PreviewLayout min > max: {min} > {max}. Ignoring max.");
+                self.percentage.compute_clamped(total, min, 0)
+            }
         };
 
         let side_constraint = Constraint::Length(side_size);

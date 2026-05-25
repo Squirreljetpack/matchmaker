@@ -633,6 +633,11 @@ pub struct PreviewConfig {
     pub show: ShowCondition,
 
     pub reevaluate_show_on_resize: bool,
+
+    /// Width of the drag area for resizing the preview pane.
+    /// If `None`, it defaults to the width of the preview border.
+    /// If `0`, drag resizing is disabled.
+    pub drag_width: Option<u16>,
 }
 
 impl PreviewConfig {
@@ -656,6 +661,7 @@ impl Default for PreviewConfig {
             wrap: Default::default(),
             show: Default::default(),
             reevaluate_show_on_resize: false,
+            drag_width: None,
         }
     }
 }

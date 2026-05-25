@@ -47,6 +47,7 @@
 # Columns
 
 - (fist: lowpri): execute: use of {\*} in place of {+}: execute once for each selected
+- constraint: Min/Percent
 
 # Bugs
 

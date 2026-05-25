@@ -138,6 +138,9 @@ separator = "\\0"
 "ctrl-/" = "CyclePreview" # cycle preview layouts
 "ctrl-shift-/" = "CyclePreview"
 "alt-h" = "Help"
+"alt-=" = "ExpandPreview"
+"alt-shift-=" = "ExpandPreview"
+"alt-hyphen" = "ShrinkPreview"
 
 # Reserved
 "F1" = "@help"

@@ -5,10 +5,8 @@ use ratatui::{
     widgets::{Paragraph, Wrap},
 };
 
-#[cfg(feature = "partial")]
-use crate::config::PreviewInitialSetting;
 use crate::{
-    config::{BorderSetting, PreviewConfig, PreviewSetting, ShowCondition, Side},
+    config::{BorderSetting, PreviewConfig, PreviewInitialSetting, PreviewSetting, ShowCondition, Side},
     preview::Preview,
     utils::text::wrapped_line_height,
 };
@@ -32,9 +30,22 @@ pub struct PreviewUI {
     pub jump: (bool, usize), // end, initial
 
     show: bool,
+
+    pub current_dimension: Option<u16>,
 }
 
 impl PreviewUI {
+    fn initial(&self) -> &PreviewInitialSetting {
+        #[cfg(feature = "partial")]
+        {
+            &self.initial
+        }
+        #[cfg(not(feature = "partial"))]
+        {
+            &self.config.initial
+        }
+    }
+
     pub fn new(view: Preview, mut config: PreviewConfig, [ui_width, ui_height]: [u16; 2]) -> Self {
         for x in &mut config.layout {
             if let Some(b) = &mut x.border
@@ -89,6 +100,7 @@ impl PreviewUI {
             last_count: 0,
             jump: Default::default(),
             show,
+            current_dimension: None,
         }
     }
 
@@ -189,17 +201,7 @@ impl PreviewUI {
             self.layout_idx = (self.layout_idx + 1) % len;
 
             if self.config.layout[self.layout_idx].layout.max > 0 {
-                #[cfg(feature = "partial")]
-                {
-                    use matchmaker_partial::Apply;
-                    if let Some(s) = self.setting() {
-                        let mut new = self.initial.clone();
-                        new.apply(s.initial.clone());
-                        log::trace!("Applied: {:?} -> {:?}", s.initial, new);
-                        self.config.initial = new;
-                    }
-                }
-
+                self.reinit();
                 return;
             }
         }
@@ -209,22 +211,25 @@ impl PreviewUI {
         if idx < self.config.layout.len() {
             let changed = self.layout_idx != idx;
             self.layout_idx = idx;
-            #[cfg(feature = "partial")]
-            {
-                use matchmaker_partial::Apply;
-                if let Some(s) = self.setting() {
-                    let mut new = self.initial.clone();
-                    new.apply(s.initial.clone());
-                    log::trace!("Applied: {:?} -> {:?}", s.initial, new);
-                    self.config.initial = new;
-                }
-            }
-
+            self.reinit();
             changed
         } else {
             error!("Layout idx {idx} out of bounds, ignoring.");
             false
         }
+    }
+    pub fn reinit(&mut self) {
+        #[cfg(feature = "partial")]
+        {
+            use matchmaker_partial::Apply;
+            if let Some(s) = self.setting() {
+                let mut new = self.config.initial.clone();
+                new.apply(s.initial.clone());
+                log::trace!("Applied: {:?} -> {:?}", s.initial, new);
+                self.initial = new;
+            }
+        }
+        self.current_dimension = None;
     }
 
     // ----- config && getters ---------
@@ -247,7 +252,7 @@ impl PreviewUI {
         self.config.wrap
     }
     pub fn offset(&self) -> usize {
-        self.config.initial.header_lines + self.offset
+        self.initial().header_lines + self.offset
     }
     pub fn target_line(&self) -> Option<usize> {
         self.target
@@ -293,7 +298,7 @@ impl PreviewUI {
     }
 
     pub fn set_target(&mut self, target: Option<isize>) {
-        if self.config.initial.tail {
+        if self.initial().tail {
             return;
         }
 
@@ -306,7 +311,7 @@ impl PreviewUI {
             return;
         };
 
-        target += self.config.initial.offset;
+        target += self.initial().offset;
 
         self.target = Some(if target < 0 {
             line_count.saturating_sub(target.unsigned_abs())
@@ -328,7 +333,7 @@ impl PreviewUI {
     }
 
     pub fn jump(&mut self) {
-        if self.config.initial.tail {
+        if self.initial().tail {
             if self.offset > 0 {
                 // go to end
                 self.jump = (false, self.offset);
@@ -373,7 +378,7 @@ impl PreviewUI {
         let rl = results.lines.len();
         let height = self.area.height as usize;
 
-        let header_count = self.config.initial.header_lines.min(height);
+        let header_count = self.initial().header_lines.min(height);
         let remaining_lines = rl.saturating_sub(header_count);
 
         self.offset = remaining_lines.saturating_sub(height);
@@ -407,6 +412,56 @@ impl PreviewUI {
     }
     // --------------------------
 
+    pub fn drag_width(&self) -> u16 {
+        self.config.drag_width.unwrap_or_else(|| {
+            let side = self.setting().map(|s| &s.layout.side).unwrap_or(&Side::Right);
+            match side {
+                Side::Left | Side::Right => self.border().width(),
+                Side::Top | Side::Bottom => self.border().height(),
+            }
+        })
+    }
+
+    pub fn split(&self, area: Rect) -> [Rect; 2] {
+        let Some(setting) = self.setting() else {
+            return [Rect::default(), area];
+        };
+
+        setting.layout.split(area, self.current_dimension)
+    }
+
+    pub fn expand(&mut self, n: u16) {
+        if n == 0 {
+            self.current_dimension = None;
+            return;
+        }
+        let current = self.current_size();
+        self.current_dimension = Some(current.saturating_add(n));
+    }
+
+    pub fn shrink(&mut self, n: u16) {
+        if n == 0 {
+            self.current_dimension = None;
+            return;
+        }
+
+        let current = self.current_size();
+        self.current_dimension = Some(current.saturating_sub(n));
+    }
+
+    fn current_size(&self) -> u16 {
+        if let Some(dim) = self.current_dimension {
+            dim
+        } else {
+            let setting = self.setting();
+            let side = setting.map(|s| &s.layout.side).unwrap_or(&Side::Right);
+            match side {
+                Side::Left | Side::Right => self.area.width + self.border().width(),
+                Side::Top | Side::Bottom => self.area.height + self.border().height(),
+            }
+        }
+    }
+
     pub fn make_preview(&mut self) -> Paragraph<'_> {
         let results = self.view.results();
         let rl = results.lines.len();
@@ -421,16 +476,16 @@ impl PreviewUI {
         }
         self.last_count = rl;
 
-        if self.config.initial.tail && !self.attained_target {
-            let header_count = self.config.initial.header_lines.min(height);
+        if self.initial().tail && !self.attained_target {
+            let header_count = self.initial().header_lines.min(height);
             let remaining_lines = rl.saturating_sub(header_count);
             let remaining_space = height.saturating_sub(header_count);
 
             // get current offset
             offset = remaining_lines.saturating_sub(remaining_space);
             // apply initial offset
-            if self.config.initial.offset < 0 {
-                offset = offset.saturating_sub((self.config.initial.offset).unsigned_abs());
+            if self.initial().offset < 0 {
+                offset = offset.saturating_sub((self.initial().offset).unsigned_abs());
             }
 
             // stop scrolling
@@ -459,7 +514,7 @@ impl PreviewUI {
 
         let mut lines = Vec::with_capacity(height);
 
-        for _ in 0..self.config.initial.header_lines.min(height) {
+        for _ in 0..self.initial().header_lines.min(height) {
             if let Some(line) = results.next() {
                 lines.push(line);
             } else {
@@ -469,7 +524,7 @@ impl PreviewUI {
 
         let mut results = results.skip(offset);
 
-        for _ in self.config.initial.header_lines..height {
+        for _ in self.initial().header_lines..height {
             if let Some(line) = results.next() {
                 lines.push(line);
             }

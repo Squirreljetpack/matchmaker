@@ -9,6 +9,7 @@ use crate::{
     nucleo::{Status, injector::WorkerInjector},
     ui::{DisplayUI, OverlayUI, PickerUI, PreviewUI, Rect, UI},
 };
+use ratatui::layout::Position;
 
 // --------------------------------------------------------------------
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,6 +37,7 @@ pub struct State {
     pub(crate) iterations: u32,
     pub(crate) preview_visible: bool,
     pub(crate) layout: Layout,
+    pub(crate) dragging: Option<Position>,
     pub(crate) overlay_index: Option<usize>,
     pub(crate) synced: [bool; 2], // ran, synced
 
@@ -77,6 +79,7 @@ impl State {
             preview_visible: false,
             stashed_preview_visibility: None,
             layout: Layout::default(),
+            dragging: None,
             overlay_index: None,
             col: None,
 

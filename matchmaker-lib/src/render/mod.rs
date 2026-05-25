@@ -657,6 +657,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 Interrupt::Become => {
                     tui.exit(None);
                 }
+                Interrupt::BecomeSilent => {
+                    tui.exit_lite();
+                }
                 _ => {}
             }
             // Apply interrupt effect

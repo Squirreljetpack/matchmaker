@@ -167,7 +167,7 @@ mm --download=git
 # invoke a preset
 mm -o git/restore
 
-# You can also run the previous example this way:
+# You can also run the first example this way:
 mm --download=rg.toml
 mm -o rg
 ```

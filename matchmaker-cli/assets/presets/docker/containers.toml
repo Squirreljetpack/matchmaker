@@ -37,7 +37,7 @@ source = "base.toml"
     command = '"$DOCKERcmd" top {id}'
 
 [binds]
-    "@prev" = "Become(mm -o docker/compose)"
+    "@prev" = "BecomeSilent(mm -o docker/compose)"
 
     "alt-d"  = "@diff"
     "ctrl-k" = [ "@kill", "Reload" ]

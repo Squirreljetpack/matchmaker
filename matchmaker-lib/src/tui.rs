@@ -255,6 +255,20 @@ where
         debug!("Terminal exited");
     }
 
+    pub fn exit_lite(&mut self) {
+        let backend = self.terminal.backend_mut();
+
+        // execute!(backend, LeaveAlternateScreen, DisableMouseCapture)._wlog();
+
+        if self.config.extended_keys {
+            execute!(backend, PopKeyboardEnhancementFlags)._elog();
+        }
+
+        disable_raw_mode()._wlog();
+
+        debug!("Terminal exited (lite)");
+    }
+
     pub fn resize(&mut self, area: Rect) {
         self.terminal.resize(area)._elog();
         self.area = area

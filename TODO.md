@@ -26,6 +26,7 @@
   - config.clear_on_exit: None -> true
 
 - MM_PREVIEW_COMMAND should reflect RunPreview in a consistent way
+- Improve BecomeSilent
 
 # Previewer
 

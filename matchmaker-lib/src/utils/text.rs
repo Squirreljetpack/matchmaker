@@ -67,12 +67,18 @@ pub fn apply_style_at(mut text: Text<'_>, start: usize, len: usize, style: Style
     text
 }
 
-/// Add a prefix to all lines of the original text
-pub fn prefix_text<'a, 'b: 'a>(
+use crate::config_types::StyleSetting;
+
+/// Add a prefix span to all lines of the original text, applying the appropriate style.
+pub fn prefix_span<'a, 'b: 'a>(
     original: &'a mut Text<'b>,
-    prefix: impl Into<Cow<'b, str>> + Clone,
+    prefix: String,
+    style: StyleSetting,
+    inactive_style: StyleSetting,
+    is_current: bool,
 ) {
-    let prefix_span = Span::raw(prefix.into());
+    let style = if is_current { style } else { inactive_style };
+    let prefix_span = Span::styled(prefix, style.r#override(Style::reset()));
 
     for line in original.lines.iter_mut() {
         line.spans.insert(0, prefix_span.clone());

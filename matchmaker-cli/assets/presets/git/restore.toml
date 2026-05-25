@@ -37,7 +37,7 @@ sort = 40
 [envs]
 # --date=human looks better but is less searchable
 DATE_FORMAT = "%Y-%m-%d %H:%M"
-HAS_AWK = { value = "awk 'BEGIN { strftime(); exit }' >/dev/null 2>&1 && echo true || echo false", exec = true, force = true }
+HAS_AWK = { value = "awk 'BEGIN { strftime(); exit }' >/dev/null 2>&1 && echo true || echo false", exec = true }
 
 # --- Preview ---
 [previewer]
@@ -90,7 +90,7 @@ style.modifier = ""
 prompt = "restore> "
 
 [binds]
-"@accept" = "@checkout"
+"@accept" = ["@checkout", "Reload"]
 "@accept_2" = [
   "#apply stash/hard reset",
   '''BecomeOr(
@@ -158,7 +158,7 @@ git log --color=always --left-right --oneline ...{1}
 )'''
 
 "@checkout" = '''
-Become(
+BecomeOr(
 set -e
 
 case $MM_INDEX in
@@ -183,12 +183,14 @@ case $c in
   [au])
   git stash push -u -- {$1} ;;
   [y]) ;;
-  *) exit 0 ;;
+  *) kill $$ ;;
 esac
 
 case $MM_INDEX in
+  # leave on success
   0|3) git checkout {1} -- {$1} ;;
-  1) git stash pop {1} ;;
+  # return on success
+  1) git stash pop {1} && kill $$ ;;
 esac
 )
 '''

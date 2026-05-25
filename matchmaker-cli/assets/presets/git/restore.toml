@@ -5,10 +5,24 @@ source = 'base.toml'
 command = 'git log --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "${1:-.}"'
 additional_commands = [
   'git log --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "${1:-.}"',
-  '''git stash list --format="%gd%x00%at%x00%gs" | gawk -F'\x00' -v OFS='\x00' -v fmt="$DATE_FORMAT" '{$2 = strftime(fmt, $2); print}'
-    ''',
-  '''git reflog --all --format="%h%x00%at%x00%gD: %gs" -- "${1:-.}" | gawk -F'\x00' -v OFS='\x00' -v fmt="$DATE_FORMAT" '{$2 = strftime(fmt, $2); print}'
-    ''',
+  '''
+  if $HAS_AWK; then
+      git stash list --format="%gd%x00%at%x00%gs" |
+      awk -F'\x00' -v OFS='\x00' -v fmt="$DATE_FORMAT" \
+          '{$2 = strftime(fmt, $2); print}'
+  else
+      git stash list --format="%gd%x00%cr%x00%gs"
+  fi
+  ''',
+  '''
+  if $HAS_AWK; then
+    git reflog --all --format="%h%x00%at%x00%gD: %gs" -- "${1:-.}" |
+    awk -F'\x00' -v OFS='\x00' -v fmt="$DATE_FORMAT" \
+      '{$2 = strftime(fmt, $2); print}'
+  else
+      git reflog --date=human --format="%h%x00%ad%x00%s" -- "${1:-.}"
+  fi
+  ''',
   'git log --all --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "${1:-.}"',
 ]
 
@@ -23,6 +37,7 @@ sort = 40
 [envs]
 # --date=human looks better but is less searchable
 DATE_FORMAT = "%Y-%m-%d %H:%M"
+HAS_AWK = { value = "awk 'BEGIN { strftime(); exit }' >/dev/null 2>&1 && echo true || echo false", exec = true, force = true }
 
 # --- Preview ---
 [previewer]
@@ -54,7 +69,12 @@ fi
 
 [[preview.layout]]
 command = '''
-git show --color=always {1} -- {$0}
+f={$1}
+if [ -f "$f" ]; then
+  git show --color=always {1}:"$f" | PG_FILENAME="$f" $PAGER
+else
+  git show --color=always {1}
+fi
 '''
 
 # --- UI ---

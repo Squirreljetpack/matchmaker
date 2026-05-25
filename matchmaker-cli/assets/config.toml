@@ -50,7 +50,7 @@ border.padding = [2, 0]
 
 [[preview.layout]]
 side = "top"
-percentage = 50
+percentage = 55
 min = 5
 max = 50
 border.type = "Plain"

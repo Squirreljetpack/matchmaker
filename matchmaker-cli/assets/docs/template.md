@@ -191,6 +191,7 @@ When Matchmaker executes a command (e.g., via `Execute`, `Become`, or a preview 
 | `MM_POS`             | `FZF_POS`          | Current row index (0-indexed cursor position)      |
 | `MM_QUERY`           | `FZF_QUERY`        | Current input query                                |
 | `MM_PREVIEW_COMMAND` |                    | The current preview command                        |
+| `MM_OVERRIDE`        |                    | Path of the last applied override                  |
 | `MM_STORE`           |                    | Current value stored in state (via `Store` action) |
 | `MM_INDEX`           |                    | Index of command being reloaded (in `ReloadNext`)  |
 

@@ -38,6 +38,14 @@ Fields that are collections (like `preview.layout` or `binds`) are consumed addi
    - The first $N$ overrides for a collection are merged into the first $N$ elements of the base configuration (from your config file). (Or in the case of of binds, existing keys are overridden).
    - Any additional overrides are appended as new elements.
 
+### Presets and Named Overrides (`-o` / `--override`)
+
+The `-o` flag allows you to layer additional configuration files on top of your base config. This is particularly useful for adding platform-specific tweaks or complex feature presets (like git or ssh management).
+
+- **Relative Paths**: If you provide a relative path without an extension, Matchmaker will automatically look for a matching `.toml` file in the internal `presets/` directory.
+- **Example**: `mm -o git/status` will attempt to load `presets/git/status.toml` from the installation directory.
+- **Source Field**: Overrides support a `source` field at the top level, allowing them to inherit from another preset (one level of recursion is supported).
+
 ### Values
 
 If a "leaf" value contains multiple settings (like a [border](#border-settings) or a bind with multiple actions), you can specify them within a single string joined by `|||`.
@@ -217,6 +225,7 @@ All colors and modifiers come from ratatui:
 ### Previewer (`previewer.`)
 
 - `try_lossy`: (bool) Enable lossy UTF-8 conversion for preview command output.
+- `delay_clear`: (bool) If true, prevents clearing the preview window until the new command starts producing output (default true).
 - `debounce_ms`: (number) Debounce delay for preview commands in milliseconds (default 0).
 - `max_procs`: (number) Maximum number of concurrent preview processes (default 4).
 - `always_trigger`: (bool) If false, skips running the preview command if it is the same as the last one executed (default true).

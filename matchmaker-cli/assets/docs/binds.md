@@ -242,7 +242,9 @@ Note: Commands executed via these actions have access to various [environment va
 | Action               | Description                                |
 | -------------------- | ------------------------------------------ |
 | `SetHeader(str)`     | Set the header text (pass empty to clear). |
+| `PushHeader(str)`     | Append a column to the header.               |
 | `SetFooter(str)`     | Set the footer text (pass empty to clear). |
+| `PushFooter(str)`     | Append a column to the footer.               |
 | `SetPrompt(str)`     | Set the input prompt text.                 |
 | `SetStatus(str)`     | Set the status line template.              |
 | `SetStyledPrompt(s)` | Update the input prompt.                   |

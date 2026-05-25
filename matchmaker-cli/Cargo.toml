@@ -1,6 +1,6 @@
 [package]
     name        = "matchmaker-cli"
-    version     = "0.0.30"
+    version     = "0.0.31"
     categories  = [ "command-line-utilities" ]
     edition     = "2024"
     keywords    = [ "fuzzy", "finder", "tui", "nucleo", "fzf" ]

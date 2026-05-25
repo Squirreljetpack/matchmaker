@@ -1,6 +1,6 @@
 [package]
 name = "matchmaker-lib"
-version = "0.0.32"
+version = "0.0.33"
 categories = ["command-line-utilities", "rust-patterns"]
 edition = "2024"
 keywords = ["fuzzy", "finder", "tui", "nucleo", "fzf"]

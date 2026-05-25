@@ -1,3 +1,14 @@
+## [0.0.33] - 2026-05-25
+
+### 🚀 Features
+
+- Refactor directory to use EnvValue, docs update
+- Preview resizing (drag, expand, shrink)
+
+### ⚙️ Miscellaneous Tasks
+
+- Update screenshots
+
 ## [0.0.32] - 2026-05-25
 
 ### 🚀 Features

@@ -210,12 +210,18 @@ fn copy_and_process(src: &Path, dst: &Path) -> usize {
 }
 
 pub fn expand_tilde(path: PathBuf) -> PathBuf {
-    let s = path.as_os_str().to_string_lossy();
+    use std::path::Component;
 
-    if let Some(stripped) = s.strip_prefix("~/") {
-        if let Some(home) = dirs::home_dir() {
-            return home.join(stripped);
+    let mut components = path.components();
+
+    match components.next() {
+        Some(Component::Normal(first)) if first == "~" => {
+            if let Some(home) = dirs::home_dir() {
+                return home.join(components.as_path());
+            }
         }
+
+        _ => {}
     }
 
     path

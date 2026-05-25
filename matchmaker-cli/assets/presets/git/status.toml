@@ -28,10 +28,10 @@ while IFS= read -r -d '' entry; do
   printf '%s\0%s\n' "$file" "$st"
 done
 '''
-directory = "$(git rev-parse --show-toplevel)"
 
 [start]
 ansi = true
+directory = { value = "git rev-parse --show-toplevel", exec = true }
 
 [columns]
 split = "\\x00"

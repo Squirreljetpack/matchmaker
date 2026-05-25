@@ -2,48 +2,47 @@
 source = 'base.toml'
 
 [start]
-  command = 'git log --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "${1:-.}"'
-  additional_commands = [
-    'git log --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "${1:-.}"',
-    '''git stash list --format="%gd%x00%at%x00%gs" | awk -F'\x00' -v OFS='\x00' -v fmt="$DATE_FORMAT" '{$2 = strftime(fmt, $2); print}'
+command = 'git log --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "${1:-.}"'
+additional_commands = [
+  'git log --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "${1:-.}"',
+  '''git stash list --format="%gd%x00%at%x00%gs" | gawk -F'\x00' -v OFS='\x00' -v fmt="$DATE_FORMAT" '{$2 = strftime(fmt, $2); print}'
     ''',
-    '''git reflog --all --format="%h%x00%at%x00%gD: %gs" -- "${1:-.}" | awk -F'\x00' -v OFS='\x00' -v fmt="$DATE_FORMAT" '{$2 = strftime(fmt, $2); print}'
+  '''git reflog --all --format="%h%x00%at%x00%gD: %gs" -- "${1:-.}" | gawk -F'\x00' -v OFS='\x00' -v fmt="$DATE_FORMAT" '{$2 = strftime(fmt, $2); print}'
     ''',
-    'git log --all --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "${1:-.}"',
-  ]
+  'git log --all --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "${1:-.}"',
+]
 
 [columns]
-  split   = "\\x00"
-  max     = 3
-  default = 1
+split = "\\x00"
+max = 3
+default = 1
 
 [matcher]
-  sort = 40
+sort = 40
 
 [envs]
-  DFT_COLOR = "always"
-  # --date=human looks better but is less searchable
-  DATE_FORMAT = "%Y-%m-%d %H:%M"
+# --date=human looks better but is less searchable
+DATE_FORMAT = "%Y-%m-%d %H:%M"
 
 # --- Preview ---
 [previewer]
-  always_trigger = false
+always_trigger = false
 
 [[preview.layout]]
-  command = '''
+command = '''
 git -c color.ui=always show --stat --summary --decorate {1}
 '''
-  side = "right"
-  percentage = 40
-  min = 30
-  max = 120
+side = "right"
+percentage = 40
+min = 30
+max = 120
 
 [[preview.layout]]
-  side = "top"
-  percentage = 50
-  min = 5
-  max = 50
-  command = '''
+side = "top"
+percentage = 50
+min = 5
+max = 50
+command = '''
 if ((MM_INDEX == 1)); then
   echo "stash..stash base"
   printf "%${COLUMNS}s\n" | tr ' ' '-'
@@ -56,27 +55,27 @@ fi
 '''
 
 [[preview.layout]]
-  command = '''
+command = '''
 git show --color=always {1} -- {$0}
 '''
 
 # --- UI ---
 [tui]
-  percentage = 100
+percentage = 100
 
 [header]
-  content        = "[history]"
-  style.fg       = "Blue"
-  style.modifier = ""
+content = "[history]"
+style.fg = "Blue"
+style.modifier = ""
 
 [query]
-  prompt = "restore> "
+prompt = "restore> "
 
 [binds]
-  "@accept" = "@checkout"
-  "@accept_2" = [
-    "#apply stash/hard reset",
-    '''BecomeOr(
+"@accept" = "@checkout"
+"@accept_2" = [
+  "#apply stash/hard reset",
+  '''BecomeOr(
 set -e
 case $MM_INDEX in
   0|3)
@@ -103,17 +102,17 @@ case $MM_INDEX in
 *) git reset --hard {1} ;;
 esac
 )''',
-  ]
-  "ctrl-t" = [ "@tag", "Reload" ]
-  "alt-r" = "@soft_reset"
-  "@rm" = [ "@clean", "Reload" ]
-  "ctrl-c" = "@compare"
+]
+"ctrl-t" = ["@tag", "Reload"]
+"alt-r" = "@soft_reset"
+"@rm" = ["@clean", "Reload"]
+"ctrl-c" = "@compare"
 
-  "@next" = "BecomeSilent(mm -o git/switch)"
-  "@prev" = "BecomeSilent(mm -o git/status)"
+"@next" = "BecomeSilent(mm -o git/switch)"
+"@prev" = "BecomeSilent(mm -o git/status)"
 
-  # --- Scripts ---
-  "Reloaded" = '''Transform(
+# --- Scripts ---
+"Reloaded" = '''Transform(
     HEADERS=(
       '[history]'
       '[stash]'
@@ -124,13 +123,13 @@ esac
     echo "SetHeader(${HEADERS[$MM_INDEX]})"
 )
 '''
-  "@reload" = "ReloadNext"
-  "@reload_2" = "ReloadPrev"
+"@reload" = "ReloadNext"
+"@reload_2" = "ReloadPrev"
 
-  "@open"   = "Execute($EDITOR {$1})"
-  "@open_2" = [  ]
+"@open" = "Execute($EDITOR {$1})"
+"@open_2" = []
 
-  "@compare" = '''RunPreview(
+"@compare" = '''RunPreview(
 set -- $(git rev-list --left-right --count HEAD..{1})
 behind=$1
 ahead=$2
@@ -140,7 +139,7 @@ printf "%${COLUMNS}s\n" | tr ' ' '-'
 git log --color=always --left-right --oneline ...{1}
 )'''
 
-  "@checkout" = '''
+"@checkout" = '''
 Become(
 set -e
 
@@ -176,7 +175,7 @@ esac
 )
 '''
 
-  "@soft_reset" = '''BecomeOr(
+"@soft_reset" = '''BecomeOr(
 set -e
 case $MM_INDEX in
 1)
@@ -260,7 +259,7 @@ case $MM_INDEX in
 esac
 )'''
 
-  "@tag" = '''
+"@tag" = '''
 BecomeOr(
 set -e
 
@@ -324,7 +323,7 @@ case $MM_INDEX in
 esac
 )'''
 
-  "@clean" = '''
+"@clean" = '''
 ExecuteOrConfirm(
 set -e
 

@@ -340,9 +340,11 @@ pub struct ResultsConfig {
     pub multi_prefix: String,
     pub default_prefix: String,
 
+    #[serde(alias = "prefix")]
     #[partial(recurse)]
     pub prefix_style: StyleSetting,
 
+    #[serde(alias = "prefix_inactive")]
     #[partial(recurse)]
     pub prefix_inactive_style: StyleSetting,
 

@@ -1,3 +1,25 @@
+## [0.0.32] - 2026-05-25
+
+### 🚀 Features
+
+- Prefix_styles
+
+### 🐛 Bug Fixes
+
+- Preset tweaks
+- fix BecomeSilent to correctly exit
+
+## [0.0.32] - 2026-05-25
+
+### 🚀 Features
+
+- results.prefix_styles
+
+### 🐛 Bug Fixes
+
+- Preset tweaks
+- fix BecomeSilent incorrect exit
+
 ## [0.0.31] - 2026-05-25
 
 ### 🚀 Features

@@ -5,7 +5,7 @@ source = 'base.toml'
 # use x1f because awk cannot print null
 command = '''
 git log -Dp |
-awk -v OFS='\x00' '
+awk '
 /^commit [0-9a-f]/ {
     commit = substr($2, 1, 7)
 }
@@ -16,7 +16,7 @@ awk -v OFS='\x00' '
     }
 }
 /^[+-]/ && !/^(---|\+\+\+) / {
-    print commit, file, $0
+    printf "%s%c%s%c%s\n", commit, 0, file, 0, $0
 }
 '
 '''

@@ -41,9 +41,6 @@ default = 1
 [matcher]
 sort = 40
 
-[envs]
-DFT_COLOR = "always"
-
 [exit]
 # abort_empty = false
 

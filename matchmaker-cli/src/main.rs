@@ -81,7 +81,10 @@ fn get_partial(config_args: Vec<String>) -> anyhow::Result<PartialConfig> {
     let mut partial = PartialConfig::default();
     for (path, val) in split {
         if !path.is_empty() && (path[0] == "env" || path[0] == "envs") {
-            cba::wbog!("Ignoring manual override of environment variables via CLI: {}", path.join("."));
+            cba::wbog!(
+                "Ignoring manual override of environment variables via CLI: {}",
+                path.join(".")
+            );
             continue;
         }
 

@@ -29,9 +29,6 @@ default = 2
 [matcher]
 sort = 40
 
-[envs]
-DFT_COLOR = "always"
-
 # --- Preview ---
 [previewer]
 always_trigger = false

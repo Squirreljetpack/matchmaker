@@ -340,6 +340,12 @@ pub struct ResultsConfig {
     pub multi_prefix: String,
     pub default_prefix: String,
 
+    #[partial(recurse)]
+    pub prefix_style: StyleSetting,
+
+    #[partial(recurse)]
+    pub prefix_inactive_style: StyleSetting,
+
     /// Enable selections
     pub multi: bool,
 
@@ -424,6 +430,8 @@ impl Default for ResultsConfig {
 
             multi_prefix: "▌ ".to_string(),
             default_prefix: Default::default(),
+            prefix_style: Default::default(),
+            prefix_inactive_style: Default::default(),
             multi: true,
 
             style: Default::default(),

@@ -14,7 +14,7 @@ use crate::{
     render::Click,
     utils::{
         string::{allocate_widths, fit_width, substitute_escaped},
-        text::{clip_text_lines, expand_indents, prefix_text},
+        text::{clip_text_lines, expand_indents, prefix_span},
     },
 };
 
@@ -441,7 +441,7 @@ impl ResultsUI {
 
         // begin adjustment
         let mut start_index = 0; // the index in results of the first complete item
-
+        let is_current_row = self.is_current(0);
         if h_at_cursor >= cursor_end_should_lte {
             start_index = self.cursor;
             self.bottom += self.cursor as u32;
@@ -481,7 +481,13 @@ impl ResultsUI {
                             }
                         }
 
-                        prefix_text(&mut row[0], prefix);
+                        prefix_span(
+                            &mut row[0],
+                            prefix,
+                            self.config.prefix_style,
+                            self.config.prefix_inactive_style,
+                            is_current_row,
+                        );
 
                         let last_visible = widths
                             .iter()
@@ -513,7 +519,15 @@ impl ResultsUI {
                                 height = remaining_height;
                             }
                             remaining_height -= height;
-                            prefix_text(col, prefix.clone());
+
+                            prefix_span(
+                                col,
+                                prefix.clone(),
+                                self.config.prefix_style,
+                                self.config.prefix_inactive_style,
+                                is_current_row,
+                            );
+
                             push.push(Row::new(vec![col.clone()]).height(height));
                         }
                         rows.extend(push.into_iter().rev());
@@ -552,7 +566,13 @@ impl ResultsUI {
                     }
                 }
 
-                prefix_text(&mut row[0], prefix);
+                prefix_span(
+                    &mut row[0],
+                    prefix,
+                    self.config.prefix_style,
+                    self.config.prefix_inactive_style,
+                    is_current_row,
+                );
 
                 let last_visible = widths
                     .iter()
@@ -584,7 +604,15 @@ impl ResultsUI {
                         height = remaining_height;
                     }
                     remaining_height -= height;
-                    prefix_text(col, prefix.clone());
+
+                    prefix_span(
+                        col,
+                        prefix.clone(),
+                        self.config.prefix_style,
+                        self.config.prefix_inactive_style,
+                        is_current_row,
+                    );
+
                     push.push(Row::new(vec![col.clone()]).height(height));
                 }
                 rows.extend(push.into_iter().rev());
@@ -718,7 +746,13 @@ impl ResultsUI {
 
                         // prefix after hscroll
                         if x == 0 {
-                            prefix_text(&mut t, prefix.clone());
+                            prefix_span(
+                                &mut t,
+                                prefix.clone(),
+                                self.config.prefix_style,
+                                self.config.prefix_inactive_style,
+                                is_current_row,
+                            );
                         };
                         t
                     })
@@ -773,10 +807,16 @@ impl ResultsUI {
                     }
                     remaining_height -= height;
 
-                    prefix_text(&mut col, prefix.clone());
+                    let is_current_row = self.is_current(i);
+                    prefix_span(
+                        &mut col,
+                        prefix.clone(),
+                        self.config.prefix_style,
+                        self.config.prefix_inactive_style,
+                        is_current_row,
+                    );
 
                     let is_active_col = active_column == x;
-                    let is_current_row = self.is_current(i);
 
                     match self.config.row_connection {
                         RowConnectionStyle::Disjoint => {

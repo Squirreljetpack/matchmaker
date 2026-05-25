@@ -66,7 +66,6 @@ initial.tail = true
     echo "SetHeader(${HEADERS[$MM_INDEX]})"
 )
 '''
-"@reload" = "ReloadNext"
 "@reload_2" = "ReloadPrev"
 
 "@accept" = ["#print pid", "Become(printf '%s\n' {+2})"]

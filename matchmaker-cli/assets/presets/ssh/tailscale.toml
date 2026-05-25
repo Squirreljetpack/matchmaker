@@ -10,7 +10,7 @@ split = '\s+'
 names = ["ip", "hostname", "user", "os", "status"]
 
 [envs]
-TAILSCALE_BE_CLI="1" 
+TAILSCALE_BE_CLI="1"
 
 # --- Preview ---
 [preview]

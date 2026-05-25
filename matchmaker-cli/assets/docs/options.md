@@ -161,12 +161,14 @@ All colors and modifiers come from ratatui:
 
 - `multi_prefix`: (string) Prefix for multi-selected items.
 - `default_prefix`: (string) Prefix for normal items.
-- `current_prefix`: (string) Prefix for the currently highlighted item.
+- `current_prefix`: (string) Prefix for the current item.
 - `style`: [Style Settings](#style-settings) (default).
-- `inactive`: [Style Settings](#style-settings) for inactive columns.
-- `inactive_current`: [Style Settings](#style-settings) for the current item in inactive columns.
-- `match`: [Style Settings](#style-settings) for matching characters.
-- `current`: [Style Settings](#style-settings) for the highlighted item.
+- `inactive_style`, `inactive`: [Style Settings](#style-settings) for inactive columns.
+- `inactive_current_style`, `inactive_current`: [Style Settings](#style-settings) for the current item in inactive columns.
+- `match_style`, `match`: [Style Settings](#style-settings) for matching characters.
+- `current_style`, `current`: [Style Settings](#style-settings) for the highlighted item.
+- `prefix_style`, `prefix`: [Style Settings](#style-settings) for the prefix of the active.
+- `inactive_prefix_style`, `inactive_prefix`: [Style Settings](#style-settings) for the prefix of inactive items.
 - `row_connection`: `Disjoint`, `Capped`, or `Full`. Controls how current item styles apply across the row.
 - `scroll_wrap`: (bool) Wrap selection when reaching the end of the list.
 - `scroll_padding`: (number) Number of items to keep visible above/below the selection.

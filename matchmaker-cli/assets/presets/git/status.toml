@@ -120,7 +120,13 @@ ac=true
 ad=true
 
 for f; do
-  git diff --quiet -- "$f" && ad=false || ac=false
+  if [ -n "$(git ls-files --others --exclude-standard -- "$f")" ]; then
+      ac=false
+  elif git diff --quiet -- "$f"; then
+      ad=false
+  else
+      ac=false
+  fi
 done
 
 $ac || $ad

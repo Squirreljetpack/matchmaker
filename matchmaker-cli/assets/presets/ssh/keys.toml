@@ -12,17 +12,39 @@ prompt_style.fg = "Blue"
 prompt_style.modifier = "ITALIC"
 
 [binds]
-"ctrl-b" = "@bind_to_host"
+"ctrl-b" = ["@bind_to_host", "Reload"]
 
-"@accept" = ["#copy", "Become(cat {} | tee >(eval $CLIPcmd) 2>/dev/null"]
-"@accept_2" = ["@copy", "Accept"]
+"@accept" = ["#copy", "Become(cat {} | tee >(eval $CLIPcmd) 2>/dev/null)"]
+"@accept_2" = ["#copy path", "@copy", "Accept"]
 "@open_2" = '''Execute(priv={}; priv="${priv%%.pub}"; [[ -f $priv ]] && $EDITOR "$priv")'''
 "@next" = "BecomeSilent(mm -o ssh/known)"
 "@prev" = "BecomeSilent(mm -o ssh/hosts)"
+"@rm" = [
+  '''ExecuteOrConfirm(
+pub_key={1}
+priv_key="${pub_key%.pub}"
+
+echo "  - $priv_key"
+echo "  - $pub_key"
+printf "Are you sure you want to permanently delete these files? (y/N): "
+read -r confirm
+
+case "$confirm" in
+    [yY]|[yY][eE][sS])
+        rm -vf "$priv_key" "$pub_key"
+        ;;
+    *)
+        echo "Deletion cancelled."
+        exit 0
+        ;;
+esac
+)''',
+  "Reload",
+]
 
 # --- Scripts ---
 "@bind_to_host" = '''
-Execute(
+ExecuteOrConfirm(
     mkdir -p ~/.ssh
     chmod 700 ~/.ssh || { echo "Error: Could not set permissions for ~/.ssh. Please do it manually."; exit 1; }
     cd ~/.ssh || exit 1
@@ -87,7 +109,10 @@ Execute(
             exit 1
         fi
 
-        printf "Enter email (optional): "
+        # Dynamically grab the system default (username@hostname) for the prompt
+        default_email="$(id -un)@$(hostname)"
+
+        printf "Enter email (optional) [%s]: " "$default_email"
         read -r email
 
         keyfile=~/.ssh/${name}_ed25519

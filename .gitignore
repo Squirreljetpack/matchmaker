@@ -3,3 +3,4 @@
 .cargo/config.toml
 *.txt
 matchmaker-cli/assets/presets/todo
+*.mov

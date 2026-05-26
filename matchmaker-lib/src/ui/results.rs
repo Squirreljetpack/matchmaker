@@ -31,7 +31,7 @@ pub struct ResultsUI {
     /// available width
     width: u16,
     // column widths.
-    // Note that the first width doesn't include the indentation.
+    // Note that the first width include the indentation.
     widths: Vec<u16>,
     medians: Vec<u16>,
 
@@ -317,7 +317,6 @@ impl ResultsUI {
         } else {
             self.widths.iter().sum::<u16>()
                 + self.config.border.width()
-                + self.indentation() as u16
                 + self.column_spacing_width()
         }
     }
@@ -894,13 +893,6 @@ impl ResultsUI {
                 *w = if *w > 0 { v.max(1) } else { v }; // prevent column hiding
             }
 
-            if let Some(w) = widths.get_mut(0) {
-                let v = w.saturating_sub(self.indentation() as u16);
-                *w = if *w > 0 { v.max(1) } else { v };
-            }
-            // set self.widths to "actual" width of each column
-            self.widths = widths.clone();
-
             if !self.config.wrap {
                 widths
                     .iter_mut()
@@ -910,9 +902,8 @@ impl ResultsUI {
                     });
             }
 
-            if let Some(s) = widths.get_mut(0) {
-                *s += self.indentation() as u16;
-            }
+            // set self.widths to "actual" width of each column
+            self.widths = widths.clone();
 
             let surplus = self.width.saturating_sub(widths.iter().sum());
 

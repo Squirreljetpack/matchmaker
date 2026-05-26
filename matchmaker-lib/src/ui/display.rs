@@ -127,7 +127,9 @@ impl DisplayUI {
                 let mut padding = self.config.border.padding;
 
                 padding.left = result_indentation.saturating_sub(self.config.border.left());
-                widths[0] -= result_indentation;
+                if !widths.is_empty() {
+                    widths[0] -= result_indentation;
+                }
                 b.padding(padding.0)
             } else {
                 b
@@ -203,8 +205,14 @@ impl DisplayUI {
         let widths = if self.is_single_column() && self.lines.iter().all(|x| x.len() == 1) {
             vec![Constraint::Percentage(100)]
         } else {
+            let surplus = widths.iter().sum::<u16>().saturating_sub(self.width);
+            if let Some(s) = widths.last_mut() {
+                *s -= surplus;
+            }
             widths.into_iter().map(Constraint::Length).collect()
         };
+
+        log::trace!("display: {widths:?}");
 
         Table::new(rows, widths)
             .block(block)

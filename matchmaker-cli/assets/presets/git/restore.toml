@@ -267,7 +267,7 @@ case $MM_INDEX in
   fi
   ;;
 *)
-  git --no-pager diff --name-status {1}..HEAD
+  git --no-pager diff --color=always --name-status {1}..HEAD
   printf "Soft reset to %s? [y/N] " {1}
   read -r ans
   case "$ans" in

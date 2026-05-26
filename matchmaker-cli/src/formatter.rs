@@ -449,7 +449,11 @@ mod tests {
 
     static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
-    fn setup_test_mm() -> (matchmaker::ConfigMatchmaker, matchmaker::ConfigInjector, std::sync::MutexGuard<'static, ()>) {
+    fn setup_test_mm() -> (
+        matchmaker::ConfigMatchmaker,
+        matchmaker::ConfigInjector,
+        std::sync::MutexGuard<'static, ()>,
+    ) {
         let guard = TEST_MUTEX.lock().unwrap();
         let mut columns_config = ColumnsConfig::default();
         columns_config.names = vec![

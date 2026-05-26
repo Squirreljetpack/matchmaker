@@ -174,7 +174,7 @@ mm --download=rg.toml
 mm -o rg
 ```
 
-<img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/git-restore.png" alt="git-restore" style="width:416px;" /> <img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/git-help.png" alt="git-help" style="width:416px;" />
+<img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/git-restore.png" alt="git-restore" style="width:416px;" /> <img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/git-grep-help.png" alt="git-help" style="width:416px;" />
 <img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/ps.png" alt="procs" style="width:416px;" /> <img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/docker-containers.png" alt="docker-containers" style="width:416px;" />
 
 [^50]: Contributions welcome!

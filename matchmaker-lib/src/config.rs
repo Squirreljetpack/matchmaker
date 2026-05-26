@@ -464,9 +464,9 @@ impl Default for ResultsConfig {
 
             scroll_wrap: true,
             scroll_padding: 2,
-            reverse: Default::default(),
+            reverse: None,
 
-            wrap: Default::default(),
+            wrap: false,
             min_wrap_width: 2,
             max_height: 0,
 
@@ -581,7 +581,7 @@ impl Default for DisplayConfig {
             border: Default::default(),
             match_indent: true,
             style: StyleSetting {
-                fg: Some(Color::Blue),
+                fg: Some(Color::Cyan),
                 ..Default::default()
             },
             wrap: false,
@@ -658,7 +658,7 @@ impl Default for PreviewConfig {
             initial: Default::default(),
             layout: Default::default(),
             scroll_wrap: true,
-            wrap: Default::default(),
+            wrap: false,
             show: Default::default(),
             reevaluate_show_on_resize: false,
             drag_width: None,

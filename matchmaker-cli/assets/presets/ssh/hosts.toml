@@ -72,8 +72,6 @@ content = ["host", "address", "user", "port"]
 
 [query]
 prompt = "hosts> "
-prompt_style.fg = "Blue"
-prompt_style.modifier = "ITALIC"
 
 [binds]
 "ctrl-t" = ["@test", "Reload"]

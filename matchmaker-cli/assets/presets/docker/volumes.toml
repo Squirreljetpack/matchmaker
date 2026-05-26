@@ -42,7 +42,6 @@ source = "base.toml"
 [query]
     prompt                = "volumes> "
     prompt_style.fg       = "Yellow"
-    prompt_style.modifier = "ITALIC"
 
 [tui]
     percentage = 100

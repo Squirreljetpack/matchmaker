@@ -10,6 +10,7 @@
 
 [results]
 inactive.fg = "DarkGray"
+# inactive.modifier = "DIM"
 style.fg = "White"
 # inactive_current.modifier = "DIM"
 

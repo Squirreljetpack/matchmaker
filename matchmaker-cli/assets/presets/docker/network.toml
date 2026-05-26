@@ -38,7 +38,6 @@ source = "base.toml"
 [query]
     prompt                = "networks> "
     prompt_style.fg       = "Green"
-    prompt_style.modifier = "ITALIC"
 
 [tui]
     percentage = 100

@@ -30,7 +30,6 @@ source = "base.toml"
 [query]
     prompt                = "mount> "
     prompt_style.fg       = "Cyan"
-    prompt_style.modifier = "ITALIC"
 
 [tui]
     percentage = 100

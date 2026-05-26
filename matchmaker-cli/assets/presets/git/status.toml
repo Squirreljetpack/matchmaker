@@ -86,6 +86,7 @@ prompt = "status> "
 "@accept_2" = ["#print", "Print({=1})", "Quit"]
 "@next" = "BecomeSilent(mm -o git/restore)"
 "@prev" = "BecomeSilent(mm -o git/grep)"
+"@reload" = "Reload"
 
 "ctrl-1" = "@summary"
 "ctrl-u" = ["@unstage", "Reload"]
@@ -192,7 +193,7 @@ set -e
 printf "Stash message (optional): "
 read -r msg
 if [ -n "$msg" ]; then
-  git stash push -m "$msg" -- {+1}
+  git stash push -u -m "$msg" -- {+1}
 else
   git stash push -- {+1}
 fi

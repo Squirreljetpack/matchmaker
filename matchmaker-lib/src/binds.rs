@@ -621,6 +621,10 @@ pub fn display_binds<A: ActionExt + Display>(
                 }
             }
 
+            if skipping && !last_trace.is_empty() {
+                visible_items.push(last_trace);
+            }
+
             (trigger, visible_items)
         })
         .collect();

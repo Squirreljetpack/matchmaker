@@ -25,7 +25,11 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
                 }
                 let mut vars = state.make_env_vars();
 
-                let preview_template = state.preview_payload().clone();
+                let preview_template = if let Some(Ok(s)) = state.preview_set_payload() {
+                    s
+                } else {
+                    state.preview_payload().clone()
+                };
                 let preview_cmd = use_formatter(&formatter, state, &preview_template, None);
                 let extra = env_vars!(
                     "MM_PREVIEW_COMMAND" => preview_cmd,

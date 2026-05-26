@@ -1,3 +1,4 @@
+use bitflags::Flags;
 use cba::{bait::TransformExt, broc::EnvVars, env_vars, unwrap};
 use ratatui::text::Text;
 
@@ -266,13 +267,12 @@ impl State {
         }
     }
 
-    fn reset(&mut self) {
-        // nothing
+    pub(crate) fn reset(&mut self) {
+        self.events.clear();
     }
 
-    pub(crate) fn events(&mut self) -> Event {
-        self.reset();
-        std::mem::take(&mut self.events)
+    pub fn events(&mut self) -> Event {
+        self.events.clone()
     }
 }
 

@@ -2,8 +2,8 @@
 "ctrl-s" = "@show"
 "ctrl-shift-s" = "@diff"
 
-"@reload" = "ReloadNext"
-"@reload_2" = "ReloadPrev"
+"@reload" = ["#next view", "ReloadNext"]
+"@reload_2" = ["#prev view", "ReloadPrev"]
 
 "@diff" = "Execute({ git --paginate diff --color=always --exit-code {1} && echo no change; })"
 "@show" = "Execute(git --paginate show --color=always {1} -- {$0})"

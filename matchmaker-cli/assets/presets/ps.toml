@@ -1,9 +1,9 @@
 # Find and kill processes
 
 [start]
-command = "ps -eo ppid,pid,user,%cpu,stat,vsz,rss,etime,command"
+command = "ps -eo pgid,pid,user,%cpu,vsz,rss,etime,stat,command"
 additional_commands = [
-  "ps -eo ppid,pid,user,%cpu,stat,vsz,rss,etime,command",
+  "ps -eo pgid,pid,user,%cpu,vsz,rss,etime,stat,command",
   "lsof -nP -i",
 ]
 ansi = false
@@ -73,6 +73,13 @@ initial.tail = true
 
 "ctrl-k" = ["#kill", "Execute(kill {2} || read)"]
 "alt-k" = ["#kill -9", "Execute(kill -9 {2} || read)"]
+
+"ctrl-shift-k" = ["#kill parent", "Execute(kill {1} || read)"]
+"alt-shift-k" = ["#kill parent -9", "Execute(kill -9 {1} || read)"]
+
+"ctrl-g" = ["#kill group", "Execute(kill -- -$(ps -o pgid= -p {2}) || read)"]
+"alt-g" = ["#kill group -9", "Execute(kill -9 -- -$(ps -o pgid= -p {2}) || read)"]
+
 "@copy" = '''
 ExecuteSilent(
 printf '%s\n' {+2} | eval $CLIPcmd

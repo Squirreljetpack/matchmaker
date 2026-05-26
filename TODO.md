@@ -2,7 +2,6 @@
 
 - it would be nice to have presets like full, simple, and minimal presets like fzf
 - it would be nice to have color presets too maybe
-  
 - better hr styling (dim etc.)
 - improve/test wrap_text and hscroll on non filtering
 - Bottom scroll padding not working with --reverse (maybe we want to increase self.cursor if height before is insufficient).
@@ -13,15 +12,13 @@
   - false: nothing
   - config.clear_on_exit: None -> true
 
-- MM_PREVIEW_COMMAND should reflect RunPreview in a consistent way: simply checking help_payload first should work, but should we leave an escape hatch (i think not?).
-
-- Document:
-  - ExpandPreview ShrinkPreview drag
-
 - Code examples:
   - query change
   - frecency
   - api
+
+- execute: try read from preview_set_payload first
+
 # Previewer
 
 - Offload large previews to disk

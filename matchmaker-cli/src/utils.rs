@@ -266,3 +266,31 @@ pub fn guess_clip_cmd() -> Option<(String, String)> {
 
     None
 }
+
+pub fn guess_pager_cmd() -> &'static str {
+    {
+        for cmd in ["bat", "less", "more"] {
+            if which::which(cmd).is_ok() {
+                return cmd;
+            }
+        }
+        "cat"
+    }
+}
+
+pub fn guess_editor_cmd() -> &'static str {
+    #[cfg(not(windows))]
+    {
+        for cmd in ["hx", "nvim", "vim", "vi", "nano"] {
+            if which::which(cmd).is_ok() {
+                return cmd;
+            }
+        }
+        return "echo";
+    }
+
+    #[cfg(windows)]
+    {
+        "notepad"
+    }
+}

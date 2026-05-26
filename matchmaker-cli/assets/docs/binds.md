@@ -168,6 +168,8 @@ Actions are the operations performed when a trigger is activated.
 | `SetPreview(idx)`     | Set preview layout to index `idx`.                        |
 | `SwitchPreview(idx)`  | Switch to layout `idx`, or toggle it if already active.   |
 | `TogglePreviewWrap`   | Toggle line wrapping in the preview window.               |
+| `ExpandPreview(idx)`  | Expand preview window.                                    |
+| `ShrinkPreview(idx)`  | Shrink preview window.                                    |
 | `PreviewUp(n)`        | Scroll the preview window up by `n` lines (default: 1).   |
 | `PreviewDown(n)`      | Scroll the preview window down by `n` lines (default: 1). |
 | `PreviewHalfPageUp`   | Scroll the preview up by half a page.                     |

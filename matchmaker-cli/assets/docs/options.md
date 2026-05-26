@@ -228,6 +228,7 @@ All colors and modifiers come from ratatui:
   - `p`, `percentage` (0-100) – How far from the bottom of the preview window the scroll offset should appear.
   - `h`, `header_lines` (number) – Keep the top N lines as a fixed header so that they are always visible.
   - `t`, `tail` (bool) – Start with the scroll at the bottom of the preview window.
+- `drag`: (Optional<bool>) Width along the divider strip between the preview and results pane enabled for mouse detection dragging. 0 to disable. (default is the [border](#border-settings) width).
 
 ### Previewer (`previewer.`)
 

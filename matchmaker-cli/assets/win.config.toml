@@ -116,6 +116,12 @@ border.padding = [2, 0]
 "@enter" = "Become(%EDITOR% {1})"
 "@reload" = "Reload"
 
+[envs]
+# CLIPcmd = # Leave blank to auto-determine
+# PASTEcmd = # Leave blank to auto-determine
+# PAGER = # Leave blank to auto-determine
+# EDITOR = # Leave blank to auto-determine
+
 [start]
 command = '''
 if (Get-Command fd -ErrorAction SilentlyContinue) {

@@ -107,6 +107,10 @@ pub enum Action<A: ActionExt = NullActionExt> {
     // Programmable
     /// Execute command and continue
     Execute(String),
+    /// non-blocking [`matchmaker::Action::Execute`]: subsequent actions in the batch begin after its completion
+    ExecuteAsync(String),
+    /// non-blocking [`matchmaker::Action::Execute`]: subsequent actions in the batch begin after its completion, only if successful
+    ExecuteThen(String),
     /// Execute command without leaving the UI
     ExecuteSilent(String),
     /// Exit and become
@@ -361,7 +365,7 @@ enum_from_str_display!(
     ForwardChar,BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord, DeleteLineStart, DeleteLineEnd, Cancel, Redraw, NextColumn, PrevColumn, PrintKey;
 
     tuples:
-    Execute, ExecuteSilent, Become, BecomeSilent, Preview,
+    Execute, ExecuteAsync, ExecuteThen, ExecuteSilent, Become, BecomeSilent, Preview,
     SetQuery, Pos, QueryPos, SwitchColumn, Store;
 
     defaults:

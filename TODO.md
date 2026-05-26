@@ -4,10 +4,6 @@
 - it would be nice to have color presets too maybe
   
 - better hr styling (dim etc.)
-- ExecuteAsync: support chaining actions without blocking ui
-  - Slightly tricky because to expose this to dynamic handlers this needs go in state, but state is not generic over action. Idea is to create a static Mutex<hashmap<u8, Vec<Box<dyn<Action>>>> in state, add methods to Actions converting between x: Actions and this type erased vec, and dispatcher method which accepts an Actions and a discriminant and adds it to the concurrent hashmap, and a method which gets from the hashmap and downcasts to original type.
-  - save remaining, execute_handler for the ExecuteAsync interrupt: pop the latest to variable, tokio spawn: tokio await cmd completion then reseed actions to render_tx.
-- ExecuteThen: Transmits to ExecuteAsync but with discriminant Some(1). This causes the handler to execute without spawning, then check wait.success. Only if succeed, reseed with remaining actions.
 - improve/test wrap_text and hscroll on non filtering
 - Bottom scroll padding not working with --reverse (maybe we want to increase self.cursor if height before is insufficient).
 - vty to support animated previews/sixel (will that do the trick? otherwise pipe should be more efficient).

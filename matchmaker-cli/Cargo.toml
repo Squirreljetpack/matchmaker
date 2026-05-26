@@ -1,13 +1,13 @@
 [package]
     name        = "matchmaker-cli"
-    version     = "0.0.34"
+    version     = "0.0.35"
     categories  = [ "command-line-utilities" ]
     edition     = "2024"
     keywords    = [ "fuzzy", "finder", "tui", "nucleo", "fzf" ]
     license     = "MIT"
     repository  = "https://github.com/Squirreljetpack/matchmaker"
     description = "Command-line interface for the matchmaker fuzzy finder"
-
+    exclude = ["assets/completions", "assets/presets"]
 [dependencies]
     cli_boilerplate_automation = { workspace = true, features = [ "serde", "bring" ] }
     matchmaker-lib             = { workspace = true, features = [ "partial" ] }

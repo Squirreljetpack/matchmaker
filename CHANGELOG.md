@@ -1,3 +1,14 @@
+## [0.0.35] - 2026-05-26
+
+### 🚀 Features
+
+- Adjust default colors for better visibility
+- ExecuteAsync
+
+### ⚙️ Miscellaneous Tasks
+
+- Add gif
+
 ## [0.0.34] - 2026-05-26
 
 ### 🚀 Features

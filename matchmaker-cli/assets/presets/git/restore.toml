@@ -243,7 +243,7 @@ case $MM_INDEX in
   git stash apply "$TARGET"
 
   printf "\nDiff after applying:\n"
-  git status --short
+  git -c color.ui=always status --short
   git diff --color=always || true
 
   printf '\nKeep changes? [y/N/(p)reserve] '

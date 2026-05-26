@@ -1,7 +1,7 @@
 # interactive git status
 source = 'base.toml'
 
-[start.command]
+[start]
 command = '''
 git status --no-rename --ignore-submodules=dirty -sz |
 while IFS= read -r -d '' entry; do
@@ -28,10 +28,7 @@ while IFS= read -r -d '' entry; do
   printf '%s\0%s\n' "$file" "$st"
 done
 '''
-
-[start]
 ansi = true
-directory = { value = "git rev-parse --show-toplevel", exec = true }
 
 [columns]
 split = "\\x00"
@@ -210,8 +207,7 @@ fi
 ExecuteOrConfirm(
 set -e
 
-tracked=$(git ls-files -z --cached --exclude-standard -- {+1})
-printf '%s' "$tracked" |
+git ls-files -z --cached --exclude-standard -- {+1} |
 while IFS= read -r -d '' file; do
   files+=("$file")
 done
@@ -257,7 +253,7 @@ if git diff --cached --quiet; then
 fi
 git --no-pager diff --cached --compact-summary
 echo
-echo "Commit message: "
+echo "Commit message (\ -> continue): "
 msg=""
 while IFS= read -r line; do
   if [[ "$line" == *'\' ]]; then

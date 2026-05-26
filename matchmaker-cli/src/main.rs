@@ -68,7 +68,8 @@ async fn main() {
                 ebog!("TUI"; "{e}")
             }
             MatchError::NoMatch => {
-                ebog!("NoMatch")
+                ebog!("NoMatch");
+                exit(404);
             }
             _ => unreachable!(),
         },

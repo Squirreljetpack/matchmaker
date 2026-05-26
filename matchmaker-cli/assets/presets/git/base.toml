@@ -1,3 +1,6 @@
+[start]
+directory = { value = "git rev-parse --show-toplevel", exec = true }
+
 [binds]
 "ctrl-s" = "@show"
 "ctrl-shift-s" = "@diff"

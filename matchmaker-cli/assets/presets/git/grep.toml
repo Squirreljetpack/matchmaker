@@ -68,7 +68,14 @@ percentage = 100
 prompt = "grep> "
 
 [binds]
-"@next" = "BecomeSilent(mm -o git/status)"
+"@reload" = []
+"@reload_2" = []
+"@next" = '''BecomeSilent(
+if [ -z "$(git status --porcelain)" ]; then
+    mm -o git/restore
+else
+    mm -o git/status
+fi)'''
 "@prev" = "BecomeSilent(mm -o git/switch)"
 
 # --- Scripts ---

@@ -9,13 +9,15 @@ command = '''
     for f in "$HOME/.ssh/config" "$HOME/.ssh/config.d/"* "/etc/ssh/ssh_config"; do
         [ -f "$f" ] && [ -r "$f" ] || continue
 
-        awk -v OFS='\x00' -v file="$f" '
+        awk -v file="$f" '
             function print_hosts() {
                 for(j=1; j<=host_count; j++) {
                     out_host = current_hosts[j]
                     out_hostname = (hostname == "-") ? out_host : hostname
 
-                    print out_host, out_hostname, user, port, file
+                    # Using printf with null byte \x00 via %c for portability
+                    printf "%s%c%s%c%s%c%s%c%s\n", 
+                           out_host, 0, out_hostname, 0, user, 0, port, 0, file
                 }
             }
 
@@ -36,8 +38,8 @@ command = '''
             }
 
             $1 ~ /^[Hh][Oo][Ss][Tt][Nn][Aa][Mm][Ee]$/ { hostname = $2; next }
-            $1 ~ /^[Uu][Ss][Ee][Rr]$/               { user = $2; next }
-            $1 ~ /^[Pp][Oo][Rr][Tt]$/               { port = $2; next }
+            $1 ~ /^[Uu][Ss][Ee][Rr]$/                 { user = $2; next }
+            $1 ~ /^[Pp][Oo][Rr][Tt]$/                 { port = $2; next }
 
             END {
                 if (host_count > 0) { print_hosts() }

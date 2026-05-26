@@ -13,7 +13,7 @@ use crate::{
     config::PartialConfig,
     paths::{last_key_path, presets_path},
     register::MMExt,
-    utils::expand_tilde,
+    utils::{expand_tilde, guess_clip_cmd, guess_editor_cmd, guess_pager_cmd},
 };
 use crate::{config::Config, paths::default_config_path};
 use cba::{
@@ -213,7 +213,7 @@ pub fn process_envs(mut envs: HashMap<String, EnvValue>) -> HashMap<String, Stri
             .ok()
             .map_or(false, |x| !x.is_empty())
     {
-        if let Some((clip, paste)) = crate::utils::guess_clip_cmd() {
+        if let Some((clip, paste)) = guess_clip_cmd() {
             envs.insert("CLIPcmd".to_string(), EnvValue::new(clip));
 
             if envs.get("PASTEcmd").is_some()
@@ -224,6 +224,16 @@ pub fn process_envs(mut envs: HashMap<String, EnvValue>) -> HashMap<String, Stri
                 envs.insert("PASTEcmd".to_string(), EnvValue::new(paste));
             }
         }
+    }
+
+    if envs.get("PAGER").is_some() || std::env::var("PAGER").ok().map_or(true, |x| x.is_empty()) {
+        let ev = EnvValue::new(guess_pager_cmd());
+        envs.insert("PAGER".to_string(), ev);
+    }
+
+    if envs.get("EDITOR").is_some() || std::env::var("EDITOR").ok().map_or(true, |x| x.is_empty()) {
+        let ev = EnvValue::new(guess_editor_cmd());
+        envs.insert("PAGER".to_string(), ev);
     }
 
     // First pass: static envs

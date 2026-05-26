@@ -86,6 +86,8 @@ separator = "\\0"
 [envs]
 # CLIPcmd = # Leave blank to auto-determine
 # PASTEcmd = # Leave blank to auto-determine
+# PAGER = # Leave blank to auto-determine
+# EDITOR = # Leave blank to auto-determine
 
 # --- Binds ---
 [binds]

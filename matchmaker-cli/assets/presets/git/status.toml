@@ -138,7 +138,6 @@ fi
 
 if $ac; then git reset -q -- "$@"; else git add -- "$@"; fi
 # git update-index --refresh
-git status -s >> log
 )
 '''
 

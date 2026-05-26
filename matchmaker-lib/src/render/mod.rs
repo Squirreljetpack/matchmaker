@@ -123,7 +123,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             return Err(MatchError::NoMatch);
         }
 
-        for event in buffer.drain(..) {
+        let mut events = buffer.drain(..);
+        while let Some(event) = events.next() {
             state.clear_interrupt();
 
             if !matches!(event, RenderCommand::Tick) {
@@ -591,6 +592,25 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         //     did_exit = Some(false);
                         //     state.set_interrupt(Interrupt::Execute, payload);
                         // }
+                        Action::ExecuteAsync(ref payload) | Action::ExecuteThen(ref payload) => {
+                            let is_async = matches!(action, Action::ExecuteAsync(_));
+                            let payload = payload.clone();
+
+                            let mut remainder = crate::action::Actions::default();
+                            for cmd in events.by_ref() {
+                                if let RenderCommand::Action(a) = cmd {
+                                    remainder.push(a);
+                                }
+                            }
+
+                            if let Some(id) = state.stash_actions(remainder, bind_tx.clone()) {
+                                state.set_interrupt(Interrupt::ExecuteAsync, payload);
+                                state.discriminant_payload =
+                                    Some(2 * id + (if is_async { 1 } else { 0 }));
+                            } else {
+                                log::error!("No free slots left: remaining actions dropped");
+                            }
+                        }
                         Action::ExecuteSilent(payload) => {
                             state.set_interrupt(Interrupt::ExecuteSilent, payload);
                         }
@@ -924,6 +944,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             }
         }
 
+        drop(events);
         buffer.clear();
 
         // note: the remainder could be scoped by a conditional on having run?

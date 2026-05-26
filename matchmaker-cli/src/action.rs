@@ -68,10 +68,6 @@ pub enum MMAction {
     HistoryUp,
     /// History down (TODO)
     HistoryDown,
-    /// non-blocking [`matchmaker::Action::Execute`]: subsequent actions in the batch begin after its completion
-    ExecuteAsync(String),
-    /// non-blocking [`matchmaker::Action::Execute`]: subsequent actions in the batch begin after its completion, only if successful
-    ExecuteThen(String),
     /// [`matchmaker::Action::Execute`], confirm on error
     ExecuteOrConfirm(String),
     /// [`matchmaker::Action::Execute`], quit on success
@@ -258,12 +254,6 @@ pub fn action_handler(
         MMAction::SetPrompt(s) => {
             state.picker_ui.query.set_prompt(s.map(Line::raw));
         }
-        MMAction::ExecuteAsync(s) => {
-            state.set_interrupt(Interrupt::Execute, s);
-        }
-        MMAction::ExecuteThen(s) => {
-            state.set_interrupt(Interrupt::Execute, s);
-        }
         MMAction::ExecuteOrConfirm(s) => {
             state.discriminant_payload = Some(0);
             state.set_interrupt(Interrupt::Execute, s);
@@ -424,7 +414,7 @@ enum_from_str_display! {
 
 
     tuples:
-    Bind, Unbind, PushBind, PopBind, ExecuteAsync, ExecuteThen, ExecuteOrConfirm, ExecuteAndQuit, BecomeOr, Transform, TransformConfig, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter, RunPreview;
+    Bind, Unbind, PushBind, PopBind, ExecuteOrConfirm, ExecuteAndQuit, BecomeOr, Transform, TransformConfig, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter, RunPreview;
 
     defaults:
     ;

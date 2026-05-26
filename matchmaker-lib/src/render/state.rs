@@ -4,9 +4,9 @@ use ratatui::text::Text;
 
 use crate::{
     SSS, Selection, Selector,
-    action::ActionExt,
-    event::EventSender,
-    message::{Event, Interrupt},
+    action::{ActionExt, Actions},
+    event::{BindSender, EventSender},
+    message::{BindDirective, Event, Interrupt},
     nucleo::{Status, injector::WorkerInjector},
     ui::{DisplayUI, OverlayUI, PickerUI, PreviewUI, Rect, UI},
 };
@@ -26,7 +26,6 @@ pub struct Layout {
 /// In the "standard implementation", None represents unset, String: command, Text: display
 pub type PreviewSetPayload = Option<Result<String, Text<'static>>>;
 
-#[derive(Default, Debug)]
 pub struct State {
     last_id: Option<u32>,
     interrupt: Interrupt,
@@ -63,7 +62,30 @@ pub struct State {
     /// callers to use to store values, such as distinguishing between multiple
     /// sources of a payload for an interrupt. The responsibility is on the caller
     /// to ensure the value is emptied by the handler corresponding to an interrupt.
+    /// Update: This field is set by the rendering loop for ExecuteAsync and ExecuteThen. See [`crate::Matchmaker::_register_execute_handler`], which registers a handler that immediately consumes it.
     pub discriminant_payload: Option<u8>,
+
+    pub async_actions: [Option<Box<dyn FnOnce() + Send + Sync>>; 128],
+}
+
+impl std::fmt::Debug for State {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let count = self.async_actions.iter().filter(|x| x.is_some()).count();
+        f.debug_struct("State")
+            .field("last_id", &self.last_id)
+            .field("interrupt", &self.interrupt)
+            .field("interrupt_payload", &self.interrupt_payload)
+            .field("input", &self.input)
+            .field("iterations", &self.iterations)
+            .field("async_actions_count", &count)
+            .finish_non_exhaustive()
+    }
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl State {
@@ -94,6 +116,7 @@ impl State {
             filtering: true,
 
             discriminant_payload: None,
+            async_actions: std::array::from_fn(|_| None),
         }
     }
     // ------ properties -----------
@@ -135,6 +158,35 @@ impl State {
     }
     pub fn stashed_preview_visibility(&self) -> Option<bool> {
         self.stashed_preview_visibility
+    }
+
+    pub fn stash_actions<A: ActionExt + 'static>(
+        &mut self,
+        actions: Actions<A>,
+        bind_tx: BindSender<A>,
+    ) -> Option<u8> {
+        let Some((idx, slot)) = self
+            .async_actions
+            .iter_mut()
+            .enumerate()
+            .find(|(_, x)| x.is_none())
+        else {
+            return None;
+        };
+
+        let closure = move || {
+            for a in actions {
+                let _ = bind_tx.send(BindDirective::Action(a));
+            }
+        };
+        *slot = Some(Box::new(closure));
+        Some(idx as u8)
+    }
+
+    pub fn take_actions(&mut self, id: u8) -> Option<Box<dyn FnOnce() + Send + Sync>> {
+        self.async_actions
+            .get_mut(id as usize)
+            .and_then(|x| x.take())
     }
 
     // ------- updates --------------

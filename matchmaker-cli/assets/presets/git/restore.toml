@@ -63,7 +63,7 @@ if ((MM_INDEX == 1)); then
   printf "%${COLUMNS}s\n" | tr ' ' '-'
   git -c color.ui=always stash show -p {1} -- {$0}
 else
-  git diff --color=always --exit-code -- {1} -- {$0} && echo "no change"
+  git diff --color=always --exit-code {1} -- {$0} && echo "no change"
 fi
 '''
 

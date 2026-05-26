@@ -448,6 +448,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
 
     // execute handlers
     mm.register_execute_handler(cli_formatter.clone());
+    mm._register_execute_async_handler(cli_formatter.clone());
     mm._register_become_handler(cli_formatter.clone());
 
     // reload handler

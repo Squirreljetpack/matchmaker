@@ -13,7 +13,7 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
     /// - not intended for direct use.
     /// - Assumes preview and cmd formatter are the same.
     pub fn register_execute_handler(&mut self, formatter: AttachmentFormatter<T, S>) {
-        let _formatter = formatter.clone();
+        let formatter_ = formatter.clone();
         self.register_interrupt_handler(Interrupt::Execute, move |state| {
             let discriminant = state.discriminant_payload.take();
             let template = state.payload();
@@ -73,17 +73,18 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
                 }
             };
         });
+
         self.register_interrupt_handler(Interrupt::ExecuteSilent, move |state| {
             let template = state.payload().clone();
             if !template.is_empty() {
-                let cmd = use_formatter(&_formatter, state, &template, None);
+                let cmd = use_formatter(&formatter_, state, &template, None);
                 if cmd.is_empty() {
                     return;
                 }
                 let mut vars = state.make_env_vars();
 
                 let preview_template = state.preview_payload().clone();
-                let preview_cmd = use_formatter(&_formatter, state, &preview_template, None);
+                let preview_cmd = use_formatter(&formatter_, state, &preview_template, None);
                 let extra = env_vars!(
                     "MM_PREVIEW_COMMAND" => preview_cmd,
                 );

@@ -10,7 +10,7 @@ split = '\s+'
 names = ["ip", "hostname", "user", "os", "status"]
 
 [envs]
-TAILSCALE_BE_CLI="1"
+TAILSCALE_BE_CLI = "1"
 
 # --- Preview ---
 [preview]
@@ -30,8 +30,6 @@ content = ["ip", "hostname", "user", "os", "status"]
 
 [query]
 prompt = "tailscale> "
-prompt_style.fg = "Blue"
-prompt_style.modifier = "ITALIC"
 
 [binds]
 "ctrl-n" = "@netcheck"

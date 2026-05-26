@@ -7,7 +7,7 @@ max = 120
 [ui]
 
 [query]
-prompt_style.fg = "Blue"
+prompt_style.fg = "Gray"
 prompt_style.modifier = "ITALIC"
 
 [results]

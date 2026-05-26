@@ -3,7 +3,7 @@ source = 'base.toml'
 
 [start.command]
 command = '''
-git status --ignore-submodules=dirty -sz |
+git status --no-rename --ignore-submodules=dirty -sz |
 while IFS= read -r -d '' entry; do
   st_staged="${entry:0:1}"
   st_worktree="${entry:1:1}"
@@ -50,7 +50,7 @@ always_trigger = false
 
 [[preview.layout]]
 command = '''
-git diff --color=always --exit-code {1} && if [ -e {1} ]; then $PAGER {1}; else git show HEAD:{1}; fi
+git diff --color=always --exit-code -- {1} && if [ -e {1} ]; then $PAGER {1}; else git show HEAD:{1}; fi
 '''
 border = { type = "LightDoubleDashed", color = "DarkGray" }
 side = "top"
@@ -60,7 +60,7 @@ padding = 0
 
 [[preview.layout]]
 command = '''
-git diff --cached --color=always --exit-code {1} && echo "no staged changes"
+git diff --cached --color=always --exit-code -- {1} && echo "no staged changes"
 '''
 border = { type = "LightDoubleDashed", color = "DarkGray" }
 side = "top"
@@ -116,22 +116,29 @@ git mv "$1" "$new_name"
 "@stage" = '''
 ExecuteAsync(
 set -e
-set -- {+1}
+
+if [[ "$MM_TOTAL_COUNT" != "$MM_SELECT_COUNT" ]]; then
+  set -- {+1}
+else
+  set -- .
+fi
+
+f={1}
 ac=true
 ad=true
 
-for f; do
-  if [ -n "$(git ls-files --others --exclude-standard -- "$f")" ]; then
-      ac=false
-  elif git diff --quiet -- "$f"; then
-      ad=false
-  else
-      ac=false
-  fi
-done
+# stage if cursor is not fully staged
+if [ -n "$(git ls-files --others --exclude-standard -- "$f")" ]; then
+    ac=false
+elif git diff --quiet -- "$f"; then
+    ad=false
+else
+    ac=false
+fi
 
-$ac || $ad
-if $ad; then git add -- "$@"; else git reset -q -- "$@"; fi
+if $ac; then git reset -q -- "$@"; else git add -- "$@"; fi
+# git update-index --refresh
+git status -s >> log
 )
 '''
 
@@ -146,10 +153,10 @@ else
 fi
 
 ac=true
-ad=true
 
+# only stage if every selected is fully unstaged
 for f; do
-  git diff --cached --quiet -- "$f" && ad=false || ac=false
+  git diff --cached --quiet -- "$f" || { ac=false; break; }
 done
 
 if $ac; then

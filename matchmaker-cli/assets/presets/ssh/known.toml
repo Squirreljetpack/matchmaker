@@ -30,8 +30,6 @@ content = ["host", "type", "key"]
 
 [query]
 prompt = "known> "
-prompt_style.fg = "Blue"
-prompt_style.modifier = "ITALIC"
 
 [binds]
 "@open" = "Execute(ssh -vT {host} 2>&1)"

@@ -1100,13 +1100,10 @@ fn render_display(frame: &mut Frame, area: Rect, ui: &mut DisplayUI, results_ui:
     if !ui.show {
         return;
     }
-    let mut widths = results_ui.widths().to_vec();
-    widths
-        .get_mut(0)
-        .map(|w| *w += results_ui.indentation() as u16);
+    let widths = results_ui.widths().to_vec();
 
     let widget = ui.make_display(
-        results_ui.indentation() as u16,
+        results_ui.indentation() as u16 + results_ui.config.border.left(),
         widths,
         results_ui.config.column_spacing.0,
     );

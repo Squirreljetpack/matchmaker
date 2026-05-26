@@ -25,6 +25,9 @@ default = 9
 [preview]
 show = false
 
+[results]
+min_wrap_width = 10
+
 [[preview.layout]]
 # Tree view
 command = '''

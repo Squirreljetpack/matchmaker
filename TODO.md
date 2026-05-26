@@ -13,8 +13,6 @@
   - false: nothing
   - config.clear_on_exit: None -> true
 
-
-
 - MM_PREVIEW_COMMAND should reflect RunPreview in a consistent way: simply checking help_payload first should work, but should we leave an escape hatch (i think not?).
 
 - Document:

@@ -953,6 +953,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 h(&mut dispatcher, &e)
             }
         }
+        state.reset();
 
         // ------------------------------
         // send events into controller

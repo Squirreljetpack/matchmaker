@@ -46,6 +46,9 @@ For example, the `Preview(bat {})` command generates a `PreviewChange` event, an
 
 For more specific requirements, the set of actions can be extended with a type implementing `ActionExt`, on which a handler with mutable access to the UI state can be registered. Additionally, [`PickOptions`](./src/matchmaker.rs#L417) also supports registering an [`ext_aliaser`](./src/matchmaker.rs#L481-L484) which can be used transform actions before they are processed.
 
+> [!NOTE]
+> Event is a bitflag but each event handler is called for each event it listens to
+
 ### State
 
 All of the customizable handlers take a `MMState`, which contains data and mutable access to the picker, such as the input text, header text, the matcher worker, and all UI configuration options.

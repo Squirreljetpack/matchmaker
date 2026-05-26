@@ -843,7 +843,13 @@ pub fn make_previewer<T: SSS, S: Selection + 'static>(
     let formatter_clone = formatter.clone();
 
     // preview handler
+    // important that PreviewSet events don't accidentally trigger this!
     mm.register_event_handler(Event::CursorChange | Event::PreviewChange | Event::Synced, move |state, _| {
+            // don't clobber previewset events
+            if state.contains(Event::PreviewSet) {
+                // code logic-wise, recieve PreviewSet::None semantically => will recieve PreviewMessage::Unset => we should skip anyways (events is immutable), altho semantically such a state should actually trigger a new preview tho it would be niche
+                return;
+            }
             if state.preview_visible() &&
             let m = state.preview_payload().clone()
             {
@@ -886,7 +892,6 @@ pub fn make_previewer<T: SSS, S: Selection + 'static>(
     mm.register_event_handler(Event::PreviewSet, move |state, _event| {
         if state.preview_visible() {
             let payload = state.preview_set_payload();
-            log::trace!("Recieved PreviewSet: {payload:?}");
             let msg = match payload {
                 Some(Err(m)) => {
                     let m = if is_empty(&m) && !help_str.lines.is_empty() {

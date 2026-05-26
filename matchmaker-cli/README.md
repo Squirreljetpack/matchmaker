@@ -13,7 +13,8 @@ It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and
 - A minimal yet powerful [syntax](./matchmaker-cli/assets/docs/options.md) for overriding the configuration on the command line.
 - Interactive preview supports color, scrolling, wrapping, multiple layouts, and even maximizing.
 - Most of the familiar actions from [fzf](https://github.com/junegunn/fzf), as well as several new ones[^12].
-- Mouse (location aware) scrolling! Horizontal scrolling! Grapheme-aware input wrapping!
+- Mouse (location aware) scrolling! Drag to resize! Horizontal scrolling!
+- Grapheme-width correct input wrapping!
 - Nice text wrapping and width sizing.
 - Split input lines into multiple columns, that you can individually filter on (`%col query`[^17]), hide, and highlight.[^14]
 - Split input lines by *regex capture groups*.
@@ -89,6 +90,7 @@ wrap = true
 header_lines = 3 # sticky the top 3 lines
 
 # Full specification of (the default values of) a single layout. Multiple layouts can be specified.
+# Previews can also be adjusted on the fly (by dragging).
 [[preview.layout]]
 command = ""
 side = "right"

@@ -1,3 +1,13 @@
+## [0.0.34] - 2026-05-26
+
+### 🚀 Features
+
+- Defaults for PAGER and EDITOR
+
+### 🐛 Bug Fixes
+
+- Bugfixes and improvements
+
 ## [0.0.33] - 2026-05-25
 
 ### 🚀 Features

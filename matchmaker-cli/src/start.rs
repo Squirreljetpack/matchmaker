@@ -162,6 +162,8 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
     // check binds
     config.binds = BindMap::default_binds().modify(|x| x.extend(config.binds));
     config.binds.check_cycles().map_err(anyhow::Error::msg)?;
+    config.binds.retain(|_, actions|
+              !actions.is_empty());
     config.binds.resolve_semantics();
 
     for actions in config.binds.values() {

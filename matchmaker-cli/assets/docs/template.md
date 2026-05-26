@@ -1,8 +1,10 @@
-# Matchmaker Templating Rules
+# Templating Rules
 
 Matchmaker uses a template system for formatting output and executing commands.
 Templates use `{}` placeholders with various modifiers to inject item data.
-It's important note that only valid keys are replaced -- invalid keys are left alone. If you need it, you can also escape `{`.
+
+>[!NOTE]
+> Only valid keys are replaced, invalid keys are left alone. If you need it, you can also escape `{` like `\{`.
 
 ## Modifiers
 
@@ -17,7 +19,7 @@ It's important note that only valid keys are replaced -- invalid keys are left a
 
 ## Column Specifics
 
-You can specify a column by its name.
+You can specify a column by its name or by its index (starting from 1).
 
 Note that the default column names (when `columns.names` is unspecified) are `1` … `columns.max`.
 

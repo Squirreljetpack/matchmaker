@@ -51,7 +51,7 @@ curl -fsSL https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/ins
 ```
 
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/install.ps1 -useb | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/Squirreljetpack/matchmaker/releases/latest/download/matchmaker-cli-installer.ps1 | iex"
 ```
 
 ##### Homebrew

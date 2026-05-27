@@ -2,7 +2,7 @@
 
 # Matchmaker [![Crates.io](https://img.shields.io/crates/v/matchmaker-cli)](https://crates.io/crates/matchmaker-cli) [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://github.com/squirreljetpack/matchmaker/blob/main/matchmaker-cli/LICENSE)
 
-Matchmaker is fast, configurable and intuitive fuzzy searcher.
+Matchmaker is fast, configurable and intuitive fuzzy searcher. It is useful for browsing and building [workflows](#presets) around any list or kind of data you can wrangle into a tabular format.
 
 It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and design, but reimagines the user experience. Built from the ground up in Rust, it brings a fully robust, modern and elegant search experience to the console.
 
@@ -69,7 +69,7 @@ yay -S matchmaker-bin
 ##### npm
 
 ```sh
-npm install Squirreljetpack/matchmaker
+npm install -g @squirreljetpack/matchmaker
 ```
 
 ##### Cargo
@@ -131,9 +131,12 @@ mm p.l "cmd=echo {}|||p=50|||max=20" cmd "ls" o "{=}"
 # 1. Start mm with the following overrides:
 # 2. List the contents of the current directory by executing `ls`
 # 3. Show the current item name in the preview pane
-# 4. Set a preferred percentage of 50 for the preview pane, but a column width of 20
+# 4. Set a preferred percentage of 50 and a max width of 20 for the preview pane
 # 5. Output the result without single quotes
 ```
+
+For quick reference, `mm --doc` provides fairly readable and comprehensive guides to various topics. The rendered markdown is also available [here](./matchmaker-cli/assets/docs/options.md).
+
 
 [^1]: Note that the flatten attribute on the render field means that the subfields of RenderConfig should be specified at the top level of the toml (i.e. your toml should specify `[results]` instead of `[render.results]`).
 
@@ -150,14 +153,6 @@ The list of currently supported actions can be found [here](./matchmaker-lib/src
 To get the names of keys, type `mm --test-keys`.
 
 In addition to keys, actions can also be bound to Events and Crossterm events (check your default config for details).
-
-## CLI
-
-See [here](./matchmaker-cli/assets/docs/options.md) for the command-line syntax.
-
-For quick reference, `mm --doc` provides fairly readable and comprehensive guides to various topics.
-
-Matchmaker aims to achieve feature-parity with fzf (though not necessarily by the same means). If there's any specific feature that you'd like to see, open an issue!
 
 ## Examples
 
@@ -185,10 +180,10 @@ mm --config ~/.config/matchmaker/presets/rg.toml
 Matchmaker is really good for creating workflows. It's like a swiss army knife for building and sharing great TUIs -- check out the [collection](https://github.com/Squirreljetpack/matchmaker/tree/main/matchmaker-cli/assets/presets)![^50]
 
 ```shell
-# download a preset
+# download a preset (collection)
 mm --download=git
 
-# invoke a preset
+# invoke a preset (browse/restore by ref)
 mm -o git/restore
 
 # You can also run the first example this way:
@@ -276,6 +271,8 @@ mm m.sort=0 ui.b.type=Plain tui.p=45 \
 r.r= r.w=false r.a.e= r.a.c=0 \
 b.Shift-BackTab=Up b.BackTab=Up b.Tab=Down
 ```
+
+Matchmaker aims to achieve feature-parity with fzf (though not necessarily by the same means). If there's any specific feature that you'd like to see, open an issue!
 
 [^51]: More on comparisons: https://github.com/Squirreljetpack/matchmaker/issues/1
 

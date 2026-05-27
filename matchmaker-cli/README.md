@@ -57,7 +57,7 @@ powershell -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.c
 ##### Homebrew
 
 ```sh
-brew install Squirreljetpack/tap/matchmaker
+brew install Squirreljetpack/tap/matchmaker-cli
 ```
 
 ##### AUR

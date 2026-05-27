@@ -75,7 +75,7 @@ npm install Squirreljetpack/matchmaker
 ##### Cargo
 
 ```sh
-# requires cargo and does not come with certain features patched into dependencies: better to build from source
+# requires cargo and does not come with certain features patched into dependencies, better to build from source.
 cargo install matchmaker-cli
 ```
 

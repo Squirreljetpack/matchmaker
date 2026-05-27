@@ -4,7 +4,7 @@ $ErrorActionPreference = "Stop"
 # Configuration
 $Repo = "Squirreljetpack/matchmaker"
 $BinaryName = "mm.exe"
-$AssetFileName = "matchmaker-windows.zip"
+$AssetFileName = "matchmaker-cli-x86_64-pc-windows-msvc.zip"
 
 # 1. Determine Install Directory Priority
 $CargoBin = Join-Path $Home ".cargo\bin"

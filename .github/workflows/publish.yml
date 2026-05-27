@@ -1,0 +1,78 @@
+name: Publish
+
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types:
+      - completed
+
+permissions:
+  contents: write
+
+jobs:
+#  build:
+#    name: Build for ${{ matrix.os }}
+#    runs-on: ${{ matrix.os }}
+#
+#    strategy:
+#      matrix:
+#        include:
+#          - os: ubuntu-latest
+#            artifact_name: mm
+#            asset_name: matchmaker-linux.tar.gz
+#
+#          - os: macos-latest
+#            artifact_name: mm
+#            asset_name: matchmaker-mac.tar.gz
+#
+#          - os: windows-latest
+#            artifact_name: mm.exe
+#            asset_name: matchmaker-windows.zip
+#
+#    steps:
+#      - uses: actions/checkout@v4
+#
+#      - uses: dtolnay/rust-toolchain@stable
+#
+#      - name: Build Release
+#        run: cargo build --release -F experimental
+#
+#      - name: Archive Binary (Unix)
+#        if: matrix.os != 'windows-latest'
+#        run: |
+#          tar -czf ${{ matrix.asset_name }} target/release/${{ matrix.artifact_name }}
+#
+#      - name: Archive Binary (Windows)
+#        if: matrix.os == 'windows-latest'
+#        shell: pwsh
+#        run: |
+#          Compress-Archive `
+#            -Path target/release/${{ matrix.artifact_name }} `
+#            -DestinationPath ./${{ matrix.asset_name }}
+#
+#      - uses: softprops/action-gh-release@v2
+#        with:
+#          files: ${{ matrix.asset_name }}
+
+  publish:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Fetch tags
+        run: git fetch --tags
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: cargo-bins/cargo-binstall@main
+      - run: cargo binstall --no-confirm cargo-workspaces
+
+      - name: Publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_API_KEY }}
+          SKIP_COMPLETIONS: "true"
+        run: cargo workspaces publish --from-git
+

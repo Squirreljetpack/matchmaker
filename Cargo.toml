@@ -13,6 +13,11 @@ matchmaker-partial = { path = "./matchmaker-partial" }
 matchmaker-partial-macros = { path = "./matchmaker-partial-macros" }
 nucleo = { git = "https://github.com/Squirreljetpack/nucleo", branch = "mm" }
 
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
+
 [workspace.dependencies]
 cli_boilerplate_automation = { version = "0.*" }
 matchmaker-lib = { version = "0.0.*" }

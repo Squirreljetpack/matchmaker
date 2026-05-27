@@ -157,7 +157,9 @@ impl ResultsUI {
     //         Some(self.cursor)
     //     }
     // }
-    pub fn cursor_prev(&mut self) {
+
+    /// Returns whether scroll wrap caused it to jump to the end
+    pub fn cursor_prev(&mut self) -> bool {
         self.reset_current_scroll();
 
         // log::trace!("cursor_prev: {self:?}");
@@ -173,9 +175,13 @@ impl ResultsUI {
                 self.bottom
             );
             self.cursor_jump(self.end());
+            return true;
         }
+        false
     }
-    pub fn cursor_next(&mut self) {
+
+    /// Returns whether scroll wrap caused it to jump to start
+    pub fn cursor_next(&mut self) -> bool {
         self.reset_current_scroll();
 
         if self.cursor_disabled {
@@ -195,8 +201,10 @@ impl ResultsUI {
         } else if self.index() < self.end() {
             self.cursor += 1;
         } else if self.config.scroll_wrap {
-            self.cursor_jump(0)
+            self.cursor_jump(0);
+            return true;
         }
+        false
     }
 
     pub fn cursor_jump(&mut self, index: u32) {

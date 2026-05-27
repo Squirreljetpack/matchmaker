@@ -18,6 +18,7 @@
   - api
 
 - execute: try read from preview_set_payload first
+- sort by column
 
 # Previewer
 

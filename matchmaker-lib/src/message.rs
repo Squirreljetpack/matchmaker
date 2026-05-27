@@ -16,9 +16,11 @@ bitflags! {
         const Start        = 1 << 0;
 
         /// Input/query update
-        const QueryChange  = 1 << 2;
+        const QueryChange  = 1 << 1;
         /// Cursor movement
-        const CursorChange = 1 << 3;
+        const CursorChange = 1 << 2;
+        /// Cursor disabled or no results
+        const CursorLost = 1 << 3;
 
         /// Preview update
         const PreviewChange = 1 << 4;
@@ -45,8 +47,8 @@ bitflags! {
         /// Reload interrupt
         const Reloaded = 1 << 13;
 
-        /// Cursor disabled or no results
-        const CursorLost = 1 << 14;
+
+
     }
 }
 // ---------------------------------------------------------------------

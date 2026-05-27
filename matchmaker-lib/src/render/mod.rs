@@ -92,8 +92,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         if state.iterations == 0 {
             log::debug!("Render loop started");
         }
-        let (mut did_pause, mut did_reload, mut did_exit, mut did_resize) =
-            (false, false, None, false);
+        let (mut did_pause, mut did_reload, mut did_exit, mut did_resize, mut did_cursor_wrap) =
+            (false, false, None, false, false);
 
         if let Some(aliaser) = &mut ext_aliaser {
             apply_aliases(
@@ -296,11 +296,11 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             } else {
                                 let next = matches!(mouse.kind, MouseEventKind::ScrollDown)
                                     ^ picker_ui.results.reverse();
-                                if next {
+                                did_cursor_wrap = if next {
                                     picker_ui.results.cursor_next()
                                 } else {
                                     picker_ui.results.cursor_prev()
-                                }
+                                };
                             }
                         }
                         MouseEventKind::ScrollLeft | MouseEventKind::ScrollRight => {
@@ -434,11 +434,11 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         Action::Up(x) | Action::Down(x) => {
                             let next = matches!(action, Action::Down(_)) ^ results.reverse();
                             for _ in 0..x.into() {
-                                if next {
-                                    results.cursor_next();
+                                did_cursor_wrap = if next {
+                                    results.cursor_next()
                                 } else {
-                                    results.cursor_prev();
-                                }
+                                    results.cursor_prev()
+                                };
                             }
                         }
                         Action::Pos(pos) => {
@@ -474,11 +474,11 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             let x = (results.height() + 1) / 2;
                             let next = matches!(action, Action::HalfPageDown) ^ results.reverse();
                             for _ in 0..x.into() {
-                                if next {
-                                    results.cursor_next();
+                                did_cursor_wrap = if next {
+                                    results.cursor_next()
                                 } else {
-                                    results.cursor_prev();
-                                }
+                                    results.cursor_prev()
+                                };
                             }
                         }
 
@@ -823,6 +823,10 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         } else {
             // nothing
         }
+        if did_cursor_wrap {
+            log::trace!("cursor wrapped"); // todo: event handler?
+        }
+
         // process exit conditions
         if exit_config.select_1
             && picker_ui.results.status.matched_count == 1

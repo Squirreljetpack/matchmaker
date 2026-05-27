@@ -1,15 +1,15 @@
 [package]
-    name        = "matchmaker-cli"
-    version     = "0.0.37"
-    categories  = [ "command-line-utilities" ]
-    edition     = "2024"
-    keywords    = [ "fuzzy", "finder", "tui", "nucleo", "fzf" ]
-    license     = "MIT"
-    repository  = "https://github.com/Squirreljetpack/matchmaker"
-    description = "Command-line interface for the matchmaker fuzzy finder"
-    exclude = ["assets/completions", "assets/presets"]
-    homepage = "https://github.com/Squirreljetpack/matchmaker"
-    authors = ["Squirreljetpack"]
+name = "matchmaker-cli"
+version = "0.0.37"
+authors = ["Squirreljetpack"]
+categories = ["command-line-utilities"]
+edition = "2024"
+exclude = ["assets/completions", "assets/presets"]
+homepage = "https://github.com/Squirreljetpack/matchmaker"
+keywords = ["fuzzy", "finder", "tui", "nucleo", "fzf"]
+license = "MIT"
+repository = "https://github.com/Squirreljetpack/matchmaker"
+description = "Command-line interface for the matchmaker fuzzy finder"
 
 [package.metadata.dist]
 dist = true
@@ -26,45 +26,45 @@ license = false
 eula = false
 
 [dependencies]
-    cli_boilerplate_automation = { workspace = true, features = [ "serde", "bring" ] }
-    matchmaker-lib             = { workspace = true, features = [ "partial" ] }
-    matchmaker-partial         = { workspace = true }
-    matchmaker-partial-macros  = { workspace = true }
+cli_boilerplate_automation = { workspace = true, features = ["serde", "bring"] }
+matchmaker-lib = { workspace = true, features = ["partial"] }
+matchmaker-partial = { workspace = true }
+matchmaker-partial-macros = { workspace = true }
 
-    ansi-to-tui = "8.0.0"
-    anyhow      = "1.0"
-    atty        = "0.2.14"
-    clap        = { version = "4.5.51", features = [ "derive" ] }
-    crokey      = "1.3.0"
-    dirs        = "6.0.0"
-    env_logger  = "0.11.8"
-    log         = "0.4"
-    mimalloc    = { version = "0.1.48", features = [ "v3" ] }
-    regex       = "1"
-    serde       = "1.0"
-    termimad    = "0.34.1"
-    thiserror   = "2.0"
-    tokio       = { version = "1", features = [ "full" ] }
-    toml        = "0.9.8"
-    which       = "7.0.1"
-    easy-ext    = "1.0.3"
+ansi-to-tui = "8.0.0"
+anyhow = "1.0"
+atty = "0.2.14"
+clap = { version = "4.5.51", features = ["derive"] }
+crokey = "1.3.0"
+dirs = "6.0.0"
+easy-ext = "1.0.3"
+env_logger = "0.11.8"
+log = "0.4"
+mimalloc = { version = "0.1.48", features = ["v3"] }
+regex = "1"
+serde = "1.0"
+termimad = "0.34.1"
+thiserror = "2.0"
+tokio = { version = "1", features = ["full"] }
+toml = "0.9.8"
+which = "7.0.1"
 
 [build-dependencies]
-    clap          = { version = "4.0", features = [ "derive" ] }
-    clap_complete = "4.5"
-    strum         = { version = "0.27.2", features = [ "strum_macros" ] }
-    strum_macros  = "0.27.2"
-    thiserror     = "2.0.17"
+clap = { version = "4.0", features = ["derive"] }
+clap_complete = "4.5"
+strum = { version = "0.27.2", features = ["strum_macros"] }
+strum_macros = "0.27.2"
+thiserror = "2.0.17"
 
 [[bin]]
-    name = "mm"
-    path = "src/main.rs"
+name = "mm"
+path = "src/main.rs"
 
 [lints]
-    workspace = true
+workspace = true
 
 [features]
-    experimental = [
-        "matchmaker-lib/experimental",
-        # "log/max_level_debug"
-    ]
+experimental = [
+  "matchmaker-lib/experimental",
+  # "log/max_level_debug"
+]

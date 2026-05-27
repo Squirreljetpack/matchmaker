@@ -527,7 +527,6 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         }
 
                         // Preview
-                        // this sometimes aborts the viewer on some files, why?
                         Action::CyclePreview => {
                             if let Some(p) = preview_ui.as_mut() {
                                 p.cycle_layout();
@@ -588,10 +587,6 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         Action::Execute(payload) => {
                             state.set_interrupt(Interrupt::Execute, payload);
                         }
-                        // Action::Execute2(payload) => {
-                        //     did_exit = Some(false);
-                        //     state.set_interrupt(Interrupt::Execute, payload);
-                        // }
                         Action::ExecuteAsync(ref payload) | Action::ExecuteThen(ref payload) => {
                             let is_async = matches!(action, Action::ExecuteAsync(_));
                             let payload = payload.clone();

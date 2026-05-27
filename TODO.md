@@ -19,6 +19,9 @@
 
 - execute: try read from preview_set_payload first
 - sort by column
+- toast action:
+  - toast config:
+    - trigger on cycle
 
 # Previewer
 

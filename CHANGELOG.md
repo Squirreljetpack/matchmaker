@@ -1,3 +1,17 @@
+## [0.0.38] - 2026-05-27
+
+### 🐛 Bug Fixes
+
+- Rendering bug
+
+### 💼 Other
+
+- cursor_next/prev now returns whether they caused a wraparound
+
+### ⚙️ Miscellaneous Tasks
+
+- Update release
+
 ## [0.0.37] - 2026-05-27
 
 ### ⚙️ Miscellaneous Tasks

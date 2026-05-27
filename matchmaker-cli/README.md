@@ -1,3 +1,5 @@
+<a href="https://repology.org/project/matchmaker-cli/versions"><img align="right" src="https://repology.org/badge/vertical-allrepos/matchmaker-cli.svg?exclude_unsupported=1" alt="Packaging status"></a>
+
 # Matchmaker [![Crates.io](https://img.shields.io/crates/v/matchmaker-cli)](https://crates.io/crates/matchmaker-cli) [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://github.com/squirreljetpack/matchmaker/blob/main/matchmaker-cli/LICENSE)
 
 Matchmaker is fast, configurable and intuitive fuzzy searcher.
@@ -45,19 +47,33 @@ On the way:
 ## Installation
 
 ```sh
-# requires cargo
-cargo install matchmaker-cli
-```
-
-Or grab it from the releases page with extra features:
-
-```sh
 curl -fsSL https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/install.sh | sh
 ```
 
 ```powershell
 powershell -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/install.ps1 -useb | iex"
 ```
+
+##### Homebrew
+
+```sh
+brew install Squirreljetpack/tap/matchmaker
+```
+
+##### AUR
+
+```sh
+yay -S matchmaker-bin
+```
+
+##### Cargo
+
+```sh
+# requires cargo and does not come with certain features patched into dependencies: better to build from source
+cargo install matchmaker-cli
+```
+
+---
 
 Pass it some items:
 

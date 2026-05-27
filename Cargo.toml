@@ -26,3 +26,8 @@ matchmaker-partial-macros = { version = "0.0.*", default-features = false }
 
 [workspace.lints.clippy]
 single_match = "allow"
+# 
+# [profile.release]
+# opt-level = 0
+# incremental = true
+# codegen-units = 256

@@ -87,10 +87,11 @@ pub fn prefix_span<'a, 'b: 'a>(
 
 /// Clip text to a given number of lines.
 /// reverse: take from the end
-pub fn clip_text_lines<'a, 'b: 'a>(original: &'a mut Text<'b>, max_lines: u16, reverse: bool) {
+pub fn clip_text_lines<'a, 'b: 'a>(original: &'a mut Text<'b>, max_lines: u16, from_end: bool) {
+    log::trace!("Clipping: {original:?}, {max_lines}, {from_end}");
     let max = max_lines as usize;
 
-    let new_lines: Vec<Line> = if reverse {
+    let new_lines: Vec<Line> = if from_end {
         // take the last `max` lines
         original
             .lines

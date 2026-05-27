@@ -167,6 +167,11 @@ impl ResultsUI {
         } else if self.cursor > 0 {
             self.cursor -= 1;
         } else if self.config.scroll_wrap {
+            log::trace!(
+                "Cursor prev caused jump: above: {} bottom: {}",
+                self.cursor_above,
+                self.bottom
+            );
             self.cursor_jump(self.end());
         }
     }
@@ -333,9 +338,9 @@ impl ResultsUI {
     ) -> Table<'a> {
         let offset = self.bottom as u32;
         let end = self.bottom + self.height as u32;
-        let hz = !self.config.stacked_columns;
+        let as_cols = !self.config.stacked_columns;
 
-        let width_limits = if hz {
+        let width_limits = if as_cols {
             self.max_widths()
         } else {
             let default = self.width.saturating_sub(self.indentation() as u16);
@@ -367,7 +372,7 @@ impl ResultsUI {
                 } else {
                     self.vscroll
                 },
-                !hz,
+                !as_cols,
             ),
             self.config.show_skipped,
         );
@@ -410,7 +415,7 @@ impl ResultsUI {
 
         let height_of = |t: &(Vec<ratatui::text::Text<'a>>, _)| {
             self._hr()
-                + if hz {
+                + if as_cols {
                     t.0.iter()
                         .map(|t| t.height() as u16)
                         .max()
@@ -418,6 +423,51 @@ impl ResultsUI {
                 } else {
                     t.0.iter().map(|t| t.height() as u16).sum::<u16>()
                 }
+        };
+
+        let style_text = |mut t: ratatui::text::Text<'a>, x: usize, is_current_row: bool| {
+            let is_active_col = active_column == x;
+            match self.config.row_connection {
+                RowConnectionStyle::Disjoint => {
+                    if is_active_col {
+                        t = t.style(if is_current_row {
+                            self.config.current_style
+                        } else {
+                            self.config.style
+                        });
+                    } else {
+                        t = t.style(if is_current_row {
+                            self.config.inactive_current_style
+                        } else {
+                            self.config.inactive_style
+                        });
+                    }
+                }
+                RowConnectionStyle::Capped => {
+                    if is_active_col {
+                        t = t.style(if is_current_row {
+                            self.config.current_style
+                        } else {
+                            self.config.style
+                        });
+                    }
+                }
+                RowConnectionStyle::Full => {}
+            }
+            t
+        };
+
+        let style_row = |mut row: Row<'a>, is_current: bool| {
+            if is_current {
+                match self.config.row_connection {
+                    RowConnectionStyle::Capped => {
+                        row = row.style(self.config.inactive_current_style)
+                    }
+                    RowConnectionStyle::Full => row = row.style(self.config.current_style),
+                    _ => {}
+                }
+            }
+            row
         };
 
         // log::trace!("results initial: {}, {}, {}, {}, {}", self.bottom, self.cursor, total_height, self.height, results.len());
@@ -440,7 +490,7 @@ impl ResultsUI {
 
         // begin adjustment
         let mut start_index = 0; // the index in results of the first complete item
-        let is_current_row = self.is_current(0);
+        let is_current_row = false;
         if h_at_cursor >= cursor_end_should_lte {
             start_index = self.cursor;
             self.bottom += self.cursor as u32;
@@ -471,22 +521,14 @@ impl ResultsUI {
                     total_height += remaining_height;
 
                     // log::debug!("r: {remaining_height}");
-                    if hz {
-                        if h - self._hr() < remaining_height {
+                    if as_cols {
+                        if remaining_height < h - self._hr() {
                             for (_, t) in
                                 row.iter_mut().enumerate().filter(|(i, _)| widths[*i] != 0)
                             {
                                 clip_text_lines(t, remaining_height, !self.reverse());
                             }
                         }
-
-                        prefix_span(
-                            &mut row[0],
-                            prefix,
-                            self.config.prefix_style,
-                            self.config.prefix_inactive_style,
-                            is_current_row,
-                        );
 
                         let last_visible = widths
                             .iter()
@@ -498,6 +540,20 @@ impl ResultsUI {
                             .iter()
                             .take(last_visible.map(|x| x + 1).unwrap_or(0))
                             .cloned()
+                            .enumerate()
+                            .map(|(x, mut t)| {
+                                t = style_text(t, x, is_current_row);
+                                if x == 0 {
+                                    prefix_span(
+                                        &mut t,
+                                        prefix.clone(),
+                                        self.config.prefix_style,
+                                        self.config.prefix_inactive_style,
+                                        is_current_row,
+                                    );
+                                }
+                                t
+                            })
                             .collect();
 
                         if self.config.right_align_last && row_texts.len() > 1 {
@@ -505,29 +561,32 @@ impl ResultsUI {
                         }
 
                         let row = Row::new(row_texts).height(remaining_height);
-                        rows.push(row);
+                        rows.push(style_row(row, is_current_row));
                     } else {
                         let mut push = vec![];
 
-                        for col in row.into_iter().rev() {
+                        for (x, col) in row.into_iter().enumerate().rev() {
+                            let mut col = col.clone();
                             let mut height = col.height() as u16;
                             if remaining_height == 0 {
                                 break;
                             } else if remaining_height < height {
-                                clip_text_lines(col, remaining_height, !self.reverse());
+                                clip_text_lines(&mut col, remaining_height, !self.reverse());
                                 height = remaining_height;
                             }
                             remaining_height -= height;
 
                             prefix_span(
-                                col,
+                                &mut col,
                                 prefix.clone(),
                                 self.config.prefix_style,
                                 self.config.prefix_inactive_style,
                                 is_current_row,
                             );
 
-                            push.push(Row::new(vec![col.clone()]).height(height));
+                            let col = style_text(col, x, is_current_row);
+                            let row = Row::new(vec![col]).height(height);
+                            push.push(style_row(row, is_current_row));
                         }
                         rows.extend(push.into_iter().rev());
                     }
@@ -558,20 +617,12 @@ impl ResultsUI {
 
             total_height += remaining_height;
 
-            if hz {
+            if as_cols {
                 if self._hr() + remaining_height != h {
                     for (_, t) in row.iter_mut().enumerate().filter(|(i, _)| widths[*i] != 0) {
                         clip_text_lines(t, remaining_height, !self.reverse());
                     }
                 }
-
-                prefix_span(
-                    &mut row[0],
-                    prefix,
-                    self.config.prefix_style,
-                    self.config.prefix_inactive_style,
-                    is_current_row,
-                );
 
                 let last_visible = widths
                     .iter()
@@ -583,6 +634,20 @@ impl ResultsUI {
                     .iter()
                     .take(last_visible.map(|x| x + 1).unwrap_or(0))
                     .cloned()
+                    .enumerate()
+                    .map(|(x, mut t)| {
+                        t = style_text(t, x, is_current_row);
+                        if x == 0 {
+                            prefix_span(
+                                &mut t,
+                                prefix.clone(),
+                                self.config.prefix_style,
+                                self.config.prefix_inactive_style,
+                                is_current_row,
+                            );
+                        }
+                        t
+                    })
                     .collect();
 
                 if self.config.right_align_last && row_texts.len() > 1 {
@@ -590,29 +655,32 @@ impl ResultsUI {
                 }
 
                 let row = Row::new(row_texts).height(remaining_height);
-                rows.push(row);
+                rows.push(style_row(row, is_current_row));
             } else {
                 let mut push = vec![];
 
-                for col in row.into_iter().rev() {
+                for (x, col) in row.into_iter().enumerate().rev() {
+                    let mut col = col.clone();
                     let mut height = col.height() as u16;
                     if remaining_height == 0 {
                         break;
                     } else if remaining_height < height {
-                        clip_text_lines(col, remaining_height, !self.reverse());
+                        clip_text_lines(&mut col, remaining_height, !self.reverse());
                         height = remaining_height;
                     }
                     remaining_height -= height;
 
                     prefix_span(
-                        col,
+                        &mut col,
                         prefix.clone(),
                         self.config.prefix_style,
                         self.config.prefix_inactive_style,
                         is_current_row,
                     );
 
-                    push.push(Row::new(vec![col.clone()]).height(height));
+                    let col = style_text(col, x, is_current_row);
+                    let row = Row::new(vec![col]).height(height);
+                    push.push(style_row(row, is_current_row));
                 }
                 rows.extend(push.into_iter().rev());
             }
@@ -631,7 +699,6 @@ impl ResultsUI {
                 } else {
                     *c
                 };
-                log::debug!("{i} {c}");
                 if self.height - remaining_height > c {
                     let idx = self.bottom as u32 + i as u32 - 1;
                     log::debug!(
@@ -663,7 +730,7 @@ impl ResultsUI {
                 self.default_prefix(i)
             };
 
-            if hz {
+            if as_cols {
                 // scroll down
                 if self.is_current(i) && self.config.vscroll_current_only && self.vscroll > 0 {
                     for (x, t) in row.iter_mut().enumerate().filter(|(i, _)| widths[*i] != 0) {
@@ -708,40 +775,7 @@ impl ResultsUI {
                     // highlight
                     .enumerate()
                     .map(|(x, mut t)| {
-                        let is_active_col = active_column == x;
-                        let is_current_row = self.is_current(i);
-
-                        if is_current_row && is_active_col {
-                            // NOTE: hscroll is handled in worker.results -> render_cell
-                        }
-
-                        match self.config.row_connection {
-                            RowConnectionStyle::Disjoint => {
-                                if is_active_col {
-                                    t = t.style(if is_current_row {
-                                        self.config.current_style
-                                    } else {
-                                        self.config.style
-                                    });
-                                } else {
-                                    t = t.style(if is_current_row {
-                                        self.config.inactive_current_style
-                                    } else {
-                                        self.config.inactive_style
-                                    });
-                                }
-                            }
-                            RowConnectionStyle::Capped => {
-                                if is_active_col {
-                                    t = t.style(if is_current_row {
-                                        self.config.current_style
-                                    } else {
-                                        self.config.style
-                                    });
-                                }
-                            }
-                            RowConnectionStyle::Full => {}
-                        }
+                        t = style_text(t, x, self.is_current(i));
 
                         // prefix after hscroll
                         if x == 0 {
@@ -750,7 +784,7 @@ impl ResultsUI {
                                 prefix.clone(),
                                 self.config.prefix_style,
                                 self.config.prefix_inactive_style,
-                                is_current_row,
+                                self.is_current(i),
                             );
                         };
                         t
@@ -762,18 +796,7 @@ impl ResultsUI {
                 }
 
                 // push
-                let mut row = Row::new(row_texts).height(height);
-
-                if self.is_current(i) {
-                    match self.config.row_connection {
-                        RowConnectionStyle::Capped => {
-                            row = row.style(self.config.inactive_current_style)
-                        }
-                        RowConnectionStyle::Full => row = row.style(self.config.current_style),
-                        _ => {}
-                    }
-                }
-
+                let row = style_row(Row::new(row_texts).height(height), self.is_current(i));
                 rows.push(row);
             } else {
                 let mut push = vec![];
@@ -815,48 +838,9 @@ impl ResultsUI {
                         is_current_row,
                     );
 
-                    let is_active_col = active_column == x;
-
-                    match self.config.row_connection {
-                        RowConnectionStyle::Disjoint => {
-                            if is_active_col {
-                                col = col.style(if is_current_row {
-                                    self.config.current_style
-                                } else {
-                                    self.config.style
-                                });
-                            } else {
-                                col = col.style(if is_current_row {
-                                    self.config.inactive_current_style
-                                } else {
-                                    self.config.inactive_style
-                                });
-                            }
-                        }
-                        RowConnectionStyle::Capped => {
-                            if is_active_col {
-                                col = col.style(if is_current_row {
-                                    self.config.current_style
-                                } else {
-                                    self.config.style
-                                });
-                            }
-                        }
-                        RowConnectionStyle::Full => {}
-                    }
-
-                    // push
-                    let mut row = Row::new(vec![col]).height(height);
-                    if is_current_row {
-                        match self.config.row_connection {
-                            RowConnectionStyle::Capped => {
-                                row = row.style(self.config.inactive_current_style)
-                            }
-                            RowConnectionStyle::Full => row = row.style(self.config.current_style),
-                            _ => {}
-                        }
-                    }
-                    push.push(row);
+                    let col = style_text(col, x, is_current_row);
+                    let row = Row::new(vec![col]).height(height);
+                    push.push(style_row(row, is_current_row));
                 }
                 rows.extend(push);
             }
@@ -877,7 +861,7 @@ impl ResultsUI {
         }
 
         // ratatui column_spacing eats into the constraints
-        let table_widths = if hz {
+        let table_widths = if as_cols {
             // first 0 element after which all is 0
             let pos = widths.iter().rposition(|&x| x != 0);
             // column_spacing eats into the width
@@ -893,18 +877,6 @@ impl ResultsUI {
                 *w = if *w > 0 { v.max(1) } else { v }; // prevent column hiding
             }
 
-            if !self.config.wrap {
-                widths
-                    .iter_mut()
-                    .zip(width_limits.iter())
-                    .for_each(|(w, &limit)| {
-                        *w = (*w).min(limit);
-                    });
-            }
-
-            // set self.widths to "actual" width of each column
-            self.widths = widths.clone();
-
             let surplus = self.width.saturating_sub(widths.iter().sum());
 
             if surplus > 0 && matches!(self.config.row_connection, RowConnectionStyle::Full)
@@ -915,6 +887,19 @@ impl ResultsUI {
                     *s += surplus;
                 }
             }
+
+            let n = widths.len().saturating_sub(1);
+            if !self.config.wrap {
+                widths
+                    .iter_mut()
+                    .zip(width_limits.iter().take(n))
+                    .for_each(|(w, &limit)| {
+                        *w = (*w).min(limit);
+                    });
+            }
+
+            // save actual widths of each column
+            self.widths = widths.clone();
 
             widths
         } else {

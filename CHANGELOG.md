@@ -1,3 +1,13 @@
+## [0.0.36] - 2026-05-27
+
+### 🚀 Features
+
+- Update win config
+
+### ⚙️ Miscellaneous Tasks
+
+- Setup cargo dist
+
 ## [0.0.35] - 2026-05-26
 
 ### 🚀 Features

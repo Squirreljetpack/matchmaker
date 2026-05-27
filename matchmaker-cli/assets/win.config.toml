@@ -3,13 +3,21 @@ percentage = 60
 min = 10
 max = 120
 
+# --- UI ---
 [ui]
 
 [query]
+prompt_style.fg = "Gray"
+prompt_style.modifier = "ITALIC"
 
 [results]
 wrap = true
 
+[status]
+
+[header]
+[footer]
+# --- Preview ---
 [preview]
 show = true
 wrap = true
@@ -33,20 +41,19 @@ if (Test-Path -LiteralPath $p -PathType Container) {
     }
 }
 '''
+
 side = "right"
 percentage = 40
 min = 30
 max = 120
-
 border.type = "Plain"
 border.padding = [2, 0]
 
 [[preview.layout]]
 side = "top"
-percentage = 50
+percentage = 55
 min = 5
 max = 50
-
 border.type = "Plain"
 
 [[preview.layout]]
@@ -54,15 +61,41 @@ side = "right"
 percentage = 75
 min = 5
 max = 240
-
 border.type = "Plain"
 border.padding = [2, 0]
 
+[previewer]
+always_trigger = true
+
+# --- Misc ---
+[matcher]
+
+[columns]
+
+[start.command]
+command = '''
+if (Get-Command fd -ErrorAction SilentlyContinue) {
+    fd --strip-cwd-prefix
+} else {
+    Get-ChildItem -Recurse -File | ForEach-Object FullName
+}
+'''
+
+[exit]
+
+[envs]
+# CLIPcmd = # Leave blank to auto-determine
+# PASTEcmd = # Leave blank to auto-determine
+# PAGER = # Leave blank to auto-determine
+# EDITOR = # Leave blank to auto-determine
+
+# --- Binds ---
 [binds]
-# UI
+# Essential
 "ctrl-c" = "Quit"
 "esc" = "Quit"
-"enter" = "Accept"
+"enter" = "@accept"
+"ctrl-enter" = "@accept_2"
 "ctrl-a" = "CycleAll"
 "tab" = ["Toggle", "Down"]
 "shift-backtab" = ["Toggle", "Up"]
@@ -80,8 +113,8 @@ border.padding = [2, 0]
 # Navigation
 "up" = "Up"
 "down" = "Down"
-"pageup" = "HalfPageUp"
 "pagedown" = "HalfPageDown"
+"pageup" = "HalfPageUp"
 "shift-up" = "PreviewHalfPageUp"
 "shift-down" = "PreviewHalfPageDown"
 "ctrl-shift-up" = "VScroll(1)"
@@ -92,41 +125,83 @@ border.padding = [2, 0]
 "alt-down" = "VScroll(-1)"
 "alt-left" = "HScroll(-1)"
 "alt-right" = "HScroll(1)"
+"alt-1" = "Pos(0)"
 
 # Columns
 "ctrl-." = "NextColumn"
+"ctrl-shift-." = "PrevColumn"
 
 # Preview
 "shift+scrollup" = "PreviewUp"
 "shift+scrolldown" = "PreviewDown"
+"alt-/" = "PreviewJump"
 "?" = "SwitchPreview"
 "shift-?" = "SwitchPreview"
-"ctrl-shift-/" = "CyclePreview" # cycle preview layouts
+"ctrl-/" = "CyclePreview" # cycle preview layouts
+"ctrl-shift-/" = "CyclePreview"
 "alt-h" = "Help"
-"alt-1" = "Pos(0)"
+"alt-=" = "ExpandPreview"
+"alt-shift-=" = "ExpandPreview"
+"alt-hyphen" = "ShrinkPreview"
+
+# Reserved
+"F1" = "@help"
+"F2" = "@rename"
+"F3" = "@search"
+"F4" = "@rm"
+"F5" = "@reload"
+"F6" = "@cycle"
+"F7" = "@build"
+"F8" = "@step"
+"F9" = "@break"
+"F10" = "@menu"
+"F11" = "@look"
+"F12" = "@save"
 
 # Programmable
 "ctrl-l" = "@look" # "maximize" the preview
 "ctrl-o" = "@open"
-"alt-o" = "@enter"
+"alt-o" = "@open_2"
 "ctrl-r" = "@reload"
+"ctrl-shift-r" = "@reload_2"
+"ctrl-shift-n" = "@next"
+"ctrl-shift-p" = "@prev"
+"ctrl-tab" = "@next"
+"ctrl-shift-tab" = "@prev"
+"ctrl-d" = "@rm"
+"ctrl-s" = "@show"
 
-"@look" = "Execute(%MM_PREVIEW_COMMAND% | %PAGER%)"
-"@open" = "Execute(%EDITOR% {1})"
-"@enter" = "Become(%EDITOR% {1})"
+"@accept" = "Accept"
+"@accept_2" = "Accept"
+"@look" = "Execute(powershell -Command \"$env:MM_PREVIEW_COMMAND | & $env:PAGER\")"
+"@open" = "Execute(powershell -Command \"& $env:EDITOR {1}\")"
+"@open_2" = "Become(powershell -Command \"& $env:EDITOR {1}\")"
 "@reload" = "Reload"
+"@next" = ["ReloadNext", "Cancel"]
+"@prev" = ["ReloadPrev", "Cancel"]
+"@help" = "Help"
 
-[envs]
-# CLIPcmd = # Leave blank to auto-determine
-# PASTEcmd = # Leave blank to auto-determine
-# PAGER = # Leave blank to auto-determine
-# EDITOR = # Leave blank to auto-determine
+# Printing
+"alt-p" = "@print"
+"alt-shift-p" = "@print_2"
+"ctrl-y" = "@copy"
+"ctrl-shift-y" = "@copy_all"
+"alt-y" = "@copy_active"
 
-[start]
-command = '''
-if (Get-Command fd -ErrorAction SilentlyContinue) {
-    fd --strip-cwd-prefix
-} else {
-    Get-ChildItem -Recurse -File | ForEach-Object FullName
-}
+"@print" = "Print({-})"
+"@print_2" = "Print({-!})"
+"@copy" = '''
+ExecuteSilent(
+Write-Output {+1} | clip.exe
+)
+'''
+"@copy_all" = '''
+ExecuteSilent(
+Write-Output {1} | clip.exe
+)
+'''
+"@copy_active" = '''
+ExecuteSilent(
+Write-Output {+!} | clip.exe
+)
 '''

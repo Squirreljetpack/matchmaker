@@ -35,7 +35,7 @@ always_trigger = false
 
 [[preview.layout]]
 command = '''
-set -- $(git rev-list --left-right --count HEAD..{1})
+set -- $(git rev-list --left-right --count HEAD...{1})
 behind=$1
 ahead=$2
 commits=$(git rev-list --count {1})
@@ -94,6 +94,7 @@ prompt = "switch> "
 "ctrl-u" = ["@update", "Reload"]
 "ctrl-a" = ["@add_remote", "Reload"]
 "ctrl-n" = ["@add_branch", "Reload"]
+"alt-r" = ["@show_remotes"]
 
 "@next" = "BecomeSilent(mm -o git/grep)"
 "@prev" = "BecomeSilent(mm -o git/restore)"
@@ -186,7 +187,11 @@ case "$MM_INDEX" in
     refs/heads/*)
       name="${ref#refs/heads/}"
       git fetch "$remote" "$ref:$name"
-      git switch "$name"
+      if git rev-parse --verify --quiet "$name"; then
+          git switch "$name" && git branch --set-upstream-to="$remote/$name"
+      else
+          git switch -c "$name" --track "$remote/$name"
+      fi
       ;;
     refs/tags/*)
       git fetch "$remote" "$ref"
@@ -215,7 +220,7 @@ case "$MM_INDEX" in
     refs/heads/*)
         name="${ref#refs/heads/}"
         git fetch "$remote" "$ref:$name"
-        git switch "$name"
+        git switch -c "$name" --track "$remote/$name"
         ;;
     refs/tags/*)
         git fetch "$remote" "$ref"
@@ -234,11 +239,24 @@ case "$MM_INDEX" in
     ref={2}
     if [[ "$ref" == *":"* ]]; then
          remote="${ref%%:*}"
-         printf "Remove REMOTE %s? [y/N] " "$remote"
-         read -r ans
-         case "$ans" in
-            [yY]*) git remote remove "$remote" ;;
-        esac
+         branch="${ref#*:}"
+         if [ -n "$remote" ] && [ -n "$branch" ]; then
+             printf "Do you want to DELETE remote branch '%s' from '%s'? [y/N]: " "$branch" "$remote"
+             read -r confirm
+             case "$confirm" in
+                 [Yy]*)
+                     echo "Deleting remote branch..."
+                     git push "$remote" --delete "$branch"
+                     ;;
+                 *)
+                     echo "Operation canceled."
+                     exit 0
+                     ;;
+             esac
+         else
+             echo "Error: Invalid ref format. Expected 'remote:branch'."
+             exit 1
+         fi
     else
         printf "Delete local branch %s? [y/N] " "$ref"
         read -r ans
@@ -267,20 +285,64 @@ case "$MM_INDEX" in
     fi
     ;;
 1)
-    printf "Delete tag %s? [y/N] " {2}
-    read -r ans
-    case "$ans" in
-        [yY]*)
-            git tag -d {2}
-            printf "Delete remote tag too? [y/N] "
-            read -r rans
-            case "$rans" in [yY]*) git push origin --delete refs/tags/{2} ;; esac
-            ;;
-    esac
+    set -- {+2};
+    auto_remote=0
+    
+    while (($#)); do
+        printf "Delete tag $1? [y/N/aA] "
+        read -r ans
+    
+        case "$ans" in
+            a|A*)
+                git tag -d "$@"
+    
+                printf "Delete remote tags too? [y/N] "
+                read -r rans
+    
+                case "$rans" in
+                    y|Y*)
+                        for t in "$@"; do
+                            set -- "$@" "refs/tags/$t"
+                            shift
+                        done
+                        
+                        git push origin --delete "$@"
+                        ;;
+                esac
+                exit 0
+                ;;
+            y|Y*)
+                git tag -d "$1"
+    
+                if [ "$auto_remote" -eq 1 ]; then
+                    git push origin --delete "refs/tags/$1"
+                else
+                    printf "Delete remote tag too? [y/N/(all)] "
+                    read -r rans
+    
+                    case "$rans" in
+                        a|A*)
+                            auto_remote=1
+                            git push origin --delete "refs/tags/$1"
+                            ;;
+                        y|Y*)
+                            git push origin --delete "refs/tags/$1"
+                            ;;
+                    esac
+                fi
+    
+                shift
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
     ;;
 *)
-    echo "Unavailable" ;;
+    echo "Unavailable"
     exit 1
+    ;;
 esac
 )
 '''
@@ -295,8 +357,24 @@ case "$MM_INDEX" in
         old_remote="${ref%%:*}"
         printf "Rename REMOTE %s to: " "$old_remote"
         read -r new_name
-        [ -n "$new_name" ] || exit
-        git remote rename "$old_remote" "$new_name"
+        if [ -n "$new_name" ]; then
+            # Rename
+            git remote rename "$old_remote" "$new_name"
+        else
+            # Input was empty -> Prompt to delete
+            printf "Do you want to DELETE remote '%s'? [y/N]: " "$old_remote"
+            read -r confirm
+            
+            case "$confirm" in
+                [Yy]*)
+                    git remote remove "$old_remote"
+                    ;;
+                *)
+                    echo "Operation canceled."
+                    exit 0
+                    ;;
+            esac
+        fi
     else
         printf "Rename branch %s to: " "$ref"
         read -r new_name
@@ -306,7 +384,7 @@ case "$MM_INDEX" in
         printf "push? [y/N] "
         read -r ans
         case "$ans" in
-        [y]*)
+        [yY]*)
             git push origin "$new_name" &&
             git push origin --delete "$ref"
             ;;
@@ -364,3 +442,14 @@ read -r branch
 [ -n "$branch" ] || exit
 git switch -c "$branch"
 )'''
+
+
+"@show_remotes" = '''ExecuteOrConfirm(
+git remote | while IFS= read -r remote; do
+    echo "=== $remote ==="
+    git remote show "$remote"
+    echo
+done
+false
+)
+'''

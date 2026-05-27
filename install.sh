@@ -60,7 +60,7 @@ get_install_dir() {
 
 get_latest_release() {
     _url="https://api.github.com/repos/$REPO/releases/latest"
-    _version=$(curl -s "$_url" | grep '"tag_name":' | sed 's/.*"tag_name": "//;s/".*//')
+    _version=$(curl -fsSL "$_url" | grep '"tag_name":' | sed 's/.*"tag_name": "//;s/".*//')
     [ -z "$_version" ] && error "Failed to fetch latest release version"
     echo "$_version"
 }
@@ -76,10 +76,22 @@ main() {
     VERSION=$(get_latest_release)
 
     # Asset Naming Logic
+    # Based on 0.0.37 release naming convention: matchmaker-cli-<arch>-<os>.<ext>
     if [ "$OS" = "windows" ]; then
-        ASSET_NAME="matchmaker-windows.zip"
+        ASSET_NAME="matchmaker-cli-x86_64-pc-windows-msvc.zip"
+    elif [ "$OS" = "mac" ]; then
+        if [ "$ARCH" = "aarch64" ]; then
+            ASSET_NAME="matchmaker-cli-aarch64-apple-darwin.tar.xz"
+        else
+            ASSET_NAME="matchmaker-cli-x86_64-apple-darwin.tar.xz"
+        fi
     else
-        ASSET_NAME="matchmaker-${OS}.tar.gz"
+        # Linux: default to musl for portability
+        if [ "$ARCH" = "aarch64" ]; then
+            ASSET_NAME="matchmaker-cli-aarch64-unknown-linux-musl.tar.xz"
+        else
+            ASSET_NAME="matchmaker-cli-x86_64-unknown-linux-musl.tar.xz"
+        fi
     fi
 
     DOWNLOAD_URL="https://github.com/$REPO/releases/download/$VERSION/$ASSET_NAME"
@@ -88,9 +100,10 @@ main() {
     trap 'rm -rf "$TEMP_DIR"' 0  # POSIX trap on exit 0
 
     info "Downloading $ASSET_NAME..."
-    curl -sL "$DOWNLOAD_URL" -o "$TEMP_DIR/$ASSET_NAME" || error "Download failed"
+    curl -fsSL "$DOWNLOAD_URL" -o "$TEMP_DIR/$ASSET_NAME" || error "Download failed. The asset might not exist for this architecture/version."
 
     # Extraction
+    info "Extracting $ASSET_NAME..."
     case "$ASSET_NAME" in
         *.zip)
             if command -v unzip >/dev/null 2>&1; then
@@ -98,6 +111,9 @@ main() {
             else
                 tar -xf "$TEMP_DIR/$ASSET_NAME" -C "$TEMP_DIR"
             fi
+            ;;
+        *.tar.xz)
+            tar -xJf "$TEMP_DIR/$ASSET_NAME" -C "$TEMP_DIR"
             ;;
         *)
             tar -xzf "$TEMP_DIR/$ASSET_NAME" -C "$TEMP_DIR"

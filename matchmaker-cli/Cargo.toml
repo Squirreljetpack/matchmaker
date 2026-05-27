@@ -14,6 +14,7 @@
 [package.metadata.dist]
 dist = true
 name = "matchmaker"
+display-name = "matchmaker"
 features = ["experimental"]
 formula = "matchmaker"
 npm-package = "matchmaker"

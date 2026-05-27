@@ -4,3 +4,4 @@
 *.txt
 matchmaker-cli/assets/presets/todo
 *.mov
+.direnv

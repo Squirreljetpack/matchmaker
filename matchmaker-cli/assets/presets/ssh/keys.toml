@@ -67,11 +67,11 @@ ExecuteOrConfirm(
             return 1
         fi
 
-        read -p "Enter remote URL/target (e.g., user@host.com or host.com): " remote_target
+        printf "Enter remote URL/target (e.g., user@host.com or host.com), or leave empty to exit: "
+        read -r remote_target
 
         if [ -z "$remote_target" ]; then
-            echo "Error: Remote target cannot be empty."
-            return 1
+            exit 1
         fi
 
         if echo "$remote_target" | grep -q '@'; then

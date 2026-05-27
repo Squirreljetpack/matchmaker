@@ -8,6 +8,14 @@
     repository  = "https://github.com/Squirreljetpack/matchmaker"
     description = "Command-line interface for the matchmaker fuzzy finder"
     exclude = ["assets/completions", "assets/presets"]
+    homepage = "https://github.com/Squirreljetpack/matchmaker"
+    authors = ["Squirreljetpack"]
+
+[package.metadata.wix]
+upgrade-guid = "97859E79-FF52-4C64-9626-FE7E0FDA78E4"
+path-guid = "1BEFEDD3-26B2-471B-8196-2BCF87E28476"
+license = false
+eula = false
 [dependencies]
     cli_boilerplate_automation = { workspace = true, features = [ "serde", "bring" ] }
     matchmaker-lib             = { workspace = true, features = [ "partial" ] }

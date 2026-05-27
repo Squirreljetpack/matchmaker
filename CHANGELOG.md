@@ -1,3 +1,9 @@
+## [0.0.37] - 2026-05-27
+
+### ⚙️ Miscellaneous Tasks
+
+- Update packaging naming
+
 ## [0.0.36] - 2026-05-27
 
 ### 🚀 Features

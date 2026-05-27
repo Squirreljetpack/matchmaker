@@ -1,6 +1,6 @@
 [package]
     name        = "matchmaker-cli"
-    version     = "0.0.36"
+    version     = "0.0.37"
     categories  = [ "command-line-utilities" ]
     edition     = "2024"
     keywords    = [ "fuzzy", "finder", "tui", "nucleo", "fzf" ]
@@ -15,6 +15,8 @@
 dist = true
 name = "matchmaker"
 features = ["experimental"]
+formula = "matchmaker"
+npm-package = "matchmaker"
 
 [package.metadata.wix]
 upgrade-guid = "97859E79-FF52-4C64-9626-FE7E0FDA78E4"

@@ -162,7 +162,7 @@ Currently, the first includes an example for interactively performing a full tex
 
 - Toggle between ripgrep and mm with `ctrl-r`
 - The displayed preview autoscrolls to matched line: `?` to toggle.
-- `Enter` opens the file in your editor.
+- `Enter` opens the file in your editor (or when piped, prints `file:line:col`).
 - Previous queries in each mode are stashed and restored upon switching.
 - `ctrl-.` to cycle between columns.
 

@@ -202,8 +202,6 @@ fn process_key(
         key = &key[1..];
     }
 
-    log::trace!("{key}");
-
     if let Some(num_str) = key.strip_prefix('$')
         && let Ok(idx) = num_str.parse::<usize>()
     {

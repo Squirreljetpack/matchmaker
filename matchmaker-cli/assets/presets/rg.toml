@@ -75,7 +75,8 @@ padding = 0
 
 # Navigation
 "ctrl-." = "NextColumn"
-"enter" = "Become($EDITOR {1})"
+"enter" = ["Print({=1}:{=2})", "Quit"]
+"tty^^enter" = "Become($EDITOR {1})"
 "?" = "SwitchPreview"
 
 # --- UI ---

@@ -18,6 +18,3 @@ impl<T> Selection for T {}
 pub type Identifier<T, S> = fn(&T) -> (u32, S);
 
 pub type RenderFn<T> = Box<dyn for<'a> Fn(&'a T, &'a str) -> String + Send + Sync>;
-
-pub const MAX_ACTIONS: usize = 6;
-pub const MAX_SPLITS: usize = 16;

@@ -9,7 +9,6 @@ pub use crate::config_types::*;
 pub use crate::utils::{Percentage, serde::StringOrVec};
 
 use crate::{
-    MAX_SPLITS,
     tui::IoStream,
     utils::serde::{escaped_opt_char, escaped_opt_string},
 };
@@ -1000,8 +999,8 @@ pub struct ColumnsConfig {
     #[partial(alias = "n")]
     // #[partial(recurse, set = "recurse")] // partial application is better on the command line but we don't want it for overrides
     pub names: Vec<ColumnSetting>,
-    /// Maximum number of columns to autogenerate when names is unspecified. Maximum of 16, minimum of 1.
-    #[serde(deserialize_with = "bounded_usize::<_, 1, {crate::MAX_SPLITS}>")]
+    /// Maximum number of columns to autogenerate when names is unspecified. Minimum of 1, maximum of 16.
+    #[serde(deserialize_with = "bounded_usize::<_, 1, 16>")]
     #[partial(alias = "mc")]
     max: usize,
     #[partial(alias = "i")]
@@ -1012,7 +1011,7 @@ pub struct ColumnsConfig {
 
 impl ColumnsConfig {
     pub fn max_cols(&self) -> usize {
-        self.max.min(MAX_SPLITS).max(1)
+        self.max.min(16).max(1)
     }
 }
 

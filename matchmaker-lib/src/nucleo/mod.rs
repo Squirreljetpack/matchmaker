@@ -10,14 +10,12 @@ use std::{
     ops::Range,
 };
 
-use arrayvec::ArrayVec;
+use crate::SSS;
 pub use variants::*;
 pub use worker::*;
 
 pub use nucleo;
 pub use ratatui::prelude::*;
-
-use crate::{MAX_SPLITS, SSS};
 
 // ------------- Wrapper structs
 pub trait SegmentableItem: SSS {
@@ -86,7 +84,7 @@ impl<T: SegmentableItem> Segmented<T> {
         self.len() == 0
     }
 
-    pub fn map_to_vec<U, F>(&self, f: F) -> ArrayVec<U, MAX_SPLITS>
+    pub fn map_to_vec<U, F>(&self, f: F) -> Vec<U>
     where
         F: Fn(&T, usize, usize) -> U,
     {

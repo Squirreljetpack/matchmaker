@@ -428,6 +428,7 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
             "FZF_SELECT_COUNT" => self.selections().len().to_string(),
             "FZF_POS" => get_current(self.picker_ui).map_or("".to_string(), |x| format!("{}", x.0)),
             "FZF_QUERY" => self.input.clone(),
+            "FZF_MODE" => crate::MODE.lock().map(|m| m.clone()).unwrap_or_default(),
 
             "MM_LINES" => self.tui_area().height.to_string(),
             "MM_COLUMNS" => self.tui_area().width.to_string(),
@@ -436,6 +437,7 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
             "MM_SELECT_COUNT" => self.selections().len().to_string(),
             "MM_POS" => get_current(self.picker_ui).map_or("".to_string(), |x| format!("{}", x.0)),
             "MM_QUERY" => self.input.clone(),
+            "MM_MODE" => crate::MODE.lock().map(|m| m.clone()).unwrap_or_default(),
         };
 
         vars.extend(self.envs.clone());

@@ -30,7 +30,7 @@ use cba::{bo::load_type, broc::CommandExt};
 use log::debug;
 use matchmaker::{
     Action, ConfigInjector, MatchError, Matchmaker, OddEnds, PickOptions, SSS, acs,
-    binds::{BindMap, BindMapExt, display_binds},
+    binds::{BindMap, BindMapExt},
     config::{CommandSetting, EnvValue, MatcherConfig, StartConfig},
     event::{EventLoop, RenderSender},
     make_previewer,
@@ -379,7 +379,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let mut event_loop = EventLoop::with_binds(binds).with_tick_rate(render.tick_rate());
 
     // set event loop mode
-    event_loop.mode = if let Some(m) = mode {
+    let mode = if let Some(m) = mode {
         m
     } else {
         match (
@@ -393,7 +393,10 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         }
         .to_string()
     };
-    log::trace!("mode: {}", event_loop.mode);
+    log::trace!("mode: {}", mode);
+    if let Ok(mut m) = matchmaker::MODE.lock() {
+        *m = mode;
+    }
 
     // make matcher and matchmaker with matchmaker-and-matcher-maker
     let (
@@ -410,7 +413,6 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         return Err(MatchError::Abort(1));
     }
     // make previewer
-    let help_str = display_binds(&event_loop.binds, &previewer.help);
 
     if !event_loop.binds.strip_traces() {
         wbog!(
@@ -425,7 +427,13 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 Option<&dyn Fn(String)>,
             ) -> String,
     );
-    let previewer = make_previewer(&mut mm, previewer, cli_formatter.clone(), help_str);
+    let binds = event_loop.binds.clone();
+    let previewer = make_previewer(
+        &mut mm,
+        previewer,
+        cli_formatter.clone(),
+        Box::new(move |config, mode| matchmaker::binds::display_help(&binds, config, Some(mode))),
+    );
 
     // ---------------------- build options ---------------------------
 

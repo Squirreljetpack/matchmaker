@@ -23,6 +23,7 @@ max_height = 16
 [preview]
 show = true
 wrap = true
+scroll_wrap = true
 
 [[preview.layout]]
 command = '''

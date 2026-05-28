@@ -90,7 +90,12 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
     // apply overrides
     for mut p in cli.r#override {
         if p.is_relative() && p.extension().is_none() {
-            p = presets_path().join(p.with_extension("toml"));
+            let main_p = presets_path().join(&p).join("main.toml");
+            p = if !main_p.exists() {
+                presets_path().join(p.with_extension("toml"))
+            } else {
+                main_p
+            };
         }
         // no recursion because tail bad
         let o: PartialConfig = load_type(&p, |s| toml::from_str(s))?;
@@ -162,8 +167,7 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
     // check binds
     config.binds = BindMap::default_binds().modify(|x| x.extend(config.binds));
     config.binds.check_cycles().map_err(anyhow::Error::msg)?;
-    config.binds.retain(|_, actions|
-              !actions.is_empty());
+    config.binds.retain(|_, actions| !actions.is_empty());
     config.binds.resolve_semantics();
 
     for actions in config.binds.values() {

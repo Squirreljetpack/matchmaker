@@ -1,29 +1,30 @@
 [tui]
-percentage = 60
-min = 10
-max = 120
+    percentage = 60
+    min        = 10
+    max        = 120
 
 # --- UI ---
 [ui]
 
 [query]
-prompt_style.fg = "Gray"
-prompt_style.modifier = "ITALIC"
+    prompt_style.fg       = "Gray"
+    prompt_style.modifier = "ITALIC"
 
 [results]
-wrap = true
+    wrap = true
 
 [status]
 
 [header]
+
 [footer]
 # --- Preview ---
 [preview]
-show = true
-wrap = true
+    show = true
+    wrap = true
 
 [[preview.layout]]
-command = '''
+    command = '''
 if [ -d {1} ]; then
     if command -v eza >/dev/null 2>&1; then
         eza --color=always -T -L 2 {1}
@@ -41,30 +42,30 @@ else
 fi
 '''
 
-side = "right"
-percentage = 40
-min = 30
-max = 120
-border.type = "Plain"
-border.padding = [2, 0]
+    side           = "right"
+    percentage     = 40
+    min            = 30
+    max            = 120
+    border.type    = "Plain"
+    border.padding = [ 2, 0 ]
 
 [[preview.layout]]
-side = "top"
-percentage = 55
-min = 5
-max = 50
-border.type = "Plain"
+    side        = "top"
+    percentage  = 55
+    min         = 5
+    max         = 50
+    border.type = "Plain"
 
 [[preview.layout]]
-side = "right"
-percentage = 75
-min = 5
-max = 240
-border.type = "Plain"
-border.padding = [2, 0]
+    side           = "right"
+    percentage     = 75
+    min            = 5
+    max            = 240
+    border.type    = "Plain"
+    border.padding = [ 2, 0 ]
 
 [previewer]
-always_trigger = true
+    always_trigger = true
 
 # --- Misc ---
 [matcher]
@@ -72,136 +73,139 @@ always_trigger = true
 [columns]
 
 [start.command]
-cmd = '''
+    command = '''
     if command -v fd >/dev/null 2>&1; then
         fd --strip-cwd-prefix --print0
     else
         find . -print0
     fi
     '''
-separator = "\\0"
+    separator = "\\0"
+
+[start]
+    ansi = false # don't set to true here
 
 [exit]
 
 [envs]
-# CLIPcmd = # Leave blank to auto-determine
-# PASTEcmd = # Leave blank to auto-determine
-# PAGER = # Leave blank to auto-determine
-# EDITOR = # Leave blank to auto-determine
+    # CLIPcmd = # Leave blank to auto-determine
+    # PASTEcmd = # Leave blank to auto-determine
+    # PAGER = # Leave blank to auto-determine
+    # EDITOR = # Leave blank to auto-determine
 
 # --- Binds ---
 [binds]
-# Essentia
-"ctrl-c" = "Quit"
-"esc" = "Quit"
-"enter" = "@accept"
-"ctrl-enter" = "@accept_2"
-"ctrl-a" = "CycleAll"
-"tab" = ["Toggle", "Down"]
-"shift-backtab" = ["Toggle", "Up"]
+    # Essentia
+    "ctrl-c"        = "Quit"
+    "esc"           = "Quit"
+    "enter"         = "@accept"
+    "ctrl-enter"    = "@accept_2"
+    "ctrl-a"        = "CycleAll"
+    "tab"           = [ "Toggle", "Down" ]
+    "shift-backtab" = [ "Toggle", "Up" ]
 
-# Edit
-"right" = "ForwardChar"
-"left" = "BackwardChar"
-"ctrl-right" = "ForwardWord"
-"ctrl-left" = "BackwardWord"
-"backspace" = "DeleteChar"
-"ctrl-h" = "DeleteWord"
-"ctrl-u" = "Cancel"
-"alt-a" = "QueryPos(0)"
+    # Edit
+    "right"      = "ForwardChar"
+    "left"       = "BackwardChar"
+    "ctrl-right" = "ForwardWord"
+    "ctrl-left"  = "BackwardWord"
+    "backspace"  = "DeleteChar"
+    "ctrl-h"     = "DeleteWord"
+    "ctrl-u"     = "Cancel"
+    "alt-a"      = "QueryPos(0)"
 
-# Navigation
-"up" = "Up"
-"down" = "Down"
-"pagedown" = "HalfPageDown"
-"pageup" = "HalfPageUp"
-"shift-up" = "PreviewHalfPageUp"
-"shift-down" = "PreviewHalfPageDown"
-"ctrl-shift-up" = "VScroll(1)"
-"ctrl-shift-down" = "VScroll(-1)"
-"ctrl-shift-left" = "HScroll(-1)"
-"ctrl-shift-right" = "HScroll(1)"
-"alt-up" = "VScroll(1)"
-"alt-down" = "VScroll(-1)"
-"alt-left" = "HScroll(-1)"
-"alt-right" = "HScroll(1)"
-"alt-1" = "Pos(0)"
+    # Navigation
+    "up"               = "Up"
+    "down"             = "Down"
+    "pagedown"         = "HalfPageDown"
+    "pageup"           = "HalfPageUp"
+    "shift-up"         = "PreviewHalfPageUp"
+    "shift-down"       = "PreviewHalfPageDown"
+    "ctrl-shift-up"    = "VScroll(1)"
+    "ctrl-shift-down"  = "VScroll(-1)"
+    "ctrl-shift-left"  = "HScroll(-1)"
+    "ctrl-shift-right" = "HScroll(1)"
+    "alt-up"           = "VScroll(1)"
+    "alt-down"         = "VScroll(-1)"
+    "alt-left"         = "HScroll(-1)"
+    "alt-right"        = "HScroll(1)"
+    "alt-1"            = "Pos(0)"
 
-# Columns
-"ctrl-." = "NextColumn"
-"ctrl-shift-." = "PrevColumn"
+    # Columns
+    "ctrl-."       = "NextColumn"
+    "ctrl-shift-." = "PrevColumn"
 
-# Preview
-"shift+scrollup" = "PreviewUp"
-"shift+scrolldown" = "PreviewDown"
-"alt-/" = "PreviewJump"
-"?" = "SwitchPreview"
-"shift-?" = "SwitchPreview"
-"ctrl-/" = "CyclePreview" # cycle preview layouts
-"ctrl-shift-/" = "CyclePreview"
-"alt-h" = "Help"
-"alt-=" = "ExpandPreview"
-"alt-shift-=" = "ExpandPreview"
-"alt-hyphen" = "ShrinkPreview"
+    # Preview
+    "shift+scrollup"   = "PreviewUp"
+    "shift+scrolldown" = "PreviewDown"
+    "alt-/"            = "PreviewJump"
+    "?"                = "SwitchPreview"
+    "shift-?"          = "SwitchPreview"
+    "ctrl-/"           = "CyclePreview"  # cycle preview layouts
+    "ctrl-shift-/"     = "CyclePreview"
+    "alt-h"            = "Help"
+    "alt-="            = "ExpandPreview"
+    "alt-shift-="      = "ExpandPreview"
+    "alt-hyphen"       = "ShrinkPreview"
 
-# Reserved
-"F1" = "@help"
-"F2" = "@rename"
-"F3" = "@search"
-"F4" = "@rm"
-"F5" = "@reload"
-"F6" = "@cycle"
-"F7" = "@build"
-"F8" = "@step"
-"F9" = "@break"
-"F10" = "@menu"
-"F11" = "@look"
-"F12" = "@save"
+    # Reserved
+    "F1"  = "@help"
+    "F2"  = "@rename"
+    "F3"  = "@search"
+    "F4"  = "@rm"
+    "F5"  = "@reload"
+    "F6"  = "@cycle"
+    "F7"  = "@build"
+    "F8"  = "@step"
+    "F9"  = "@break"
+    "F10" = "@menu"
+    "F11" = "@look"
+    "F12" = "@save"
 
-# Programmable
-"ctrl-l" = "@look" # "maximize" the preview
-"ctrl-o" = "@open"
-"alt-o" = "@open_2"
-"ctrl-r" = "@reload"
-"ctrl-shift-r" = "@reload_2"
-"ctrl-shift-n" = "@next"
-"ctrl-shift-p" = "@prev"
-"ctrl-tab" = "@next"
-"ctrl-shift-tab" = "@prev"
-"ctrl-d" = "@rm"
-"ctrl-s" = "@show"
+    # Programmable
+    "ctrl-l"         = "@look"     # "maximize" the preview
+    "ctrl-o"         = "@open"
+    "alt-o"          = "@open_2"
+    "ctrl-r"         = "@reload"
+    "ctrl-shift-r"   = "@reload_2"
+    "ctrl-shift-n"   = "@next"
+    "ctrl-shift-p"   = "@prev"
+    "ctrl-tab"       = "@next"
+    "ctrl-shift-tab" = "@prev"
+    "ctrl-d"         = "@rm"
+    "ctrl-s"         = "@show"
 
-"@accept" = "Accept"
-"@accept_2" = "Accept"
-"@look" = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)"
-"@open" = "Execute($EDITOR {1})"
-"@open_2" = "Become($EDITOR {1})"
-"@reload" = "Reload"
-"@next" = ["ReloadNext", "Cancel"]
-"@prev" = ["ReloadPrev", "Cancel"]
-"@help" = "Help"
+    "@accept"   = "Accept"
+    "@accept_2" = "Accept"
+    "@look"     = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)"
+    "@open"     = "Execute($EDITOR {1})"
+    "@open_2"   = "Become($EDITOR {1})"
+    "@reload"   = "Reload"
+    "@next"     = [ "ReloadNext", "Cancel" ]
+    "@prev"     = [ "ReloadPrev", "Cancel" ]
+    "@help"     = "Help"
 
-# Printing
-"alt-p" = "@print"
-"alt-shift-p" = "@print_2"
-"ctrl-y" = "@copy"
-"ctrl-shift-y" = "@copy_all"
-"alt-y" = "@copy_active"
+    # Printing
+    "alt-p"        = "@print"
+    "alt-shift-p"  = "@print_2"
+    "ctrl-y"       = "@copy"
+    "ctrl-shift-y" = "@copy_all"
+    "alt-y"        = "@copy_active"
 
-"@print" = "Print({-})"
-"@print_2" = "Print({-!})"
-"@copy" = '''
+    "@print" = "Print({-})"
+    "@print_2" = "Print({-!})"
+    "@copy" = '''
 ExecuteSilent(
 out="$(printf '%s\n' {+1})"
 printf "$out" | eval $CLIPcmd
 )
 '''
-"@copy_all" = '''
+    "@copy_all" = '''
 ExecuteSilent(
 printf '%s' {1} | eval $CLIPcmd
 )
 '''
-"@copy_active" = '''
+    "@copy_active" = '''
 ExecuteSilent(
 out="$(printf '%s\n' {+!})"
 printf "$out" | eval $CLIPcmd

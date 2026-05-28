@@ -26,7 +26,7 @@ default = 9
 show = false
 
 [results]
-min_wrap_width = 10
+min_width = 4
 
 [[preview.layout]]
 # Tree view

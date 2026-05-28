@@ -212,8 +212,6 @@ impl DisplayUI {
             widths.into_iter().map(Constraint::Length).collect()
         };
 
-        log::trace!("display: {widths:?}");
-
         Table::new(rows, widths)
             .block(block)
             .column_spacing(col_spacing)

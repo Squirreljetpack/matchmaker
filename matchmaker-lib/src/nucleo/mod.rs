@@ -41,7 +41,7 @@ pub struct Segmented<T> {
     ranges: Box<[(u32, u32)]>,
 }
 
-impl<T: SegmentableItem> ColumnIndexable for Segmented<T> {
+impl<T: SegmentableItem + std::fmt::Debug> ColumnIndexable for Segmented<T> {
     fn get_str(&self, i: usize) -> std::borrow::Cow<'_, str> {
         if let Some(&(start, end)) = self.ranges.get(i) {
             self.inner.slice_str(start as usize..end as usize)

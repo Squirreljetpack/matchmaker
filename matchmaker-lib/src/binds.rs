@@ -577,6 +577,7 @@ pub fn display_help<A: ActionExt + Display>(
     config: &HelpDisplayConfig,
     mode: Option<&str>,
 ) -> Text<'static> {
+
     // Filter and collect triggers based on mode
     let mut entries: Vec<(String, Vec<Action<A>>)> = Vec::new();
     let mut seen_trigger_kinds = HashSet::new();

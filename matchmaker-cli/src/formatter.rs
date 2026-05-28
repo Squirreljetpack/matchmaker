@@ -49,7 +49,7 @@ pub fn format_cli(
         return String::new();
     }
     if let Some(f) = repeat {
-        if any_non_multi(template) {
+        if any_need_current(template) {
             state.map_selected_to_vec(|i, item| {
                 let s = format_cli_inner(state, template, Some((i, item)));
                 if !s.is_empty() {
@@ -65,7 +65,7 @@ pub fn format_cli(
         return String::new();
     }
 
-    if state.current_raw().is_none() && any_non_multi(template) {
+    if state.current_raw().is_none() && any_need_current(template) {
         return String::new();
     }
 
@@ -140,7 +140,7 @@ fn format_cli_inner(
     result
 }
 
-fn any_non_multi(template: &str) -> bool {
+fn any_need_current(template: &str) -> bool {
     let mut chars = template.char_indices().peekable();
 
     'outer: while let Some((_, c)) = chars.next() {
@@ -169,7 +169,7 @@ fn any_non_multi(template: &str) -> bool {
                     let key = &template[start..j];
 
                     // Check valid content and slice match for prefixes
-                    if is_valid_content(key) && !key.starts_with(['+', '-']) {
+                    if is_valid_content(key) && !key.starts_with(['+', '-', '$']) {
                         return true;
                     }
                     continue 'outer;
@@ -202,12 +202,14 @@ fn process_key(
         key = &key[1..];
     }
 
+    log::trace!("{key}");
+
     if let Some(num_str) = key.strip_prefix('$')
         && let Ok(idx) = num_str.parse::<usize>()
     {
         let args = crate::start::COMMAND_ARGS.lock().unwrap();
         // return all args joined
-        if idx == 0 {
+        return if idx == 0 {
             let joined = args
                 .iter()
                 .map(|arg| {
@@ -219,18 +221,17 @@ fn process_key(
                 })
                 .collect::<Vec<_>>()
                 .join(" ");
-            return Some(joined);
-        }
-        if let Some(arg) = args.get(idx - 1) {
+            Some(joined)
+        } else if let Some(arg) = args.get(idx - 1) {
             let val = arg.to_string_lossy();
             if quote {
-                return Some(shell_quote_impl(&val));
+                Some(shell_quote_impl(&val))
             } else {
-                return Some(val.to_string());
+                Some(val.to_string())
             }
         } else {
-            return Some(String::new());
-        }
+            Some(String::new())
+        };
     }
 
     // Handle ranges

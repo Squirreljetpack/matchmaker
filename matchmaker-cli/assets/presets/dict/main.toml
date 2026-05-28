@@ -52,5 +52,10 @@ echo {etymology}
     echo "SetPrompt(${HEADERS[$MM_INDEX]})"
 )
 '''
+"Start" = '''Transform(
+    echo "SetQuery("{$0}")"
+)
+'''
+
 
 [tui]

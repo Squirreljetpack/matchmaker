@@ -1,0 +1,51 @@
+# Find and kill processes
+
+[start.command]
+command = '''zstd -dc "$(dirname -- "$MM_OVERRIDE")"/"$ACTIVE_DICT".zst'''
+separator = "\\0"
+
+[envs]
+ACTIVE_DICT = "english"
+
+[query]
+prompt = "en> "
+
+[header]
+content = ['word', 'pos', 'definition']
+
+[columns]
+split = "\\t"
+names = ["word", "pos", "definition", { name = 'synonyms', hidden = true }, { name = 'etymology', hidden = true }]
+
+[matcher]
+# --- Preview ---
+
+[[preview.layout]]
+# Tree view
+command = '''
+echo {definition}
+echo
+
+printf "%${COLUMNS}s\n" | tr ' ' '-'
+echo synonyms
+printf "%${COLUMNS}s\n" | tr ' ' '-'
+echo {synonyms}
+
+echo
+printf "%${COLUMNS}s\n" | tr ' ' '-'
+echo etymology
+printf "%${COLUMNS}s\n" | tr ' ' '-'
+echo {etymology}
+'''
+
+[binds]
+"Reloaded" = '''Transform(
+    HEADERS=(
+      'en> '
+    )
+    setopt KSH_ARRAYS 2>/dev/null
+    echo "SetPrompt(${HEADERS[$MM_INDEX]})"
+)
+'''
+
+[tui]

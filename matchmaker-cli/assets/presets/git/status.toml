@@ -170,20 +170,20 @@ set -- {+1}
 if (( $# == 1 )); then
   file="$1"
   if git diff --cached --quiet -- "$file" 2>/dev/null; then
-    printf "Restore %s to HEAD? [y/N] " "$file"
+    printf "Restore %s to HEAD? [Y/n] " "$file"
   else
-    printf "Restore %s to HEAD? [y(HEAD)/N/s(taging)] " "$file"
+    printf "Restore %s to HEAD? [Y/n/s(taging)] " "$file"
   fi
   read -r ans
-  case "$ans" in
-    [yY]*) git restore --source=HEAD --staged --worktree -- "$file" ;;
+  case "${ans%% *}" in
+    [Yy]*|'') git restore --source=HEAD --staged --worktree -- "$file" ;;
     [sS]*) git restore -- "$file" ;;
   esac
 else
-  printf "Restore %d files? [y(HEAD)/N/s(taging)] " "$#"
+  printf "Restore %d files? [Y/n/s(taging)] " "$#"
   read -r ans
-  case "$ans" in
-    [yY]*) git restore --source=HEAD --staged --worktree -- "$@" ;;
+  case "${ans%% *}" in
+    [Yy]*|'') git restore --source=HEAD --staged --worktree -- "$@" ;;
     [sS]*) git restore -- "$@" ;;
   esac
 fi

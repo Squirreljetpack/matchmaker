@@ -217,9 +217,9 @@ case $MM_INDEX in
     [sS])
       if [ -n "$FILES" ]; then
         printf '%s\n' "$FILES" |
-        git stash push -m "temp backup" --pathspec-from-file=-
+        git stash push -m "temp backup before stash pop" --pathspec-from-file=-
       else
-        git stash push -m "temp backup"
+        git stash push -m "temp backup stash pop"
       fi
       ;;
     [yY])
@@ -246,10 +246,10 @@ case $MM_INDEX in
   git -c color.ui=always status --short
   git diff --color=always || true
 
-  printf '\nKeep changes? [y/N/(p)reserve] '
+  printf '\nKeep changes? [Y/n/(p)reserve] '
   read -r ans2
-  case "$ans2" in
-    [yY])
+  case "${ans2%% *}" in
+    [yY]|'')
       git stash drop "$TARGET"
       ;;
     [pP])

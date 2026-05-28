@@ -23,6 +23,13 @@
   - toast config:
     - trigger on cycle
 
+- Multiline + Capped + column highlight looks a tiny bit weird
+  - try different combinations
+
+- unaligned headings (!!!): need to optimize make_table and worker.results fn, I think we should break worker.results down into a method which returns a row instead creating them all at once using iter.filter_map().
+- support alternate actions syntax(?): case insensitive, execute::content
+
+
 # Previewer
 
 - Offload large previews to disk

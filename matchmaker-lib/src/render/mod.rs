@@ -464,10 +464,12 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             // track mouse location?
                             {
                                 p.scroll(true, n);
-                            } else {
-                                if n >= 0 || results.hscroll > 0 || !query.input.is_empty() {
-                                    results.current_scroll(n, matches!(action, Action::HScroll(_)));
-                                }
+                            } else if !matches!(action, Action::HScroll(_))
+                                || n >= 0
+                                || results.hscroll > 0
+                                || !query.input.is_empty()
+                            {
+                                results.current_scroll(n, matches!(action, Action::HScroll(_)));
                             }
                         }
                         Action::HalfPageDown | Action::HalfPageUp => {

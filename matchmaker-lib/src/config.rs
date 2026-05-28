@@ -170,6 +170,11 @@ pub struct TerminalConfig {
 
     // unimplemented: currently favoring Execute2
     pub clear_after_execute: bool,
+
+    /// Whether to use OSC 52 for clipboard copying.
+    pub osc52: bool,
+    /// Whether to drop the end of the output of the copy command if it is a new line
+    pub copy_trailing_newline: bool,
 }
 
 impl Default for TerminalConfig {
@@ -183,6 +188,8 @@ impl Default for TerminalConfig {
             extended_keys: true,
             clear_on_exit: true,
             clear_after_execute: true,
+            osc52: true,
+            copy_trailing_newline: false,
         }
     }
 }

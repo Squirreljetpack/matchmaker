@@ -37,6 +37,7 @@ Semantic triggers (prefixed with `@`) act as named aliases. They allow you to de
 
 **Allowed Characters:**
 Semantic trigger names (the part after `@`) can contain:
+
 - Alphanumeric characters
 - Spaces
 - `-`, `_`, `.`, `:`, `/`, `+`, `@`, `$`
@@ -110,6 +111,7 @@ Triggers can be optionally prefixed with a mode (consisting of alphanumeric char
 Binds defined without a mode act as fallbacks and are active in all modes unless overridden by a mode-specific bind.
 
 **Example:**
+
 ```toml
 [binds]
 "vim^^h" = "BackwardChar"
@@ -121,6 +123,7 @@ Binds defined without a mode act as fallbacks and are active in all modes unless
 In this example, if the mode is `vim`, `h` and `l` will move the cursor horizontally. In any other mode, they will move the selection cursor vertically.
 
 Matchmaker initializes with a default mode based on how it was started:
+
 - `command`: When started with a shell command.
 - `piped`: When reading from stdin.
 
@@ -161,21 +164,21 @@ Actions are the operations performed when a trigger is activated.
 
 ### Preview
 
-| Action                | Description                                               |
-| --------------------- | --------------------------------------------------------- |
-| `CyclePreview`        | Cycle through available preview layouts.                  |
-| `Preview(cmd)`        | Show/hide preview using the provided shell command.       |
-| `SetPreview(idx)`     | Set preview layout to index `idx`.                        |
-| `SwitchPreview(idx)`  | Switch to layout `idx`, or toggle it if already active.   |
-| `TogglePreviewWrap`   | Toggle line wrapping in the preview window.               |
-| `ExpandPreview(idx)`  | Expand preview window.                                    |
-| `ShrinkPreview(idx)`  | Shrink preview window.                                    |
-| `PreviewUp(n)`        | Scroll the preview window up by `n` lines (default: 1).   |
-| `PreviewDown(n)`      | Scroll the preview window down by `n` lines (default: 1). |
-| `PreviewHalfPageUp`   | Scroll the preview up by half a page.                     |
-| `PreviewHalfPageDown` | Scroll the preview down by half a page.                   |
+| Action                | Description                                                               |
+| --------------------- | ------------------------------------------------------------------------- |
+| `CyclePreview`        | Cycle through available preview layouts.                                  |
+| `Preview(cmd)`        | Show/hide preview using the provided shell command.                       |
+| `SetPreview(idx)`     | Set preview layout to index `idx`.                                        |
+| `SwitchPreview(idx)`  | Switch to layout `idx`, or toggle it if already active.                   |
+| `TogglePreviewWrap`   | Toggle line wrapping in the preview window.                               |
+| `ExpandPreview(idx)`  | Expand preview window.                                                    |
+| `ShrinkPreview(idx)`  | Shrink preview window.                                                    |
+| `PreviewUp(n)`        | Scroll the preview window up by `n` lines (default: 1).                   |
+| `PreviewDown(n)`      | Scroll the preview window down by `n` lines (default: 1).                 |
+| `PreviewHalfPageUp`   | Scroll the preview up by half a page.                                     |
+| `PreviewHalfPageDown` | Scroll the preview down by half a page.                                   |
 | `RunPreview(cmd)`     | Run a one-off shell command and display its output in the preview window. |
-| `Help(section)`       | Display the specified help section in the preview.        |
+| `Help(section)`       | Display the specified help section in the preview.                        |
 
 ### Columns
 
@@ -216,26 +219,27 @@ Actions are the operations performed when a trigger is activated.
 
 ### Programmable and Miscellaneous
 
-| Action                 | Description                                                                              |
-| ---------------------- | ---------------------------------------------------------------------------------------- |
-| `Execute(cmd)`         | Run a shell command.                                                      |
-| `ExecuteSilent(c)`     | Run and detach a shell command silently.                                                   |
-| `ExecuteAsync(cmd)`    | Run asynchronously; subsequent actions in the same batch execute after its completion.   |
-| `ExecuteThen(cmd)`     | Run asynchronously; subsequent actions execute after completion and only if it succeeds. |
-| `ExecuteOrConfirm(c)`  | Run a shell command (replaces TUI), but ask for confirmation if it fails.                |
-| `ExecuteAndQuit(cmd)`  | Run a shell command (replaces TUI) and then quit.                                        |
-| `Become(cmd)`          | Transform the process into the command.                                                 |
-| `BecomeSilent(cmd)`    | Transform the process into the command without clearing the screen (useful for transitioning between different matchmaker presets).                    |
-| `BecomeOr(cmd)`        | Execute the command, ask for confirmation on failure, quit on success, resume on interrupt.           |
-| `Reload(cmd)`          | Rerun the initial command or a new one.                                                  |
-| `ReloadNext(n)`        | Cycle through `additional_commands`.                                                     |
-| `ReloadPrev`           | Cycle backwards through `additional_commands`.                                           |
-| `Transform(cmd)`       | Run command and parse its output as a stream of Actions.                                |
-| `TransformConfig(cmd)` | Run command and parse its output as configuration pairs (analogously to the cli input, one per line).                  |
-| `Store(str)`           | Set the value of `MM_STORE`.                                                             |
-| `Print(s)`             | Print a string to stdout on exit.                                                        |
-| `PrintKey`             | Print the activating key.                                                                |
-| `@name`                | Execute the actions associated with semantic trigger `name`.                             |
+| Action                 | Description                                                                                                                         |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `Execute(cmd)`         | Run a shell command.                                                                                                                |
+| `ExecuteSilent(c)`     | Run and detach a shell command silently.                                                                                            |
+| `ExecuteAsync(cmd)`    | Run asynchronously; subsequent actions in the same batch execute after its completion.                                              |
+| `ExecuteThen(cmd)`     | Run asynchronously; subsequent actions execute after completion and only if it succeeds.                                            |
+| `Copy(cmd)`            | Run a command asynchronously and copy its output to the clipboard (works across ssh: see `tui.osc52`).                              |
+| `ExecuteOrConfirm(c)`  | Run a shell command (replaces TUI), but ask for confirmation if it fails.                                                           |
+| `ExecuteAndQuit(cmd)`  | Run a shell command (replaces TUI) and then quit.                                                                                   |
+| `Become(cmd)`          | Transform the process into the command.                                                                                             |
+| `BecomeSilent(cmd)`    | Transform the process into the command without clearing the screen (useful for transitioning between different matchmaker presets). |
+| `BecomeOr(cmd)`        | Execute the command, ask for confirmation on failure, quit on success, resume on interrupt.                                         |
+| `Reload(cmd)`          | Rerun the initial command or a new one.                                                                                             |
+| `ReloadNext(n)`        | Cycle through `additional_commands`.                                                                                                |
+| `ReloadPrev`           | Cycle backwards through `additional_commands`.                                                                                      |
+| `Transform(cmd)`       | Run command and parse its output as a stream of Actions.                                                                            |
+| `TransformConfig(cmd)` | Run command and parse its output as configuration pairs (analogously to the cli input, one per line).                               |
+| `Store(str)`           | Set the value of `MM_STORE`.                                                                                                        |
+| `Print(s)`             | Print a string to stdout on exit.                                                                                                   |
+| `PrintKey`             | Print the activating key.                                                                                                           |
+| `@name`                | Execute the actions associated with semantic trigger `name`.                                                                        |
 
 Note: Commands executed via these actions have access to various [environment variables](template.md#environment-variables).
 
@@ -244,9 +248,9 @@ Note: Commands executed via these actions have access to various [environment va
 | Action               | Description                                |
 | -------------------- | ------------------------------------------ |
 | `SetHeader(str)`     | Set the header text (pass empty to clear). |
-| `PushHeader(str)`     | Append a column to the header.               |
+| `PushHeader(str)`    | Append a column to the header.             |
 | `SetFooter(str)`     | Set the footer text (pass empty to clear). |
-| `PushFooter(str)`     | Append a column to the footer.               |
+| `PushFooter(str)`    | Append a column to the footer.             |
 | `SetPrompt(str)`     | Set the input prompt text.                 |
 | `SetStatus(str)`     | Set the status line template.              |
 | `SetStyledPrompt(s)` | Update the input prompt.                   |
@@ -256,12 +260,12 @@ Note: Commands executed via these actions have access to various [environment va
 
 ### Other & Experimental
 
-| Action            | Description                                                    |
-| ----------------- | -------------------------------------------------------------- |
-| `Filtering(bool)` | Enable or disable query filtering.                             |
+| Action            | Description                                                     |
+| ----------------- | --------------------------------------------------------------- |
+| `Filtering(bool)` | Enable or disable query filtering.                              |
 | `CycleSort`       | Cycle through result sorting modes (`Full` / `Mixed` / `None`). |
-| `Overlay(idx)`    | Activate the UI overlay at index `idx`.                        |
-| `Redraw`          | Force a complete UI redraw.                                    |
+| `Overlay(idx)`    | Activate the UI overlay at index `idx`.                         |
+| `Redraw`          | Force a complete UI redraw.                                     |
 
 ---
 

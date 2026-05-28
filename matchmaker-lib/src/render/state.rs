@@ -169,6 +169,7 @@ impl State {
             .async_actions
             .iter_mut()
             .enumerate()
+            .skip(1)
             .find(|(_, x)| x.is_none())
         else {
             return None;

@@ -214,30 +214,33 @@ pub static COMMAND_ARGS: Mutex<Vec<std::ffi::OsString>> = Mutex::new(Vec::new())
 pub fn process_envs(mut envs: HashMap<String, EnvValue>) -> HashMap<String, String> {
     let mut processed_envs = HashMap::new();
 
-    if envs.get("CLIPcmd").is_some()
-        || std::env::var("CLIPcmd")
-            .ok()
-            .map_or(false, |x| !x.is_empty())
-    {
-        if let Some((clip, paste)) = guess_clip_cmd() {
-            envs.insert("CLIPcmd".to_string(), EnvValue::new(clip));
+    // todo: lowpri: should we provision this what is the cost of setting more env vars
+    if envs.get("CLIPcmd").is_none() {
+        if let Some(v) = std::env::var("CLIPcmd").ok()
+            && !v.is_empty()
+        {
+            envs.insert("CLIPcmd".to_string(), EnvValue::new(v));
+        } else {
+            if let Some((clip, paste)) = guess_clip_cmd() {
+                envs.insert("CLIPcmd".to_string(), EnvValue::new(clip));
 
-            if envs.get("PASTEcmd").is_some()
-                || std::env::var("PASTEcmd")
-                    .ok()
-                    .map_or(false, |x| !x.is_empty())
-            {
-                envs.insert("PASTEcmd".to_string(), EnvValue::new(paste));
+                if envs.get("PASTEcmd").is_none()
+                    && std::env::var("PASTEcmd")
+                        .ok()
+                        .map_or(true, |x| x.is_empty())
+                {
+                    envs.insert("PASTEcmd".to_string(), EnvValue::new(paste));
+                }
             }
         }
     }
 
-    if envs.get("PAGER").is_some() || std::env::var("PAGER").ok().map_or(true, |x| x.is_empty()) {
+    if envs.get("PAGER").is_none() && std::env::var("PAGER").ok().map_or(true, |x| x.is_empty()) {
         let ev = EnvValue::new(guess_pager_cmd());
         envs.insert("PAGER".to_string(), ev);
     }
 
-    if envs.get("EDITOR").is_some() || std::env::var("EDITOR").ok().map_or(true, |x| x.is_empty()) {
+    if envs.get("EDITOR").is_none() && std::env::var("EDITOR").ok().map_or(true, |x| x.is_empty()) {
         let ev = EnvValue::new(guess_editor_cmd());
         envs.insert("PAGER".to_string(), ev);
     }
@@ -399,6 +402,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     }
 
     // make matcher and matchmaker with matchmaker-and-matcher-maker
+    let copy_trailing_newline = tui.copy_trailing_newline;
     let (
         mut mm,
         injector,
@@ -463,6 +467,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     // execute handlers
     mm.register_execute_handler(cli_formatter.clone());
     mm._register_execute_async_handler(cli_formatter.clone());
+    mm._register_async_copy_handler(cli_formatter.clone(), copy_trailing_newline);
     mm._register_become_handler(cli_formatter.clone());
 
     // reload handler

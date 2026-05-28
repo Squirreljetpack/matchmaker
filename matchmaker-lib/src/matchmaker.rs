@@ -1,5 +1,8 @@
 use std::{
+    env,
     fmt::{self, Debug, Formatter},
+    fs::OpenOptions,
+    io::{self, Write},
     process::{Command, Stdio},
     sync::Arc,
 };
@@ -8,6 +11,7 @@ use cba::{bath::PathExt, broc::CommandExt, ebog, env_vars};
 use easy_ext::ext;
 use log::{debug, info, warn};
 use ratatui::text::Text;
+use tokio::io::AsyncReadExt;
 
 use crate::{
     MatchError, RenderFn, Result, SSS, Selection, Selector,
@@ -59,6 +63,43 @@ pub struct OddEnds {
     pub splitter: SplitterFn<Either<Box<str>, Text<'static>>>,
     pub hidden_columns: Vec<bool>,
     pub has_error: bool,
+}
+
+pub fn set_host_clipboard_universal(text: &str) -> io::Result<()> {
+    use base64::Engine;
+    // 1. Encode the payload
+    let encoded = base64::engine::general_purpose::STANDARD.encode(text);
+    let sequence = format!("\x1b]52;c;{}\x07", encoded);
+
+    // 2. Determine the direct TTY path
+    // If we are over SSH, $SSH_TTY will be set to the exact device file.
+    // Otherwise, we default to the current process's controlling terminal.
+    let tty_path = env::var("SSH_TTY").unwrap_or_else(|_| "/dev/tty".to_string());
+
+    // 3. Attempt to open the TTY file directly
+    match OpenOptions::new().write(true).open(&tty_path) {
+        Ok(mut tty_file) => {
+            // Write directly to the TTY, completely bypassing standard output, Zellij, and tmux.
+            write!(tty_file, "{}", sequence)?;
+            tty_file.flush()?;
+        }
+        Err(_) => {
+            // 4. Fallback if /dev/tty isn't available
+            // If the direct TTY fails (e.g., on Windows), we fall back to standard output.
+            // Here, we can still include the tmux check just in case.
+            let fallback_sequence = if env::var("TMUX").is_ok() {
+                format!("\x1bPtmux;\x1b\x1b]52;c;{}\x07\x1b\\", encoded)
+            } else {
+                sequence
+            };
+
+            let mut stdout = io::stdout();
+            write!(stdout, "{}", fallback_sequence)?;
+            stdout.flush()?;
+        }
+    }
+
+    Ok(())
 }
 
 pub type ConfigInjector = AnsiInjector<
@@ -783,7 +824,6 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
     /// Causes [`Action::ExecuteAsync`] and [`Action::ExecuteThen`] to execute their payload without blocking, and for the remaining actions in the batch to depend on the execution result.
     pub fn _register_execute_async_handler(&mut self, formatter: AttachmentFormatter<T, S>) {
         self.register_interrupt_handler(Interrupt::ExecuteAsync, move |state| {
-            log::error!("1");
             let template = state.payload();
             if !template.is_empty() {
                 let cmd = use_formatter(&formatter, state, &template, None);
@@ -795,7 +835,12 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
                     log::error!("Missing discriminant for ExecuteAsync interrupt handler");
                     return;
                 };
-                log::error!("2");
+
+                if payload < 2 {
+                    state.discriminant_payload = Some(payload);
+                    return;
+                }
+
                 let id = payload / 2;
                 let require_success = (payload % 2) == 1;
 
@@ -836,6 +881,93 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
                         }
                         Err(e) => {
                             log::warn!("Failed to wait on async command [{}]: {}", cmd, e);
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    /// Causes [`Action::Copy`] to execute its payload without blocking, and copy the result to the clipboard.
+    /// Note:
+    /// - not intended for direct use.
+    pub fn _register_async_copy_handler(
+        &mut self,
+        formatter: AttachmentFormatter<T, S>,
+        copy_trailing_newline: bool,
+    ) {
+        self.register_interrupt_handler(Interrupt::ExecuteAsync, move |state| {
+            if let Some(payload) = state.discriminant_payload.take()
+                && payload <= 2
+                && let template = state.payload()
+                && !template.is_empty()
+            {
+                log::error!("1");
+                let cmd = use_formatter(&formatter, state, &template, None);
+
+                if cmd.is_empty() {
+                    return;
+                }
+
+                let vars = state.make_env_vars();
+
+                tokio::spawn(async move {
+                    let clip_cmd = vars.get("CLIPcmd").map(|x| x.to_string());
+                    let mut child = match tokio_command_from_script(&cmd)
+                        .envs(vars)
+                        .stdin(Stdio::null())
+                        .stdout(Stdio::piped())
+                        .stderr(Stdio::null())
+                        .spawn()
+                    {
+                        Ok(c) => c,
+                        Err(e) => {
+                            log::warn!("Failed to spawn copy command [{}]: {}", cmd, e);
+                            return;
+                        }
+                    };
+
+                    let mut text = String::new();
+                    if let Some(mut stdout) = child.stdout.take() {
+                        let _ = stdout.read_to_string(&mut text).await;
+                    }
+
+                    if !copy_trailing_newline && text.ends_with('\n') {
+                        text.pop();
+
+                        if text.ends_with('\r') {
+                            text.pop();
+                        }
+                    }
+
+                    let _ = child.wait().await;
+
+                    if !text.is_empty() {
+                        if payload == 1 {
+                            if let Err(e) = set_host_clipboard_universal(&text) {
+                                log::warn!("Failed to set host clipboard: {}", e);
+                            }
+                        } else if let Some(clip_cmd) = clip_cmd {
+                            // discriminant 0: use CLIPcmd
+                            if !clip_cmd.is_empty() {
+                                let mut child = match tokio_command_from_script(&clip_cmd)
+                                    .stdin(Stdio::piped())
+                                    .spawn()
+                                {
+                                    Ok(c) => c,
+                                    Err(e) => {
+                                        log::warn!("Failed to spawn CLIPcmd [{}]: {}", clip_cmd, e);
+                                        return;
+                                    }
+                                };
+
+                                if let Some(mut stdin) = child.stdin.take() {
+                                    use tokio::io::AsyncWriteExt;
+                                    let _ = stdin.write_all(text.as_bytes()).await;
+                                    let _ = stdin.flush().await;
+                                }
+                                let _ = child.wait().await;
+                            }
                         }
                     }
                 });

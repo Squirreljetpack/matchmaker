@@ -198,20 +198,6 @@ ansi = false # don't set to true here
 
 "@print" = "Print({-})"
 "@print_2" = "Print({-!})"
-"@copy" = '''
-ExecuteSilent(
-out="$(printf '%s\n' {+1})"
-printf "$out" | eval $CLIPcmd
-)
-'''
-"@copy_all" = '''
-ExecuteSilent(
-printf '%s' {1} | eval $CLIPcmd
-)
-'''
-"@copy_active" = '''
-ExecuteSilent(
-out="$(printf '%s\n' {+!})"
-printf "$out" | eval $CLIPcmd
-)
-'''
+"@copy" = "Copy(printf '%s\n' {+1})"
+"@copy_all" = "Copy(printf {})"
+"@copy_active" = "Copy(printf '%s\n' {+!})"

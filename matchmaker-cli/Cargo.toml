@@ -1,6 +1,6 @@
 [package]
 name = "matchmaker-cli"
-version = "0.0.39"
+version = "0.0.40"
 authors = ["Squirreljetpack"]
 categories = ["command-line-utilities"]
 edition = "2024"

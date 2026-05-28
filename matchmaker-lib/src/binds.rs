@@ -1,6 +1,6 @@
 use std::{
     cmp::Ordering,
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fmt::{self, Display},
     str::FromStr,
 };
@@ -115,136 +115,147 @@ impl<A: ActionExt> BindMap<A> {
 
     // This is not exactly what we'd like as ideally we'd resolve concrete triggers to actions directly, with traces delimiting untraced aliases. But because of modes, this is trickier.
 
-    /// Simplifies semantic trigger chains and removes unbound triggers.
-    ///
-    /// - `key -> @s1 -> @s2 -> concrete` becomes `key -> @s2`.
-    /// - `key -> @s1 -> unbound` results in `key` being removed.
-    ///
-    /// # Note
-    /// This method assumes that [Self::check_cycles] has been called and succeeded.
+    /// Fully resolves all aliases into concrete triggers.
     pub fn resolve_semantics(&mut self) {
-        let mut triggers_to_update = Vec::new();
-
-        // Step 1: Build semantic resolution mapping strictly for mode-less fallbacks
-        let mut semantic_map: std::collections::HashMap<String, Option<String>> =
-            std::collections::HashMap::new();
-
-        for (trigger, actions) in self.iter().filter(|(t, _)| t.mode.is_empty()) {
-            if let TriggerKind::Semantic(ref s) = trigger.kind {
-                if actions.len() == 1
-                    && let Action::Semantic(next_s) = &actions[0]
-                {
-                    semantic_map
-                        .entry(s.clone())
-                        .and_modify(|v| *v = None)
-                        .or_insert_with(|| Some(next_s.clone()));
-                } else {
-                    // Ambiguous or non-semantic terminal
-                    semantic_map
-                        .entry(s.clone())
-                        .and_modify(|v| *v = None)
-                        .or_insert(None);
-                }
+        let mut alias_modes: HashMap<String, HashSet<String>> = HashMap::new();
+        for trigger in self.keys() {
+            if let TriggerKind::Semantic(alias) = &trigger.kind {
+                alias_modes
+                    .entry(alias.clone())
+                    .or_default()
+                    .insert(trigger.mode.clone());
             }
         }
 
-        // Step 2: Iterate over ALL triggers and prune/chain semantic actions
-        for (trigger, actions) in self.iter() {
-            let mut updated_actions = Actions::default();
-            let mut changed = false;
+        let mut new_binds: BindMap<A> = HashMap::new();
+
+        // 1. Fully resolve concrete triggers that ALREADY have a mode
+        for (trigger, actions) in self.iter().filter(|(t, _)| !t.mode.is_empty()) {
+            if let TriggerKind::Semantic(_) = &trigger.kind {
+                continue;
+            }
+
+            if let Some(resolved) = self.resolve_actions(actions, &trigger.mode) {
+                new_binds.insert(trigger.clone(), resolved);
+            }
+        }
+
+        // 2. Resolve concrete triggers WITHOUT a mode (mode = "")
+        // and also handle mode propagation (intersection)
+        for (trigger, actions) in self.iter().filter(|(t, _)| t.mode.is_empty()) {
+            if let TriggerKind::Semantic(_) = &trigger.kind {
+                continue;
+            }
+
+            // Resolve for the default mode
+            if let Some(resolved) = self.resolve_actions(actions, "") {
+                new_binds.insert(trigger.clone(), resolved);
+            }
+
+            // Find common modes for all aliases in these actions
+            let mut common_modes: Option<HashSet<String>> = None;
+            let mut has_aliases = false;
 
             for action in actions.iter() {
-                if let Action::Semantic(start_s) = action {
-                    let mut current_s = start_s.clone();
-                    let mut is_unbound = false;
-
-                    // Trace the chain of single semantic actions
-                    loop {
-                        // 1. Try finding the semantic trigger specific to the current mode first
-                        if !trigger.mode.is_empty() {
-                            let next_trigger = Trigger {
-                                kind: TriggerKind::Semantic(current_s.clone()),
-                                mode: trigger.mode.clone(),
-                            };
-
-                            if let Some(next_actions) = self.get(&next_trigger) {
-                                if next_actions.len() == 1
-                                    && let Action::Semantic(next_s) = &next_actions[0]
-                                {
-                                    current_s = next_s.clone();
-                                    continue;
-                                }
-                                break; // Found a terminal for this specific mode
-                            }
-                        }
-
-                        // 2. Fallback to the global mapping (mode = "")
-                        match semantic_map.get(&current_s) {
-                            Some(Some(next_s)) => {
-                                current_s = next_s.clone(); // Chain further
-                            }
-                            Some(None) => {
-                                break; // Do nothing (resolves to concrete or multiple actions)
-                            }
-                            None => {
-                                is_unbound = true; // Not in mapping, prune
-                                break;
-                            }
-                        }
-                    }
-
-                    if !is_unbound {
-                        // Check if the terminal actions start with a Trace
-                        let final_trigger = Trigger {
-                            kind: TriggerKind::Semantic(current_s.clone()),
-                            mode: trigger.mode.clone(),
-                        };
-
-                        let concretization = self.get(&final_trigger).or_else(|| {
-                            if !trigger.mode.is_empty() {
-                                self.get(&Trigger {
-                                    kind: TriggerKind::Semantic(current_s.clone()),
-                                    mode: String::new(),
-                                })
-                            } else {
-                                None
-                            }
-                        });
-
-                        if let Some(con) = concretization
-                            && let Some(Action::Trace(_)) = con.first()
-                        {
-                            changed = true;
-                            for a in con.iter() {
-                                updated_actions.push(a.clone());
-                            }
-                            updated_actions.push(Action::Trace(String::new()));
-                        } else {
-                            if &current_s != start_s {
-                                changed = true
-                            }
-                            updated_actions.push(Action::Semantic(current_s));
-                        }
+                if let Action::Semantic(alias) = action {
+                    has_aliases = true;
+                    let modes = alias_modes.get(alias).cloned().unwrap_or_default();
+                    if let Some(common) = &mut common_modes {
+                        common.retain(|m| modes.contains(m));
                     } else {
-                        changed = true
+                        common_modes = Some(modes);
                     }
-                } else {
-                    updated_actions.push(action.clone());
                 }
             }
 
-            if changed {
-                triggers_to_update.push((trigger.clone(), updated_actions));
+            if has_aliases {
+                if let Some(mut modes) = common_modes {
+                    // Remove default mode as it's already handled
+                    modes.remove("");
+                    // Remove modes that already have a definition for this trigger
+                    modes.retain(|m| {
+                        !self.contains_key(&Trigger {
+                            kind: trigger.kind.clone(),
+                            mode: m.clone(),
+                        })
+                    });
+
+                    for mode in modes {
+                        if let Some(resolved) = self.resolve_actions(actions, &mode) {
+                            new_binds.insert(
+                                Trigger {
+                                    kind: trigger.kind.clone(),
+                                    mode,
+                                },
+                                resolved,
+                            );
+                        }
+                    }
+                }
             }
         }
 
-        for (t, a) in triggers_to_update {
-            if a.is_empty() {
-                self.remove(&t);
+        *self = new_binds;
+    }
+
+    pub fn resolve_actions(&self, actions: &Actions<A>, mode: &str) -> Option<Actions<A>> {
+        let mut resolved = Vec::new();
+
+        for action in actions.iter() {
+            if let Action::Semantic(alias) = action {
+                if let Some(alias_actions) = self.resolve_alias(alias, mode) {
+                    let has_nested_aliases = alias_actions
+                        .iter()
+                        .any(|a| matches!(a, Action::Semantic(_)));
+                    let flat_actions = if has_nested_aliases {
+                        self.resolve_actions(alias_actions, mode)?
+                    } else {
+                        alias_actions.clone()
+                    };
+
+                    let already_traced = matches!(flat_actions.first(), Some(Action::Trace(_)));
+                    if !already_traced {
+                        resolved.push(Action::Trace(format!("@@{alias}")));
+                        resolved.extend(flat_actions.into_iter());
+                        resolved.push(Action::Trace(String::new()));
+                    } else {
+                        resolved.extend(flat_actions.into_iter());
+                    }
+                } else {
+                    // If any alias is unresolvable, the whole sequence is invalid
+                    return None;
+                }
             } else {
-                self.insert(t, a);
+                resolved.push(action.clone());
             }
         }
+
+        if resolved.is_empty() {
+            None
+        } else {
+            Some(Actions(resolved))
+        }
+    }
+
+    pub fn resolve_alias(&self, alias: &str, mode: &str) -> Option<&Actions<A>> {
+        let specific_trigger = Trigger {
+            kind: TriggerKind::Semantic(alias.to_string()),
+            mode: mode.to_string(),
+        };
+
+        if let Some(actions) = self.get(&specific_trigger) {
+            return Some(actions);
+        }
+
+        if !mode.is_empty() {
+            let fallback_trigger = Trigger {
+                kind: TriggerKind::Semantic(alias.to_string()),
+                mode: String::new(),
+            };
+            return self.get(&fallback_trigger);
+        }
+
+        None
     }
 
     /// Strips all `Action::Trace` from the bindings.
@@ -561,18 +572,38 @@ impl<'de> serde::Deserialize<'de> for Trigger {
 
 use ratatui::style::Style;
 use ratatui::text::{Line, Span, Text};
-pub fn display_binds<A: ActionExt + Display>(
+pub fn display_help<A: ActionExt + Display>(
     binds: &BindMap<A>,
     config: &HelpDisplayConfig,
+    mode: Option<&str>,
 ) -> Text<'static> {
-    // Collect trigger and action strings
-    let mut entries: Vec<(String, Vec<Action<A>>)> = binds
-        .iter()
-        .filter(|(trigger, _)| {
-            !config.hide_semantic || !matches!(trigger.kind, TriggerKind::Semantic(_))
-        })
-        .map(|(trigger, actions)| (trigger.to_string(), actions.iter().cloned().collect()))
-        .collect();
+    // Filter and collect triggers based on mode
+    let mut entries: Vec<(String, Vec<Action<A>>)> = Vec::new();
+    let mut seen_trigger_kinds = HashSet::new();
+
+    if let Some(target_mode) = mode {
+        // First, collect specifically for this mode
+        for (trigger, actions) in binds.iter() {
+            if trigger.mode == target_mode {
+                // todo: resolve needs a option to keep semantic definitions
+                if config.hide_semantic && matches!(trigger.kind, TriggerKind::Semantic(_)) {
+                    continue;
+                }
+                seen_trigger_kinds.insert(trigger.kind.clone());
+                entries.push((trigger.kind.to_string(), actions.iter().cloned().collect()));
+            }
+        }
+    }
+
+    // Then, collect for default mode (mode = "") for triggers not seen yet
+    for (trigger, actions) in binds.iter() {
+        if trigger.mode.is_empty() && !seen_trigger_kinds.contains(&trigger.kind) {
+            if config.hide_semantic && matches!(trigger.kind, TriggerKind::Semantic(_)) {
+                continue;
+            }
+            entries.push((trigger.kind.to_string(), actions.iter().cloned().collect()));
+        }
+    }
 
     // Sort by actions (values) instead of triggers
     entries.sort_by(|a, b| {
@@ -581,7 +612,7 @@ pub fn display_binds<A: ActionExt + Display>(
         s1.cmp(&s2)
     });
 
-    // Process all bindings into their final visible string sequences. Items betweent trace delimiters are replaced by the trace message
+    // Process all bindings into their final visible string sequences. Items between trace delimiters are replaced by the trace message
     let entries_processed: Vec<(String, Vec<String>)> = entries
         .into_iter()
         .map(|(trigger, actions)| {
@@ -604,11 +635,19 @@ pub fn display_binds<A: ActionExt + Display>(
                             // Expected empty, got nonempty (treat as if extra empty before)
                             visible_items.push(last_trace);
                         }
+
                         // Start or continue skipping
-                        last_trace = if config.quote_traces {
-                            format!("\"{s}\"")
+                        let (display_trace, is_alias_trace) =
+                            if let Some(alias) = s.strip_prefix("@@") {
+                                (format!("@{alias}"), true)
+                            } else {
+                                (s.clone(), false)
+                            };
+
+                        last_trace = if config.quote_traces && !is_alias_trace {
+                            format!("\"{display_trace}\"")
                         } else {
-                            s
+                            display_trace
                         };
                         skipping = true;
                     }
@@ -841,20 +880,32 @@ mod test {
             } => Action::Accept,
         );
         bind_map.resolve_semantics();
-        assert_eq!(
-            bind_map.get(&key!(a).into()).unwrap().0[0],
-            Action::Semantic("s2".into())
-        );
-        assert_eq!(
-            bind_map
-                .get(&Trigger {
-                    kind: TriggerKind::Semantic("s1".into()),
-                    mode: String::new()
-                })
-                .unwrap()
-                .0[0],
-            Action::Semantic("s2".into())
-        );
+
+        // key(a) should resolve directly to Accept (with traces)
+        let actions = bind_map.get(&key!(a).into()).unwrap();
+        // It will be [Trace("@@s1"), Trace("@@s2"), Accept, Trace(""), Trace("")]
+        // Actually, wait:
+        // resolve_actions([@s1])
+        //   resolve_alias(s1) -> [@s2]
+        //   has_nested = true
+        //   flat = resolve_actions([@s2])
+        //     resolve_alias(s2) -> [Accept]
+        //     has_nested = false
+        //     flat = [Accept]
+        //     already_traced = false
+        //     returns [Trace("@@s2"), Accept, Trace("")]
+        //   already_traced = true
+        //   returns [Trace("@@s2"), Accept, Trace("")]
+        assert_eq!(actions.len(), 3);
+        assert_eq!(actions.0[0], Action::Trace("@@s2".into()));
+        assert_eq!(actions.0[1], Action::Accept);
+        assert_eq!(actions.0[2], Action::Trace(String::new()));
+
+        // @s1 should be GONE
+        assert!(!bind_map.contains_key(&Trigger {
+            kind: TriggerKind::Semantic("s1".into()),
+            mode: String::new()
+        }));
 
         // Unbound: key(b) -> @s3 -> @s4 -> unbound
         let mut bind_map_unbound: BindMap<NullActionExt> = bindmap!(
@@ -866,10 +917,6 @@ mod test {
         );
         bind_map_unbound.resolve_semantics();
         assert!(!bind_map_unbound.contains_key(&key!(b).into()));
-        assert!(!bind_map_unbound.contains_key(&Trigger {
-            kind: TriggerKind::Semantic("s3".into()),
-            mode: String::new()
-        }));
 
         // Multi-action chain: key(c) -> @s5 -> [@s6, Accept]
         let mut bind_map_multi: BindMap<NullActionExt> = bindmap!(
@@ -884,11 +931,18 @@ mod test {
             } => Action::Cancel,
         );
         bind_map_multi.resolve_semantics();
-        // key(c) should still point to @s5 because @s5 has multiple actions.
-        assert_eq!(
-            bind_map_multi.get(&key!(c).into()).unwrap().0[0],
-            Action::Semantic("s5".into())
-        );
+        let actions = bind_map_multi.get(&key!(c).into()).unwrap();
+        // @s5 is not traced because it has nested aliases?
+        // Wait, resolve_actions([@s5]):
+        //   alias_actions = [@s6, Accept]
+        //   has_nested = true
+        //   flat = resolve_actions([@s6, Accept])
+        //     resolve_actions([@s6]) -> [Trace("@@s6"), Cancel, Trace("")]
+        //     resolve_actions([Accept]) -> [Accept]
+        //     returns [Trace("@@s6"), Cancel, Trace(""), Accept]
+        //   already_traced = true
+        //   returns [Trace("@@s6"), Cancel, Trace(""), Accept]
+        assert_eq!(actions.len(), 4);
     }
 
     #[test]
@@ -915,19 +969,105 @@ mod test {
         assert_eq!(actions.len(), 2);
         assert_eq!(actions.0[0], Action::Trace("desc".into()));
         assert_eq!(actions.0[1], Action::Accept);
-
-        // @s1 should also resolve directly to [Trace("desc"), Accept]
-        let s1_trigger = Trigger {
-            kind: TriggerKind::Semantic("s1".into()),
-            mode: String::new(),
-        };
-        let s1_actions = bind_map.get(&s1_trigger).unwrap();
-        assert_eq!(s1_actions.len(), 2);
-        assert_eq!(s1_actions.0[0], Action::Trace("desc".into()));
     }
 
     #[test]
-    fn test_display_binds_semantic_help() {
+    fn test_resolve_semantics_modes() {
+        use crate::action::NullActionExt;
+        use crate::bindmap;
+
+        // key(a) -> @s1
+        // @s1 is Accept in default mode
+        // @s1 is Cancel in "mode1"
+        let mut bind_map: BindMap<NullActionExt> = bindmap!(
+            key!(a) => Action::Semantic("s1".into()),
+            Trigger {
+                kind: TriggerKind::Semantic("s1".into()),
+                mode: String::new()
+            } => Action::Accept,
+            Trigger {
+                kind: TriggerKind::Semantic("s1".into()),
+                mode: "mode1".into()
+            } => Action::Cancel,
+        );
+
+        bind_map.resolve_semantics();
+
+        // key(a) in default mode should be Accept
+        let a_default = bind_map.get(&key!(a).into()).unwrap();
+        assert!(a_default.iter().any(|a| matches!(a, Action::Accept)));
+
+        // key(a) in mode1 should be Cancel
+        let a_mode1 = bind_map
+            .get(&Trigger {
+                kind: TriggerKind::Key(key!(a)),
+                mode: "mode1".into(),
+            })
+            .unwrap();
+        assert!(a_mode1.iter().any(|a| matches!(a, Action::Cancel)));
+    }
+
+    #[test]
+    fn test_resolve_semantics_intersection() {
+        use crate::action::NullActionExt;
+        use crate::bindmap;
+
+        // key(a) -> [@s1, @s2]
+        // @s1 defined in default, m1, m2
+        // @s2 defined in default, m1, m3
+        // Intersection: default, m1
+        let mut bind_map: BindMap<NullActionExt> = bindmap!(
+            key!(a) => [Action::Semantic("s1".into()), Action::Semantic("s2".into())],
+            Trigger {
+                kind: TriggerKind::Semantic("s1".into()),
+                mode: String::new()
+            } => Action::Select,
+            Trigger {
+                kind: TriggerKind::Semantic("s1".into()),
+                mode: "m1".into()
+            } => Action::Select,
+            Trigger {
+                kind: TriggerKind::Semantic("s1".into()),
+                mode: "m2".into()
+            } => Action::Select,
+
+            Trigger {
+                kind: TriggerKind::Semantic("s2".into()),
+                mode: String::new()
+            } => Action::Deselect,
+            Trigger {
+                kind: TriggerKind::Semantic("s2".into()),
+                mode: "m1".into()
+            } => Action::Deselect,
+            Trigger {
+                kind: TriggerKind::Semantic("s2".into()),
+                mode: "m3".into()
+            } => Action::Deselect,
+        );
+
+        bind_map.resolve_semantics();
+
+        // key(a) in default
+        assert!(bind_map.contains_key(&key!(a).into()));
+        // key(a) in m1
+        assert!(bind_map.contains_key(&Trigger {
+            kind: TriggerKind::Key(key!(a)),
+            mode: "m1".into()
+        }));
+        // key(a) in m2 - NO
+        assert!(!bind_map.contains_key(&Trigger {
+            kind: TriggerKind::Key(key!(a)),
+            mode: "m2".into()
+        }));
+        // key(a) in m3 - NO
+        assert!(!bind_map.contains_key(&Trigger {
+            kind: TriggerKind::Key(key!(a)),
+            mode: "m3".into()
+        }));
+    }
+
+    #[test]
+    fn test_display_help_semantic_help() {
         let binds: BindMap<NullActionExt> = bindmap!(
             key!(a) => Action::Print("a".into()),
             Trigger {
@@ -939,7 +1079,7 @@ mod test {
         // With semantic help
         let mut cfg = HelpDisplayConfig::default();
         cfg.hide_semantic = false;
-        let help_show = display_binds(&binds, &cfg);
+        let help_show = display_help(&binds, &cfg, None);
         let help_show_str = help_show.to_string();
         assert!(help_show_str.contains("a = Print(a)"));
         assert!(help_show_str.contains("@foo = Print(foo)"));
@@ -947,7 +1087,7 @@ mod test {
         // Without semantic help
         let mut cfg_hide = HelpDisplayConfig::default();
         cfg_hide.hide_semantic = true;
-        let help_hide = display_binds(&binds, &cfg_hide);
+        let help_hide = display_help(&binds, &cfg_hide, None);
         let help_hide_str = help_hide.to_string();
         assert!(help_hide_str.contains("a = Print(a)"));
         assert!(!help_hide_str.contains("@foo = Print(foo)"));

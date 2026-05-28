@@ -6,7 +6,7 @@ use std::{
 use serde::{Deserialize, Serialize, Serializer};
 
 use crate::utils::string::allowed_semantic_char;
-use crate::{MAX_ACTIONS, SSS, utils::serde::StringOrVec};
+use crate::{SSS, utils::serde::StringOrVec};
 
 /// Bindable actions
 /// # Additional
@@ -161,6 +161,8 @@ pub enum Action<A: ActionExt = NullActionExt> {
     Overlay(usize),
     /// Alias for a semantic trigger
     Semantic(String),
+    /// Set the application mode
+    SetMode(String),
     /// A description of a binding, only used for help display.
     Trace(String),
 }
@@ -251,14 +253,18 @@ impl std::str::FromStr for NullActionExt {
 }
 
 // --------------- ACTIONS ---------------
-pub use arrayvec::ArrayVec;
-
 #[derive(Debug, Clone, PartialEq)]
-pub struct Actions<A: ActionExt = NullActionExt>(pub ArrayVec<Action<A>, MAX_ACTIONS>);
+pub struct Actions<A: ActionExt = NullActionExt>(pub Vec<Action<A>>);
 
 impl<A: ActionExt> Default for Actions<A> {
     fn default() -> Self {
-        Self(ArrayVec::new())
+        Self(Vec::new())
+    }
+}
+
+impl<A: ActionExt> From<Vec<Action<A>>> for Actions<A> {
+    fn from(v: Vec<Action<A>>) -> Self {
+        Actions(v)
     }
 }
 
@@ -267,7 +273,7 @@ macro_rules! repeat_impl {
         $(
             impl<A: ActionExt> From<[Action<A>; $len]> for Actions<A> {
                 fn from(arr: [Action<A>; $len]) -> Self {
-                    Actions(ArrayVec::from_iter(arr))
+                    Actions(Vec::from(arr))
                 }
             }
 
@@ -281,10 +287,10 @@ macro_rules! repeat_impl {
 }
 impl<A: ActionExt> From<[Action<A>; 0]> for Actions<A> {
     fn from(empty: [Action<A>; 0]) -> Self {
-        Actions(ArrayVec::from_iter(empty))
+        Actions(Vec::from(empty))
     }
 }
-repeat_impl!(1, 2, 3, 4, 5, 6);
+repeat_impl!(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 
 impl<A: ActionExt> From<Action<A>> for Actions<A> {
     fn from(action: Action<A>) -> Self {
@@ -320,13 +326,7 @@ impl<'de, A: ActionExt + FromStr> Deserialize<'de> for Actions<A> {
             StringOrVec::Vec(v) => v,
         };
 
-        if strings.len() > MAX_ACTIONS {
-            return Err(serde::de::Error::custom(format!(
-                "Too many actions, max is {MAX_ACTIONS}."
-            )));
-        }
-
-        let mut actions = ArrayVec::new();
+        let mut actions = Vec::new();
         for s in strings {
             let action = Action::from_str(&s).map_err(serde::de::Error::custom)?;
             actions.push(action);
@@ -366,7 +366,7 @@ enum_from_str_display!(
 
     tuples:
     Execute, ExecuteAsync, ExecuteThen, ExecuteSilent, Become, BecomeSilent, Preview,
-    SetQuery, Pos, QueryPos, SwitchColumn, Store;
+    SetQuery, Pos, QueryPos, SwitchColumn, Store, SetMode;
 
     defaults:
     (Up, 1), (Down, 1), (PreviewUp, 1), (PreviewDown, 1), (Quit, 1), (Overlay, 0), (Print, String::new()), (Help, String::new()), (Reload, String::new()), (PreviewScroll, 1), (PreviewHScroll, 1), (HScroll, 0), (VScroll, 0), (ExpandPreview, 1), (ShrinkPreview, 1);
@@ -504,7 +504,7 @@ use enum_from_str_display;
 
 impl<A: ActionExt> IntoIterator for Actions<A> {
     type Item = Action<A>;
-    type IntoIter = <ArrayVec<Action<A>, MAX_ACTIONS> as IntoIterator>::IntoIter;
+    type IntoIter = <Vec<Action<A>> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
@@ -513,7 +513,7 @@ impl<A: ActionExt> IntoIterator for Actions<A> {
 
 impl<'a, A: ActionExt> IntoIterator for &'a Actions<A> {
     type Item = &'a Action<A>;
-    type IntoIter = <&'a ArrayVec<Action<A>, MAX_ACTIONS> as IntoIterator>::IntoIter;
+    type IntoIter = <&'a Vec<Action<A>> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter()
@@ -522,7 +522,7 @@ impl<'a, A: ActionExt> IntoIterator for &'a Actions<A> {
 
 impl<A: ActionExt> FromIterator<Action<A>> for Actions<A> {
     fn from_iter<T: IntoIterator<Item = Action<A>>>(iter: T) -> Self {
-        let mut inner = ArrayVec::<Action<A>, MAX_ACTIONS>::new();
+        let mut inner = Vec::<Action<A>>::new();
         inner.extend(iter);
         Actions(inner)
     }
@@ -531,7 +531,7 @@ impl<A: ActionExt> FromIterator<Action<A>> for Actions<A> {
 use std::ops::{Deref, DerefMut};
 
 impl<A: ActionExt> Deref for Actions<A> {
-    type Target = ArrayVec<Action<A>, MAX_ACTIONS>;
+    type Target = Vec<Action<A>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0

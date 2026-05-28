@@ -41,7 +41,6 @@ pub struct EventLoop<A: ActionExt> {
 
     key_file: Option<PathBuf>,
     current_task: Option<tokio::task::JoinHandle<Result<()>>>,
-    pub mode: String,
 }
 
 impl<A: ActionExt> Default for EventLoop<A> {
@@ -76,7 +75,6 @@ impl<A: ActionExt> EventLoop<A> {
 
             bind_rx,
             bind_tx,
-            mode: String::new(),
         }
     }
 
@@ -123,13 +121,14 @@ impl<A: ActionExt> EventLoop<A> {
     }
 
     fn get_bind(&self, kind: TriggerKind) -> Option<Actions<A>> {
+        let mode = crate::MODE.lock().ok()?.clone();
         self.binds
             .get(&Trigger {
                 kind: kind.clone(),
-                mode: self.mode.clone(),
+                mode: mode.clone(),
             })
             .or_else(|| {
-                (!self.mode.is_empty()).then(|| {
+                (!mode.is_empty()).then(|| {
                     self.binds.get(&Trigger {
                         kind,
                         mode: String::new(),
@@ -396,6 +395,11 @@ impl<A: ActionExt> EventLoop<A> {
                 Action::Semantic(s) => {
                     if let Some(actions) = self.get_bind(TriggerKind::Semantic(s)) {
                         self.send_actions(actions.clone(), None);
+                    }
+                }
+                Action::SetMode(m) => {
+                    if let Ok(mut mode) = crate::MODE.lock() {
+                        *mode = m;
                     }
                 }
                 _ => self.send(action.into()),

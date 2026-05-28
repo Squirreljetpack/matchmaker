@@ -28,3 +28,5 @@ pub use aliases::*;
 pub use errors::*;
 
 pub mod noninteractive;
+
+pub static MODE: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());

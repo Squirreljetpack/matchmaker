@@ -746,6 +746,11 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             }
                         }
                         Action::Char(c) => picker_ui.query.push_char(c),
+                        Action::SetMode(s) => {
+                            if let Ok(mut m) = crate::MODE.lock() {
+                                *m = s;
+                            }
+                        }
 
                         // unreachable
                         Action::PrintKey => {}

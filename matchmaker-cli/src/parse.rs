@@ -1,5 +1,4 @@
 use anyhow::bail;
-use matchmaker::action::ArrayVec;
 
 use thiserror::Error;
 #[derive(Debug, Error)]
@@ -28,7 +27,7 @@ static ALIASES: &[(&str, &str)] = &[
 
 /// Get (path, value) pairs by consuming either a single word, splitting at '=' into a valid key, or a pair of consecutive words.
 /// The value is broken down into words, and fed into [`matchmaker_partial::Set`] to construct the (partial) type at `path`.
-pub fn get_pairs(pairs: Vec<String>) -> Result<Vec<(ArrayVec<String, 10>, String)>, ParseError> {
+pub fn get_pairs(pairs: Vec<String>) -> Result<Vec<(Vec<String>, String)>, ParseError> {
     let mut result = Vec::new();
     let mut iter = pairs.into_iter().peekable();
 
@@ -71,14 +70,14 @@ pub fn get_pairs(pairs: Vec<String>) -> Result<Vec<(ArrayVec<String, 10>, String
                 });
             } else {
                 result.push((
-                    ArrayVec::from_iter(["binds".to_string(), comp.to_string()]),
+                    vec!["binds".to_string(), comp.to_string()],
                     value,
                 ));
                 continue;
             }
         };
 
-        let mut components = ArrayVec::<String, 10>::new();
+        let mut components = Vec::new();
         for comp in path_str.split('.') {
             if !valid_key(comp, false) {
                 return Err(ParseError::InvalidPath {

@@ -897,15 +897,19 @@ pub fn make_previewer<T: SSS, S: Selection + 'static>(
     mm: &mut Matchmaker<T, S>,
     previewer_config: PreviewerConfig, // note: help_str is provided separately so help_colors is ignored
     formatter: AttachmentFormatter<T, S>,
-    help_str: Text<'static>,
+    help_factory: Box<
+        dyn Fn(&crate::config::HelpDisplayConfig, &str) -> Text<'static> + Send + Sync,
+    >,
 ) -> Previewer {
     if previewer_config.trim_commands {
         mm.render_config.preview.trim_commands();
     }
     // initialize previewer
-    let (previewer, tx) = Previewer::new(previewer_config);
+    let (previewer, tx) = Previewer::new(previewer_config.clone());
     let preview_tx = tx.clone();
     let formatter_clone = formatter.clone();
+
+    let help_config = previewer_config.help.clone();
 
     // preview handler
     // important that PreviewSet events don't accidentally trigger this!
@@ -959,8 +963,9 @@ pub fn make_previewer<T: SSS, S: Selection + 'static>(
             let payload = state.preview_set_payload();
             let msg = match payload {
                 Some(Err(m)) => {
-                    let m = if is_empty(&m) && !help_str.lines.is_empty() {
-                        help_str.clone()
+                    let m = if is_empty(&m) {
+                        let mode = crate::MODE.lock().map(|m| m.clone()).unwrap_or_default();
+                        help_factory(&help_config, &mode)
                     } else {
                         m
                     };

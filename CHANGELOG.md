@@ -1,3 +1,16 @@
+## [0.0.39] - 2026-05-28
+
+### 🚀 Features
+
+- Doc revisions
+- Dictionary preset
+- Improve mode binding resolution and display
+- Results.min_wrap_width -> min_width
+
+### ⚙️ Miscellaneous Tasks
+
+- Remove old ps1 installer
+
 ## [0.0.38] - 2026-05-27
 
 ### 🐛 Bug Fixes

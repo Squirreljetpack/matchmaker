@@ -138,23 +138,9 @@ max = 120
 
 "@print" = "Print({-})"
 "@print_2" = "Print({-!})"
-"@copy" = '''
-ExecuteSilent(
-out="$(printf '%s\n' {+1})"
-printf "$out" | (pbcopy || wl-copy || xclip -selection clipboard || xsel --clipboard --input) 2>/dev/null
-)
-'''
-"@copy_all" = '''
-ExecuteSilent(
-printf '%s' {} | eval $CLIPcmd
-)
-'''
-"@copy_col" = '''
-ExecuteSilent(
-out="$(printf '%s\n' {+!})"
-printf "$out" | eval $CLIPcmd
-)
-'''
+"@copy" = "Copy(printf '%s\n' {+1})"
+"@copy_all" = "Copy(printf {})"
+"@copy_col" = "Copy(printf '%s\n' {+!})"
 
 # test
 "ctrl-t" = "Become(set -e; false; echo hi;)"

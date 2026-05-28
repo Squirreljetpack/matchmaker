@@ -1247,6 +1247,7 @@ dependencies = [
  "arrayvec",
  "atoi",
  "atty",
+ "base64",
  "bitflags 2.11.1",
  "bitflags-derive",
  "boxcar",

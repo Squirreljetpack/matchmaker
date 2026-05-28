@@ -113,6 +113,8 @@ pub enum Action<A: ActionExt = NullActionExt> {
     ExecuteThen(String),
     /// Execute command without leaving the UI
     ExecuteSilent(String),
+    /// Execute command asynchronously and copy its output to the clipboard
+    Copy(String),
     /// Exit and become
     Become(String),
     /// Become without exiting the TUI
@@ -366,7 +368,8 @@ enum_from_str_display!(
 
     tuples:
     Execute, ExecuteAsync, ExecuteThen, ExecuteSilent, Become, BecomeSilent, Preview,
-    SetQuery, Pos, QueryPos, SwitchColumn, Store, SetMode;
+    SetQuery, Pos, QueryPos, SwitchColumn, Store, SetMode,
+    Copy;
 
     defaults:
     (Up, 1), (Down, 1), (PreviewUp, 1), (PreviewDown, 1), (Quit, 1), (Overlay, 0), (Print, String::new()), (Help, String::new()), (Reload, String::new()), (PreviewScroll, 1), (PreviewHScroll, 1), (HScroll, 0), (VScroll, 0), (ExpandPreview, 1), (ShrinkPreview, 1);
@@ -377,33 +380,45 @@ enum_from_str_display!(
 
 macro_rules! enum_from_str_display {
     (
-        units: $($unit:ident),*;
-        tuples: $($tuple:ident),*;
-        defaults: $(($default:ident, $default_value:expr)),*;
-        options: $($optional:ident),*
+        units: $( $(#[$uattr:meta])* $unit:ident),*;
+        tuples: $( $(#[$tattr:meta])* $tuple:ident),*;
+        defaults: $( $(#[$dattr:meta])* ($default:ident, $default_value:expr)),*;
+        options: $( $(#[$oattr:meta])* $optional:ident),*
     ) => {
         impl<A: ActionExt + Display> std::fmt::Display for Action<A> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 match self {
-                    $( Self::$unit => write!(f, stringify!($unit)), )*
+                    $(
+                        $(#[$uattr])*
+                        Self::$unit => write!(f, stringify!($unit)),
+                    )*
 
-                    $( Self::$tuple(inner) => write!(f, concat!(stringify!($tuple), "({})"), inner), )*
+                    $(
+                        $(#[$tattr])*
+                        Self::$tuple(inner) => write!(f, concat!(stringify!($tuple), "({})"), inner),
+                    )*
 
-                    $( Self::$default(inner) => {
-                        if *inner == $default_value {
-                            write!(f, stringify!($default))
-                        } else {
-                            write!(f, concat!(stringify!($default), "({})"), inner)
-                        }
-                    }, )*
+                    $(
+                        $(#[$dattr])*
+                        Self::$default(inner) => {
+                            if *inner == $default_value {
+                                write!(f, stringify!($default))
+                            } else {
+                                write!(f, concat!(stringify!($default), "({})"), inner)
+                            }
+                        },
+                    )*
 
-                    $( Self::$optional(opt) => {
-                        if let Some(inner) = opt {
-                            write!(f, concat!(stringify!($optional), "({})"), inner)
-                        } else {
-                            write!(f, stringify!($optional))
-                        }
-                    }, )*
+                    $(
+                        $(#[$oattr])*
+                        Self::$optional(opt) => {
+                            if let Some(inner) = opt {
+                                write!(f, concat!(stringify!($optional), "({})"), inner)
+                            } else {
+                                write!(f, stringify!($optional))
+                            }
+                        },
+                    )*
 
                     Self::Custom(inner) => {
                         write!(f, "{}", inner.to_string())
@@ -455,44 +470,56 @@ macro_rules! enum_from_str_display {
                 };
 
                 match name {
-                    $( n if n.eq_ignore_ascii_case(stringify!($unit)) => {
-                        if data.is_some() {
-                            Err(format!("Unexpected data for unit variant {}", name))
-                        } else {
-                            Ok(Self::$unit)
-                        }
-                    }, )*
-
-                    $( n if n.eq_ignore_ascii_case(stringify!($tuple)) => {
-                        let d = data
-                        .ok_or_else(|| format!("Missing data for {}", stringify!($tuple)))?
-                        .parse()
-                        .map_err(|_| format!("Invalid data for {}", stringify!($tuple)))?;
-                        Ok(Self::$tuple(d))
-                    }, )*
-
-                    $( n if n.eq_ignore_ascii_case(stringify!($default)) => {
-                        let d = match data {
-                            Some(val) => val
-                            .parse()
-                            .map_err(|_| format!("Invalid data for {}", stringify!($default)))?,
-                            None => $default_value,
-                        };
-                        Ok(Self::$default(d))
-                    }, )*
-
-                    $( n if n.eq_ignore_ascii_case(stringify!($optional)) => {
-                        let d = match data {
-                            Some(val) if !val.is_empty() => {
-                                Some(
-                                    val.parse()
-                                    .map_err(|_| format!("Invalid data for {}", stringify!($optional)))?,
-                                )
+                    $(
+                        $(#[$uattr])*
+                        n if n.eq_ignore_ascii_case(stringify!($unit)) => {
+                            if data.is_some() {
+                                Err(format!("Unexpected data for unit variant {}", name))
+                            } else {
+                                Ok(Self::$unit)
                             }
-                            _ => None,
-                        };
-                        Ok(Self::$optional(d))
-                    }, )*
+                        },
+                    )*
+
+                    $(
+                        $(#[$tattr])*
+                        n if n.eq_ignore_ascii_case(stringify!($tuple)) => {
+                            let d = data
+                            .ok_or_else(|| format!("Missing data for {}", stringify!($tuple)))?
+                            .parse()
+                            .map_err(|_| format!("Invalid data for {}", stringify!($tuple)))?;
+                            Ok(Self::$tuple(d))
+                        },
+                    )*
+
+                    $(
+                        $(#[$dattr])*
+                        n if n.eq_ignore_ascii_case(stringify!($default)) => {
+                            let d = match data {
+                                Some(val) => val
+                                .parse()
+                                .map_err(|_| format!("Invalid data for {}", stringify!($default)))?,
+                                None => $default_value,
+                            };
+                            Ok(Self::$default(d))
+                        },
+                    )*
+
+                    $(
+                        $(#[$oattr])*
+                        n if n.eq_ignore_ascii_case(stringify!($optional)) => {
+                            let d = match data {
+                                Some(val) if !val.is_empty() => {
+                                    Some(
+                                        val.parse()
+                                        .map_err(|_| format!("Invalid data for {}", stringify!($optional)))?,
+                                    )
+                                }
+                                _ => None,
+                            };
+                            Ok(Self::$optional(d))
+                        },
+                    )*
 
                     _ => Err(format!("Unknown action: {}.", s)),
                 }

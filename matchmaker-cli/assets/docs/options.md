@@ -266,6 +266,7 @@ All colors and modifiers come from ratatui:
 - `layout` *(flattened)*: Constraints for non-fullscreen mode.
   - `percentage`: Height of the terminal used.
   - `min`, `max`: Pixel constraints.
+- `osc_52`: (bool). Execute the `Copy` action using the OSC52 protocol. If false, the `Copy` command pipes to `CLIPcmd` from `envs` (default: true).
 
 ### Style Settings
 

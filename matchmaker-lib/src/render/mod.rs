@@ -589,6 +589,10 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         Action::Execute(payload) => {
                             state.set_interrupt(Interrupt::Execute, payload);
                         }
+                        Action::Copy(ref payload) => {
+                            state.set_interrupt(Interrupt::ExecuteAsync, payload.clone());
+                            state.discriminant_payload = Some(if tui.config.osc52 { 1 } else { 0 });
+                        }
                         Action::ExecuteAsync(ref payload) | Action::ExecuteThen(ref payload) => {
                             let is_async = matches!(action, Action::ExecuteAsync(_));
                             let payload = payload.clone();

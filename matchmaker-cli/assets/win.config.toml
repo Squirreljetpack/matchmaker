@@ -191,18 +191,6 @@ if (Get-Command fd -ErrorAction SilentlyContinue) {
 
 "@print" = "Print({-})"
 "@print_2" = "Print({-!})"
-"@copy" = '''
-ExecuteSilent(
-Write-Output {+1} | clip.exe
-)
-'''
-"@copy_all" = '''
-ExecuteSilent(
-Write-Output {1} | clip.exe
-)
-'''
-"@copy_active" = '''
-ExecuteSilent(
-Write-Output {+!} | clip.exe
-)
-'''
+"@copy" = "Copy(Write-Output {+1})"
+"@copy_all" = "Copy(Write-Output {})"
+"@copy_active" = "Copy(Write-Output {+!})"

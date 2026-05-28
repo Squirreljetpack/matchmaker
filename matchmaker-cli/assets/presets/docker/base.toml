@@ -16,7 +16,7 @@
 
     # --- Actions ---
     # todo: suitable bind for @show
-    "@copy" = "ExecuteSilent(echo {id} | $CLIPcmd)"
+    "@copy" = "Copy(echo {id})"
     "@next" = "Reload"
 
 [envs]

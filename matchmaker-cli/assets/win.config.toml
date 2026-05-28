@@ -11,7 +11,7 @@ prompt_style.fg = "Gray"
 prompt_style.modifier = "ITALIC"
 
 [results]
-wrap = true
+# wrap = true
 
 [status]
 
@@ -126,6 +126,7 @@ if (Get-Command fd -ErrorAction SilentlyContinue) {
 "alt-left" = "HScroll(-1)"
 "alt-right" = "HScroll(1)"
 "alt-1" = "Pos(0)"
+"alt-0" = "Pos(-1)"
 
 # Columns
 "ctrl-." = "NextColumn"

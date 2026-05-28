@@ -18,11 +18,16 @@ split = "\\t"
 names = ["word", "pos", "definition", { name = 'synonyms', hidden = true }, { name = 'etymology', hidden = true }]
 
 [matcher]
+prefer_prefix = true
+
 # --- Preview ---
 
 [[preview.layout]]
 # Tree view
 command = '''
+printf "%${COLUMNS}s\n" | tr ' ' '-'
+echo {word}
+printf "%${COLUMNS}s\n" | tr ' ' '-'
 echo {definition}
 echo
 

@@ -896,16 +896,6 @@ impl ResultsUI {
                 }
             }
 
-            let n = widths.len().saturating_sub(1);
-            if !self.config.wrap {
-                widths
-                    .iter_mut()
-                    .zip(width_limits.iter().take(n))
-                    .for_each(|(w, &limit)| {
-                        *w = (*w).min(limit);
-                    });
-            }
-
             // save actual widths of each column
             self.widths = widths.clone();
 

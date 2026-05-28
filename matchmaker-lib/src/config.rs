@@ -462,7 +462,7 @@ impl Default for ResultsConfig {
 
             row_connection: RowConnectionStyle::Capped,
 
-            scroll_wrap: true,
+            scroll_wrap: false,
             scroll_padding: 2,
             reverse: None,
 
@@ -657,7 +657,7 @@ impl Default for PreviewConfig {
             },
             initial: Default::default(),
             layout: Default::default(),
-            scroll_wrap: true,
+            scroll_wrap: false,
             wrap: false,
             show: Default::default(),
             reevaluate_show_on_resize: false,
@@ -1045,6 +1045,7 @@ struct MatcherConfigHelper {
     pub normalize: Option<bool>,
     pub ignore_case: Option<bool>,
     pub prefer_prefix: Option<bool>,
+    pub match_paths: bool,
 }
 
 impl serde::Serialize for NucleoMatcherConfig {
@@ -1056,6 +1057,7 @@ impl serde::Serialize for NucleoMatcherConfig {
             normalize: Some(self.0.normalize),
             ignore_case: Some(self.0.ignore_case),
             prefer_prefix: Some(self.0.prefer_prefix),
+            match_paths: false,
         };
         helper.serialize(serializer)
     }
@@ -1068,6 +1070,10 @@ impl<'de> Deserialize<'de> for NucleoMatcherConfig {
     {
         let helper = MatcherConfigHelper::deserialize(deserializer)?;
         let mut config = nucleo::Config::DEFAULT;
+
+        if helper.match_paths {
+            config.set_match_paths();
+        }
 
         if let Some(norm) = helper.normalize {
             config.normalize = norm;

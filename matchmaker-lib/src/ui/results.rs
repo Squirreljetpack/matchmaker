@@ -398,11 +398,12 @@ impl ResultsUI {
         self.medians = medians;
         widths[0] += self.indentation() as u16;
         // should generally be true already, but act as a safeguard
-        for x in widths.iter_mut().zip(&self.hidden_columns) {
-            if *x.1 {
-                *x.0 = 0
-            }
-        }
+        // for x in widths.iter_mut().zip(&self.hidden_columns) {
+        //     if *x.1 {
+        //         *x.0 = 0
+        //     }
+        // }
+        let widths = widths;
 
         let match_count = status.matched_count;
         self.status = status;
@@ -874,17 +875,7 @@ impl ResultsUI {
             // column_spacing eats into the width
             let mut widths: Vec<_> = widths[..pos.map_or(0, |x| x + 1)].to_vec();
 
-            if let Some(pos) = pos
-                && pos > 0
-                && self.config.right_align_last
-            {
-                let used: u16 = widths.iter().take(widths.len() - 1).sum();
-                let v = self.width.saturating_sub(used);
-                let w = &mut widths[pos];
-                *w = if *w > 0 { v.max(1) } else { v }; // prevent column hiding
-            }
-
-            let surplus = self.width.saturating_sub(widths.iter().sum());
+            let surplus = self.content_width().saturating_sub(widths.iter().sum());
 
             if surplus > 0 {
                 // occupy full row
@@ -907,8 +898,7 @@ impl ResultsUI {
         };
 
         // log::trace!(
-        //     "widths: {width_limits:?}, {widths:?}, {table_widths:?}, {:?}, {:?}, medians {:?}",
-        //     self.widths,
+        //     "limits: {width_limits:?}, widths: {widths:?}, {:?}, medians {:?}",
         //     self.width,
         //     self.medians
         // );

@@ -367,8 +367,6 @@ impl<T: SSS> Worker<T> {
                     return None;
                 }
 
-                let mut consumed_width = 0u16;
-
                 let row: Vec<Text> = row
                     .into_iter()
                     .enumerate()
@@ -377,13 +375,14 @@ impl<T: SSS> Worker<T> {
                         let column = &self.columns[col_idx];
 
                         let effective_limit = if Some(col_idx) == last_nonzero_idx {
-                            total_width_limit.saturating_sub(consumed_width)
+                            total_width_limit
+                                .saturating_sub(width_limits.iter().take(col_idx).sum())
                         } else {
                             width_limit
                         };
 
                         let (cell, computed_width) = if effective_limit == 0 {
-                            (Default::default(), if wrap { 1 } else { cell.width() })
+                            (Default::default(), 0)
                         } else if column.filter {
                             render_cell(
                                 cell,
@@ -412,19 +411,13 @@ impl<T: SSS> Worker<T> {
                             (cell, width)
                         };
 
-                        consumed_width += computed_width as u16;
+                        if col_idx < widths.len() {
+                            widths[col_idx] = widths[col_idx].max(computed_width as u16)
+                        }
 
                         cell
                     })
                     .collect();
-
-                // update col width, row height
-                for (w, cell) in widths.iter_mut().zip(&row) {
-                    let width = cell.width() as u16;
-                    if width > *w {
-                        *w = width;
-                    }
-                }
 
                 Some((row, item.data))
             })

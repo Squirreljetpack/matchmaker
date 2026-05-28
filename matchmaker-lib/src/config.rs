@@ -395,7 +395,7 @@ pub struct ResultsConfig {
     // wrap
     #[partial(alias = "w")]
     pub wrap: bool,
-    pub min_wrap_width: u16,
+    pub min_width: u16,
 
     // autoscroll
     #[partial(recurse, alias = "a")]
@@ -466,7 +466,7 @@ impl Default for ResultsConfig {
             reverse: None,
 
             wrap: false,
-            min_wrap_width: 2,
+            min_width: 2,
             max_height: 0,
 
             autoscroll: Default::default(),
@@ -1001,8 +1001,8 @@ pub struct ColumnsConfig {
     pub names: Vec<ColumnSetting>,
     /// Maximum number of columns to autogenerate when names is unspecified. Minimum of 1, maximum of 16.
     #[serde(deserialize_with = "bounded_usize::<_, 1, 16>")]
-    #[partial(alias = "mc")]
-    max: usize,
+    #[serde(alias = "max")]
+    max_columns: usize,
     #[partial(alias = "i")]
     pub default: Option<StringValue>,
     /// When autogenerating column names, start from 0 instead of 1.
@@ -1011,7 +1011,7 @@ pub struct ColumnsConfig {
 
 impl ColumnsConfig {
     pub fn max_cols(&self) -> usize {
-        self.max.min(16).max(1)
+        self.max_columns.min(16).max(1)
     }
 }
 
@@ -1020,7 +1020,7 @@ impl Default for ColumnsConfig {
         Self {
             split: Default::default(),
             names: Default::default(),
-            max: 6,
+            max_columns: 6,
             default: None,
             names_from_zero: false,
         }

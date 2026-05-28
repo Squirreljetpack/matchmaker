@@ -162,13 +162,16 @@ impl ResultsUI {
     pub fn cursor_prev(&mut self) -> bool {
         self.reset_current_scroll();
 
-        // log::trace!("cursor_prev: {self:?}");
-        if self.cursor_above <= self.scroll_padding() && self.bottom > 0 {
+        if (self.cursor_above <= self.scroll_padding() || self.cursor <= self.scroll_padding())
+            && self.bottom > 0
+        {
             self.bottom -= 1;
             self.bottom_clip = None;
         } else if self.cursor > 0 {
             self.cursor -= 1;
         } else if self.config.scroll_wrap {
+            log::trace!("d");
+
             log::trace!(
                 "Cursor prev caused jump: above: {} bottom: {}",
                 self.cursor_above,
@@ -177,6 +180,7 @@ impl ResultsUI {
             self.cursor_jump(self.end());
             return true;
         }
+
         false
     }
 
@@ -188,16 +192,10 @@ impl ResultsUI {
             self.cursor_disabled = false
         }
 
-        // log::trace!(
-        //     "Cursor {} @ index {}. Status: {:?}.",
-        //     self.cursor,
-        //     self.index(),
-        //     self.status
-        // );
         if self.cursor + 1 + self.scroll_padding() >= self.height
             && self.bottom + (self.height as u32) < self.status.matched_count
         {
-            self.bottom += 1; //
+            self.bottom += 1;
         } else if self.index() < self.end() {
             self.cursor += 1;
         } else if self.config.scroll_wrap {
@@ -271,6 +269,13 @@ impl ResultsUI {
         if base_widths.is_empty() || base_widths.iter().all(|x| *x == 0) {
             return vec![];
         }
+
+        let expandable: Vec<bool> = base_widths.iter().map(|w| *w != 0).collect();
+
+        for w in base_widths.iter_mut() {
+            *w = (*w).max(self.config.min_width);
+        }
+
         base_widths.resize(self.hidden_columns.len().max(base_widths.len()), 0);
 
         for (i, is_hidden) in self.hidden_columns.iter().enumerate() {
@@ -280,27 +285,29 @@ impl ResultsUI {
         }
 
         let target = self.content_width();
-        for w in base_widths.iter_mut() {
-            if *w != 0 {
-                *w = (*w).max(self.config.min_wrap_width);
-            }
-        }
+
         let sum: u16 = base_widths.iter().sum();
 
         if sum < target {
-            let nonzero_count = base_widths.iter().filter(|w| **w > 0).count();
+            let expandable_count = base_widths
+                .iter()
+                .zip(&expandable)
+                .filter(|(w, expandable)| **w > 0 && **expandable)
+                .count();
 
-            if nonzero_count > 0 {
+            if expandable_count > 0 {
                 let extra = target - sum;
-                let extra_per_column = extra / nonzero_count as u16;
-                let mut remainder = extra % nonzero_count as u16;
+                let extra_per_column = extra / expandable_count as u16;
+                let mut remainder = extra % expandable_count as u16;
 
-                for w in base_widths.iter_mut().filter(|w| **w > 0) {
-                    *w += extra_per_column;
+                for (w, expandable) in base_widths.iter_mut().zip(&expandable) {
+                    if *w > 0 && *expandable {
+                        *w += extra_per_column;
 
-                    if remainder > 0 {
-                        *w += 1;
-                        remainder -= 1;
+                        if remainder > 0 {
+                            *w += 1;
+                            remainder -= 1;
+                        }
                     }
                 }
             }
@@ -308,7 +315,7 @@ impl ResultsUI {
 
         // log::trace!("base_widths: {:?}, target: {target}", base_widths);
 
-        match allocate_widths(&base_widths, target, self.config.min_wrap_width) {
+        match allocate_widths(&base_widths, target, self.config.min_width) {
             Ok(s) | Err(s) => s,
         }
     }

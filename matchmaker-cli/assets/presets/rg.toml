@@ -9,6 +9,10 @@ max = 3
 split = '^(.*?):(\d+:\d+):(.*)$'
 default = 3
 
+[results]
+inactive_current_style.fg = "DarkGray"
+inactive_current_style.bg = "Black"
+
 # --- Preview ---
 
 [preview]

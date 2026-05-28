@@ -86,12 +86,11 @@ impl ConfigMatchmaker {
 
         let cc = columns_config;
         let hidden_columns = cc.names.iter().map(|x| x.hidden).collect();
-        // "hack" because we cannot make the results stable in the worker as our current hack uses the identifier
-        let init = !cc.names_from_zero as usize;
+        let offset = !cc.names_from_zero as usize;
         let mut worker: Worker<ConfigMMItem> = match cc.split {
             Split::Delimiter(_) | Split::Regexes(_) => {
                 let names: Vec<Arc<str>> = if cc.names.is_empty() {
-                    (init..(cc.max_cols() + init))
+                    (offset..(cc.max_cols() + offset))
                         .map(|n| Arc::from(n.to_string()))
                         .collect()
                 } else {
@@ -173,13 +172,15 @@ impl ConfigMatchmaker {
                         ranges
                     })
                 } else if has_unnamed {
-                    log::debug!("Unnamed regex: {rg} with {} groups", capture_to_idx.len());
+                    log::debug!(
+                        "Unnamed regex: {rg} with {} groups",
+                        capture_to_idx.len() - 1
+                    );
 
                     // All unnamed capture groups → map in order
                     Arc::new(move |s| {
                         let s = &s.to_cow();
                         let mut ranges = vec![(0u32, 0u32); col_count].into_boxed_slice();
-
                         if let Some(caps) = rg.captures(s) {
                             for (i, group) in caps.iter().skip(1).enumerate().take(col_count) {
                                 if let Some(m) = group {

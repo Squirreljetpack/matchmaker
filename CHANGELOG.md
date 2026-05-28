@@ -1,3 +1,9 @@
+## [0.0.40] - 2026-05-28
+
+### 🐛 Bug Fixes
+
+- column sizing regression
+
 ## [0.0.39] - 2026-05-28
 
 ### 🚀 Features

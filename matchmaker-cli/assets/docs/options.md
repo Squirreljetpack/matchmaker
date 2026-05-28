@@ -29,43 +29,39 @@ Overrides follow the pattern `path=value` or `path value`.
   - `header.content` -> `h`
   - `matcher.sort` -> `S`
 
-### Collections (Lists/Vectors)
 
-Fields that are collections (like `preview.layout` or `binds`) are consumed additively:
+For example to split input on space, use `mm d " "`.
 
-1. **Adding Elements**: Each time a collection path is specified, a new partial element is added to that collection.
-2. **Merging**: When the configuration is finalized:
-   - The first $N$ overrides for a collection are merged into the first $N$ elements of the base configuration (from your config file). (Or in the case of of binds, existing keys are overridden).
-   - Any additional overrides are appended as new elements.
+# Miscellaneous
 
 ### Presets and Named Overrides (`-o` / `--override`)
 
-The `-o` flag allows you to layer additional configuration files on top of your base config. This is particularly useful for adding platform-specific tweaks or complex feature presets (like git or ssh management).
+The `-o` flag allows you to layer additional configuration files on top of your base config. This is allows for consistent keybindings and settings between many different workflows.
 
-- **Relative Paths**: If you provide a relative path without an extension, Matchmaker will automatically look for a matching `.toml` file in the internal `presets/` directory.
+- **Relative Paths**: `-o` accepts an absolute path, but if you provide a relative path without an extension, Matchmaker will automatically look for a matching `.toml` file in the `presets` directory of your matchmaker configuration directory.
 - **Example**: `mm -o git/status` will attempt to load `presets/git/status.toml` from the installation directory.
 - **Source Field**: Overrides support a `source` field at the top level, allowing them to inherit from another preset (one level of recursion is supported).
 
 ### Values
 
-If a "leaf" value contains multiple settings (like a [border](#border-settings) or a bind with multiple actions), you can specify them within a single string joined by `|||`.
+If a "leaf" value contains multiple settings (like a [border](#border-settings) or a bind with multiple actions), you can specify them within a single string joined by `|||` (which can be escaped like `\|||`).
 
 A few illustrative (but not very practical) examples:
 
 ```bash
 # Example:
-# If you started with one preview layout, the following overrides the first preview layout, and adds two new ones. It also sets 3 binds.
-mm p.l command=ls p.l "x=bye|||min=3" b "ctrl-c=Quit|||?=preview(echo hi)" b.ctrl-a cancel
+# If you started with one preview layout, the following overrides the first preview layout to just display hi and have a minimum width of 3, and adds two new ones. It also sets 3 binds.
+mm p.l command=ls p.l "x=echo hi|||min=3" b "ctrl-c=Quit|||?=preview(echo hi)" b.ctrl-a cancel
 
 # Example:
 # Setting the column splitting delimiter
 mm m.c.split "\w+|||/\w+" # Sets the field: columns.split = Split::Regexes([Regex('\w'), Regex('/\w+')])
+
 # Note that the same effect is NOT achieved by specifying mm m.c.split "\w+" m.c.split "/\w+" in this case:
 # both declare a single (delimiter) regex, and the second command overwrites the first.
-
-# or even shorter, using the absolute alias
-mm d " " # split on space
 ```
+
+Note however, that when declaring a bind, you should prefer to use `mm b.ctrl-x "ExecuteSilent(rm {+})|||Reload"` over `mm b "ctrl-x=ExecuteSilent(rm {+})"`, since as you can see, the second format doesn't support chained actions, while the first does.
 
 Bool values can be specified with true, false, or "".
 
@@ -75,9 +71,16 @@ Bool values can be specified with true, false, or "".
 mm p.w= r.r=
 ```
 
-Note that when declaring a bind, prefer to use `mm b.ctrl-x "ExecuteSilent(rm {+}) Reload"` over `mm b "ctrl-x=ExecuteSilent(rm {+})"`, since the second format doesn't support chained actions.
+### Collections (Lists/Vectors)
 
-## Colors and Modifiers
+Two of the collections: `preview.layout` and `columns.names`, are consumed additively:
+
+1. **Adding Elements**: Each time a collection path is specified, a new partial element is added to that collection.
+2. **Merging**: When the configuration is finalized:
+   - The first $N$ overrides for a collection are merged into the first $N$ elements of the base configuration (from your config file). (Or in the case of of binds, existing keys are overridden).
+   - Any additional overrides are appended as new elements.
+
+### Colors and Modifiers
 
 All colors and modifiers come from ratatui:
 

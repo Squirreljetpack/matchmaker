@@ -613,11 +613,14 @@ pub fn display_binds<A: ActionExt + Display>(
                         skipping = true;
                     }
                 } else if !skipping {
-                    visible_items.push(
-                        action
-                            .to_string()
-                            .ellipsize(config.max_len, fmt::Alignment::Left),
-                    );
+                    visible_items.push(action.to_string().ellipsize(
+                        config.max_len,
+                        if config.ellipsize_center {
+                            fmt::Alignment::Center
+                        } else {
+                            fmt::Alignment::Left
+                        },
+                    ));
                 }
             }
 

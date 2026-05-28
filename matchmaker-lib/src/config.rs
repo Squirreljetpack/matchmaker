@@ -751,6 +751,7 @@ pub struct HelpDisplayConfig {
     pub seq_brackets: Option<[char; 2]>,
     pub quote_traces: bool,
     pub max_len: usize,
+    pub ellipsize_center: bool,
 }
 
 impl Default for HelpDisplayConfig {
@@ -760,7 +761,8 @@ impl Default for HelpDisplayConfig {
             hide_semantic: true,
             seq_brackets: Some(['[', ']']),
             quote_traces: true,
-            max_len: 25, // Requested default
+            max_len: 25,
+            ellipsize_center: false,
         }
     }
 }

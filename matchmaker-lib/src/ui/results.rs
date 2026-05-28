@@ -270,8 +270,6 @@ impl ResultsUI {
             return vec![];
         }
 
-        let expandable: Vec<bool> = base_widths.iter().map(|w| *w != 0).collect();
-
         for w in base_widths.iter_mut() {
             *w = (*w).max(self.config.min_width);
         }
@@ -289,25 +287,19 @@ impl ResultsUI {
         let sum: u16 = base_widths.iter().sum();
 
         if sum < target {
-            let expandable_count = base_widths
-                .iter()
-                .zip(&expandable)
-                .filter(|(w, expandable)| **w > 0 && **expandable)
-                .count();
+            let nonzero_count = base_widths.iter().filter(|w| **w > 0).count();
 
-            if expandable_count > 0 {
-                let extra = target - sum;
-                let extra_per_column = extra / expandable_count as u16;
-                let mut remainder = extra % expandable_count as u16;
+            let extra = target - sum;
+            let extra_per_column = extra / nonzero_count as u16;
+            let mut remainder = extra % nonzero_count as u16;
 
-                for (w, expandable) in base_widths.iter_mut().zip(&expandable) {
-                    if *w > 0 && *expandable {
-                        *w += extra_per_column;
+            for w in base_widths.iter_mut().filter(|w| **w > 0) {
+                if *w > 0 {
+                    *w += extra_per_column;
 
-                        if remainder > 0 {
-                            *w += 1;
-                            remainder -= 1;
-                        }
+                    if remainder > 0 {
+                        *w += 1;
+                        remainder -= 1;
                     }
                 }
             }
@@ -894,12 +886,15 @@ impl ResultsUI {
 
             let surplus = self.width.saturating_sub(widths.iter().sum());
 
-            if surplus > 0 && matches!(self.config.row_connection, RowConnectionStyle::Full)
-                || (matches!(self.config.row_connection, RowConnectionStyle::Disjoint)
-                    && self.config.right_align_last)
-            {
-                if let Some(s) = widths.last_mut() {
-                    *s += surplus;
+            if surplus > 0 {
+                // occupy full row
+                if matches!(self.config.row_connection, RowConnectionStyle::Full)
+                    || (matches!(self.config.row_connection, RowConnectionStyle::Disjoint)
+                        && self.config.right_align_last)
+                {
+                    if let Some(s) = widths.last_mut() {
+                        *s += surplus;
+                    }
                 }
             }
 
@@ -912,8 +907,10 @@ impl ResultsUI {
         };
 
         // log::trace!(
-        //     "widths: {width_limits:?}, {widths:?}, {table_widths:?}, {:?}",
-        //     self.widths
+        //     "widths: {width_limits:?}, {widths:?}, {table_widths:?}, {:?}, {:?}, medians {:?}",
+        //     self.widths,
+        //     self.width,
+        //     self.medians
         // );
 
         let mut table = Table::new(rows, table_widths).column_spacing(self.config.column_spacing.0);

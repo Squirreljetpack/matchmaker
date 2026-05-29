@@ -3,6 +3,7 @@ mod input;
 mod overlay;
 mod preview;
 mod results;
+pub mod utils;
 pub use display::*;
 pub use input::*;
 pub use overlay::*;

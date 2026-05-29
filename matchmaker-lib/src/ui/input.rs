@@ -90,28 +90,29 @@ impl InputUI {
         self.cursor = self.graphemes.len();
     }
 
+    // right padding is set to <= 1
     pub fn scroll_to_cursor(&mut self, padding: usize) {
         if self.width == 0 {
             return;
         }
 
         // when cursor moves behind or on start, display grapheme before cursor as the first visible,
-        if self.before >= self.cursor {
+        if self.before + padding > self.cursor {
             self.before = self.cursor.saturating_sub(padding);
             return;
         }
 
         // move start up
         loop {
-            let visual_dist: u16 = self.graphemes
-                [self.before..=(self.cursor + padding).min(self.graphemes.len().saturating_sub(1))]
+            let visual_dist: u16 = self.graphemes[self.before
+                ..=(self.cursor + padding.min(1)).min(self.graphemes.len().saturating_sub(1))]
                 .iter()
                 .map(|(_, w)| *w)
                 .sum();
 
             // ensures visual_start..=cursor is displayed
             // Padding ensures the following element after cursor if present is displayed.
-            if visual_dist <= self.width {
+            if visual_dist < self.width {
                 break;
             }
 

@@ -22,8 +22,8 @@ default = "name"
 [[preview.layout]]
 command = '''
 if ((MM_INDEX == 0)); then
-  actual_emoji={char}
-  hex=$(printf "U+%X\n" "'$actual_emoji")
+  char={char}
+  hex=$(printf "U+%X\n" "'$char")
 else
   emoji_seq=$(echo {char} | awk -F'-' '
       function hex2dec(h) {
@@ -46,12 +46,12 @@ else
           }
       }
   ')
-  actual_emoji="$(printf "%b" "$emoji_seq")"
+  char="$(printf "%b" "$emoji_seq")"
   hex=$(echo {char} | awk -F'-' '{for(i=1;i<=NF;i++) printf "U+%s ", toupper($i)}')
 fi
 
 printf "%${COLUMNS}s\n" | tr ' ' '-'
-echo "  $actual_emoji  "{name}
+echo "  $char  "{name}
 printf "%${COLUMNS}s\n" | tr ' ' '-'
 echo "Codes:    $hex"
 echo "Group:    "{group}
@@ -99,7 +99,8 @@ fi
 
 "@copy_all" = '''CopyAsync(
 if ((MM_INDEX == 0)); then
-    printf "%s" {char} | iconv -f UTF-8 -t UTF-32BE | od -A n -t x4 | awk '{for(i=1;i<=NF;i++) printf "\\u{%s}", toupper($i)}'
+    char={char}
+    printf "\\\\u{%X}" "'$char"
 else
     echo {char} | awk -F'-' '{for(i=1;i<=NF;i++) printf "\\u{%s}", toupper($i)}'
 fi

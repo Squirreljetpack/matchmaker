@@ -17,18 +17,6 @@ split = ";"
 names = ["char", "name", "category"]
 default = "name"
 
-[matcher]
-prefer_prefix = false
-
-[binds]
-"@copy" = '''Transform(
-    hex=$(printf "%s" "{char}" | iconv -f UTF-8 -t UTF-32BE | od -A n -t x4 | tr -d ' ' | sed 's/^0*//')
-    printf "\\u{%s}" "$hex"
-)'''
-"@copy_all" = "CopyAsync(echo {char})"
-"enter" = ["Print({=char})", "Quit"]
-"tty^^enter" = ["Copy(echo {char})", "Quit"]
-
 # --- Preview ---
 
 [[preview.layout]]
@@ -40,3 +28,50 @@ printf "%${COLUMNS}s\n" | tr ' ' '-'
 echo "Code:     U+$hex"
 echo "Category: {category}"
 '''
+
+# --- UI ---
+[results]
+min_width = 5
+
+[binds]
+"@show" = '''RunPreview(
+    echo "Category Descriptions:"
+    printf "%${COLUMNS}s\n" | tr ' ' '-'
+    echo "Lu: Letter, Uppercase"
+    echo "Ll: Letter, Lowercase"
+    echo "Lt: Letter, Titlecase"
+    echo "Lm: Letter, Modifier"
+    echo "Lo: Letter, Other"
+    echo "Mn: Mark, Nonspacing"
+    echo "Mc: Mark, Spacing Combining"
+    echo "Me: Mark, Enclosing"
+    echo "Nd: Number, Decimal Digit"
+    echo "Nl: Number, Letter"
+    echo "No: Number, Other"
+    echo "Pc: Punctuation, Connector"
+    echo "Pd: Punctuation, Dash"
+    echo "Ps: Punctuation, Open"
+    echo "Pe: Punctuation, Close"
+    echo "Pi: Punctuation, Initial quote"
+    echo "Pf: Punctuation, Final quote"
+    echo "Po: Punctuation, Other"
+    echo "Sm: Symbol, Math"
+    echo "Sc: Symbol, Currency"
+    echo "Sk: Symbol, Modifier"
+    echo "So: Symbol, Other"
+    echo "Zs: Separator, Space"
+    echo "Zl: Separator, Line"
+    echo "Zp: Separator, Paragraph"
+    echo "Cc: Other, Control"
+    echo "Cf: Other, Format"
+    echo "Cs: Other, Surrogate"
+    echo "Co: Other, Private Use"
+    echo "Cn: Other, Unassigned"
+)'''
+"@copy" = '''Transform(
+    hex=$(printf "%s" "{char}" | iconv -f UTF-8 -t UTF-32BE | od -A n -t x4 | tr -d ' ' | sed 's/^0*//')
+    printf "\\u{%s}" "$hex"
+)'''
+"@copy_all" = "CopyAsync(echo {char})"
+"enter" = ["Print({=char})", "Quit"]
+"tty^^enter" = ["Copy(echo {char})", "Quit"]

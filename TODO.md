@@ -79,3 +79,4 @@
 - Improve BecomeSilent to further reduce flickering (is it even possible?)
 - reload should send to preview_tx (why did i add this?)
 - very very minor perf improvement, prevent duplicate dynamic handler calls somehow?
+- just ran into a facepalm due to previewsetting not having deny_unknown_settings, maybe it would be better to actually flatten

@@ -307,7 +307,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         }
     }
     let additional_commands = additional_commands;
-    
+
     let mut initial_index = 0;
     if additional_commands.len() > 1 {
         if let Ok(index_str) = std::env::var("MM_INDEX") {
@@ -386,7 +386,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         exit.last_key_path = Some(last_key_path().into())
     }
 
-    let mut event_loop = EventLoop::with_binds(binds).with_tick_rate(render.tick_rate());
+    let event_loop = EventLoop::with_binds(binds).with_tick_rate(render.tick_rate());
 
     // set event loop mode
     let mode = if let Some(m) = mode {
@@ -425,10 +425,8 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     }
     // make previewer
 
-    if !event_loop.binds.strip_traces() {
-        wbog!(
-            "Action descriptions did not follow the required alternating (nonempty/empty) pattern."
-        );
+    if !event_loop.binds.check_traces() {
+        // maybe abort with error
     }
     let cli_formatter = Either::Right(
         crate::formatter::format_cli
@@ -474,7 +472,11 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     // execute handlers
     mm.register_execute_handler(cli_formatter.clone());
     mm._register_execute_async_handler(cli_formatter.clone());
-    mm.register_copy(cli_formatter.clone(), copy_trailing_newline);
+    mm.register_copy(
+        cli_formatter.clone(),
+        copy_trailing_newline,
+        Some(render_tx.clone()),
+    );
     mm._register_become_handler(cli_formatter.clone());
 
     // reload handler

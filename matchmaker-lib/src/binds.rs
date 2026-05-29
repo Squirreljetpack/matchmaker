@@ -293,6 +293,36 @@ impl<A: ActionExt> BindMap<A> {
 
         valid_alternating
     }
+
+    pub fn check_traces(&self) -> bool {
+        let mut valid_alternating = true;
+
+        for actions in self.values() {
+            let mut expect_empty = false;
+
+            let mut offending = false;
+
+            for action in actions.iter() {
+                if let Action::Trace(trace_content) = action {
+                    let is_empty = trace_content.is_empty();
+
+                    if is_empty != expect_empty {
+                        valid_alternating = false;
+
+                        offending = true;
+                    }
+
+                    expect_empty = !expect_empty;
+                }
+            }
+
+            if offending {
+                log::warn!("Offending action list: {:?}", actions);
+            }
+        }
+
+        valid_alternating
+    }
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
@@ -577,7 +607,6 @@ pub fn display_help<A: ActionExt + Display>(
     config: &HelpDisplayConfig,
     mode: Option<&str>,
 ) -> Text<'static> {
-
     // Filter and collect triggers based on mode
     let mut entries: Vec<(String, Vec<Action<A>>)> = Vec::new();
     let mut seen_trigger_kinds = HashSet::new();

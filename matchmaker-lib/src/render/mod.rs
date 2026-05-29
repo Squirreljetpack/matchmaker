@@ -128,7 +128,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             state.clear_interrupt();
 
             if !matches!(event, RenderCommand::Tick) {
-                info!("Recieved {event:?}");
+                info!("Received {event:?}");
             } else {
                 // log::trace!("Recieved {event:?}");
             }
@@ -1005,7 +1005,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             // due to control flow, this does nothing, but is anyhow a useful safeguard to guarantee the pause
             while let Some(msg) = render_rx.recv().await {
                 if matches!(msg, RenderCommand::Ack) {
-                    log::debug!("Recieved ack response to pause");
+                    log::debug!("Received ack response to pause");
                     break;
                 }
             }

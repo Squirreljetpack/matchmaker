@@ -22,7 +22,7 @@ use crate::{
         TerminalConfig, WorkerConfig,
     },
     event::{EventLoop, RenderSender},
-    message::{Event, Interrupt},
+    message::{Event, Interrupt, RenderCommand},
     nucleo::{
         Indexed, Segmented, Worker,
         injector::{
@@ -887,24 +887,27 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
     /// Causes [`Action::Copy`] and [`Action::CopySync`] to execute their payload, and copy the result to the clipboard.
     /// Note:
     /// - intended for direct use
-    pub fn register_copy(
+    pub fn register_copy<A: ActionExt + Send + 'static>(
         &mut self,
         formatter: AttachmentFormatter<T, S>,
         copy_trailing_newline: bool,
+        render_tx: Option<RenderSender<A>>,
     ) {
-        let formatter_ = formatter.clone();
+        let formatter_1 = formatter.clone();
+        let render_tx_1 = render_tx.clone();
         self.register_interrupt_handler(Interrupt::ExecuteAsync, move |state| {
             if state.discriminant_payload.as_ref().is_some_and(|p| *p <= 1)
                 && let payload = state.discriminant_payload.take().unwrap()
                 && let template = state.payload()
                 && !template.is_empty()
             {
-                let cmd = use_formatter(&formatter, state, &template, None);
+                let cmd = use_formatter(&formatter_1, state, &template, None);
                 if cmd.is_empty() {
                     return;
                 }
 
                 let vars = state.make_env_vars();
+                let render_tx = render_tx_1.clone();
 
                 tokio::spawn(async move {
                     let clip_cmd = vars.get("CLIPcmd").map(|x| x.to_string());
@@ -942,6 +945,10 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
                             if let Err(e) = set_host_clipboard_universal(&text) {
                                 log::warn!("Failed to set host clipboard: {}", e);
                             }
+
+                            if let Some(tx) = render_tx {
+                                let _ = tx.send(RenderCommand::Action(Action::Redraw));
+                            }
                         } else if let Some(clip_cmd) = clip_cmd {
                             // discriminant 0: use CLIPcmd
                             if !clip_cmd.is_empty() {
@@ -978,7 +985,7 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
                 && let template = state.payload()
                 && !template.is_empty()
             {
-                let cmd = use_formatter(&formatter_, state, &template, None);
+                let cmd = use_formatter(&formatter, state, &template, None);
                 if cmd.is_empty() {
                     return;
                 }
@@ -1005,6 +1012,10 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
                         if payload == 3 {
                             if let Err(e) = set_host_clipboard_universal(&text) {
                                 log::warn!("Failed to set host clipboard: {}", e);
+                            }
+
+                            if let Some(tx) = render_tx.as_ref() {
+                                let _ = tx.send(RenderCommand::Action(Action::Redraw));
                             }
                         } else if let Some(clip_cmd) = clip_cmd {
                             // discriminant 2: use CLIPcmd

@@ -7,7 +7,7 @@ use std::{
     sync::Arc,
 };
 
-use cba::{bath::PathExt, broc::CommandExt, ebog, env_vars};
+use cba::{bait::ResultExt, bath::PathExt, broc::CommandExt, ebog, env_vars};
 use easy_ext::ext;
 use log::{debug, info, warn};
 use ratatui::text::Text;
@@ -37,7 +37,10 @@ use crate::{
     render::{self, BoxedHandler, DynamicMethod, EventHandlers, InterruptHandlers, MMState},
     tui,
     ui::{Overlay, OverlayUI, UI},
-    utils::{text::is_empty, tokio::tokio_command_from_script},
+    utils::{
+        text::is_empty,
+        tokio::{tokio_command_from_script, wait_with_timeout},
+    },
 };
 
 /// The main entrypoint of the library. To use:
@@ -824,20 +827,13 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
     /// Causes [`Action::ExecuteAsync`] and [`Action::ExecuteThen`] to execute their payload without blocking, and for the remaining actions in the batch to depend on the execution result.
     pub fn _register_execute_async_handler(&mut self, formatter: AttachmentFormatter<T, S>) {
         self.register_interrupt_handler(Interrupt::ExecuteAsync, move |state| {
-            let template = state.payload();
-            if !template.is_empty() {
+            if state.discriminant_payload.as_ref().is_some_and(|p| *p >= 2)
+                && let payload = state.discriminant_payload.take().unwrap()
+                && let template = state.payload()
+                && !template.is_empty()
+            {
                 let cmd = use_formatter(&formatter, state, &template, None);
                 if cmd.is_empty() {
-                    return;
-                }
-
-                let Some(payload) = state.discriminant_payload.take() else {
-                    log::error!("Missing discriminant for ExecuteAsync interrupt handler");
-                    return;
-                };
-
-                if payload < 2 {
-                    state.discriminant_payload = Some(payload);
                     return;
                 }
 
@@ -888,23 +884,22 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
         });
     }
 
-    /// Causes [`Action::Copy`] to execute its payload without blocking, and copy the result to the clipboard.
+    /// Causes [`Action::Copy`] and [`Action::CopySync`] to execute their payload, and copy the result to the clipboard.
     /// Note:
-    /// - not intended for direct use.
-    pub fn _register_async_copy_handler(
+    /// - intended for direct use
+    pub fn register_copy(
         &mut self,
         formatter: AttachmentFormatter<T, S>,
         copy_trailing_newline: bool,
     ) {
+        let formatter_ = formatter.clone();
         self.register_interrupt_handler(Interrupt::ExecuteAsync, move |state| {
-            if let Some(payload) = state.discriminant_payload.take()
-                && payload <= 2
+            if state.discriminant_payload.as_ref().is_some_and(|p| *p <= 1)
+                && let payload = state.discriminant_payload.take().unwrap()
                 && let template = state.payload()
                 && !template.is_empty()
             {
-                log::error!("1");
                 let cmd = use_formatter(&formatter, state, &template, None);
-
                 if cmd.is_empty() {
                     return;
                 }
@@ -971,6 +966,68 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
                         }
                     }
                 });
+            }
+        });
+
+        self.register_interrupt_handler(Interrupt::ExecuteSilent, move |state| {
+            if state
+                .discriminant_payload
+                .as_ref()
+                .is_some_and(|p| *p == 2 || *p == 3)
+                && let payload = state.discriminant_payload.take().unwrap()
+                && let template = state.payload()
+                && !template.is_empty()
+            {
+                let cmd = use_formatter(&formatter_, state, &template, None);
+                if cmd.is_empty() {
+                    return;
+                }
+
+                let vars = state.make_env_vars();
+                let clip_cmd = vars.get("CLIPcmd").map(|x| x.to_string());
+
+                if let Some(contents) = Command::from_script(&cmd)
+                    .envs(vars)
+                    .read_to_string()
+                    ._elog()
+                {
+                    let mut text = contents;
+
+                    if !copy_trailing_newline && text.ends_with('\n') {
+                        text.pop();
+
+                        if text.ends_with('\r') {
+                            text.pop();
+                        }
+                    }
+
+                    if !text.is_empty() {
+                        if payload == 3 {
+                            if let Err(e) = set_host_clipboard_universal(&text) {
+                                log::warn!("Failed to set host clipboard: {}", e);
+                            }
+                        } else if let Some(clip_cmd) = clip_cmd {
+                            // discriminant 2: use CLIPcmd
+                            if !clip_cmd.is_empty() {
+                                let Some(mut child) = Command::from_script(&clip_cmd)
+                                    .stdin(Stdio::piped())
+                                    ._spawn()
+                                else {
+                                    return;
+                                };
+
+                                if let Some(mut stdin) = child.stdin.take() {
+                                    let _ = stdin.write_all(text.as_bytes());
+                                    let _ = stdin.flush();
+                                } else {
+                                    log::error!("CLIPcmd had no stdin");
+                                }
+
+                                wait_with_timeout(child, std::time::Duration::from_millis(500));
+                            }
+                        }
+                    }
+                }
             }
         });
     }

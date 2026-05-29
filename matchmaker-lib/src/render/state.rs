@@ -63,6 +63,14 @@ pub struct State {
     /// sources of a payload for an interrupt. The responsibility is on the caller
     /// to ensure the value is emptied by the handler corresponding to an interrupt.
     /// Update: This field is set by the rendering loop for ExecuteAsync and ExecuteThen. See [`crate::Matchmaker::_register_execute_handler`], which registers a handler that immediately consumes it.
+    ///
+    /// # Discriminants
+    /// - (ExecuteAsync, 0): Copy (Async, Normal)
+    /// - (ExecuteAsync, 1): Copy (Async, OSC52)
+    /// - (ExecuteAsync, 2*id): ExecuteAsync (Async, remainder)
+    /// - (ExecuteAsync, 2*id + 1): ExecuteThen (Async, remainder)
+    /// - (ExecuteSilent, 2): Copy (Sync, Normal)
+    /// - (ExecuteSilent, 3): Copy (Sync, OSC52)
     pub discriminant_payload: Option<u8>,
 
     pub async_actions: [Option<Box<dyn FnOnce() + Send + Sync>>; 128],

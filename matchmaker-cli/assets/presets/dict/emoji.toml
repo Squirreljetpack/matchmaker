@@ -3,8 +3,8 @@
 [start]
 command = '''zstd -dc "$(dirname -- "$MM_OVERRIDE")"/emoji.zst'''
 additional_commands = [
-    "",
-    '''zstd -dc "$(dirname -- "$MM_OVERRIDE")"/emoji_compat.zst'''
+  "",
+  '''zstd -dc "$(dirname -- "$MM_OVERRIDE")"/emoji_compat.zst''',
 ]
 
 [envs]
@@ -32,7 +32,7 @@ prefer_prefix = false
 "@reload_2" = "ReloadPrev"
 
 # copy rust escape \u{1F511}
-"@copy" = '''Copy(
+"@copy" = '''CopyAsync(
 if ((MM_INDEX == 0)); then
   echo {char}
 else
@@ -44,14 +44,14 @@ else
           }
           return v
       }
-      
+
       function to_utf8_octal(c) {
           if (c <= 127) return sprintf("\\0%03o", c)
           if (c <= 2047) return sprintf("\\0%03o\\0%03o", 192 + int(c/64), 128 + (c%64))
           if (c <= 65535) return sprintf("\\0%03o\\0%03o\\0%03o", 224 + int(c/4096), 128 + int((c/64)%64), 128 + (c%64))
           return sprintf("\\0%03o\\0%03o\\0%03o\\0%03o", 240 + int(c/262144), 128 + int((c/4096)%64), 128 + int((c/64)%64), 128 + (c%64))
       }
-      
+
       {
           for(i=1; i<=NF; i++) {
               dec = hex2dec($i)
@@ -63,7 +63,7 @@ else
 fi
 )'''
 
-"@copy_all" = '''Copy(
+"@copy_all" = '''CopyAsync(
 if ((MM_INDEX == 0)); then
     printf "%s" {char} | iconv -f UTF-8 -t UTF-32BE | od -A n -t x4 | awk '{for(i=1;i<=NF;i++) printf "\\u{%s}", toupper($i)}'
 else
@@ -74,7 +74,7 @@ fi
 "enter" = ["Print({=char})", "Quit"]
 
 "tty^^enter" = [
-'''Copy(
+  '''Copy(
 if ((MM_INDEX == 0)); then
   echo {char}
 else
@@ -82,7 +82,7 @@ else
   printf "%b" "$emoji_seq"
 fi
 )''',
-"Quit"
+  "Quit",
 ]
 
 # --- Preview ---

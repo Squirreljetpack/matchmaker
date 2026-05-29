@@ -6,7 +6,9 @@ use ratatui::{
 };
 
 use crate::{
-    config::{BorderSetting, PreviewConfig, PreviewInitialSetting, PreviewSetting, ShowCondition, Side},
+    config::{
+        BorderSetting, PreviewConfig, PreviewInitialSetting, PreviewSetting, ShowCondition, Side,
+    },
     preview::Preview,
     utils::text::wrapped_line_height,
 };
@@ -191,6 +193,11 @@ impl PreviewUI {
             .map(|l| l.command.as_str())
             .find(|cmd| !cmd.is_empty())
             .unwrap_or("")
+    }
+
+    pub fn is_vertical(&self) -> bool {
+        self.setting()
+            .map_or(false, |s| s.layout.side.is_vertical())
     }
 
     // -------- Layout -----------
@@ -414,7 +421,10 @@ impl PreviewUI {
 
     pub fn drag_width(&self) -> u16 {
         self.config.drag_width.unwrap_or_else(|| {
-            let side = self.setting().map(|s| &s.layout.side).unwrap_or(&Side::Right);
+            let side = self
+                .setting()
+                .map(|s| &s.layout.side)
+                .unwrap_or(&Side::Right);
             match side {
                 Side::Left | Side::Right => self.border().width(),
                 Side::Top | Side::Bottom => self.border().height(),

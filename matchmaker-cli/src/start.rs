@@ -100,6 +100,11 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
         // no recursion because tail bad
         let o: PartialConfig = load_type(&p, |s| toml::from_str(s))?;
 
+        config
+            .envs
+            .entry("MM_OVERRIDE".to_string())
+            .or_insert_with(|| EnvValue::new(p.to_string_lossy().to_string()));
+
         if let Some(q) = &o.source {
             let source = p.parent().as_ref().unwrap().join(q);
             let o: PartialConfig = load_type(source, |s| toml::from_str(s))?;
@@ -110,10 +115,6 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
         }
 
         config.apply(o);
-        config.envs.insert(
-            "MM_OVERRIDE".to_string(),
-            EnvValue::new(p.to_string_lossy().to_string()),
-        );
     }
 
     #[cfg(debug_assertions)]

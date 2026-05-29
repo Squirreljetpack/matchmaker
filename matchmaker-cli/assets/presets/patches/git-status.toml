@@ -1,0 +1,26 @@
+[binds]
+"@open" = ['''
+Execute(
+  file={1}
+  [[ "$MM_PREVIEW_COMMAND" == *"cached"* ]] && flags="--cached" || flags=""
+  line=$(git diff --no-ext-diff $flags --unified=0 -- "$file" | sed -n '/^@@/s/^.*+\([0-9]*\).*/\1/p' | head -n 1)
+  if [ -n "$line" ]; then
+    $EDITOR "+$line" "$file"
+  else
+    $EDITOR "$file"
+  fi
+)
+''', "Reload"]
+
+"@open_2" = '''
+Become(
+  file={1}
+  [[ "$MM_PREVIEW_COMMAND" == *"cached"* ]] && flags="--cached" || flags=""
+  line=$(git diff --no-ext-diff $flags --unified=0 -- "$file" | sed -n '/^@@/s/^.*+\([0-9]*\).*/\1/p' | head -n 1)
+  if [ -n "$line" ]; then
+    $EDITOR "+$line" "$file"
+  else
+    $EDITOR "$file"
+  fi
+)
+'''

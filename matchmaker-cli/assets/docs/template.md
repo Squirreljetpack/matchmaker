@@ -193,9 +193,9 @@ When Matchmaker executes a command (e.g., via `Execute`, `Become`, or a preview 
 | `MM_POS`             | `FZF_POS`          | Current row index (0-indexed cursor position)      |
 | `MM_QUERY`           | `FZF_QUERY`        | Current input query                                |
 | `MM_PREVIEW_COMMAND` |                    | The current preview command                        |
-| `MM_OVERRIDE`        |                    | Path of the last applied override                  |
+| `MM_OVERRIDE`        |                    | Path of the first applied override                 |
 | `MM_STORE`           |                    | Current value stored in state (via `Store` action) |
-| `MM_INDEX`           |                    | Index of command being reloaded (in `ReloadNext`)  |
+| `MM_INDEX`           |                    | Index of populating command (from `additional_commands`). Starts at 0 if first command of `additional_commands` is empty and no input is being piped.  |
 
 The `envs` section of your config is also injected, as well as `$CLIPcmd` and `$PASTEcmd` -- the auto-determined clipboard commands if they are not otherwise set.
 

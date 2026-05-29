@@ -1,4 +1,13 @@
-## [0.0.40] - 2026-05-28
+## [0.0.42] - 2026-05-29
+
+### 🚀 Features
+
+- Demo mode on rg
+- Copy action using osc52
+- Emoji + unicode dict
+- Copy action (sync)
+
+## [0.0.41] - 2026-05-28
 
 ### 🐛 Bug Fixes
 

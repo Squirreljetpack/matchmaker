@@ -14,19 +14,20 @@ content = ['char', 'name', 'cat']
 
 [columns]
 split = ";"
-names = ["char", "name", "category"]
+names = ["char", "name", "cat"]
 default = "name"
 
 # --- Preview ---
 
 [[preview.layout]]
 command = '''
-hex=$(printf "%s" "{char}" | iconv -f UTF-8 -t UTF-32BE | od -A n -t x4 | tr -d ' ' | sed 's/^0*//')
+char={char}
+hex=$(printf "U+%X\n" "'$char")
 printf "%${COLUMNS}s\n" | tr ' ' '-'
-echo "  {char}  {name}"
+echo "  $char  "{name}
 printf "%${COLUMNS}s\n" | tr ' ' '-'
-echo "Code:     U+$hex"
-echo "Category: {category}"
+echo "Code:     $hex"
+echo "Category: "{cat}
 '''
 
 # --- UI ---
@@ -68,10 +69,11 @@ min_width = 5
     echo "Co: Other, Private Use"
     echo "Cn: Other, Unassigned"
 )'''
-"@copy" = '''Transform(
-    hex=$(printf "%s" "{char}" | iconv -f UTF-8 -t UTF-32BE | od -A n -t x4 | tr -d ' ' | sed 's/^0*//')
-    printf "\\u{%s}" "$hex"
+
+"@copy" = "CopyAsync(echo {char})"
+"@copy_all" = '''CopyAsync(
+    char={char}
+    printf "\\\\u{%X}" "'$char"
 )'''
-"@copy_all" = "CopyAsync(echo {char})"
-"enter" = ["Print({=char})", "Quit"]
-"tty^^enter" = ["Copy(echo {char})", "Quit"]
+"@accept" = ["Print({=char})", "Quit"]
+"tty^^@accept" = ["Copy(echo {char})", "Quit"]

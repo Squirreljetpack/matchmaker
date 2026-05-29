@@ -9,12 +9,7 @@ max = 3
 split = '^(.*?):(\d+:\d+):(.*)$'
 default = 3
 
-[results]
-inactive_current_style.fg = "DarkGray"
-inactive_current_style.bg = "Black"
-
 # --- Preview ---
-
 [preview]
 show = true
 scroll.percentage = 70
@@ -35,7 +30,29 @@ percentage = 50
 min = 5
 padding = 0
 
+# --- UI ---
+
+[query]
+prompt_style.fg = "Red"
+
+[tui]
+percentage = 100
+
+[results]
+inactive_current_style.fg = "DarkGray"
+inactive_current_style.bg = "Black"
+
+
 [binds]
+"enter" = "@accept"
+"ctrl-r" = "@reload"
+"ctrl-." = "NextColumn"
+"?" = "SwitchPreview"
+
+"@accept" = ["Print({=1}:{=2})", "Quit"]
+"tty^^@accept" = "Become($EDITOR {1})"
+
+# --- Scripts ---
 "Start" = "@enter_rg"
 "@enter_rg" = [ # Reload on query change, disable reparsing, update bind
   "Filtering(false)",
@@ -70,18 +87,3 @@ padding = 0
 ''',
   "Bind(@reload = @enter_rg)",
 ]
-
-"ctrl-r" = "@reload"
-
-# Navigation
-"ctrl-." = "NextColumn"
-"@accept" = ["Print({=1}:{=2})", "Quit"]
-"tty^^enter" = "Become($EDITOR {1})"
-"?" = "SwitchPreview"
-
-# --- UI ---
-
-[query]
-prompt_style.fg = "Red"
-[tui]
-percentage = 100

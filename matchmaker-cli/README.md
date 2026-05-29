@@ -200,11 +200,11 @@ mm -o rg
 
 [^50]: Contributions welcome!
 
-### Migrating from fzf
+### Comparison with fzf
 
-Migrating from `fzf` to `mm` is conceptually straightforward because the two tools are almost fully feature-compatible. You can continue using familiar actions, like `execute`, and they will function the same way.
+To users of `fzf`, getting started with `mm` should be conceptually straightforward because the two tools are almost fully feature-compatible. You can continue using familiar actions, like `execute`, and they will function the same way.[^51]
 
-The main difference is **syntax**[^51]. For example, opening a selected file in your editor:
+For example, opening a selected file in your editor:
 
 - In `fzf`:
 

@@ -10,13 +10,7 @@ grep -v '/HEAD$' |
 sed "s| refs/remotes/$remote/| $remote:|"; done
 '''
 additional_commands = [
-  '''
-git for-each-ref --format='%(objectname:short) %(refname:strip=2)' refs/heads
-git remote |
-while read -r remote; do git for-each-ref --format="%(objectname:short) %(refname)" "refs/remotes/$remote/" |
-grep -v '/HEAD$' |
-sed "s| refs/remotes/$remote/| $remote:|"; done
-''',
+  "",
   "git for-each-ref --format='%(objectname:short) %(refname:lstrip=2)' refs/tags",
   "git ls-remote --heads --tags ${1:-origin} | awk '{print substr($1,1,7), $2}'",
 ]

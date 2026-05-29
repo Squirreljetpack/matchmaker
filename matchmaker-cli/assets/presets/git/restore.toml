@@ -4,7 +4,7 @@ source = 'base.toml'
 [start]
 command = 'git log --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "${1:-.}"'
 additional_commands = [
-  'git log --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "${1:-.}"',
+  "",
   '''
   if $HAS_AWK; then
       git stash list --format="%gd%x00%at%x00%gs" |

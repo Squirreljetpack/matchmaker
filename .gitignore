@@ -6,3 +6,5 @@ matchmaker-cli/assets/presets/todo
 *.mov
 .direnv
 *.jsonl
+emojis.json
+UnicodeData.txt

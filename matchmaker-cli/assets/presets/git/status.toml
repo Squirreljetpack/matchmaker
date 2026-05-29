@@ -96,6 +96,7 @@ prompt = "status> "
 "ctrl-shift-d" = ["@delete", "Reload"]
 "alt-d" = ["@disk-delete", "Reload"]
 "alt-i" = ["@ignore", "Reload"]
+"ctrl-i" = ["#edit gitignore", "Execute($EDITOR .gitignore)", "Reload"]
 
 # --- Scripts ---
 "@summary" = "RunPreview(git -c color.ui=always status -sbu && echo && git --no-pager diff --color=always --compact-summary && false)"

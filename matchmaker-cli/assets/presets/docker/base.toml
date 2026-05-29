@@ -16,7 +16,7 @@
 
     # --- Actions ---
     # todo: suitable bind for @show
-    "@copy" = "Copy(echo {id})"
+    "@copy" = "CopyAsync(echo {id})"
     "@next" = "Reload"
 
 [envs]

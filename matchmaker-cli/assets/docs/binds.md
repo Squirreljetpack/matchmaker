@@ -225,7 +225,7 @@ Actions are the operations performed when a trigger is activated.
 | `ExecuteSilent(c)`     | Run and detach a shell command silently.                                                                                            |
 | `ExecuteAsync(cmd)`    | Run asynchronously; subsequent actions in the same batch execute after its completion.                                              |
 | `ExecuteThen(cmd)`     | Run asynchronously; subsequent actions execute after completion and only if it succeeds.                                            |
-| `Copy(cmd)`            | Run a command asynchronously and copy its output to the clipboard (works across ssh: see `tui.osc52`).                              |
+| `CopyAsync(cmd)`            | Run a command asynchronously and copy its output to the clipboard (works across ssh: see `tui.osc52`).                              |
 | `ExecuteOrConfirm(c)`  | Run a shell command (replaces TUI), but ask for confirmation if it fails.                                                           |
 | `ExecuteAndQuit(cmd)`  | Run a shell command (replaces TUI) and then quit.                                                                                   |
 | `Become(cmd)`          | Transform the process into the command.                                                                                             |

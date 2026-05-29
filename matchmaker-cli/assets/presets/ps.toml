@@ -83,6 +83,6 @@ initial.tail = true
 "ctrl-g" = ["#kill group", "Execute(kill -- -$(ps -o pgid= -p {2}) || read)"]
 "alt-g" = ["#kill group -9", "Execute(kill -9 -- -$(ps -o pgid= -p {2}) || read)"]
 
-"@copy" = "Copy(printf '%s\n' {+2})"
+"@copy" = "CopyAsync(printf '%s\n' {+2})"
 
 [tui]

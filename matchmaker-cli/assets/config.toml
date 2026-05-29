@@ -200,6 +200,6 @@ ansi = false # don't set to true here
 
 "@print" = "Print({-})"
 "@print_2" = "Print({-!})"
-"@copy" = "Copy(printf '%s\n' {+1})"
-"@copy_all" = "Copy(printf {})"
-"@copy_active" = "Copy(printf '%s\n' {+!})"
+"@copy" = "CopyAsync(printf '%s\n' {+1})"
+"@copy_all" = "CopyAsync(printf {})"
+"@copy_active" = "CopyAsync(printf '%s\n' {+!})"

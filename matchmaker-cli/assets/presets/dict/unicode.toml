@@ -25,9 +25,9 @@ prefer_prefix = false
     hex=$(printf "%s" "{char}" | iconv -f UTF-8 -t UTF-32BE | od -A n -t x4 | tr -d ' ' | sed 's/^0*//')
     printf "\\u{%s}" "$hex"
 )'''
-"@copy_all" = "Copy(echo {char})"
+"@copy_all" = "CopyAsync(echo {char})"
 "enter" = ["Print({=char})", "Quit"]
-"tty^^enter" = "Copy(echo {char})"
+"tty^^enter" = ["Copy(echo {char})", "Quit"]
 
 # --- Preview ---
 

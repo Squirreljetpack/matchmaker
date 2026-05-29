@@ -192,6 +192,6 @@ if (Get-Command fd -ErrorAction SilentlyContinue) {
 
 "@print" = "Print({-})"
 "@print_2" = "Print({-!})"
-"@copy" = "Copy(Write-Output {+1})"
-"@copy_all" = "Copy(Write-Output {})"
-"@copy_active" = "Copy(Write-Output {+!})"
+"@copy" = "CopyAsync(Write-Output {+1})"
+"@copy_all" = "CopyAsync(Write-Output {})"
+"@copy_active" = "CopyAsync(Write-Output {+!})"

@@ -181,6 +181,7 @@ if (Get-Command fd -ErrorAction SilentlyContinue) {
 "@next" = ["ReloadNext", "Cancel"]
 "@prev" = ["ReloadPrev", "Cancel"]
 "@help" = "Help"
+"@break" = "Redraw" # invalid unicode or unsupported emoji can break rendering
 
 # Printing
 "alt-p" = "@print"

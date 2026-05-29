@@ -292,7 +292,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 output_template,
                 ansi,
                 trim,
-                additional_commands,
+                mut additional_commands,
                 mode,
             },
         mut exit,
@@ -301,6 +301,13 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     } = config;
 
     // -------- determine command ------------
+    if let Some(first) = additional_commands.first_mut() {
+        if first.is_empty() {
+            *first = command.clone();
+        }
+    }
+    let additional_commands = additional_commands;
+    
     let mut initial_index = 0;
     if additional_commands.len() > 1 {
         if let Ok(index_str) = std::env::var("MM_INDEX") {

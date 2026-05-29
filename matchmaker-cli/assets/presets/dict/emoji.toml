@@ -1,0 +1,146 @@
+# Find and pick emojis
+
+[start]
+command = '''zstd -dc "$(dirname -- "$MM_OVERRIDE")"/emoji.zst'''
+additional_commands = [
+    "",
+    '''zstd -dc "$(dirname -- "$MM_OVERRIDE")"/emoji_compat.zst'''
+]
+
+[envs]
+ACTIVE_DICT = "emoji"
+
+[query]
+prompt = "emoji> "
+
+[header]
+content = ['char', 'name', 'group', 'subgroup']
+
+[columns]
+split = "\\t"
+names = ["char", "name", "group", "subgroup"]
+default = "name"
+
+[results]
+min_width = 5
+
+[matcher]
+prefer_prefix = false
+
+[binds]
+"@reload" = "ReloadNext"
+"@reload_2" = "ReloadPrev"
+
+# copy rust escape \u{1F511}
+"@copy" = '''Copy(
+if ((MM_INDEX == 0)); then
+  echo {char}
+else
+  emoji_seq=$(echo {char} | awk -F'-' '
+      function hex2dec(h) {
+          v = 0; h = toupper(h)
+          for(k=1; k<=length(h); k++) {
+              v = v * 16 + index("0123456789ABCDEF", substr(h, k, 1)) - 1
+          }
+          return v
+      }
+      
+      function to_utf8_octal(c) {
+          if (c <= 127) return sprintf("\\0%03o", c)
+          if (c <= 2047) return sprintf("\\0%03o\\0%03o", 192 + int(c/64), 128 + (c%64))
+          if (c <= 65535) return sprintf("\\0%03o\\0%03o\\0%03o", 224 + int(c/4096), 128 + int((c/64)%64), 128 + (c%64))
+          return sprintf("\\0%03o\\0%03o\\0%03o\\0%03o", 240 + int(c/262144), 128 + int((c/4096)%64), 128 + int((c/64)%64), 128 + (c%64))
+      }
+      
+      {
+          for(i=1; i<=NF; i++) {
+              dec = hex2dec($i)
+              printf "%s", to_utf8_octal(dec)
+          }
+      }
+  ')
+  printf "%b" "$emoji_seq"
+fi
+)'''
+
+"@copy_all" = '''Copy(
+if ((MM_INDEX == 0)); then
+    printf "%s" {char} | iconv -f UTF-8 -t UTF-32BE | od -A n -t x4 | awk '{for(i=1;i<=NF;i++) printf "\\u{%s}", toupper($i)}'
+else
+    echo {char} | awk -F'-' '{for(i=1;i<=NF;i++) printf "\\u{%s}", toupper($i)}'
+fi
+)'''
+
+"enter" = ["Print({=char})", "Quit"]
+
+"tty^^enter" = [
+'''Copy(
+if ((MM_INDEX == 0)); then
+  echo {char}
+else
+  emoji_seq=$(echo {char} | awk -F'-' '{for(i=1;i<=NF;i++) printf "\\U%08X", strtonum("0x" $i)}')
+  printf "%b" "$emoji_seq"
+fi
+)''',
+"Quit"
+]
+
+# --- Preview ---
+[[preview.layout]]
+command = '''
+if ((MM_INDEX == 0)); then
+  actual_emoji={char}
+  hex=$(printf "U+%X\n" "'$actual_emoji")
+else
+  emoji_seq=$(echo {char} | awk -F'-' '
+      function hex2dec(h) {
+          v = 0; h = toupper(h)
+          for(k=1; k<=length(h); k++) {
+              v = v * 16 + index("0123456789ABCDEF", substr(h, k, 1)) - 1
+          }
+          return v
+      }
+      function to_utf8_octal(c) {
+          if (c <= 127) return sprintf("\\0%03o", c)
+          if (c <= 2047) return sprintf("\\0%03o\\0%03o", 192 + int(c/64), 128 + (c%64))
+          if (c <= 65535) return sprintf("\\0%03o\\0%03o\\0%03o", 224 + int(c/4096), 128 + int((c/64)%64), 128 + (c%64))
+          return sprintf("\\0%03o\\0%03o\\0%03o\\0%03o", 240 + int(c/262144), 128 + int((c/4096)%64), 128 + int((c/64)%64), 128 + (c%64))
+      }
+      {
+          for(i=1; i<=NF; i++) {
+              dec = hex2dec($i)
+              printf "%s", to_utf8_octal(dec)
+          }
+      }
+  ')
+  actual_emoji="$(printf "%b" "$emoji_seq")"
+  hex=$(echo {char} | awk -F'-' '{for(i=1;i<=NF;i++) printf "U+%s ", toupper($i)}')
+fi
+
+printf "%${COLUMNS}s\n" | tr ' ' '-'
+echo "  $actual_emoji  "{name}
+printf "%${COLUMNS}s\n" | tr ' ' '-'
+echo "Codes:    $hex"
+echo "Group:    "{group}
+echo "Subgroup: "{subgroup}
+'''
+
+# --- Scripts ---
+"Start" = '''Transform(
+    HEADERS=(
+      '[emoji]'
+      '[emoji:compat]'
+    )
+    setopt KSH_ARRAYS 2>/dev/null
+    echo "SetHeader(${HEADERS[$MM_INDEX]})"
+)
+'''
+"Reloaded" = '''Transform(
+    HEADERS=(
+      '[emoji]'
+      '[emoji:compat]'
+    )
+    setopt KSH_ARRAYS 2>/dev/null
+    echo "SetHeader(${HEADERS[$MM_INDEX]})"
+)
+'''

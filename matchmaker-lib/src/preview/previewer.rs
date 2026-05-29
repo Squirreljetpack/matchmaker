@@ -105,6 +105,7 @@ impl Previewer {
     pub async fn run(mut self) -> Result<(), Vec<Child>> {
         while self.rx.changed().await.is_ok() {
             let m = self.rx.borrow_and_update().clone();
+            log::trace!("Received: {m:?}");
 
             if let PreviewMessage::Run(cmd, _) = &m {
                 if !self.config.always_trigger && &self.last == cmd {
@@ -115,6 +116,7 @@ impl Previewer {
                     tokio::time::sleep(Duration::from_millis(self.config.debounce_ms)).await;
                 }
 
+                // wait indefinitely until zombies get cleaned up
                 while self.procs.len() >= self.config.max_procs {
                     self.prune_procs();
                     if self.procs.len() < self.config.max_procs {

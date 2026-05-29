@@ -41,7 +41,7 @@ percentage = 100
 [results]
 inactive_current_style.fg = "DarkGray"
 inactive_current_style.bg = "Black"
-
+scroll_wrap = true
 
 [binds]
 "enter" = "@accept"
@@ -54,7 +54,8 @@ inactive_current_style.bg = "Black"
 
 # --- Scripts ---
 "Start" = "@enter_rg"
-"@enter_rg" = [ # Reload on query change, disable reparsing, update bind
+# Reload on query change, disable reparsing, update bind
+"@enter_rg" = [
   "Filtering(false)",
   '''Bind(QueryChange = Reload)''',
   # Prompt indicator

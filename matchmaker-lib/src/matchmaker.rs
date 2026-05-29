@@ -1120,6 +1120,7 @@ pub fn make_previewer<T: SSS, S: Selection + 'static>(
                 // code logic-wise, recieve PreviewSet::None semantically => will recieve PreviewMessage::Unset => we should skip anyways (events is immutable), altho semantically such a state should actually trigger a new preview tho it would be niche
                 return;
             }
+            
             if state.preview_visible() &&
             let m = state.preview_payload().clone()
             {

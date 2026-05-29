@@ -23,7 +23,7 @@ pub struct Cli {
     #[arg(long)]
     pub no_read: bool,
 
-    /// args passed to the start command
+    /// args passed to the populating command
     #[arg(last = true)]
     pub args: Vec<OsString>,
 

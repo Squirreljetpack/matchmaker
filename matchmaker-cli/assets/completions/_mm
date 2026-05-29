@@ -30,7 +30,7 @@ _mm() {
 '(-q)*-v[Increase the verbosity level]' \
 '-h[Print help]' \
 '--help[Print help]' \
-'*::args -- args passed to the start command:_default' \
+'*::args -- args passed to the populating command:_default' \
 && ret=0
 }
 

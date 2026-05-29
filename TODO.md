@@ -17,7 +17,6 @@
   - frecency
   - api
 
-- execute: try read from preview_set_payload first
 - sort by column
 - toast action:
   - toast config:
@@ -27,7 +26,12 @@
   - try different combinations
 
 - unaligned headings (!!!): need to optimize make_table and worker.results fn, I think we should break worker.results down into a method which returns a row instead creating them all at once using iter.filter_map().
-- support alternate actions syntax(?): case insensitive, execute::content
+- support alternate actions syntax(?): case insensitive, execute::content <- use rhai could be cool
+
+- Display rework
+- Picker overlay
+- builder with intermediate type states for pick options + make state depend on context C and aext A
+- status.toml open we can pass the first diff/cached diff line number depending on MM_PREVIEW_COMMAND
 
 # Previewer
 
@@ -80,3 +84,6 @@
 - reload should send to preview_tx (why did i add this?)
 - very very minor perf improvement, prevent duplicate dynamic handler calls somehow?
 - just ran into a facepalm due to previewsetting not having deny_unknown_settings, maybe it would be better to actually flatten
+- support hijack rendering?
+
+

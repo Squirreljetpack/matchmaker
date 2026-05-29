@@ -251,6 +251,13 @@ impl Side {
             Side::Right => Borders::LEFT,
         }
     }
+
+    pub fn is_vertical(&self) -> bool {
+        match self {
+            Side::Left | Side::Right => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

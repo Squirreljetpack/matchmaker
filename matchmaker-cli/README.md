@@ -1,5 +1,3 @@
-<a href="https://repology.org/project/matchmaker-cli/versions"><img align="right" src="https://repology.org/badge/vertical-allrepos/matchmaker-cli.svg?exclude_unsupported=1" alt="Packaging status"></a>
-
 # Matchmaker [![Crates.io](https://img.shields.io/crates/v/matchmaker-cli)](https://crates.io/crates/matchmaker-cli) [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://github.com/squirreljetpack/matchmaker/blob/main/matchmaker-cli/LICENSE)
 
 Matchmaker is fast, configurable and intuitive fuzzy searcher. It is useful for browsing and building [workflows](#presets) around any list or kind of data you can wrangle into a tabular format.
@@ -90,9 +88,11 @@ find . | mm
 > [!TIP]
 > The [default](./matchmaker-cli/assets/config.toml) input and preview commands detect `fd`, `bat` and `eza` (otherwise falling back to `ls` and `cat`). Install them for a better experience!
 
+<a href="https://repology.org/project/matchmaker-cli/versions"><img align="right" src="https://repology.org/badge/vertical-allrepos/matchmaker-cli.svg?exclude_unsupported=1" alt="Packaging status"></a>
+
 ## Configuration
 
-To begin, you can dump the default configuration to a file:
+To start configuration, write the default configuration to a file:
 
 ```sh
 matchmaker --dump-config
@@ -121,7 +121,7 @@ min = 30
 max = 120
 ```
 
-The structure of the config file is defined [here](./matchmaker-cli/src/config.rs)[^1], and the full specification lives [here](./matchmaker-lib/src/config.rs)[^2]. You can also view your current config using `mm --dump-config | cat`[^30] or a quick reference using `mm --doc options`.
+The structure of the config file is defined [here](./matchmaker-cli/src/config.rs)[^1], and the full specification lives [here](./matchmaker-lib/src/config.rs)[^2]. You can also view your **current** config using `mm --dump-config | cat` or a quick reference using `mm --doc options`.
 
 Options can be overridden on the command line, where abbreviations are supported:
 
@@ -141,8 +141,6 @@ For quick reference, `mm --doc` provides fairly readable and comprehensive guide
 [^1]: Note that the flatten attribute on the render field means that the subfields of RenderConfig should be specified at the top level of the toml (i.e. your toml should specify `[results]` instead of `[render.results]`).
 
 [^2]: and parts of it [here](./matchmaker-lib/src/config-types.rs).
-
-[^30]: Beware that without piping, this overwrites your config location with the default config!
 
 ### Keybindings
 

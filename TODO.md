@@ -31,7 +31,6 @@
 - Display rework
 - Picker overlay
 - builder with intermediate type states for pick options + make state depend on context C and aext A
-- status.toml open we can pass the first diff/cached diff line number depending on MM_PREVIEW_COMMAND
 
 # Previewer
 

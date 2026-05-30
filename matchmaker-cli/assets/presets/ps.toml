@@ -73,16 +73,186 @@ initial.tail = true
 
 "@accept" = ["#print pid", "Become(printf '%s\n' {+2})"]
 "@accept_2" = ["#print active", "Become(printf '%s\n' {+!})"]
-
-"ctrl-k" = ["#kill", "Execute(kill {2} || read)"]
-"alt-k" = ["#kill -9", "Execute(kill -9 {2} || read)"]
-
-"ctrl-shift-k" = ["#kill parent", "Execute(kill {1} || read)"]
-"alt-shift-k" = ["#kill parent -9", "Execute(kill -9 {1} || read)"]
-
-"ctrl-g" = ["#kill group", "Execute(kill -- -$(ps -o pgid= -p {2}) || read)"]
-"alt-g" = ["#kill group -9", "Execute(kill -9 -- -$(ps -o pgid= -p {2}) || read)"]
-
 "@copy" = "CopyAsync(printf '%s\n' {+2})"
 
-[tui]
+"ctrl-k" = [
+    "#kill",
+    '''ExecuteOrConfirm(
+        pids=({+2})
+        [ ${#pids[@]} -gt 1 ] && {
+            printf "Kill: %s [y/N] " "${pids[*]}"
+            read -r
+            [[ $REPLY != [yY]* ]] && exit 0
+        }
+
+        for p in "${pids[@]}"; do
+            kill "$p" 2>/dev/null
+            sleep 0.1
+        done
+
+        f=()
+        for p in "${pids[@]}"; do
+            kill -0 "$p" 2>/dev/null && f+=("$p")
+        done
+
+        if [ ${#f[@]} -ne 0 ]; then
+            echo "Failed: ${f[*]}"
+            exit 1
+        fi
+
+        exit 0
+    )''',
+    "Reload"
+]
+
+"alt-k" = [
+    "#kill -9",
+    '''ExecuteOrConfirm(
+        pids=({+2})
+        [ ${#pids[@]} -gt 1 ] && {
+            printf "Kill: %s [y/N] " "${pids[*]}"
+            read -r
+            [[ $REPLY != [yY]* ]] && exit 0
+        }
+
+        for p in "${pids[@]}"; do
+            kill -9 "$p" 2>/dev/null
+            sleep 0.1
+        done
+
+        f=()
+        for p in "${pids[@]}"; do
+            kill -0 "$p" 2>/dev/null && f+=("$p")
+        done
+
+        if [ ${#f[@]} -ne 0 ]; then
+            echo "Failed: ${f[*]}"
+            exit 1
+        fi
+
+        exit 0
+    )''',
+    "Reload"
+]
+
+"ctrl-shift-k" = [
+    "#kill parent",
+    '''ExecuteOrConfirm(
+        pids=({+1})
+        [ ${#pids[@]} -gt 1 ] && {
+            printf "Kill: %s [y/N] " "${pids[*]}"
+            read -r
+            [[ $REPLY != [yY]* ]] && exit 0
+        }
+
+        for p in "${pids[@]}"; do
+            kill "$p" 2>/dev/null
+            sleep 0.1
+        done
+
+        f=()
+        for p in "${pids[@]}"; do
+            kill -0 "$p" 2>/dev/null && f+=("$p")
+        done
+
+        if [ ${#f[@]} -ne 0 ]; then
+            echo "Failed: ${f[*]}"
+            exit 1
+        fi
+
+        exit 0
+    )''',
+    "Reload"
+]
+
+"alt-shift-k" = [
+    "#kill parent -9",
+    '''ExecuteOrConfirm(
+        pids=({+1})
+        [ ${#pids[@]} -gt 1 ] && {
+            printf "Kill: %s [y/N] " "${pids[*]}"
+            read -r
+            [[ $REPLY != [yY]* ]] && exit 0
+        }
+
+        for p in "${pids[@]}"; do
+            kill -9 "$p" 2>/dev/null
+            sleep 0.1
+        done
+
+        f=()
+        for p in "${pids[@]}"; do
+            kill -0 "$p" 2>/dev/null && f+=("$p")
+        done
+
+        if [ ${#f[@]} -ne 0 ]; then
+            echo "Failed: ${f[*]}"
+            exit 1
+        fi
+
+        exit 0
+    )''',
+    "Reload"
+]
+
+"ctrl-g" = [
+    "#kill group",
+    '''ExecuteOrConfirm(
+        pids=({+2})
+        [ ${#pids[@]} -gt 1 ] && {
+            printf "Kill: %s [y/N] " "${pids[*]}"
+            read -r
+            [[ $REPLY != [yY]* ]] && exit 0
+        }
+
+        for p in "${pids[@]}"; do
+            pgid=$(ps -o pgid= -p "$p" | tr -d ' ')
+            [[ -n $pgid ]] && kill -- -"${pgid}" 2>/dev/null
+            sleep 0.1
+        done
+
+        f=()
+        for p in "${pids[@]}"; do
+            kill -0 "$p" 2>/dev/null && f+=("$p")
+        done
+
+        if [ ${#f[@]} -ne 0 ]; then
+            echo "Failed: ${f[*]}"
+            exit 1
+        fi
+
+        exit 0
+    )''',
+    "Reload"
+]
+
+"alt-g" = [
+    "#kill group -9",
+    '''ExecuteOrConfirm(
+        pids=({+2})
+        [ ${#pids[@]} -gt 1 ] && {
+            printf "Kill: %s [y/N] " "${pids[*]}"
+            read -r
+            [[ $REPLY != [yY]* ]] && exit 0
+        }
+
+        for p in "${pids[@]}"; do
+            pgid=$(ps -o pgid= -p "$p" | tr -d ' ')
+            [[ -n $pgid ]] && kill -9 -- -"${pgid}" 2>/dev/null
+            sleep 0.1
+        done
+
+        f=()
+        for p in "${pids[@]}"; do
+            kill -0 "$p" 2>/dev/null && f+=("$p")
+        done
+
+        if [ ${#f[@]} -ne 0 ]; then
+            echo "Failed: ${f[*]}"
+            exit 1
+        fi
+
+        exit 0
+    )''',
+    "Reload"
+]

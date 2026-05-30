@@ -87,8 +87,8 @@ prompt = "status> "
 
 "ctrl-1" = "@summary"
 "ctrl-u" = ["@unstage", "Reload"]
-"ctrl-c" = ["@commit", "Quit"]
-"alt-c" = ["Execute(git add . && echo 'All changes staged' || echo 'git add . failed')", "@commit", "Quit"]
+"ctrl-c" = "@commit"
+"alt-c" = ["ExecuteOrConfirm(git add . && echo 'All changes staged' || echo 'git add . failed')", "@commit"]
 "ctrl-shift-c" = ["@commit_ai", "Reload"]
 "alt-r" = ["@restore", "Reload"]
 "ctrl-t" = ["@stash", "Reload"]
@@ -165,7 +165,7 @@ fi
 '''
 
 "@restore" = '''
-Execute(
+ExecuteOrConfirm(
 set -e
 set -- {+1}
 if (( $# == 1 )); then
@@ -192,7 +192,7 @@ fi
 '''
 
 "@stash" = '''
-Execute(
+ExecuteOrConfirm(
 set -e
 printf "Stash message (optional): "
 read -r msg
@@ -247,12 +247,12 @@ done
 '''
 
 "@commit" = '''
-Execute(
+BecomeOr(
 set -e
 if git diff --cached --quiet; then
   git add .
 fi
-git --no-pager diff --cached --compact-summary
+git --no-pager diff --color=always --cached --compact-summary
 echo
 echo "Commit message (\ -> continue): "
 msg=""

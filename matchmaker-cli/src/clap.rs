@@ -8,14 +8,19 @@ pub static BINARY_SHORT: &str = "mm";
 pub struct Cli {
     #[arg(long, value_name = "PATH")]
     pub config: Option<PathBuf>,
+    /// Paths without a toml extension refer
+    /// to a preset
     #[arg(long, short, value_name = "PATH")]
     pub r#override: Vec<PathBuf>,
+    /// Write the default configuration to the default location.
+    /// If piped, writes to stdout.
     #[arg(long)]
     pub dump_config: bool,
     #[arg(short = 'F')]
     pub fullscreen: bool,
     #[arg(long)]
     pub test_keys: bool,
+    /// Print the last key pressed in the last `mm` run.
     #[arg(long)]
     pub last_key: bool,
 
@@ -34,7 +39,7 @@ pub struct Cli {
     #[clap(short, conflicts_with("quiet"), action = ArgAction::Count)]
     pub verbose: u8,
 
-    /// Download presets from GitHub. Optionally specify a subfolder.
+    /// Download ALL presets from GitHub. Optionally, specify a subfolder.
     #[arg(long, value_name = "FOLDER", num_args = 0..=1, default_missing_value = "")]
     pub download: Option<String>,
 

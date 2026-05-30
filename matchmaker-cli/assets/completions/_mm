@@ -16,15 +16,15 @@ _mm() {
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" : \
 '--config=[]:PATH:_files' \
-'*-o+[]:PATH:_files' \
-'*--override=[]:PATH:_files' \
-'--download=[Download presets from GitHub. Optionally specify a subfolder]::FOLDER:_default' \
+'*-o+[Paths without a toml extension refer to a preset]:PATH:_files' \
+'*--override=[Paths without a toml extension refer to a preset]:PATH:_files' \
+'--download=[Download ALL presets from GitHub. Optionally, specify a subfolder]::FOLDER:_default' \
 '-d+[Display documentation]:DOC:(options binds template other)' \
 '--doc=[Display documentation]:DOC:(options binds template other)' \
-'--dump-config[]' \
+'--dump-config[Write the default configuration to the default location. If piped, writes to stdout]' \
 '-F[]' \
 '--test-keys[]' \
-'--last-key[]' \
+'--last-key[Print the last key pressed in the last \`mm\` run]' \
 '--no-read[Force the default command to run]' \
 '(-v)*-q[Reduce the verbosity level]' \
 '(-q)*-v[Increase the verbosity level]' \

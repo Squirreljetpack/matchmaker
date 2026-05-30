@@ -413,6 +413,8 @@ pub struct ResultsConfig {
     // ------------
     pub column_spacing: Count,
     pub current_prefix: String,
+    #[partial(alias = "acp")]
+    pub active_column_min_percentage_hint: Option<Percentage>,
 
     /// Maximum row height.
     /// VScroll/Preview can still be used to view the whole result.
@@ -474,6 +476,7 @@ impl Default for ResultsConfig {
 
             wrap: false,
             min_width: 2,
+            active_column_min_percentage_hint: None,
             max_height: 0,
 
             autoscroll: Default::default(),

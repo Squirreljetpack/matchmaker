@@ -207,7 +207,7 @@ impl DisplayUI {
         } else {
             let surplus = widths.iter().sum::<u16>().saturating_sub(self.width);
             if let Some(s) = widths.last_mut() {
-                *s -= surplus;
+                *s = s.saturating_sub(surplus);
             }
             widths.into_iter().map(Constraint::Length).collect()
         };

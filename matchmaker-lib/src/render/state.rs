@@ -33,7 +33,6 @@ pub struct State {
 
     // Stores "last" state to emit events on change
     pub(crate) input: String,
-    pub(crate) col: Option<usize>,
     pub(crate) iterations: u32,
     pub(crate) preview_visible: bool,
     pub(crate) layout: Layout,
@@ -112,7 +111,6 @@ impl State {
             layout: Layout::default(),
             dragging: None,
             overlay_index: None,
-            col: None,
 
             input: String::new(),
             iterations: 0,
@@ -266,7 +264,6 @@ impl State {
         self.iterations += 1;
 
         self.update_input(&picker_ui.query.input);
-        self.col = picker_ui.results.col();
 
         let status = &picker_ui.results.status;
         self.synced[1] |= status.running;

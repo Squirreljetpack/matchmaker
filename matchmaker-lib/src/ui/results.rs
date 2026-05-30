@@ -22,7 +22,6 @@ use crate::{
 pub struct ResultsUI {
     cursor: u16,
     bottom: u32,
-    col: Option<usize>,
     pub hscroll: i8,
     pub vscroll: u8,
 
@@ -56,7 +55,6 @@ impl ResultsUI {
         Self {
             cursor: 0,
             bottom: 0,
-            col: None,
             hscroll: 0,
             vscroll: 0,
 
@@ -102,34 +100,6 @@ impl ResultsUI {
     }
     pub fn wrap(&mut self, wrap: bool) {
         self.config.wrap = wrap;
-    }
-
-    // ----- columns --------
-    // todo: support cooler things like only showing/outputting a specific column/cycling columns
-    pub fn toggle_col(&mut self, col_idx: usize) -> bool {
-        self.reset_current_scroll();
-
-        if self.col == Some(col_idx) {
-            self.col = None
-        } else {
-            self.col = Some(col_idx);
-        }
-        self.col.is_some()
-    }
-    pub fn cycle_col(&mut self) {
-        self.reset_current_scroll();
-
-        self.col = match self.col {
-            None => self.widths.is_empty().then_some(0),
-            Some(c) => {
-                let next = c + 1;
-                if next < self.widths.len() {
-                    Some(next)
-                } else {
-                    None
-                }
-            }
-        };
     }
 
     // ------- NAVIGATION ---------
@@ -250,9 +220,6 @@ impl ResultsUI {
     pub fn indentation(&self) -> usize {
         self.config.multi_prefix.width()
     }
-    pub fn col(&self) -> Option<usize> {
-        self.col
-    }
 
     /// Column widths.
     /// Note that the first width doesn't include the indentation.
@@ -262,7 +229,7 @@ impl ResultsUI {
 
     /// Adapt the stored widths (initialized by [`Worker::results`]) to the fit within the available width (self.width)
     /// widths <= min_wrap_width don't shrink and aren't wrapped
-    pub fn max_widths(&self) -> Vec<u16> {
+    pub fn max_widths(&self, active_column: usize) -> Vec<u16> {
         let mut base_widths = self.medians.clone();
 
         // uninitialized
@@ -348,7 +315,7 @@ impl ResultsUI {
         let as_cols = !self.config.stacked_columns;
 
         let width_limits = if as_cols {
-            self.max_widths()
+            self.max_widths(active_column)
         } else {
             let default = self.width.saturating_sub(self.indentation() as u16);
 
@@ -742,7 +709,7 @@ impl ResultsUI {
                 // scroll down
                 if self.is_current(i) && self.config.vscroll_current_only && self.vscroll > 0 {
                     for (x, t) in row.iter_mut().enumerate().filter(|(i, _)| widths[*i] != 0) {
-                        if self.col.is_none() || self.col() == Some(x) {
+                        if active_column == x {
                             let scroll = self.vscroll as usize;
 
                             if scroll < t.lines.len() {
@@ -878,15 +845,19 @@ impl ResultsUI {
             let surplus = self.content_width().saturating_sub(widths.iter().sum());
 
             if surplus > 0 {
-                // occupy full row
-                if matches!(self.config.row_connection, RowConnectionStyle::Full)
-                    || (matches!(self.config.row_connection, RowConnectionStyle::Disjoint)
-                        && self.config.right_align_last)
-                {
-                    if let Some(s) = widths.last_mut() {
-                        *s += surplus;
-                    }
+                // until we finish rendering v2, trigger this to keep column widths usable
+                if let Some(s) = widths.last_mut() {
+                    *s += surplus;
                 }
+                // occupy full row
+                // if matches!(self.config.row_connection, RowConnectionStyle::Full)
+                //     || (matches!(self.config.row_connection, RowConnectionStyle::Disjoint)
+                //         && self.config.right_align_last)
+                // {
+                //     if let Some(s) = widths.last_mut() {
+                //         *s += surplus;
+                //     }
+                // }
             }
 
             // save actual widths of each column

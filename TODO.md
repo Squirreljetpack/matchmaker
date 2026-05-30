@@ -25,10 +25,7 @@
 - Multiline + Capped + column highlight looks a tiny bit weird
   - try different combinations
 
-- unaligned headings (!!!): need to optimize make_table and worker.results fn, I think we should break worker.results down into a method which returns a row instead creating them all at once using iter.filter_map().
 - support alternate actions syntax(?): case insensitive, execute::content <- use rhai could be cool
-
-- Display rework
 - Picker overlay
 - builder with intermediate type states for pick options + make state depend on context C and aext A
 
@@ -86,3 +83,14 @@
 - support hijack rendering?
 
 
+# Rework column sizing and row rendering:
+while remaining > 0, render row.
+
+
+Do a random sample (n = 50 (configure in results))
+use to compute average, min, max, sd.
+
+allocate widths as follows, let n = total/#cols
+allocate widths for cols with max < n.
+Recompute n and allocate again.
+When no more cols with max < n, distribute equally.

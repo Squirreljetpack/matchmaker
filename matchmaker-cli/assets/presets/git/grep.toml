@@ -36,6 +36,9 @@ sort = 40
 [previewer]
 always_trigger = false
 
+[results]
+autoscroll.initial_preserved = 1
+
 [[preview.layout]]
 side = "top"
 percentage = 50

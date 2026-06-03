@@ -484,7 +484,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             stdin,
             push_fn,
             input_separator,
-            abort_empty.then_some(render_tx.clone()),
+            (abort_empty || skip_invalid_lines).then_some(render_tx.clone()),
             skip_invalid_lines,
         )
     } else if !command.is_empty()
@@ -501,7 +501,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 stdout,
                 push_fn,
                 separator.or(input_separator),
-                abort_empty.then_some(render_tx.clone()),
+                (abort_empty || skip_invalid_lines).then_some(render_tx.clone()),
                 skip_invalid_lines,
             )
         } else {
@@ -575,7 +575,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                         stdout,
                         push_fn,
                         separator.or(input_separator),
-                        None,
+                        skip_invalid_lines.then_some(reload_render_tx.clone()),
                         skip_invalid_lines,
                     );
                     last_child = Some(child);

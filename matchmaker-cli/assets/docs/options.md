@@ -113,6 +113,8 @@ All colors and modifiers come from ratatui:
     - `value`: (string) The directory path or command resolving to the directory path.
     - `exec`: (bool) If true, the directory is read from the stdout of the executed value (default false).
     - `force`: (bool) If true, exit application if directory could not be changed to.
+- `save_orphans`: (bool) Don't kill the last populating command when reloading (default false).
+- `skip_invalid_lines`: (bool) If false, aborts program when encountering an invalid utf-8 input line (default false).
 
 ### Exit (`exit.`, `e`)
 

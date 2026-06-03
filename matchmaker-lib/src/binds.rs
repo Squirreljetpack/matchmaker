@@ -617,8 +617,18 @@ pub fn display_help<A: ActionExt + Display>(
                 if config.hide_semantic && matches!(trigger.kind, TriggerKind::Semantic(_)) {
                     continue;
                 }
+                if !config.show_events && matches!(trigger.kind, TriggerKind::Event(_)) {
+                    continue;
+                }
                 seen_trigger_kinds.insert(trigger.kind.clone());
-                entries.push((trigger.kind.to_string(), actions.iter().cloned().collect()));
+
+                let trigger_str = if let TriggerKind::Event(_) = trigger.kind {
+                    format!("{}{}", config.event_trigger_prefix, trigger.kind)
+                } else {
+                    trigger.kind.to_string()
+                };
+
+                entries.push((trigger_str, actions.iter().cloned().collect()));
             }
         }
     }
@@ -629,7 +639,17 @@ pub fn display_help<A: ActionExt + Display>(
             if config.hide_semantic && matches!(trigger.kind, TriggerKind::Semantic(_)) {
                 continue;
             }
-            entries.push((trigger.kind.to_string(), actions.iter().cloned().collect()));
+            if !config.show_events && matches!(trigger.kind, TriggerKind::Event(_)) {
+                continue;
+            }
+
+            let trigger_str = if let TriggerKind::Event(_) = trigger.kind {
+                format!("{}{}", config.event_trigger_prefix, trigger.kind)
+            } else {
+                trigger.kind.to_string()
+            };
+
+            entries.push((trigger_str, actions.iter().cloned().collect()));
         }
     }
 
@@ -681,7 +701,7 @@ pub fn display_help<A: ActionExt + Display>(
                     }
                 } else if !skipping {
                     visible_items.push(action.to_string().ellipsize(
-                        config.max_len,
+                        config.max_item_len,
                         if config.ellipsize_center {
                             fmt::Alignment::Center
                         } else {
@@ -1119,5 +1139,28 @@ mod test {
         let help_hide_str = help_hide.to_string();
         assert!(help_hide_str.contains("a = Print(a)"));
         assert!(!help_hide_str.contains("@foo = Print(foo)"));
+    }
+
+    #[test]
+    fn test_display_help_events() {
+        let binds: BindMap<NullActionExt> = bindmap!(
+            key!(a) => Action::Print("a".into()),
+            Trigger {
+                kind: TriggerKind::Event(Event::Start),
+                mode: String::new()
+            } => Action::Print("start".into()),
+        );
+
+        let mut cfg = HelpDisplayConfig::default();
+        cfg.event_trigger_prefix = "EV:".to_string();
+        cfg.show_events = true;
+        let help_show = display_help(&binds, &cfg, None);
+        let help_str = help_show.to_string();
+        assert!(help_str.contains("EV:Start"));
+
+        cfg.show_events = false;
+        let help_hide = display_help(&binds, &cfg, None);
+        let help_str_hide = help_hide.to_string();
+        assert!(!help_str_hide.contains("Start"));
     }
 }

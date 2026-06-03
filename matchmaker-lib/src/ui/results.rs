@@ -229,7 +229,7 @@ impl ResultsUI {
 
     /// Adapt the stored widths (initialized by [`Worker::results`]) to the fit within the available width (self.width)
     /// widths <= min_wrap_width don't shrink and aren't wrapped
-    pub fn max_widths(&self, active_column: usize) -> Vec<u16> {
+    pub fn max_widths(&self, _active_column: usize) -> Vec<u16> {
         let mut base_widths = self.medians.clone();
 
         // uninitialized

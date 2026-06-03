@@ -168,8 +168,8 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
     // check binds
     config.binds = BindMap::default_binds().modify(|x| x.extend(config.binds));
     config.binds.check_cycles().map_err(anyhow::Error::msg)?;
-    config.binds.retain(|_, actions| !actions.is_empty());
-    config.binds.resolve_semantics();
+    config.binds.retain(|_, actions| !actions.is_empty()); // enables disabling a bind via override
+    // there is an additional step of resolve_semantics:
 
     for actions in config.binds.values() {
         for a in actions {
@@ -191,20 +191,30 @@ pub fn map_reader<E: SSS + std::fmt::Display>(
     f: impl FnMut(String) -> Result<(), E> + SSS,
     input_separator: Option<char>,
     abort_empty: Option<RenderSender<MMAction>>,
+    skip_invalid_lines: bool,
 ) -> tokio::task::JoinHandle<Result<usize, MapReaderError<E>>> {
     tokio::task::spawn_blocking(move || {
         let ret = if let Some(delim) = input_separator {
-            map_chunks::<true, E>(read_to_chunks(reader, delim), f)
+            map_chunks::<E>(read_to_chunks(reader, delim), f, skip_invalid_lines)
         } else {
-            map_reader_lines::<true, E>(reader, f)
+            map_reader_lines::<E>(reader, f, skip_invalid_lines)
         }
         .elog();
 
-        if let Some(render_tx) = abort_empty
-            && matches!(ret, Ok(0))
-        {
-            let _ = render_tx.send(matchmaker::message::RenderCommand::NoMatch);
+        match &ret {
+            Ok(0) => {
+                if let Some(render_tx) = abort_empty {
+                    let _ = render_tx.send(matchmaker::message::RenderCommand::NoMatch);
+                }
+            }
+            Err(MapReaderError::ChunkError(_, _)) => {
+                if let Some(render_tx) = abort_empty {
+                    let _ = render_tx.send(matchmaker::message::RenderCommand::NoMatch);
+                }
+            }
+            _ => {}
         }
+
         log::trace!("All items pushed");
         ret
     })
@@ -295,6 +305,8 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 trim,
                 mut additional_commands,
                 mode,
+                save_orphans,
+                skip_invalid_lines,
             },
         mut exit,
         mut envs,
@@ -399,8 +411,8 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         ) {
             (true, true) => "tty",
             (true, false) => "t0",
-            (false, true) => "piped",
-            (false, false) => "t1",
+            (false, true) => "t1",
+            (false, false) => "piped",
         }
         .to_string()
     };
@@ -424,9 +436,9 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     if has_error {
         return Err(MatchError::Abort(1));
     }
-    // make previewer
 
-    if !event_loop.binds.check_traces() {
+    // make previewer
+    if !event_loop.binds().check_traces() {
         // maybe abort with error
     }
     let cli_formatter = Either::Right(
@@ -437,12 +449,14 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 Option<&dyn Fn(String)>,
             ) -> String,
     );
-    let binds = event_loop.binds.clone();
+    let binds_ptr = event_loop.get_binds_ptr();
     let previewer = make_previewer(
         &mut mm,
         previewer,
         cli_formatter.clone(),
-        Box::new(move |config, mode| matchmaker::binds::display_help(&binds, config, Some(mode))),
+        Box::new(move |config, mode| {
+            matchmaker::binds::display_help(&binds_ptr.load(), config, Some(mode))
+        }),
     );
 
     // ---------------------- build options ---------------------------
@@ -461,6 +475,43 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
 
     let render_tx = options.render_tx();
     let push_fn = inject_line(header_lines, render_tx.clone(), injector);
+
+    // ----------- read -----------------------
+    let mut last_child = None;
+    let handle = if !atty::is(atty::Stream::Stdin) && !no_read {
+        let stdin = std::io::stdin();
+        map_reader(
+            stdin,
+            push_fn,
+            input_separator,
+            abort_empty.then_some(render_tx.clone()),
+            skip_invalid_lines,
+        )
+    } else if !command.is_empty()
+        && let Some(mut child) = Command::from_script(&command)
+            .envs(envs)
+            .args(&*COMMAND_ARGS.lock().unwrap())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            ._spawn()
+    {
+        if let Some(stdout) = child.stdout.take() {
+            last_child = Some(child);
+            map_reader(
+                stdout,
+                push_fn,
+                separator.or(input_separator),
+                abort_empty.then_some(render_tx.clone()),
+                skip_invalid_lines,
+            )
+        } else {
+            ebog!("no stdout");
+            std::process::exit(99)
+        }
+    } else {
+        eprintln!("error: no input detected.");
+        std::process::exit(99)
+    };
 
     // ---------------------- register handlers ---------------------------
     // print handler (no quoting)
@@ -483,7 +534,6 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     // reload handler
     let reload_formatter = cli_formatter.clone();
     let reload_render_tx = render_tx.clone();
-
     let mut cmd = initial_cmd;
     mm.register_interrupt_handler(Interrupt::Reload, move |state| {
         let injector = state.injector();
@@ -506,14 +556,32 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             debug!("Reloading: {cmd}");
             state.picker_ui.selector.clear();
 
-            if let Some(stdout) = Command::from_script(&cmd)
+            if let Some(mut child) = last_child.take()
+                && !save_orphans
+            {
+                child.kill()._elog();
+            }
+
+            if let Some(mut child) = Command::from_script(&cmd)
                 .envs(vars)
                 .stdin(Stdio::null())
                 .args(&*COMMAND_ARGS.lock().unwrap())
-                .spawn_piped()
-                ._elog()
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                ._spawn()
             {
-                map_reader(stdout, push_fn, separator.or(input_separator), None);
+                if let Some(stdout) = child.stdout.take() {
+                    map_reader(
+                        stdout,
+                        push_fn,
+                        separator.or(input_separator),
+                        None,
+                        skip_invalid_lines,
+                    );
+                    last_child = Some(child);
+                } else {
+                    log::error!("No stdout")
+                }
             }
         }
     });
@@ -535,33 +603,6 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             Action::Accept => acs![MMAction::Accept],
             _ => acs![a],
         });
-
-    // ----------- read -----------------------
-    let handle = if !atty::is(atty::Stream::Stdin) && !no_read {
-        let stdin = std::io::stdin();
-        map_reader(
-            stdin,
-            push_fn,
-            input_separator,
-            abort_empty.then_some(render_tx),
-        )
-    } else if !command.is_empty()
-        && let Some(stdout) = Command::from_script(&command)
-            .envs(envs)
-            .args(&*COMMAND_ARGS.lock().unwrap())
-            .spawn_piped()
-            ._ebog()
-    {
-        map_reader(
-            stdout,
-            push_fn,
-            separator.or(input_separator),
-            abort_empty.then_some(render_tx),
-        )
-    } else {
-        eprintln!("error: no input detected.");
-        std::process::exit(99)
-    };
 
     if sync {
         handle.await._wbog(); // warn the mapreader error (?)

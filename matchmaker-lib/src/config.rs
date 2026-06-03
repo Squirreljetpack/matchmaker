@@ -91,7 +91,13 @@ pub struct StartConfig {
     #[partial(alias = "t")]
     pub trim: bool,
 
+    /// Override the default mode
     pub mode: Option<String>,
+
+    /// Don't kill the last populating command when reloading
+    pub save_orphans: bool,
+    /// If false, aborts program when encountering an invalid utf-8 input line
+    pub skip_invalid_lines: bool,
 }
 
 /// Exit conditions of the render loop.

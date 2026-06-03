@@ -41,7 +41,6 @@
   - (what kinds of speed matter?)
   - memory: (800000 items) mac home dir: fzf 137M vs sk 212 vs mm ~~509~~/309/(12-183?) <- btop giving some inaccurate readings
 
-- group Segmented<T> Storage indices
 - change nucleo to expose Index over to remove dependency on indexed<T>
 - offload injector wrapper logic to column functions
 
@@ -60,27 +59,18 @@
 ### Low priority
 
 - refactor to better fit components into specific ratatui roles so the ui can be embedded?
-- sometimes preview leaks (on invalid unicode), better autorefresh?
-- partial should be under #[cfg] but that breaks field level attributes, i don't think there is a solution as we cannot use derive macro
+- partial should be under #[cfg] but that breaks field level attributes, i don't think there is a solution as we cannot use derive macro (not planned)
 - case insensitive bitflags deserialization (probably requires ratatui pr)
 - finalize non-exclusive columns: if the default query matches the default column or any in this set, include this result (wip)
-- I feel that having matcher and worker in seperate fields and supporting deny_unknown outweighs the minor confusion it could introduce
 - Non grapheme aware option to speed up rendering? This would require frizbee (and be required by?).
 - Adaptable preview percentage (higher on smaller)
 - ord field on prev layouts for better composability?
-
-- modes for binds? the event listener with a mode variable, which is initialized to
-  "command" when mm is started using command, and "piped" when mm is started using
-  stdin. Add an action SetMode(String), which sets the mode string. Actions now become vec<Option<String>, Actions> <- seems heavy handed
-- renderloop optimization: pass available height?
-- descriptions to override help actions
 - switch preset can read remote from {$1} instead of assuming origin
-- flicker-free reload: before interrupt save results or something + pause events?
-- Improve BecomeSilent to further reduce flickering (is it even possible?)
-- reload should send to preview_tx (why did i add this?)
-- very very minor perf improvement, prevent duplicate dynamic handler calls somehow?
+- flicker-free reload: before interrupt save results or something + pause events? (not planned)
+- Improve BecomeSilent to further reduce flickering (is it even possible?) (not planned)
+- very very minor perf improvement, prevent duplicate dynamic handler calls somehow? (not planned)
 - just ran into a facepalm due to previewsetting not having deny_unknown_settings, maybe it would be better to actually flatten
-- support hijack rendering?
+- support hijack rendering loop?
 
 
 # Rework column sizing and row rendering:

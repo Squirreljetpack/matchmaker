@@ -343,7 +343,7 @@ impl Previewer {
                 Some(Ok(result)) => {
                     // unicode error
                     if !result {
-                        self.send(Event::Refresh)
+                        self.send(Event::Redraw)
                     }
                 }
                 None => {

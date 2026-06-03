@@ -113,8 +113,6 @@ impl<A: ActionExt> BindMap<A> {
         Ok(())
     }
 
-    // This is not exactly what we'd like as ideally we'd resolve concrete triggers to actions directly, with traces delimiting untraced aliases. But because of modes, this is trickier.
-
     /// Fully resolves all aliases into concrete triggers.
     pub fn resolve_semantics(&mut self) {
         let mut alias_modes: HashMap<String, HashSet<String>> = HashMap::new();

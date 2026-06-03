@@ -6,6 +6,7 @@ ansi = true
 
 [columns]
 max = 3
+names = ["file", "pos", "content"]
 split = '^(.*?):(\d+:\d+):(.*)$'
 default = 3
 
@@ -61,7 +62,7 @@ scroll_wrap = true
   # Prompt indicator
   '''Transform(
     if [[ -n "$MM_QUERY" ]]; then
-        echo "SetStyledPrompt({blue,italic:(${MM_QUERY#\%1 } )} )"
+        echo "SetStyledPrompt({blue,italic:(${MM_QUERY#\%1 })} )"
     else
         echo "SetPrompt(rg> )"
     fi

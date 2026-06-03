@@ -73,7 +73,7 @@ pub fn allowed_semantic_char(c: char) -> bool {
     c.is_alphanumeric() || ALLOWED_CHARS.contains(&c)
 }
 
-// important that aliases display well, don't contain ^ (mode) and " (trace)
+// important that aliases display well, don't contain ^ (mode), " (trace), and = (PushBind)
 pub static ALLOWED_CHARS: &[char] = &[' ', '-', '_', '.', ':', '/', '+', '@', '$'];
 
 /// Allocates widths to a constrained available space while preserving order relations,

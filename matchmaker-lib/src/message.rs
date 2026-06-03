@@ -37,7 +37,7 @@ bitflags! {
         /// Window/terminal resize
         const Resize = 1 << 9;
         /// Full redraw
-        const Refresh = 1 << 10;
+        const Redraw = 1 << 10;
 
         /// Pause event listener
         const Pause  = 1 << 11;
@@ -82,6 +82,7 @@ pub enum RenderCommand<A: ActionExt> {
     Ack,
     Tick,
     Refresh,
+    Redraw,
     NoMatch,
     Empty,
 }

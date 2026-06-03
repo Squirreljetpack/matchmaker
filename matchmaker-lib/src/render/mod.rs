@@ -171,6 +171,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     footer_ui.init();
                     picker_ui.query.set_prompt(None);
                     picker_ui.results.set_status_line(None);
+                }
+                RenderCommand::Redraw => {
                     tui.redraw();
                 }
                 RenderCommand::HeaderTable(columns) => {

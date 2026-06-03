@@ -765,8 +765,10 @@ pub struct HelpDisplayConfig {
     pub hide_semantic: bool,
     pub seq_brackets: Option<[char; 2]>,
     pub quote_traces: bool,
-    pub max_len: usize,
+    pub max_item_len: usize,
     pub ellipsize_center: bool,
+    pub event_trigger_prefix: String,
+    pub show_events: bool,
 }
 
 impl Default for HelpDisplayConfig {
@@ -776,8 +778,10 @@ impl Default for HelpDisplayConfig {
             hide_semantic: true,
             seq_brackets: Some(['[', ']']),
             quote_traces: true,
-            max_len: 25,
+            max_item_len: 25,
             ellipsize_center: false,
+            event_trigger_prefix: "#".to_string(),
+            show_events: false,
         }
     }
 }

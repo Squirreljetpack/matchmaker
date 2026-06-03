@@ -1,9 +1,35 @@
 use cba::{ebog, ibog};
+use serde::Deserialize;
 use std::{
-    fs::{self},
     path::{Path, PathBuf},
     process::{Command, exit},
 };
+
+const REPO: &str = "Squirreljetpack/matchmaker";
+const BASE_PATH: &str = "matchmaker-cli/assets/presets";
+const BRANCH: &str = "main";
+
+#[derive(Deserialize, Debug)]
+pub struct GitHubFile {
+    pub name: String,
+    // "type" is a reserved keyword in Rust, so we remap it
+    #[serde(rename = "type")]
+    pub entry_type: String,
+    pub download_url: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct GitHubError {
+    pub message: String,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(untagged)]
+pub enum GitHubResponse {
+    Directory(Vec<GitHubFile>),
+    File(GitHubFile),
+    Error(GitHubError),
+}
 
 pub fn handle_download(cli: &crate::clap::Cli) {
     let Some(subfolder) = &cli.download else {
@@ -11,202 +37,115 @@ pub fn handle_download(cli: &crate::clap::Cli) {
     };
     let presets_dir = crate::paths::presets_path();
 
-    let temp_dir = std::env::temp_dir().join("mm_download");
-
-    if temp_dir.exists() {
-        fs::remove_dir_all(&temp_dir).ok();
+    let mut remote_target = subfolder.clone();
+    if cfg!(windows) && subfolder.ends_with(".toml") {
+        let path = Path::new(subfolder);
+        if let (Some(parent), Some(file_name)) = (path.parent(), path.file_name()) {
+            let win_name = format!("win.{}", file_name.to_string_lossy());
+            remote_target = parent.join(win_name).to_string_lossy().into_owned();
+        }
     }
-    fs::create_dir_all(&temp_dir).unwrap();
 
-    ibog!("Downloading presets from GitHub...");
-    let zip_path = temp_dir.join("matchmaker.zip");
+    let api_url = format!(
+        "https://api.github.com/repos/{}/contents/{}/{}?ref={}",
+        REPO, BASE_PATH, remote_target, BRANCH
+    );
 
-    let mut curl_cmd = Command::new("curl");
-    curl_cmd.args([
-        "-L",
-        "https://github.com/Squirreljetpack/matchmaker/archive/refs/heads/main.zip",
-        "-o",
-    ]);
-    curl_cmd.arg(&zip_path);
+    ibog!("Checking GitHub for '{}'...", subfolder);
 
-    let status = curl_cmd.status();
-    if !status.is_ok_and(|x| x.success()) {
-        ebog!("curl failed to download the presets.");
+    let output = Command::new("curl")
+        .args(["-s", "-H", "User-Agent: matchmaker-cli", &api_url])
+        .output()
+        .expect("Failed to execute curl");
+
+    // 1. Deserialize directly into our Untagged Enum
+    let response: GitHubResponse = serde_json::from_slice(&output.stdout).unwrap_or_else(|_| {
+        ebog!("Failed to parse GitHub response.");
         exit(1);
-    }
+    });
 
-    ibog!("Extracting...");
-    #[cfg(unix)]
-    {
-        let status = Command::new("unzip")
-            .arg("-q")
-            .arg(&zip_path)
-            .current_dir(&temp_dir)
-            .status();
-        if !status.is_ok_and(|x| x.success()) {
-            ebog!("unzip failed.");
+    let items = match response {
+        GitHubResponse::Directory(files) => files,
+        GitHubResponse::File(file) => vec![file],
+        GitHubResponse::Error(err) => {
+            ebog!("GitHub API Error: {}", err.message);
             exit(1);
         }
-    }
-    #[cfg(windows)]
-    {
-        let status = Command::new("powershell")
-            .args([
-                "-Command",
-                &format!(
-                    "Expand-Archive -Path '{}' -DestinationPath '{}'",
-                    zip_path.display(),
-                    temp_dir.display()
-                ),
-            ])
-            .status()
-            .expect("Failed to execute powershell");
-        if !status.success() {
-            eprintln!("Error: powershell failed to extract the zip.");
-            exit(1);
+    };
+
+    let mut download_count = 0;
+
+    for item in items {
+        if item.entry_type != "file" {
+            continue;
         }
-    }
 
-    let source_root = temp_dir.join("matchmaker-main/matchmaker-cli/assets/presets");
-    let mut source = source_root.clone();
-    let mut dest = presets_dir.to_path_buf();
+        let download_url = match item.download_url {
+            Some(url) => url,
+            None => continue,
+        };
 
-    if !subfolder.is_empty() {
-        let sub_path = source_root.join(subfolder);
-        if sub_path.is_dir() {
-            source = sub_path;
-            dest = dest.join(subfolder);
-        } else if subfolder.ends_with(".toml") {
-            let path = Path::new(subfolder);
-            let parent = path.parent().unwrap_or(Path::new(""));
-            let file_name = path.file_name().unwrap().to_str().unwrap();
+        let is_toml = item.name.ends_with(".toml");
+        let is_win_prefixed = item.name.starts_with("win.");
 
-            let win_file_name = format!("win.{}", file_name);
-            let win_path = source_root.join(parent).join(&win_file_name);
-            let plain_path = source_root.join(subfolder);
-
+        let (should_download, local_name) = if is_toml {
             #[cfg(windows)]
             {
-                if win_path.is_file() {
-                    if !dest.exists() {
-                        fs::create_dir_all(&dest).unwrap();
-                    }
-                    fs::copy(&win_path, dest.join(subfolder)).unwrap();
-                    ibog!(
-                        "Preset file successfully downloaded to: {}",
-                        dest.join(subfolder).display()
-                    );
-                    fs::remove_dir_all(&temp_dir).ok();
-                    exit(0);
-                } else if plain_path.is_file() {
-                    ebog!("Source '{}' is not available for your platform.", subfolder);
-                    exit(1);
+                if is_win_prefixed {
+                    (true, item.name.strip_prefix("win.").unwrap().to_string())
                 } else {
-                    ebog!("'{}' unavailable.", subfolder);
-                    exit(1);
+                    (false, String::new())
                 }
             }
             #[cfg(not(windows))]
             {
-                if plain_path.is_file() {
-                    if !dest.exists() {
-                        fs::create_dir_all(&dest).unwrap();
-                    }
-                    fs::copy(&plain_path, dest.join(subfolder)).unwrap();
-                    ibog!(
-                        "Preset file successfully downloaded to: {}",
-                        dest.join(subfolder).display()
-                    );
-                    fs::remove_dir_all(&temp_dir).ok();
-                    exit(0);
-                } else if win_path.is_file() {
-                    ebog!("Source '{}' is not available for your platform.", subfolder);
-                    exit(1);
+                if !is_win_prefixed {
+                    (true, item.name.clone())
                 } else {
-                    ebog!("'{}' unavailable.", subfolder);
-                    exit(1);
+                    (false, String::new())
                 }
             }
         } else {
-            let suggested = if subfolder.ends_with(".toml") {
-                let path = Path::new(subfolder);
+            (true, item.name.clone())
+        };
 
-                let parent = path.parent().unwrap_or(Path::new(""));
-
-                let file_name = path.file_name().unwrap().to_str().unwrap();
-
-                #[cfg(windows)]
-                let candidate = parent.join(format!("win.{}", file_name));
-
-                #[cfg(not(windows))]
-                let candidate = parent.join(file_name);
-
-                source_root
-                    .join(&candidate)
-                    .is_file()
-                    .then(|| parent.join(file_name).display().to_string())
+        if should_download {
+            let dest_path = if subfolder.ends_with(".toml") {
+                presets_dir.join(local_name)
             } else {
-                None
+                presets_dir.join(subfolder).join(local_name)
             };
 
-            if let Some(suggested) = suggested {
-                ebog!(
-                    "'{}' not found in the repository. Did you mean '{}'?",
-                    subfolder,
-                    suggested
-                );
-            } else {
-                ebog!("'{}' not found in the repository.", subfolder);
+            if let Some(parent) = dest_path.parent() {
+                if !cba::bs::create_dir(parent) {
+                    std::process::exit(1)
+                }
             }
 
-            exit(1);
+            ibog!(
+                "Downloading {}...",
+                dest_path.file_name().unwrap().to_string_lossy()
+            );
+
+            let status = Command::new("curl")
+                .args(["-L", "-s", "-o"])
+                .arg(&dest_path)
+                .arg(download_url)
+                .status()
+                .ok();
+
+            if status.map_or(false, |s| s.success()) {
+                download_count += 1;
+            }
         }
     }
 
-    let count = copy_and_process(&source, &dest);
-    if count == 0 {
-        ebog!("Source is not available for your platform.");
+    if download_count > 0 {
+        ibog!("Successfully downloaded {} file(s).", download_count);
+    } else {
+        ebog!("No compatible files found for your platform.");
         exit(1);
     }
-
-    ibog!("Presets successfully downloaded to: {}", dest.display());
-    fs::remove_dir_all(&temp_dir).ok();
-    exit(0);
-}
-
-fn copy_and_process(src: &Path, dst: &Path) -> usize {
-    if !dst.exists() {
-        fs::create_dir_all(dst).unwrap();
-    }
-
-    let mut count = 0;
-    for entry in fs::read_dir(src).unwrap() {
-        let entry = entry.unwrap();
-        let path = entry.path();
-        let name_os = path.file_name().unwrap();
-        let name = name_os.to_string_lossy();
-
-        if path.is_dir() {
-            count += copy_and_process(&path, &dst.join(name_os));
-            continue;
-        }
-
-        #[cfg(windows)]
-        {
-            if let Some(stripped) = name.strip_prefix("win.") {
-                fs::copy(&path, dst.join(stripped)).unwrap();
-                count += 1;
-            }
-        }
-        #[cfg(not(windows))]
-        {
-            if !name.starts_with("win.") {
-                fs::copy(&path, dst.join(name.as_ref())).unwrap();
-                count += 1;
-            }
-        }
-    }
-    count
 }
 
 pub fn expand_tilde(path: PathBuf) -> PathBuf {

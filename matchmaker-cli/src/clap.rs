@@ -9,7 +9,7 @@ pub struct Cli {
     #[arg(long, value_name = "PATH")]
     pub config: Option<PathBuf>,
     /// Paths without a toml extension refer
-    /// to a preset
+    /// to a preset.
     #[arg(long, short, value_name = "PATH")]
     pub r#override: Vec<PathBuf>,
     /// Write the default configuration to the default location.
@@ -28,7 +28,7 @@ pub struct Cli {
     #[arg(long)]
     pub no_read: bool,
 
-    /// args passed to the populating command
+    /// args passed to the populating command.
     #[arg(last = true)]
     pub args: Vec<OsString>,
 
@@ -39,7 +39,7 @@ pub struct Cli {
     #[clap(short, conflicts_with("quiet"), action = ArgAction::Count)]
     pub verbose: u8,
 
-    /// Download ALL presets from GitHub. Optionally, specify a subfolder.
+    /// Download ALL presets from GitHub. Optionally, downloads a subfolder.
     #[arg(long, value_name = "FOLDER", num_args = 0..=1, default_missing_value = "")]
     pub download: Option<String>,
 

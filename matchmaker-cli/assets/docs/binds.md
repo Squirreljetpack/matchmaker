@@ -22,14 +22,16 @@ Get your key name with `mm --test-keys`.
 
 ### Mouse
 
-Mouse events can be bound with modifiers:
+The following mouse events can be bound:
 
 - **Buttons**: `left`, `middle`, `right`.
 - **Scrolling**: `scrollup`, `scrolldown`, `scrollleft`, `scrollright`.
 - **Modifiers**: `ctrl+left`, `alt+scrollup`, `shift+right`.
 
+Modifiers can be specified but are not supported due to a library limitation.
+
 **Example:**
-`alt+scrollup = "Up(5)"` (Bind Alt+ScrollUp to move the cursor up 5 lines)
+`scrollup = "Up(1)"` (Bind ScrollUp to move the cursor up 1 line)
 
 ### Semantic Triggers
 

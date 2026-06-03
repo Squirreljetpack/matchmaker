@@ -2,6 +2,7 @@ use crate::action::{Action, ActionExt, Actions, NullActionExt};
 use crate::binds::{BindMap, BindMapExt, SimpleMouseEvent, Trigger, TriggerKind};
 use crate::message::{BindDirective, Event, RenderCommand};
 use anyhow::Result;
+use arc_swap::ArcSwap;
 use cba::bait::ResultExt;
 use cba::bath::PathExt;
 use cba::unwrap;
@@ -13,6 +14,7 @@ use futures::stream::StreamExt;
 use log::{debug, error, info, warn};
 use ratatui::layout::Rect;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::time::{self};
 
@@ -25,7 +27,8 @@ pub struct EventLoop<A: ActionExt> {
     txs: Vec<mpsc::UnboundedSender<RenderCommand<A>>>,
     tick_interval: time::Duration,
 
-    pub binds: BindMap<A>,
+    binds: Arc<ArcSwap<BindMap<A>>>,
+    original_binds: BindMap<A>,
     combiner: Combiner,
     fmt: KeyCombinationFormat,
 
@@ -61,7 +64,8 @@ impl<A: ActionExt> EventLoop<A> {
             txs: vec![],
             tick_interval: time::Duration::from_millis(200),
 
-            binds: BindMap::new(),
+            binds: Arc::new(ArcSwap::from_pointee(BindMap::new())),
+            original_binds: BindMap::new(),
             combiner,
             fmt,
             event_stream: None, // important not to initialize it too early?
@@ -80,13 +84,10 @@ impl<A: ActionExt> EventLoop<A> {
 
     pub fn with_binds(mut binds: BindMap<A>) -> Self {
         let mut ret = Self::new();
+        ret.original_binds = binds.clone();
         binds.resolve_semantics();
-        ret.binds = binds;
+        ret.binds = Arc::new(ArcSwap::from_pointee(binds));
         ret
-    }
-
-    pub fn check_binds(&self) -> Result<(), String> {
-        self.binds.check_cycles()
     }
 
     pub fn record_last_key(&mut self, path: PathBuf) -> &mut Self {
@@ -97,6 +98,14 @@ impl<A: ActionExt> EventLoop<A> {
     pub fn with_tick_rate(mut self, tick_rate: u8) -> Self {
         self.tick_interval = time::Duration::from_secs_f64(1.0 / tick_rate as f64);
         self
+    }
+
+    pub fn get_binds_ptr(&self) -> Arc<ArcSwap<BindMap<A>>> {
+        self.binds.clone()
+    }
+
+    pub fn binds(&self) -> Arc<BindMap<A>> {
+        self.binds.load_full()
     }
 
     pub fn add_tx(&mut self, handler: mpsc::UnboundedSender<RenderCommand<A>>) -> &mut Self {
@@ -122,14 +131,15 @@ impl<A: ActionExt> EventLoop<A> {
 
     fn get_bind(&self, kind: TriggerKind) -> Option<Actions<A>> {
         let mode = crate::MODE.lock().ok()?.clone();
-        self.binds
+        let binds = self.binds.load();
+        binds
             .get(&Trigger {
                 kind: kind.clone(),
                 mode: mode.clone(),
             })
             .or_else(|| {
                 (!mode.is_empty()).then(|| {
-                    self.binds.get(&Trigger {
+                    binds.get(&Trigger {
                         kind,
                         mode: String::new(),
                     })
@@ -147,8 +157,8 @@ impl<A: ActionExt> EventLoop<A> {
                 self.send(RenderCommand::Ack);
                 self.event_stream = None; // drop because EventStream "buffers" event
             }
-            Event::Refresh => {
-                self.send(RenderCommand::Refresh);
+            Event::Redraw => {
+                self.send(RenderCommand::Redraw);
             }
             _ => {}
         }
@@ -162,41 +172,40 @@ impl<A: ActionExt> EventLoop<A> {
 
         match e {
             BindDirective::Bind(k, v) => {
-                self.binds.insert(k, v);
+                self.original_binds.insert(k, v);
             }
 
             BindDirective::PushBind(k, v) => {
-                self.binds.entry(k).or_default().0.push(v);
+                self.original_binds.entry(k).or_default().0.push(v);
             }
 
             BindDirective::Unbind(k) => {
-                self.binds.remove(&k);
+                self.original_binds.remove(&k);
             }
 
             BindDirective::PopBind(k) => {
-                if let Some(actions) = self.binds.get_mut(&k) {
+                if let Some(actions) = self.original_binds.get_mut(&k) {
                     actions.0.pop();
 
                     if actions.0.is_empty() {
-                        self.binds.remove(&k);
+                        self.original_binds.remove(&k);
                     }
                 }
             }
 
             BindDirective::Action(action) => {
                 self.send_actions(vec![action], None);
+                return;
             }
         }
-    }
-
-    pub fn binds(&mut self, binds: BindMap<A>) -> &mut Self {
-        self.binds = binds;
-        self
+        let mut binds = self.original_binds.clone();
+        binds.resolve_semantics();
+        self.binds.store(Arc::new(binds));
     }
 
     // todo: should its return type carry info
     pub async fn run(&mut self) {
-        log::trace!("{:?}", self.binds);
+        log::trace!("{:?}", self.binds.load());
         self.event_stream = Some(EventStream::new());
         let mut interval = time::interval(self.tick_interval);
 

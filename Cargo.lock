@@ -1213,6 +1213,7 @@ version = "0.0.42"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
+ "arc-swap",
  "atty",
  "clap",
  "clap_complete",
@@ -1228,6 +1229,7 @@ dependencies = [
  "mimalloc",
  "regex",
  "serde",
+ "serde_json",
  "strum",
  "strum_macros",
  "termimad",

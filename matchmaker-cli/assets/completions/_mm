@@ -21,7 +21,7 @@ _mm() {
 '--download=[Download ALL presets from GitHub. Optionally, downloads a subfolder]::FOLDER:_default' \
 '-d+[Display documentation]:DOC:(options binds template other)' \
 '--doc=[Display documentation]:DOC:(options binds template other)' \
-'--dump-config[Write the default configuration to the default location. If piped, writes to stdout]' \
+'--dump-config[Write the default configuration to the default location. If piped, writes the current configuration to stdout]' \
 '-F[]' \
 '--test-keys[]' \
 '--last-key[Print the last key pressed in the last \`mm\` run]' \

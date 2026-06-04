@@ -27,7 +27,7 @@ Register-ArgumentCompleter -Native -CommandName 'mm' -ScriptBlock {
             [CompletionResult]::new('--download', '--download', [CompletionResultType]::ParameterName, 'Download ALL presets from GitHub. Optionally, downloads a subfolder')
             [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Display documentation')
             [CompletionResult]::new('--doc', '--doc', [CompletionResultType]::ParameterName, 'Display documentation')
-            [CompletionResult]::new('--dump-config', '--dump-config', [CompletionResultType]::ParameterName, 'Write the default configuration to the default location. If piped, writes to stdout')
+            [CompletionResult]::new('--dump-config', '--dump-config', [CompletionResultType]::ParameterName, 'Write the default configuration to the default location. If piped, writes the current configuration to stdout')
             [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'F')
             [CompletionResult]::new('--test-keys', '--test-keys', [CompletionResultType]::ParameterName, 'test-keys')
             [CompletionResult]::new('--last-key', '--last-key', [CompletionResultType]::ParameterName, 'Print the last key pressed in the last `mm` run')

@@ -126,8 +126,10 @@ In this example, if the mode is `vim`, `h` and `l` will move the cursor horizont
 
 Matchmaker initializes with a default mode based on how it was started:
 
-- `command`: When started with a shell command.
-- `piped`: When reading from stdin.
+- `t0`: When only input is connected to terminal.
+- `t1`:  When only output is connected to terminal.
+- `command`: Both input and output are connected to terminal.
+- `piped`: Neither input nor output are connected to terminal.
 
 You can set the initial mode using `start.mode`.
 

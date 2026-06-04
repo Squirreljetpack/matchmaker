@@ -239,10 +239,19 @@ impl InputUI {
         }
     }
 
+    // Preserves ^, ', ! in the initial position
     pub fn delete_word(&mut self) {
         let old_cursor = self.cursor;
         self.backward_word();
-        let new_cursor = self.cursor;
+        let mut new_cursor = self.cursor;
+
+        if new_cursor == 0 && old_cursor > 1 {
+            if let Some(first) = self.input.chars().next() {
+                if matches!(first, '^' | '!' | '\'') {
+                    new_cursor = 1;
+                }
+            }
+        }
 
         let start = self.byte_index(new_cursor);
         let end = self.byte_index(old_cursor);

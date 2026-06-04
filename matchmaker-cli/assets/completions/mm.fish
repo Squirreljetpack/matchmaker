@@ -5,7 +5,7 @@ complete -c mm -s d -l doc -d 'Display documentation' -r -f -a "options\t''
 binds\t''
 template\t''
 other\t''"
-complete -c mm -l dump-config -d 'Write the default configuration to the default location. If piped, writes to stdout'
+complete -c mm -l dump-config -d 'Write the default configuration to the default location. If piped, writes the current configuration to stdout'
 complete -c mm -s F
 complete -c mm -l test-keys
 complete -c mm -l last-key -d 'Print the last key pressed in the last `mm` run'

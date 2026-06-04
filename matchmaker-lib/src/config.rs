@@ -439,6 +439,8 @@ pub struct ResultsConfig {
     #[serde(alias = "hr")]
     #[serde(deserialize_with = "camelcase_normalized")]
     pub separator: HorizontalSeparator,
+
+    #[partial(recurse)]
     pub separator_style: StyleSetting,
 }
 
@@ -468,6 +470,7 @@ impl Default for ResultsConfig {
                 ..Default::default()
             },
 
+            // Without fg default to White, row_connection = Capped causes active to be grayed so make sure to enforce it in the toml.
             current_style: StyleSetting {
                 bg: Some(Color::Black),
                 modifier: Modifier::BOLD,

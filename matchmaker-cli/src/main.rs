@@ -45,8 +45,11 @@ async fn main() {
     handle_download(&cli);
 
     // get config overrides
-    let partial = get_partial(config_args).__ebog();
-    log::trace!("{partial:?}");
+    let partial = if config_args.is_empty() {
+        None
+    } else {
+        Some(get_partial(config_args).__ebog())
+    };
 
     let no_read = cli.no_read;
     // get config

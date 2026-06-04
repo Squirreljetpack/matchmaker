@@ -45,7 +45,7 @@ use matchmaker::{
 };
 use matchmaker_partial::Apply;
 
-pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
+pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config> {
     if cli.test_keys {
         super::crokey::main();
         exit(0);
@@ -87,6 +87,8 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
         config.render.status.template = r#"\m/\t"#.to_string();
     }
 
+    log::trace!("Initial cfg: {config:?}");
+
     // apply overrides
     for mut p in cli.r#override {
         if p.is_relative() && p.extension().is_none() {
@@ -121,7 +123,10 @@ pub fn enter(cli: Cli, partial: PartialConfig) -> anyhow::Result<Config> {
     {
         config.tui.clear_on_exit = false;
     }
-    config.apply(partial); // resolve config.exit first
+    if let Some(partial) = partial {
+        log::trace!("Applying cli overrides: {partial:?}");
+        config.apply(partial); // resolve config.exit first
+    }
 
     if !cli.args.is_empty() {
         if !atty::is(atty::Stream::Stdin) && !cli.no_read {
@@ -488,26 +493,20 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             skip_invalid_lines,
         )
     } else if !command.is_empty()
-        && let Some(mut child) = Command::from_script(&command)
+        && let Some((child, stdout)) = Command::from_script(&command)
             .envs(envs)
             .args(&*COMMAND_ARGS.lock().unwrap())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            ._spawn()
+            .spawn_piped()
+            ._elog()
     {
-        if let Some(stdout) = child.stdout.take() {
-            last_child = Some(child);
-            map_reader(
-                stdout,
-                push_fn,
-                separator.or(input_separator),
-                (abort_empty || skip_invalid_lines).then_some(render_tx.clone()),
-                skip_invalid_lines,
-            )
-        } else {
-            ebog!("no stdout");
-            std::process::exit(99)
-        }
+        last_child = Some(child);
+        map_reader(
+            stdout,
+            push_fn,
+            separator.or(input_separator),
+            (abort_empty || skip_invalid_lines).then_some(render_tx.clone()),
+            skip_invalid_lines,
+        )
     } else {
         eprintln!("error: no input detected.");
         std::process::exit(99)
@@ -562,26 +561,21 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 child.kill()._elog();
             }
 
-            if let Some(mut child) = Command::from_script(&cmd)
+            if let Some((child, stdout)) = Command::from_script(&cmd)
                 .envs(vars)
                 .stdin(Stdio::null())
                 .args(&*COMMAND_ARGS.lock().unwrap())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::null())
-                ._spawn()
+                .spawn_piped()
+                ._elog()
             {
-                if let Some(stdout) = child.stdout.take() {
-                    map_reader(
-                        stdout,
-                        push_fn,
-                        separator.or(input_separator),
-                        skip_invalid_lines.then_some(reload_render_tx.clone()),
-                        skip_invalid_lines,
-                    );
-                    last_child = Some(child);
-                } else {
-                    log::error!("No stdout")
-                }
+                map_reader(
+                    stdout,
+                    push_fn,
+                    separator.or(input_separator),
+                    skip_invalid_lines.then_some(reload_render_tx.clone()),
+                    skip_invalid_lines,
+                );
+                last_child = Some(child);
             }
         }
     });

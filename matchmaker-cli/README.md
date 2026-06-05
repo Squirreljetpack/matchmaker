@@ -77,6 +77,8 @@ npm install -g @squirreljetpack/matchmaker
 cargo install matchmaker-cli
 ```
 
+<a href="https://repology.org/project/matchmaker-cli/versions"><img align="right" src="https://repology.org/badge/vertical-allrepos/matchmaker-cli.svg?exclude_unsupported=1" alt="Packaging status"></a>
+
 ---
 
 Pass it some items:
@@ -87,8 +89,6 @@ find . | mm
 
 > [!TIP]
 > The [default](./matchmaker-cli/assets/config.toml) input and preview commands detect `fd`, `bat` and `eza` (otherwise falling back to `ls` and `cat`). Install them for a better experience!
-
-<a href="https://repology.org/project/matchmaker-cli/versions"><img align="right" src="https://repology.org/badge/vertical-allrepos/matchmaker-cli.svg?exclude_unsupported=1" alt="Packaging status"></a>
 
 ## Configuration
 

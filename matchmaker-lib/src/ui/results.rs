@@ -1,20 +1,17 @@
-use cba::bring::split::split_on_nesting;
 use ratatui::{
     layout::{Alignment, Rect},
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Paragraph, Row, Table},
+    widgets::{Row, Table},
 };
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
     SSS, Selection, Selector,
-    config::{HorizontalSeparator, ResultsConfig, RowConnectionStyle, StatusConfig},
+    config::{HorizontalSeparator, ResultsConfig, RowConnectionStyle},
     nucleo::{Status, Worker},
     render::Click,
     utils::{
         string::{allocate_widths, fit_width, substitute_escaped},
-        text::{clip_text_lines, expand_indents, prefix_span},
+        text::{clip_text_lines, prefix_span},
     },
 };
 
@@ -37,8 +34,6 @@ pub struct ResultsUI {
     pub hidden_columns: Vec<bool>,
 
     pub status: Status,
-    status_template: Line<'static>,
-    pub status_config: StatusConfig,
 
     pub config: ResultsConfig,
 
@@ -49,9 +44,7 @@ pub struct ResultsUI {
 }
 
 impl ResultsUI {
-    pub fn new(config: ResultsConfig, mut status_config: StatusConfig) -> Self {
-        status_config.interactions.sort_by_key(|(i, _)| *i);
-
+    pub fn new(config: ResultsConfig) -> Self {
         Self {
             cursor: 0,
             bottom: 0,
@@ -65,8 +58,6 @@ impl ResultsUI {
             hidden_columns: Default::default(),
 
             status: Default::default(),
-            status_template: Line::from(status_config.template.clone()).style(status_config.style),
-            status_config,
             config,
 
             cursor_disabled: false,
@@ -89,6 +80,10 @@ impl ResultsUI {
 
     pub fn height(&self) -> u16 {
         self.height
+    }
+
+    pub fn width(&self) -> u16 {
+        self.width
     }
 
     // ------ config -------
@@ -889,53 +884,6 @@ impl ResultsUI {
     }
 }
 
-impl ResultsUI {
-    pub fn make_status(&self, full_width: u16) -> Paragraph<'_> {
-        let status_config = &self.status_config;
-        let replacements = [
-            ('r', self.index().to_string()),
-            ('m', self.status.matched_count.to_string()),
-            ('t', self.status.item_count.to_string()),
-        ];
-
-        // sub replacements into line
-        let mut new_spans = Vec::new();
-
-        if status_config.match_indent {
-            new_spans.push(Span::raw(" ".repeat(self.indentation())));
-        }
-
-        for span in &self.status_template {
-            let subbed = substitute_escaped(&span.content, &replacements);
-            new_spans.push(Span::styled(subbed, span.style));
-        }
-
-        let substituted_line = Line::from(new_spans);
-
-        // sub whitespace expansions
-        let effective_width = match self.status_config.row_connection {
-            RowConnectionStyle::Full => full_width,
-            _ => self.width,
-        } as usize;
-        let expanded = expand_indents(substituted_line, r"\s", r"\S", effective_width)
-            .style(status_config.style);
-
-        Paragraph::new(expanded)
-    }
-
-    /// The style from the config overrides the Line style (but not the span styles).
-    /// None restores the prompt defined in the config.
-    pub fn set_status_line(&mut self, template: Option<Line<'static>>) {
-        let status_config = &self.status_config;
-        log::trace!("status line: {template:?}");
-
-        self.status_template = template
-            .unwrap_or(status_config.template.clone().into())
-            .style(status_config.style)
-            .into()
-    }
-}
-
 // helpers
 impl ResultsUI {
     fn default_prefix(&self, i: usize) -> String {
@@ -975,136 +923,5 @@ impl ResultsUI {
 
     fn _hr(&self) -> u16 {
         !matches!(self.config.separator, HorizontalSeparator::None) as u16
-    }
-}
-
-pub struct StatusUI {}
-
-impl StatusUI {
-    pub fn parse_template_to_status_line(s: &str) -> Line<'static> {
-        let parts = match split_on_nesting(&s, ['{', '}']) {
-            Ok(x) => x,
-            Err(n) => {
-                if n > 0 {
-                    log::error!("Encountered {} unclosed parentheses", n)
-                } else {
-                    log::error!("Extra closing parenthesis at index {}", -n)
-                }
-                return Line::from(s.to_string());
-            }
-        };
-
-        let mut spans = Vec::new();
-        let mut in_nested = !s.starts_with('{');
-        for part in parts {
-            in_nested = !in_nested;
-            let content = part.as_str();
-
-            if in_nested {
-                let inner = &content[1..content.len() - 1];
-
-                // perform replacement fg:content
-                spans.push(Self::span_from_template(inner));
-            } else {
-                spans.push(Span::raw(content.to_string()));
-            }
-        }
-
-        Line::from(spans)
-    }
-
-    /// Converts a template string into a `Span` with colors and modifiers.
-    ///
-    /// The template string format is:
-    /// ```text
-    /// "style1,style2,...:text"
-    /// ```
-    /// - The **first valid color** token is used as foreground (fg).
-    /// - The **second valid color** token is used as background (bg).
-    /// - Remaining tokens are interpreted as **modifiers**: bold, dim, italic, underlined,
-    ///   slow_blink, rapid_blink, reversed, hidden, crossed_out.
-    /// - Empty tokens are ignored.
-    /// - Unrecognized tokens are collected and logged once at the end.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use matchmaker::ui::StatusUI;
-    /// StatusUI::span_from_template("red,bg=blue,bold,italic:Hello");
-    /// StatusUI::span_from_template("green,,underlined:World");
-    /// StatusUI::span_from_template(",,dim:OnlyDim");
-    /// ```
-    ///
-    /// Returns a `Span` with the specified styles applied to the text.
-    pub fn span_from_template(inner: &str) -> Span<'static> {
-        use std::str::FromStr;
-
-        let (style_part, text) = inner.split_once(':').unwrap_or(("", inner));
-
-        let mut style = Style::default();
-        let mut fg_set = false;
-        let mut bg_set = false;
-        let mut unknown_tokens = Vec::new();
-
-        for token in style_part.split(',') {
-            let token = token.trim();
-            if token.is_empty() {
-                fg_set = true;
-                continue;
-            }
-
-            if !fg_set {
-                if let Ok(color) = Color::from_str(token) {
-                    style = style.fg(color);
-                    fg_set = true;
-                    continue;
-                }
-            }
-
-            if !bg_set {
-                if let Ok(color) = Color::from_str(token) {
-                    style = style.bg(color);
-                    bg_set = true;
-                    continue;
-                }
-            }
-
-            match token.to_lowercase().as_str() {
-                "bold" => {
-                    style = style.add_modifier(Modifier::BOLD);
-                }
-                "dim" => {
-                    style = style.add_modifier(Modifier::DIM);
-                }
-                "italic" => {
-                    style = style.add_modifier(Modifier::ITALIC);
-                }
-                "underlined" => {
-                    style = style.add_modifier(Modifier::UNDERLINED);
-                }
-                "slow_blink" => {
-                    style = style.add_modifier(Modifier::SLOW_BLINK);
-                }
-                "rapid_blink" => {
-                    style = style.add_modifier(Modifier::RAPID_BLINK);
-                }
-                "reversed" => {
-                    style = style.add_modifier(Modifier::REVERSED);
-                }
-                "hidden" => {
-                    style = style.add_modifier(Modifier::HIDDEN);
-                }
-                "crossed_out" => {
-                    style = style.add_modifier(Modifier::CROSSED_OUT);
-                }
-                _ => unknown_tokens.push(token.to_string()),
-            };
-        }
-
-        if !unknown_tokens.is_empty() {
-            log::warn!("Unknown style tokens: {:?}", unknown_tokens);
-        }
-
-        Span::styled(text.to_string(), style)
     }
 }

@@ -3,12 +3,14 @@ mod input;
 mod overlay;
 mod preview;
 mod results;
+mod status;
 pub mod utils;
 pub use display::*;
 pub use input::*;
 pub use overlay::*;
 pub use preview::*;
 pub use results::*;
+pub use status::*;
 
 pub use ratatui::{
     Frame,
@@ -135,6 +137,7 @@ impl UI {
 
 pub struct PickerUI<'a, T: SSS, S: Selection> {
     pub results: ResultsUI,
+    pub status: StatusUI,
     pub query: QueryUI,
     pub header: DisplayUI,
     pub matcher: &'a mut nucleo::Matcher,
@@ -153,7 +156,8 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
         selections: Selector<T, S>,
     ) -> Self {
         Self {
-            results: ResultsUI::new(results_config, status_config),
+            results: ResultsUI::new(results_config),
+            status: StatusUI::new(status_config),
             query: QueryUI::new(input_config),
             header: DisplayUI::new(header_config),
             matcher,
@@ -166,13 +170,13 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
         let PickerUI {
             query,
             header,
-            results,
+            status,
             ..
         } = self;
 
         let mut constraints = [
             Constraint::Length(1 + query.config.border.height()), // input
-            Constraint::Length(results.status_config.show as u16), // status
+            Constraint::Length(status.status_config.show as u16), // status
             Constraint::Length(header.height()),
             Constraint::Fill(1), // results
         ];

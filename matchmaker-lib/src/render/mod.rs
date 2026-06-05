@@ -21,7 +21,9 @@ use crate::config::{CursorSetting, ExitConfig, RowConnectionStyle};
 use crate::event::{BindSender, EventSender};
 use crate::message::{BindDirective, Event, Interrupt, RenderCommand};
 use crate::tui::Tui;
-use crate::ui::{DisplayUI, OverlayUI, PickerUI, PreviewUI, QueryUI, ResultsUI, UI};
+use crate::ui::{
+    DisplayUI, OverlayUI, PickerUI, PreviewUI, QueryUI, ResultsUI, StatusUI, UI,
+};
 use crate::{ActionAliaser, ActionExtHandler, Initializer, MatchError, SSS, Selection};
 
 fn apply_aliases<T: SSS, S: Selection, A: ActionExt>(
@@ -170,7 +172,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     picker_ui.header.init();
                     footer_ui.init();
                     picker_ui.query.set_prompt(None);
-                    picker_ui.results.set_status_line(None);
+                    picker_ui.status.set(None);
+                    picker_ui.status.init();
                 }
                 RenderCommand::Redraw => {
                     tui.redraw();
@@ -257,7 +260,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                 let x = pos.x.saturating_sub(layout.status.x);
                                 debug!("Status clicked at x: {x}");
                                 if let Some(action) = find_interaction(
-                                    &picker_ui.results.status_config.interactions,
+                                    &picker_ui.status.status_config.interactions,
                                     x,
                                 ) {
                                     click = Click::Semantic(action);
@@ -937,7 +940,13 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 };
 
                 cursor_y_offset = render_input(frame, input, &mut picker_ui.query).y;
-                render_status(frame, status, &picker_ui.results, ui.area().width);
+                render_status(
+                    frame,
+                    status,
+                    &picker_ui.status,
+                    &picker_ui.results,
+                    ui.area().width,
+                );
                 render_results(frame, results, &mut picker_ui, &mut click);
                 render_display(frame, header, &mut picker_ui.header, &picker_ui.results);
                 render_display(frame, footer, &mut footer_ui, &picker_ui.results);
@@ -1105,9 +1114,15 @@ fn render_input(frame: &mut Frame, area: Rect, ui: &mut QueryUI) -> Position {
     p
 }
 
-fn render_status(frame: &mut Frame, area: Rect, ui: &ResultsUI, full_width: u16) {
+fn render_status(
+    frame: &mut Frame,
+    area: Rect,
+    ui: &StatusUI,
+    results_ui: &ResultsUI,
+    full_width: u16,
+) {
     if ui.status_config.show {
-        let widget = ui.make_status(full_width);
+        let widget = ui.make_status(results_ui, full_width);
         frame.render_widget(widget, area);
     }
 }

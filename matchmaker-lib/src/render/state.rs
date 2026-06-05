@@ -260,10 +260,11 @@ impl State {
     ) {
         if self.iterations == 0 {
             self.insert(Event::Start);
+            self.input = picker_ui.query.input.clone();
+        } else {
+            self.update_input(&picker_ui.query.input);
         }
         self.iterations += 1;
-
-        self.update_input(&picker_ui.query.input);
 
         let status = &picker_ui.results.status;
         self.synced[1] |= status.running;

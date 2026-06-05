@@ -239,7 +239,7 @@ impl InputUI {
         }
     }
 
-    // Preserves ^, ', ! in the initial position
+    /// Note: Preserves ^, ', ! in the initial position
     pub fn delete_word(&mut self) {
         let old_cursor = self.cursor;
         self.backward_word();

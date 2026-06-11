@@ -89,6 +89,7 @@ ansi = false # don't set to true here
 skip_invalid_lines = true # set false to error on encountering invalid utf-8
 
 [exit]
+abort_empty = true
 
 [envs]
 # CLIPcmd = # Leave blank to auto-determine

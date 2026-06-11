@@ -111,16 +111,16 @@ All colors and modifiers come from ratatui:
   - `~` is resolved to home directory.
   - If an object:
     - `value`: (string) The directory path or command resolving to the directory path.
-    - `exec`: (bool) If true, the directory is read from the stdout of the executed value (default false).
+    - `exec`: (bool) If true, the directory is read from the stdout of the executed value.
     - `force`: (bool) If true, exit application if directory could not be changed to.
-- `save_orphans`: (bool) Don't kill the last populating command when reloading (default false).
-- `skip_invalid_lines`: (bool) If false, aborts program when encountering an invalid utf-8 input line (default false).
+- `save_orphans`: (bool) Don't kill the last populating command when reloading.
+- `skip_invalid_lines`: (bool) If false, aborts program when encountering an invalid utf-8 input line.
 
 ### Exit (`exit.`, `e`)
 
 - `select_1`: (bool) Exit automatically if there is only one match.
 - `allow_empty`: (bool) Allow returning without any items selected.
-- `abort_empty`: (bool) Abort if no items are provided (default true).
+- `abort_empty`: (bool) Abort if no items are provided.
 
 ### Matcher (`matcher.`, `m`)
 

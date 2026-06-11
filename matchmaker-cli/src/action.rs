@@ -245,10 +245,10 @@ pub fn action_handler(
             state
                 .picker_ui
                 .status
-                .set_status_line(Some(StatusUI::parse_template_to_status_line(&s)));
+                .set(Some(StatusUI::parse_template_to_status_line(&s)));
         }
         MMAction::SetStatus(s) => {
-            state.picker_ui.status.set_status_line(s.map(Line::raw));
+            state.picker_ui.status.set(s.map(Line::raw));
         }
         MMAction::SetPrompt(s) => {
             state.picker_ui.query.set_prompt(s.map(Line::raw));
@@ -331,7 +331,8 @@ pub fn action_handler(
                         state.picker_ui.query.config.apply(partial.query);
                         state.picker_ui.results.config.apply(partial.results);
                         state.picker_ui.status.status_config.apply(partial.status);
-                        state.footer_ui.config.apply(partial.footer);                        state.picker_ui.header.config.apply(partial.header);
+                        state.footer_ui.config.apply(partial.footer);
+                        state.picker_ui.header.config.apply(partial.header);
 
                         if let Some(preview_ui) = state.preview_ui.as_mut() {
                             preview_ui.config.apply(partial.preview);

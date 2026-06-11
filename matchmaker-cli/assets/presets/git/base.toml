@@ -19,3 +19,6 @@ style.fg = "White"
 
 [envs]
 DFT_COLOR = "always"
+
+[exit]
+abort_empty = false

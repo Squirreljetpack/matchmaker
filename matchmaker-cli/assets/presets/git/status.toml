@@ -38,9 +38,6 @@ default = 1
 [matcher]
 sort = 40
 
-[exit]
-# abort_empty = false
-
 # --- Preview ---
 [previewer]
 always_trigger = false

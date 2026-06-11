@@ -1122,12 +1122,10 @@ pub fn make_previewer<T: SSS, S: Selection + 'static>(
             }
             
             if state.preview_visible() &&
-            let m = state.preview_payload().clone()
+            let m = state.preview_payload().clone() &&
+            let cmd = use_formatter(&formatter, state, &m, None) &&
+            !cmd.is_empty()
             {
-                let cmd = use_formatter(&formatter, state, &m, None);
-                if cmd.is_empty() {
-                    return;
-                }
                 let mut envs = state.make_env_vars();
                 let extra = env_vars!(
                     "COLUMNS" => state.previewer_area().map_or("0".to_string(), |r| r.width.to_string()),

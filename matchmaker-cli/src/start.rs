@@ -195,7 +195,8 @@ pub fn map_reader<E: SSS + std::fmt::Display>(
     reader: impl Read + SSS,
     f: impl FnMut(String) -> Result<(), E> + SSS,
     input_separator: Option<char>,
-    abort_empty: Option<RenderSender<MMAction>>,
+    render_tx: RenderSender<MMAction>,
+    abort_empty: bool,
     skip_invalid_lines: bool,
 ) -> tokio::task::JoinHandle<Result<usize, MapReaderError<E>>> {
     tokio::task::spawn_blocking(move || {
@@ -208,14 +209,12 @@ pub fn map_reader<E: SSS + std::fmt::Display>(
 
         match &ret {
             Ok(0) => {
-                if let Some(render_tx) = abort_empty {
+                if abort_empty {
                     let _ = render_tx.send(matchmaker::message::RenderCommand::NoMatch);
                 }
             }
             Err(MapReaderError::ChunkError(_, _)) => {
-                if let Some(render_tx) = abort_empty {
-                    let _ = render_tx.send(matchmaker::message::RenderCommand::NoMatch);
-                }
+                let _ = render_tx.send(matchmaker::message::RenderCommand::NoMatch);
             }
             _ => {}
         }
@@ -489,7 +488,8 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             stdin,
             push_fn,
             input_separator,
-            (abort_empty || skip_invalid_lines).then_some(render_tx.clone()),
+            render_tx.clone(),
+            abort_empty,
             skip_invalid_lines,
         )
     } else if !command.is_empty()
@@ -504,7 +504,8 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             stdout,
             push_fn,
             separator.or(input_separator),
-            (abort_empty || skip_invalid_lines).then_some(render_tx.clone()),
+            render_tx.clone(),
+            abort_empty,
             skip_invalid_lines,
         )
     } else {
@@ -572,7 +573,8 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                     stdout,
                     push_fn,
                     separator.or(input_separator),
-                    skip_invalid_lines.then_some(reload_render_tx.clone()),
+                    reload_render_tx.clone(),
+                    abort_empty,
                     skip_invalid_lines,
                 );
                 last_child = Some(child);

@@ -29,6 +29,13 @@ pub struct StyleSetting {
     pub bg: Option<Color>,
     pub modifier: Modifier,
 }
+impl StyleSetting {
+    pub const DEFAULT: Self = Self {
+        fg: None,
+        bg: None,
+        modifier: Modifier::empty(),
+    };
+}
 
 impl From<StyleSetting> for Style {
     fn from(s: StyleSetting) -> Style {

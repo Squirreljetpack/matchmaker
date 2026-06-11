@@ -82,6 +82,7 @@ if (Get-Command fd -ErrorAction SilentlyContinue) {
 '''
 
 [exit]
+abort_empty = true
 
 [envs]
 # CLIPcmd = # Leave blank to auto-determine

@@ -14,7 +14,7 @@ use crate::{
 pub struct StatusUI {
     pub status_config: StatusConfig,
     pub status_template: Line<'static>,
-    pub dim: bool,
+    pub dim: Option<bool>,
 }
 
 impl StatusUI {
@@ -22,7 +22,7 @@ impl StatusUI {
         let mut ret = Self {
             status_template: Line::from(status_config.template.clone()).style(status_config.style),
             status_config,
-            dim: false,
+            dim: None,
         };
         ret.init();
         ret
@@ -30,10 +30,6 @@ impl StatusUI {
 
     pub fn init(&mut self) {
         self.status_config.interactions.sort_by_key(|(i, _)| *i);
-    }
-
-    pub fn dim(&mut self, dim: bool) {
-        self.dim = dim;
     }
 
     pub fn make_status(&self, results_ui: &ResultsUI, full_width: u16) -> Paragraph<'_> {
@@ -56,7 +52,7 @@ impl StatusUI {
             new_spans.push(Span::styled(subbed, span.style));
         }
 
-        let mut substituted_line = Line::from(new_spans);
+        let substituted_line = Line::from(new_spans);
 
         // sub whitespace expansions
         let effective_width = match self.status_config.row_connection {
@@ -65,12 +61,15 @@ impl StatusUI {
         } as usize;
 
         let mut style = Style::from(status_config.style);
-        if self.dim {
-            style = style.add_modifier(Modifier::DIM);
+        if let Some(s) = self.dim {
+            if s {
+                style = style.add_modifier(Modifier::DIM);
+            } else {
+                style = style.remove_modifier(Modifier::DIM);
+            }
         }
-        
-        let expanded = expand_indents(substituted_line, r"\s", r"\S", effective_width)
-            .style(style);
+
+        let expanded = expand_indents(substituted_line, r"\s", r"\S", effective_width).style(style);
 
         Paragraph::new(expanded)
     }

@@ -1,30 +1,59 @@
-# Find and pick emojis
+# Unicode & Emoji Picker
 
 [start]
-command = '''zstd -dc "$(dirname -- "$MM_OVERRIDE")"/emoji.zst'''
+command = '''zstd -dc "$(dirname -- "$MM_OVERRIDE")"/unicode.zst'''
 additional_commands = [
   "",
+  '''zstd -dc "$(dirname -- "$MM_OVERRIDE")"/emoji.zst''',
   '''zstd -dc "$(dirname -- "$MM_OVERRIDE")"/emoji_compat.zst''',
 ]
 
 [envs]
-ACTIVE_DICT = "emoji"
+ACTIVE_DICT = "unicode"
 
 [header]
-content = ['char', 'name', 'group', 'subgroup']
+content = ['char', 'name', 'cat', 'meta']
 
 [columns]
 split = "\\t"
-names = ["char", "name", "group", "subgroup"]
+names = ["char", "name", "cat", "meta"]
 default = "name"
 
 # --- Preview ---
 [[preview.layout]]
 command = '''
 if ((MM_INDEX == 0)); then
+  # Unicode
   char={char}
   hex=$(printf "U+%X\n" "'$char")
+  name={name}
+  cat={cat}
+  meta={meta}
+  
+  printf "%${COLUMNS}s\n" | tr ' ' '-'
+  echo "  $char  "$name
+  printf "%${COLUMNS}s\n" | tr ' ' '-'
+  echo "Code:     $hex"
+  echo "Category: "$cat
+  if [ -n "$meta" ]; then
+      if [[ "$meta" == \\\\* ]]; then label="LaTeX"; elif [[ "$meta" == \&* ]]; then label="HTML"; else label="Meta"; fi
+      echo "$label:    $meta"
+  fi
+
+elif ((MM_INDEX == 1)); then
+  # Emoji (Rendered)
+  char={char}
+  hex=$(printf "U+%X\n" "'$char")
+  
+  printf "%${COLUMNS}s\n" | tr ' ' '-'
+  echo "  $char  "{name}
+  printf "%${COLUMNS}s\n" | tr ' ' '-'
+  echo "Code:     $hex"
+  echo "Group:    "{cat}
+  echo "Subgroup: "{meta}
+
 else
+  # Emoji (Compat/Hex)
   emoji_seq=$(echo {char} | awk -F'-' '
       function hex2dec(h) {
           v = 0; h = toupper(h)
@@ -48,14 +77,14 @@ else
   ')
   char="$(printf "%b" "$emoji_seq")"
   hex=$(echo {char} | awk -F'-' '{for(i=1;i<=NF;i++) printf "U+%s ", toupper($i)}')
+  
+  printf "%${COLUMNS}s\n" | tr ' ' '-'
+  echo "  $char  "{name}
+  printf "%${COLUMNS}s\n" | tr ' ' '-'
+  echo "Codes:    $hex"
+  echo "Group:    "{cat}
+  echo "Subgroup: "{meta}
 fi
-
-printf "%${COLUMNS}s\n" | tr ' ' '-'
-echo "  $char  "{name}
-printf "%${COLUMNS}s\n" | tr ' ' '-'
-echo "Codes:    $hex"
-echo "Group:    "{group}
-echo "Subgroup: "{subgroup}
 '''
 
 # --- UI ---
@@ -65,9 +94,51 @@ min_width = 5
 [binds]
 "@reload" = "ReloadNext"
 "@reload_2" = "ReloadPrev"
-# copy rust escape \u{1F511}
+
+"@show" = '''RunPreview(
+    if ((MM_INDEX == 0)); then
+        echo "Category Descriptions:"
+        printf "%${COLUMNS}s\n" | tr ' ' '-'
+        echo "Lu: Letter, Uppercase"
+        echo "Ll: Letter, Lowercase"
+        echo "Lt: Letter, Titlecase"
+        echo "Lm: Letter, Modifier"
+        echo "Lo: Letter, Other"
+        echo "Mn: Mark, Nonspacing"
+        echo "Mc: Mark, Spacing Combining"
+        echo "Me: Mark, Enclosing"
+        echo "Nd: Number, Decimal Digit"
+        echo "Nl: Number, Letter"
+        echo "No: Number, Other"
+        echo "Pc: Punctuation, Connector"
+        echo "Pd: Punctuation, Dash"
+        echo "Ps: Punctuation, Open"
+        echo "Pe: Punctuation, Close"
+        echo "Pi: Punctuation, Initial quote"
+        echo "Pf: Punctuation, Final quote"
+        echo "Po: Punctuation, Other"
+        echo "Sm: Symbol, Math"
+        echo "Sc: Symbol, Currency"
+        echo "Sk: Symbol, Modifier"
+        echo "So: Symbol, Other"
+        echo "Zs: Separator, Space"
+        echo "Zl: Separator, Line"
+        echo "Zp: Separator, Paragraph"
+        echo "Cc: Other, Control"
+        echo "Cf: Other, Format"
+        echo "Cs: Other, Surrogate"
+        echo "Co: Other, Private Use"
+        echo "Cn: Other, Unassigned"
+    else
+        echo "Emoji Metadata"
+        printf "%${COLUMNS}s\n" | tr ' ' '-'
+        echo "Group:    "{cat}
+        echo "Subgroup: "{meta}
+    fi
+)'''
+
 "@copy" = '''CopyAsync(
-if ((MM_INDEX == 0)); then
+if ((MM_INDEX == 0 || MM_INDEX == 1)); then
   echo {char}
 else
   emoji_seq=$(echo {char} | awk -F'-' '
@@ -78,14 +149,12 @@ else
           }
           return v
       }
-
       function to_utf8_octal(c) {
           if (c <= 127) return sprintf("\\0%03o", c)
           if (c <= 2047) return sprintf("\\0%03o\\0%03o", 192 + int(c/64), 128 + (c%64))
           if (c <= 65535) return sprintf("\\0%03o\\0%03o\\0%03o", 224 + int(c/4096), 128 + int((c/64)%64), 128 + (c%64))
           return sprintf("\\0%03o\\0%03o\\0%03o\\0%03o", 240 + int(c/262144), 128 + int((c/4096)%64), 128 + int((c/64)%64), 128 + (c%64))
       }
-
       {
           for(i=1; i<=NF; i++) {
               dec = hex2dec($i)
@@ -97,8 +166,10 @@ else
 fi
 )'''
 
+"@copy_meta" = '''CopyAsync(echo {meta})'''
+
 "@copy_all" = '''CopyAsync(
-if ((MM_INDEX == 0)); then
+if ((MM_INDEX == 0 || MM_INDEX == 1)); then
     char={char}
     printf "\\\\u{%X}" "'$char"
 else
@@ -110,7 +181,7 @@ fi
 
 "tty^^enter" = [
   '''Copy(
-if ((MM_INDEX == 0)); then
+if ((MM_INDEX == 0 || MM_INDEX == 1)); then
   echo {char}
 else
   emoji_seq=$(echo {char} | awk -F'-' '{for(i=1;i<=NF;i++) printf "\\U%08X", strtonum("0x" $i)}')
@@ -123,8 +194,9 @@ fi
 # --- Scripts ---
 "Start" = '''Transform(
     HEADERS=(
-      'emojis> '
-      'emojis:more> '
+      'unicode> '
+      'emoji> '
+      'emoji:compat> '
     )
     setopt KSH_ARRAYS 2>/dev/null
     echo "SetPrompt(${HEADERS[$MM_INDEX]})"
@@ -132,8 +204,9 @@ fi
 '''
 "Reloaded" = '''Transform(
     HEADERS=(
+      'unicode> '
       'emoji> '
-      'emojis:more> '
+      'emoji:compat> '
     )
     setopt KSH_ARRAYS 2>/dev/null
     echo "SetPrompt(${HEADERS[$MM_INDEX]})"

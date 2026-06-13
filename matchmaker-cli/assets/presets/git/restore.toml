@@ -95,15 +95,27 @@ prompt = "restore> "
   '''BecomeOr(
 set -e
 case $MM_INDEX in
-  0|3)
-  echo hard resetting...
-  git --no-pager diff --stat {1} ;;
   1)
     echo "\n###############\nWorking directory: \n###############\n"
     git --no-pager diff --stat
     echo "\n###############\nStash changes: \n###############\n"
     git --no-pager stash show {1}
     echo
+  ;;
+  *)
+  echo "\n###############\nHard resetting\n###############\n"
+  
+  echo "--- File changes ---"
+  git --no-pager diff --stat HEAD {1}
+  echo
+    
+  echo "--- Commits ADDED ---"
+  git --no-pager log --oneline HEAD..{1}
+  echo
+    
+  echo "--- Commits REMOVED ---"
+  git --no-pager log --oneline {1}..HEAD
+  echo
   ;;
 esac
 
@@ -124,9 +136,17 @@ esac
 "alt-r" = "@soft_reset"
 "@rm" = ["@clean", "Reload"]
 "ctrl-c" = "@compare"
-
+"alt-c" = "@diffstat"
+"alt-m" = ["@edit_msg", "Reload"]
+"ctrl-e" = ["@rebase", "Reload"]
 "@next" = "BecomeSilent(mm -o git/switch)"
 "@prev" = "BecomeSilent(mm -o git/status)"
+"@help" = '''RunPreview(
+  echo 'Restoring:';
+  for f in {$0}; do echo "$f"; done
+  printf "%${COLUMNS}s\n" | tr ' ' '-'
+)
+'''
 
 # --- Scripts ---
 "Reloaded" = '''Transform(
@@ -156,19 +176,33 @@ printf "%${COLUMNS}s\n" | tr ' ' '-'
 git log --color=always --left-right --oneline ...{1}
 )'''
 
-"@checkout" = '''
+"@diffstat" = '''RunPreview(
+case $MM_INDEX in
+  1)
+  git stash show -u {1}
+  ;;
+  *)
+  git --no-pager diff --color=always --stat {1}
+  ;;
+esac
+exit 1
+)'''
+
+"@rebase" = "Execute(git rebase -i {1}'^')"
+
+"@checkout/pop stash" = '''
 BecomeOr(
 set -e
 
 case $MM_INDEX in
-  0|3) git --no-pager diff --stat {1} -- {$1} ;;
   1)
     echo "\n###############\nWorking directory: \n###############\n"
     git --no-pager diff --stat
     echo "\n###############\nStash changes: \n###############\n"
-    git --no-pager stash show {1}
+    git --no-pager stash show -u {1}
     echo
   ;;
+  *) git --no-pager diff --stat {1} -- {$1} ;;
 esac
 
 [ -n "$(git status --porcelain -- {$1})" ] &&
@@ -186,10 +220,10 @@ case $c in
 esac
 
 case $MM_INDEX in
-  # leave on success
-  0|3) git checkout {1} -- {$1} ;;
   # return on success
   1) git stash pop {1} && kill $$ ;;
+  # leave on success
+  *) git checkout {1} -- {$1} ;;
 esac
 )
 '''
@@ -380,5 +414,84 @@ case $MM_INDEX in
   exit 1
   ;;
 
+esac
+)'''
+
+"@edit_msg" = '''ExecuteOrConfirm(
+set -e
+
+case $MM_INDEX in
+0)
+  echo "Commit message (\ -> continue): "
+  msg=""
+  while IFS= read -r line; do
+    if [[ "$line" == *'\' ]]; then
+      msg+="${line%?}"$'\n'
+      printf "> "
+    else
+      msg+="$line"
+      break
+    fi
+  done
+
+  if [ -z "$msg" ]; then
+    echo "Commit message cannot be empty."
+    exit 1
+  fi
+
+  # Find the parent commit, or default to root if it's the first commit ever
+  parent="$(git rev-parse {1}^ 2>/dev/null || echo '--root')"
+
+  TARGET_SHA="$(git rev-parse {1} 2>/dev/null)"
+  HEAD_SHA="$(git rev-parse HEAD 2>/dev/null)"
+
+  if [ "$TARGET_SHA" = "$HEAD_SHA" ]; then
+      # No rebase needed, just amend directly
+      git commit --allow-empty --amend -m "$msg"
+  else
+      # Find the parent commit, or default to root
+      parent="$(git rev-parse {1}^ 2>/dev/null || echo '--root')"
+
+      if sed --version 2>/dev/null | grep -q GNU; then
+          SED_CMD="sed -i"
+      else
+          SED_CMD="sed -i ''"
+      fi
+
+      # Start the rebase
+      GIT_SEQUENCE_EDITOR="$SED_CMD '1s/^pick /edit /'" git rebase -i "$parent"
+
+      # Amend the message
+      git commit --allow-empty --amend -m "$msg"
+      
+      # Finish replaying subsequent commits
+      git rebase --continue
+  fi
+  ;;
+1)
+  echo "Commit message (\ -> continue): "
+  msg=""
+  while IFS= read -r line; do
+    if [[ "$line" == *'\' ]]; then
+      msg+="${line%?}"$'\n'
+      printf "> "
+    else
+      msg+="$line"
+      break
+    fi
+  done
+
+  if [ -z "$msg" ]; then
+    echo "Commit message cannot be empty."
+    exit 1
+  fi
+
+  STASH_SHA="$(git rev-parse {1} 2>/dev/null)"
+  git stash drop {1}
+  git stash store -m "$msg" "$STASH_SHA"
+*)
+  echo "Unavailable"
+  exit 1
+  ;;
 esac
 )'''

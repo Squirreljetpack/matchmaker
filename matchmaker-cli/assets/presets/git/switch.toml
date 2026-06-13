@@ -89,6 +89,7 @@ prompt = "switch> "
 "ctrl-a" = ["@add_remote", "Reload"]
 "ctrl-n" = ["@add_branch", "Reload"]
 "alt-r" = ["@show_remotes"]
+"alt-a" = "@copy_remote"
 
 "@next" = "BecomeSilent(mm -o git/grep)"
 "@prev" = "BecomeSilent(mm -o git/restore)"
@@ -228,6 +229,7 @@ esac
 "@delete" = '''
 ExecuteOrConfirm(
 set -e
+
 case "$MM_INDEX" in
 0)
     ref={2}
@@ -281,6 +283,8 @@ case "$MM_INDEX" in
 1)
     set -- {+2};
     auto_remote=0
+    remote={$1};
+    [[ -n $remote ]] || remote="$(git rev-parse --abbrev-ref @{u} | cut -d/ -f1)"
     
     while (($#)); do
         printf "Delete tag $1? [y/N/aA] "
@@ -300,7 +304,7 @@ case "$MM_INDEX" in
                             shift
                         done
                         
-                        git push origin --delete "$@"
+                        git push "$remote" --delete "$@"
                         ;;
                 esac
                 exit 0
@@ -309,7 +313,7 @@ case "$MM_INDEX" in
                 git tag -d "$1"
     
                 if [ "$auto_remote" -eq 1 ]; then
-                    git push origin --delete "refs/tags/$1"
+                    git push "$remote" --delete "refs/tags/$1"
                 else
                     printf "Delete remote tag too? [y/N/(all)] "
                     read -r rans
@@ -317,10 +321,10 @@ case "$MM_INDEX" in
                     case "$rans" in
                         a|A*)
                             auto_remote=1
-                            git push origin --delete "refs/tags/$1"
+                            git push "$remote" --delete "refs/tags/$1"
                             ;;
                         y|Y*)
-                            git push origin --delete "refs/tags/$1"
+                            git push "$remote" --delete "refs/tags/$1"
                             ;;
                     esac
                 fi
@@ -344,6 +348,10 @@ esac
 "@rename" = '''
 ExecuteOrConfirm(
 set -e
+
+remote={$1};
+[[ -n $remote ]] || remote="$(git rev-parse --abbrev-ref @{u} | cut -d/ -f1)"
+
 case "$MM_INDEX" in
 0)
     ref={2}
@@ -379,11 +387,8 @@ case "$MM_INDEX" in
         read -r ans
         case "$ans" in
         [yY]*)
-            git push origin "$new_name" &&
-            git push origin --delete "$ref"
-            ;;
-        [nN]*|'')
-            git push origin "$new_name"
+            git push "$remote" "$new_name" &&
+            git push "$remote" --delete "$ref"
             ;;
         esac
     fi
@@ -400,11 +405,11 @@ case "$MM_INDEX" in
     read -r ans
     case "$ans" in
         [yY]*)
-            git push origin "$new_tag" &&
-            git push origin --delete "{2}"
+            git push "$remote" "$new_tag" &&
+            git push "$remote" --delete "{2}"
             ;;
         [nN]*|'')
-            git push origin "$new_tag"
+            git push "$remote" "$new_tag"
             ;;
     esac
     ;;
@@ -416,16 +421,64 @@ esac
 )
 '''
 
-"@add_remote" = '''
-ExecuteOrConfirm(
+"@add_remote" = '''ExecuteOrConfirm(
 set -e
-printf "Remote name: "
+
+remote={$1}
+[[ -n $remote ]] || remote="$(git rev-parse --abbrev-ref @{u} 2>/dev/null | cut -d/ -f1)"
+[[ -n $remote ]] || remote=origin
+
+printf "Remote name [%s]: " "$remote"
 read -r name
-[ -n "$name" ]
-printf "Remote URL: "
-read -r url
-[ -n "$url" ]
-git remote add "$name" "$url"
+name="${name:-$remote}"
+
+prompt_set=false
+
+if git remote 2>/dev/null | grep -q "^$name$"; then
+    current_url=$(git remote get-url "$name" 2>/dev/null)
+    printf "Remote '%s' already exists (%s).\n" "$name" "$current_url"
+    printf "Change its URL? [y/N] "
+    read -r ans
+    
+    case "$ans" in
+        [yY]*)
+            printf "New URL: "
+            read -r url
+            git remote set-url "$name" "$url"
+            ;;
+        *)
+            prompt_set=true
+        ;;
+    esac
+else
+    printf "Remote URL: "
+    read -r url
+    git remote add "$name" "$url"
+    prompt_set=true
+fi
+
+current_branch=$(git symbolic-ref --short HEAD 2>/dev/null || true)
+if $prompt_set && [ -n "$current_branch" ]; then
+    upstream_remote=$(git config "branch.$current_branch.remote" 2>/dev/null || true)
+    if [ "$upstream_remote" != "$name" ]; then
+        printf "Set '%s' as the default remote for branch '%s'? [y/N] " "$name" "$current_branch"
+        read -r set_def
+        case "$set_def" in
+            [yY]*)
+                # We use git config here instead of branch --set-upstream-to 
+                # because it works completely offline without needing to fetch first.
+                git config "branch.$current_branch.remote" "$name"
+                git config "branch.$current_branch.merge" "refs/heads/$current_branch"
+                ;;
+        esac
+    fi
+fi
+)'''
+
+"@copy_remote" = '''CopyAsync(
+remote={$1}
+[[ -n $remote ]] || remote="$(git rev-parse --abbrev-ref @{u} 2>/dev/null | cut -d/ -f1)"
+git remote get-url "$remote"
 )
 '''
 

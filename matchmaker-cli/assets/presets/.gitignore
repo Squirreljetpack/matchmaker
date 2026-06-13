@@ -1,0 +1,11 @@
+*
+
+!*/
+
+!.gitignore
+!.gitattributes
+!**/*.py
+!**/*.sh
+!**/*.toml
+!**/*.zst
+!**/README.md

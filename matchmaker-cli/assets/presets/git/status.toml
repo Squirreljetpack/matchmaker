@@ -89,11 +89,13 @@ prompt = "status> "
 "ctrl-shift-c" = ["@commit_ai", "Reload"]
 "alt-r" = ["@restore", "Reload"]
 "ctrl-t" = ["@stash", "Reload"]
+"alt-t" = ["@stash_dirty", "Reload"]
 "@rm" = ["#untrack", "@untrack", "Reload"]
 "ctrl-shift-d" = ["@delete", "Reload"]
 "alt-d" = ["@disk-delete", "Reload"]
 "alt-i" = ["@ignore", "Reload"]
 "ctrl-i" = ["#edit gitignore", "Execute($EDITOR .gitignore)", "Reload"]
+"ctrl-b" = "@save-staged"
 
 # --- Scripts ---
 "@summary" = "RunPreview(git -c color.ui=always status -sbu && echo && git --no-pager diff --color=always --compact-summary && false)"
@@ -201,6 +203,8 @@ fi
 )
 '''
 
+"@stash_dirty" = "ExecuteOrConfirm(git stash --keep-index --include-untracked)"
+
 "@untrack" = '''
 ExecuteOrConfirm(
 set -e
@@ -270,6 +274,37 @@ else
 fi
 )
 '''
+
+"@save_staged" = '''BecomeOr(
+set -e
+
+# Get the current branch name and short hash
+cur=$(git symbolic-ref --short HEAD 2>/dev/null || echo "HEAD")
+cur_hash=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
+default_name="$cur-save"
+printf "Branch name [%s]: " "$default_name"
+read -r name
+name="${name:-$default_name}"
+msg="Saved changes ($cur_hash)"
+
+if git diff --cached --quiet; then
+  git branch "$name" &&
+  echo "No staged changes. Created branch '$name'..."
+else
+  # 1. Package the index into a tree
+  tree=$(git write-tree)
+  
+  # 2. Create a standalone commit from that tree attached to HEAD
+  commit=$(echo "$msg" | git commit-tree "$tree" -p HEAD)
+  
+  # 3. Point the new branch at the newly created commit
+  git branch "$name" "$commit"
+  
+  echo "Staged changes successfully saved to '$name'."
+  exit 1
+fi
+)'''
 
 # "@commit_ai" = '''
 # Execute(:)

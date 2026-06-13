@@ -606,7 +606,7 @@ pub fn display_help<A: ActionExt + Display>(
     mode: Option<&str>,
 ) -> Text<'static> {
     // Filter and collect triggers based on mode
-    let mut entries: Vec<(String, Vec<Action<A>>)> = Vec::new();
+    let mut entries: Vec<(String, Vec<Action<A>>, Option<u32>)> = Vec::new();
     let mut seen_trigger_kinds = HashSet::new();
 
     if let Some(target_mode) = mode {
@@ -628,7 +628,17 @@ pub fn display_help<A: ActionExt + Display>(
                     trigger.kind.to_string()
                 };
 
-                entries.push((trigger_str, actions.iter().cloned().collect()));
+                let f_key_num = if matches!(trigger.kind, TriggerKind::Key(_))
+                    && trigger_str.starts_with('F')
+                    && trigger_str.len() > 1
+                    && trigger_str[1..].chars().all(|c| c.is_ascii_digit())
+                {
+                    trigger_str[1..].parse::<u32>().ok()
+                } else {
+                    None
+                };
+
+                entries.push((trigger_str, actions.iter().cloned().collect(), f_key_num));
             }
         }
     }
@@ -649,12 +659,31 @@ pub fn display_help<A: ActionExt + Display>(
                 trigger.kind.to_string()
             };
 
-            entries.push((trigger_str, actions.iter().cloned().collect()));
+            let f_key_num = if matches!(trigger.kind, TriggerKind::Key(_))
+                && trigger_str.starts_with('F')
+                && trigger_str.len() > 1
+                && trigger_str[1..].chars().all(|c| c.is_ascii_digit())
+            {
+                trigger_str[1..].parse::<u32>().ok()
+            } else {
+                None
+            };
+
+            entries.push((trigger_str, actions.iter().cloned().collect(), f_key_num));
         }
     }
 
     // Sort by actions (values) instead of triggers
     entries.sort_by(|a, b| {
+        if config.sort_fn_last && a.2.is_some() != b.2.is_some() {
+            return a.2.is_some().cmp(&b.2.is_some());
+        }
+
+        if config.sort_fn_last && a.2.is_some() {
+            // If sort_fn_last is true and we are in the last section (F-keys), sort by numeric value
+            return a.2.cmp(&b.2);
+        }
+
         let s1: Vec<String> = a.1.iter().map(|a| a.to_string()).collect();
         let s2: Vec<String> = b.1.iter().map(|a| a.to_string()).collect();
         s1.cmp(&s2)
@@ -663,7 +692,7 @@ pub fn display_help<A: ActionExt + Display>(
     // Process all bindings into their final visible string sequences. Items between trace delimiters are replaced by the trace message
     let entries_processed: Vec<(String, Vec<String>)> = entries
         .into_iter()
-        .map(|(trigger, actions)| {
+        .map(|(trigger, actions, _)| {
             let mut visible_items = Vec::new();
             let mut skipping = false;
             let mut last_trace = String::new();
@@ -1139,6 +1168,63 @@ mod test {
         let help_hide_str = help_hide.to_string();
         assert!(help_hide_str.contains("a = Print(a)"));
         assert!(!help_hide_str.contains("@foo = Print(foo)"));
+    }
+
+    #[test]
+    fn test_display_help_sort_fn_last() {
+        let binds: BindMap<NullActionExt> = bindmap!(
+            key!(F1) => Action::Print("f1".into()),
+            key!(a) => Action::Print("a".into()),
+            key!(F2) => Action::Print("f2".into()),
+            key!(b) => Action::Print("b".into()),
+        );
+
+        let mut cfg = HelpDisplayConfig::default();
+        cfg.sort_fn_last = true;
+        let help = display_help(&binds, &cfg, None);
+        let help_str = help.to_string();
+
+        let lines: Vec<_> = help_str.lines().filter(|l| !l.is_empty()).collect();
+        // Sorting is by action first, then is_f_key? 
+        // No, my code:
+        /*
+        if config.sort_fn_last && a.2 != b.2 {
+            return a.2.cmp(&b.2);
+        }
+        */
+        // so non-F (a.2=false) < F (a.2=true).
+        // Then by action.
+        assert!(lines[0].contains("a = Print(a)"));
+        assert!(lines[1].contains("b = Print(b)"));
+        assert!(lines[2].contains("F1 = Print(f1)"));
+        assert!(lines[3].contains("F2 = Print(f2)"));
+
+        // Disable sort_fn_last
+        cfg.sort_fn_last = false;
+        let help_no_sort = display_help(&binds, &cfg, None);
+        let help_no_sort_str = help_no_sort.to_string();
+        let _lines_no_sort: Vec<_> = help_no_sort_str.lines().filter(|l| !l.is_empty()).collect();
+        
+        let binds_diff: BindMap<NullActionExt> = bindmap!(
+            key!(F1) => Action::Print("aaa".into()),
+            key!(b) => Action::Print("bbb".into()),
+        );
+        
+        // sort_fn_last = true -> b (non-F) then F1
+        cfg.sort_fn_last = true;
+        let help_diff = display_help(&binds_diff, &cfg, None);
+        let help_diff_str = help_diff.to_string();
+        let lines_diff: Vec<_> = help_diff_str.lines().filter(|l| !l.is_empty()).collect();
+        assert!(lines_diff[0].contains("b = Print(bbb)"));
+        assert!(lines_diff[1].contains("F1 = Print(aaa)"));
+
+        // sort_fn_last = false -> F1 (Print(aaa)) then b (Print(bbb))
+        cfg.sort_fn_last = false;
+        let help_diff_no = display_help(&binds_diff, &cfg, None);
+        let help_diff_no_str = help_diff_no.to_string();
+        let lines_diff_no: Vec<_> = help_diff_no_str.lines().filter(|l| !l.is_empty()).collect();
+        assert!(lines_diff_no[0].contains("F1 = Print(aaa)"));
+        assert!(lines_diff_no[1].contains("b = Print(bbb)"));
     }
 
     #[test]

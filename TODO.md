@@ -72,7 +72,7 @@
 - very very minor perf improvement, prevent duplicate dynamic handler calls somehow? (not planned)
 - just ran into a facepalm due to previewsetting not having deny_unknown_settings, maybe it would be better to actually flatten
 - support hijack rendering loop?
-
+- more compatible keybinds: tagset for modes, provide alternates for key sequences which might not be available i.e. ? vs shift-?
 
 # Rework column sizing and row rendering:
 while remaining > 0, render row.

@@ -12,15 +12,18 @@ prompt_style.modifier = "ITALIC"
 
 [results]
 # wrap = true
+max_height = 16
 
 [status]
 
 [header]
+
 [footer]
 # --- Preview ---
 [preview]
 show = true
 wrap = true
+scroll_wrap = true
 
 [[preview.layout]]
 command = '''
@@ -81,6 +84,10 @@ if (Get-Command fd -ErrorAction SilentlyContinue) {
 }
 '''
 
+[start]
+ansi = false # don't set to true here
+skip_invalid_lines = true # set false to error on encountering invalid utf-8
+
 [exit]
 abort_empty = true
 
@@ -92,10 +99,11 @@ abort_empty = true
 
 # --- Binds ---
 [binds]
-# Essential
+# Essentia
 "ctrl-c" = "Quit"
 "esc" = "Quit"
 "enter" = "@accept"
+"alt-enter" = "@accept_2"
 "ctrl-enter" = "@accept_2"
 "ctrl-a" = "CycleAll"
 "tab" = ["Toggle", "Down"]
@@ -132,18 +140,21 @@ abort_empty = true
 # Columns
 "ctrl-." = "NextColumn"
 "ctrl-shift-." = "PrevColumn"
+"alt-." = "NextColumn"
+"alt-shift-." = "PrevColumn"
 
 # Preview
 "shift+scrollup" = "PreviewUp"
 "shift+scrolldown" = "PreviewDown"
 "alt-/" = "PreviewJump"
 "?" = "SwitchPreview"
-"shift-?" = "SwitchPreview"
-"ctrl-/" = "CyclePreview" # cycle preview layouts
-"ctrl-shift-/" = "CyclePreview"
+# cycle preview layouts
+"ctrl-/" = "CyclePreview"
+"alt-shift-/" = "CyclePreview"
+
 "alt-h" = "Help"
-"alt-=" = "ExpandPreview"
 "alt-shift-=" = "ExpandPreview"
+"alt-+" = "ExpandPreview"
 "alt-hyphen" = "ShrinkPreview"
 
 # Reserved
@@ -151,11 +162,11 @@ abort_empty = true
 "F2" = "@rename"
 "F3" = "@search"
 "F4" = "@rm"
-"F5" = "@reload"
+"F5" = "@refresh"
 "F6" = "@cycle"
 "F7" = "@build"
 "F8" = "@step"
-"F9" = "@break"
+"F9" = "@toggle"
 "F10" = "@menu"
 "F11" = "@look"
 "F12" = "@save"
@@ -170,7 +181,9 @@ abort_empty = true
 "ctrl-shift-p" = "@prev"
 "ctrl-tab" = "@next"
 "ctrl-shift-tab" = "@prev"
+"ctrl-shift-backtab" = "@prev"
 "ctrl-d" = "@rm"
+"Delete" = "@rm"
 "ctrl-s" = "@show"
 
 "@accept" = "Accept"
@@ -182,13 +195,14 @@ abort_empty = true
 "@next" = ["ReloadNext", "Cancel"]
 "@prev" = ["ReloadPrev", "Cancel"]
 "@help" = "Help"
-"@break" = "Redraw" # invalid unicode or unsupported emoji can break rendering
+"@refresh" = "Redraw"
 
 # Printing
 "alt-p" = "@print"
 "alt-shift-p" = "@print_2"
 "ctrl-y" = "@copy"
 "ctrl-shift-y" = "@copy_all"
+"alt-shift-y" = "@copy_all"
 "alt-y" = "@copy_active"
 
 "@print" = "Print({-})"

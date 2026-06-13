@@ -1,18 +1,20 @@
 # Full text search
 
-[query]
-prompt_style.fg = "Red"
-
 [start]
 command = '''rg --column --line-number --no-heading --color=always --smart-case "$env:FZF_QUERY"'''
 ansi = true
 
 [columns]
 max = 3
+names = ["file", "pos", "content"]
 split = '^(.*?):(\d+:\d+):(.*)$'
 default = 3
 
-[results]
+# --- Preview ---
+[preview]
+show = true
+scroll.percentage = 70
+scroll.index = 2
 
 [[preview.layout]]
 command = '''
@@ -29,18 +31,38 @@ if (Get-Command bat -ErrorAction SilentlyContinue) {
 border = { type = "LightDoubleDashed", color = "DarkGray" }
 side = "top"
 percentage = 50
+min = 5
+padding = 0
 
-[preview]
-show = true
-scroll.percentage = 70
-scroll.index = 2
+# --- UI ---
+
+[query]
+prompt_style.fg = "Red"
+
+[tui]
+percentage = 100
+
+[results]
+inactive_current_style.fg = "DarkGray"
+inactive_current_style.bg = "Black"
+scroll_wrap = true
 
 [binds]
+"enter" = "@accept"
+"ctrl-r" = "@reload"
+"ctrl-." = "NextColumn"
+"?" = "SwitchPreview"
+
+"@accept" = ["Print({=1}:{=2})", "Quit"]
+"tty^^@accept" = "Become(powershell -Command \"& $env:EDITOR {1}\")"
+
+# --- Scripts ---
 "Start" = "@enter_rg"
-"@enter_rg" = [ # Reload on query change, disable reparsing, update bind
+# Reload on query change, disable reparsing, update bind
+"@enter_rg" = [
   "Filtering(false)",
   '''Bind(QueryChange = Reload)''',
-  # Prompt indicator (
+  # Prompt indicator
   '''Transform(
     if ($env:MM_QUERY) {
         $trimmedQuery = $env:MM_QUERY -replace '^%1\s*', ''
@@ -71,10 +93,3 @@ scroll.index = 2
 ''',
   "Bind(@reload = @enter_rg)",
 ]
-
-"ctrl-r" = "@reload"
-
-# Navigation
-"ctrl-." = "NextColumn"
-"enter" = "Become($env:EDITOR {1})"
-"?" = "SwitchPreview"

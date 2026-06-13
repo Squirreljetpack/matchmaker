@@ -103,7 +103,8 @@ abort_empty = true
 "ctrl-c" = "Quit"
 "esc" = "Quit"
 "enter" = "@accept"
-"ctrl-enter" = "@accept_2"
+"alt-enter" = "@accept_2"
+# "ctrl-enter" = "@accept_2" # requires enhancement
 "ctrl-a" = "CycleAll"
 "tab" = ["Toggle", "Down"]
 "shift-backtab" = ["Toggle", "Up"]
@@ -137,20 +138,23 @@ abort_empty = true
 "alt-0" = "Pos(-1)"
 
 # Columns
-"ctrl-." = "NextColumn"
-"ctrl-shift-." = "PrevColumn"
+"ctrl-." = "NextColumn"  # requires keyboard enhancement
+"ctrl-shift-." = "PrevColumn"  # requires keyboard enhancement
+"alt-." = "NextColumn"
+"alt-shift-." = "PrevColumn"
 
 # Preview
-"shift+scrollup" = "PreviewUp"
-"shift+scrolldown" = "PreviewDown"
+# "shift+scrollup" = "PreviewUp" # not currently supported by crossterm
+# "shift+scrolldown" = "PreviewDown" # not currently supported by crossterm
 "alt-/" = "PreviewJump"
 "?" = "SwitchPreview"
-"shift-?" = "SwitchPreview"
-"ctrl-/" = "CyclePreview" # cycle preview layouts
-"ctrl-shift-/" = "CyclePreview"
+# cycle preview layouts
+"ctrl-/" = "CyclePreview" # requires keyboard enhancement
+"alt-shift-/" = "CyclePreview"
+
 "alt-h" = "Help"
-"alt-=" = "ExpandPreview"
 "alt-shift-=" = "ExpandPreview"
+"alt-+" = "ExpandPreview" # A terminal might only transmit alt-shift-=
 "alt-hyphen" = "ShrinkPreview"
 
 # Reserved
@@ -197,7 +201,8 @@ abort_empty = true
 "alt-p" = "@print"
 "alt-shift-p" = "@print_2"
 "ctrl-y" = "@copy"
-"ctrl-shift-y" = "@copy_all"
+"ctrl-shift-y" = "@copy_all" # requires keyboard enhancement
+"alt-shift-y" = "@copy_all"
 "alt-y" = "@copy_active"
 
 "@print" = "Print({-})"

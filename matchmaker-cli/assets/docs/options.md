@@ -244,6 +244,14 @@ All colors and modifiers come from ratatui:
 - `shell`: (list of strings) The shell used to execute preview commands (e.g., `["sh", "-c"]`).
 - `trim_commands`: (bool) Trim whitespace from preview commands.
 - `hide_semantic_help`: (bool) Hide semantic help in the preview window (default true).
+- `help`: Help display settings.
+  - `hide_semantic`: (bool) Hide semantic triggers in help (default true).
+  - `quote_traces`: (bool) Quote trace messages in help (default true).
+  - `max_item_len`: (number) Maximum length of a help item before ellipsizing (default 25).
+  - `ellipsize_center`: (bool) Ellipsize the center of help items (default false).
+  - `event_trigger_prefix`: (string) Prefix for event triggers (default "#").
+  - `show_events`: (bool) Show event triggers in help (default false).
+  - `sort_fn_last`: (bool) Put function key (F1, F2, etc.) bindings at the end of the list (default true).
 - `cache`: (number) Reserved for future use.
 
 ### Header & Footer (`header.`, `footer.`, `h`, `f`)

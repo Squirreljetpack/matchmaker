@@ -21,6 +21,7 @@
 - toast action:
   - toast config:
     - trigger on cycle
+  - (git) toast arguments
 
 - Multiline + Capped + column highlight looks a tiny bit weird
   - try different combinations

@@ -158,11 +158,11 @@ abort_empty = true
 "F2" = "@rename"
 "F3" = "@search"
 "F4" = "@rm"
-"F5" = "@reload"
+"F5" = "@refresh"
 "F6" = "@cycle"
 "F7" = "@build"
 "F8" = "@step"
-"F9" = "@break"
+"F9" = "@toggle"
 "F10" = "@menu"
 "F11" = "@look"
 "F12" = "@save"
@@ -191,7 +191,7 @@ abort_empty = true
 "@next" = ["ReloadNext", "Cancel"]
 "@prev" = ["ReloadPrev", "Cancel"]
 "@help" = "Help"
-"@break" = "Redraw" # invalid unicode or unsupported emoji can break rendering
+"@refresh" = "Redraw" # invalid unicode or unsupported emoji can break rendering
 
 # Printing
 "alt-p" = "@print"

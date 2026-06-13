@@ -1,0 +1,7 @@
+# browse list of modified files @ a given ref
+
+# [[ preview 0: default ]]
+# [[ preview 1: diff ]]
+# [[ preview 2: show ]]
+
+# accept: feeds into -o git/restore

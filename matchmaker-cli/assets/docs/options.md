@@ -243,7 +243,6 @@ All colors and modifiers come from ratatui:
 - `always_trigger`: (bool) If false, skips running the preview command if it is the same as the last one executed (default true).
 - `shell`: (list of strings) The shell used to execute preview commands (e.g., `["sh", "-c"]`).
 - `trim_commands`: (bool) Trim whitespace from preview commands.
-- `hide_semantic_help`: (bool) Hide semantic help in the preview window (default true).
 - `help`: Help display settings.
   - `hide_semantic`: (bool) Hide semantic triggers in help (default true).
   - `quote_traces`: (bool) Quote trace messages in help (default true).

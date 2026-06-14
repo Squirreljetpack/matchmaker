@@ -1102,9 +1102,6 @@ pub fn make_previewer<T: SSS, S: Selection + 'static>(
         dyn Fn(&crate::config::HelpDisplayConfig, &str) -> Text<'static> + Send + Sync,
     >,
 ) -> Previewer {
-    if previewer_config.trim_commands {
-        mm.render_config.preview.trim_commands();
-    }
     // initialize previewer
     let (previewer, tx) = Previewer::new(previewer_config.clone());
     let preview_tx = tx.clone();

@@ -196,7 +196,12 @@ impl DisplayUI {
                     })
                     .map(Cell::from)
                     .collect();
-                Row::new(cells)
+
+                let mut ret = Row::new(cells);
+                if matches!(self.config.row_connection, RowConnectionStyle::Disjoint) {
+                    ret = ret.style(self.config.style)
+                };
+                ret
             }));
 
             self.height += self.lines.len() as u16;

@@ -1,0 +1,199 @@
+# macOS Services (launchctl)
+# Manage background services via launchctl
+
+[start]
+command = '''
+    launchctl list | awk -v color="$COLOR" '
+        BEGIN { printf "PID\tSTATUS\tLABEL\n" }
+        NR>1 {
+            pid=$1; status=$2; label=$3
+
+            # printf "%s\t%s\t%s\n", pid, status, label
+
+            # Color coding for status
+            if (status == "0") st_col="\033[0m"
+            else if (status == "-") st_col="\033[90m"
+            else st_col="\033[31m"
+
+            # Color coding for PID
+            if (pid == "-") pid_col="\033[90m"
+            else pid_col="\033[36m"
+
+            printf "%s%s\033[0m\t%s%s\033[0m\t%s\n", pid_col, pid, st_col, status, label
+        }
+    '
+'''
+ansi = true
+
+[envs]
+RESOLVE_TARGET = '''
+_err=$(launchctl print "$label" 2>&1 >/dev/null)
+target=$(echo "$_err" | grep "Unrecognized target specifier, did you mean" -A1 | tail -n 1)
+target="${target:-$label}"
+domain="${target%/*}"
+plist=$(launchctl print "$target" 2>/dev/null | awk -F' = ' '/path/ {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}')
+'''
+
+[header]
+header_lines = 1
+style.fg = "Cyan"
+
+[columns]
+split = '\t'
+max = 3
+names = ["pid", "status", "label"]
+default = "label"
+
+[matcher]
+sort = 100
+
+[preview]
+show = true
+
+[[preview.layout]]
+# Primary: Full Configuration
+command = '''
+    label={label}; eval "$RESOLVE_TARGET"
+
+    if command -v bat >/dev/null 2>&1; then
+        launchctl print "$target" | bat --color=always --paging never -l toml
+    else
+        launchctl print "$target"
+    fi
+'''
+
+[[preview.layout]]
+# Secondary: Paths and Targets
+command = '''
+    label={label}; eval "$RESOLVE_TARGET"
+    program=$(launchctl print "$target" 2>/dev/null | awk '
+        /^[ \t]*(program)[ \t]*=[ \t]*/ {
+            sub(/^[ \t]*(program)[ \t]*=[ \t]*/, "");
+            gsub(/^"|"$/, "");
+            print;
+            exit;
+        }
+    ')
+
+    echo -e "\033[1;36mTarget:\033[0m   $target"
+    [[ -n "$plist" ]]   && echo -e "\033[1;33mPlist:\033[0m    $plist"
+    [[ -n "$program" ]] && echo -e "\033[1;32mProgram:\033[0m  $program"
+'''
+
+[[preview.layout]]
+max = 0
+
+[binds]
+# --- Navigation ---
+"@accept" = "Become(printf '%s\n' {pid})"
+
+"@open" = '''ExecuteOrConfirm(
+    label={label}; eval "$RESOLVE_TARGET"
+    if [[ -f "$plist" ]]; then
+        $EDITOR "$plist"
+    else
+        echo "plist not found for $target" >&2
+        exit 1
+    fi
+)'''
+
+"ctrl-t" = ["@load", "Reload"]
+"ctrl-u" = ["@unload", "Reload"]
+"alt-r" = ["@restart", "Reload"]
+"ctrl-k" = ["@kill", "Reload"]
+"ctrl-p" = ["@pause", "Reload"]
+
+"ctrl-g" = [
+  "#go to binary",
+  '''ExecuteOrConfirm(
+        label={label}; eval "$RESOLVE_TARGET"
+        program=$(launchctl print "$target" 2>/dev/null | awk '
+            /^[ \t]*(program)[ \t]*=[ \t]*/ {
+                sub(/^[ \t]*(program)[ \t]*=[ \t]*/, "");
+                gsub(/^"|"$/, "");
+                print;
+                exit;
+            }
+        ')
+
+        if [[ -e "$program" ]]; then
+            echo "Revealing: $program"
+            open "$(dirname -- "$program")"
+        else
+            echo "Binary path not found for $target"
+            exit 1
+        fi
+    )''',
+]
+
+"@restart" = '''ExecuteOrConfirm(
+    failed=1
+    for label in {+label}; do
+        eval "$RESOLVE_TARGET"
+        echo "Restarting $target..."
+        launchctl kickstart -k "$target" || failed=1
+    done
+    exit $failed
+)'''
+
+"@kill" = '''ExecuteOrConfirm(
+    failed=1
+    for label in {+label}; do
+        eval "$RESOLVE_TARGET"
+        echo "Booting out $target..."
+        launchctl bootout "$target" || failed=1
+    done
+    exit $failed
+)'''
+
+"@pause" = '''ExecuteOrConfirm(
+    failed=1
+    for label in {+label}; do
+        eval "$RESOLVE_TARGET"
+        echo "Stopping $target..."
+        launchctl stop "$target" || failed=1
+    done
+    exit $failed
+)'''
+
+"@load" = '''ExecuteOrConfirm(
+    failed=1
+    for label in {+label}; do
+        eval "$RESOLVE_TARGET"
+        if [[ -n "$plist" ]]; then
+            echo "Bootstrapping $target..."
+            launchctl bootstrap "$domain" "$plist" || failed=1
+        else
+            echo "No plist found for $target, trying kickstart..."
+            launchctl kickstart "$target" || failed=1
+        fi
+    done
+    exit $failed
+)'''
+
+"@unload" = '''ExecuteOrConfirm(
+    failed=1
+    for label in {+label}; do
+        eval "$RESOLVE_TARGET"
+        if [[ -n "$plist" ]]; then
+            echo "Booting out $target..."
+            launchctl bootout "$domain" "$plist" || failed=1
+        else
+            echo "Booting out $target..."
+            launchctl bootout "$target" || failed=1
+        fi
+    done
+    exit $failed
+)'''
+
+"@copy" = '''CopyAsync(
+    label={label}; eval "$RESOLVE_TARGET"
+    echo "$plist"
+)'''
+"@copy_all" = '''CopyAsync(
+    label={label}; eval "$RESOLVE_TARGET"
+    echo "$target"
+)'''
+
+[query]
+prompt = "services> "

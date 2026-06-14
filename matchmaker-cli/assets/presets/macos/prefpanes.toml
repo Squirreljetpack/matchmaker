@@ -1,0 +1,216 @@
+# macOS Preference Panes and Extensions
+# inspiration: https://github.com/bvanpeski/SystemPreferences/blob/main/macos_preferencepanes-Monterey.md
+
+[envs]
+IMAGEcmd = { value = "command -v chafa", exec = true }
+
+[start]
+command = '''
+    {
+        cat "$(dirname -- "$MM_OVERRIDE")"/extensions.csv
+        # Discover 3rd party preference panes
+        find /Library/PreferencePanes ~/Library/PreferencePanes -name "*.prefPane" -maxdepth 1 2>/dev/null | while read -r p; do
+            name=$(defaults read "$p/Contents/Info" CFBundleDisplayName 2>/dev/null || defaults read "$p/Contents/Info" CFBundleName 2>/dev/null)
+            [[ -z "$name" ]] && name=$(basename "$p" .prefPane)
+            echo "$name,3rd Party,$p"
+        done
+    } | awk -F',' '!seen[$1,$2,$3]++' | sort
+'''
+
+ansi = false
+
+[matcher]
+sort = 40
+
+[columns]
+split = ','
+max = 3
+names = ["name", "section", { hidden = true, name = "target" }]
+default = 1
+
+[header]
+content = ["Name", "Section"]
+
+[preview]
+show = true
+
+[[preview.layout]]
+command = '''
+target={3}
+
+echo "Name:    "{name}
+[[ -n "$section" ]] && echo "Section: "{section}
+echo "Target:  $target"
+printf "%${COLUMNS}s\n" | tr ' ' '-'
+
+[[ -z "$IMAGEcmd" ]] && exit
+
+# Extract sanitized ID for caching
+target_id=${target%%\?*}
+tmp_icon="/tmp/mm_pref_$(echo "$target_id" | tr '*./' '___').png"
+render_tool="$(dirname -- "$MM_OVERRIDE")"/render_symbol
+
+if ! [[ -f "$tmp_icon" ]]; then
+    # Case A: 3rd Party .prefPane (legacy)
+    if [[ "$target" == *".prefPane" ]]; then
+        pl_data=$(plutil -p "$target/Contents/Info.plist")
+        icon_file=$(echo "$pl_data" | awk -F'"' '/CFBundleIconFile/ {print $4; exit}')
+        [[ -n "$icon_file" ]] && [[ "$icon_file" != *.* ]] && icon_file="$icon_file.icns"
+        icon_path="$target/Contents/Resources/$icon_file"
+
+        if ! [[ -f "$icon_path" ]]; then
+            icon_path=$(find "$target/Contents/Resources" -name "*.icns" -maxdepth 1 | head -n 1)
+        fi
+
+        if [[ -f "$icon_path" ]]; then
+            sips -s format png "$icon_path" --out "$tmp_icon" >/dev/null 2>&1
+        fi
+
+    # Case B: System Extension (modern)
+    else
+        bundle_id=${target_id%%\**}
+        personality=${target_id#*\*}
+        [[ "$personality" == "$target_id" ]] && personality=""
+
+        bundle_path=$(mdfind "kMDItemCFBundleIdentifier == '$bundle_id'" | head -n 1)
+        if [[ -n "$bundle_path" ]]; then
+            pl_data=$(plutil -p "$bundle_path/Contents/Info.plist")
+
+            # 1. Personality-specific UTI
+            if [[ -n "$personality" ]]; then
+                uti=$(echo "$pl_data" | awk -v p="$personality" -F'"' '
+                    /{/ { b_uti=""; found=0 }
+                    /sidebar-iconUTTypeIdentifier/ { b_uti=$4 }
+                    $0 ~ p { found=1 }
+                    /}/ { if (found && b_uti) { print b_uti; exit } }
+                ')
+            fi
+
+            # 2. Bundle root UTI or Direct Symbol name
+            [[ -z "$uti" ]] && uti=$(echo "$pl_data" | awk -F'"' '/sidebar-iconUTTypeIdentifier|ISTypeIdentifier/ {print $4; exit}')
+
+            # Render if identifier found
+            [[ -n "$uti" ]] && "$render_tool" "$uti" "$tmp_icon" >/dev/null 2>&1
+        fi
+    fi
+fi
+
+# Final Display (cached or newly created)
+[[ -f "$tmp_icon" ]] && "$IMAGEcmd" "$tmp_icon"
+'''
+
+[binds]
+"enter" = "@accept"
+"tty^^@accept" = '''Become(
+target={3}
+if [[ "$target" == *".prefPane" ]]; then
+    open "$target"
+elif [[ "$target" == "x-apple.systempreferences:"* ]]; then
+    open "$target"
+else
+    open "x-apple.systempreferences:$target"
+fi
+)
+'''
+"ctrl-r" = ["@record", "Reload"]
+
+"@show" = '''ExecuteOrConfirm(
+osascript << 'EOF'
+tell application "System Settings"
+    set AppleScript's text item delimiters to ", "
+    set CurrentPane to the id of the current pane
+    set CurrentAnchors to get the name of every anchor of the current pane
+    set the clipboard to CurrentPane
+    display dialog "Current Pane ID: " & CurrentPane & return & return & "Pane ID has been copied to the clipboard." & return & return & "Current Anchors: " & return & (CurrentAnchors as string)
+end tell
+EOF
+)'''
+"@record" = '''ExecuteOrConfirm(
+# Path to the extensions database
+csv_file="$(dirname -- "$MM_OVERRIDE")"/extensions.csv
+tmp_data=$(mktemp)
+
+# 1. Get current pane and all its anchors via AppleScript
+# 2. Filter and Prettify the data using awk
+osascript << 'EOF' | tr '\r' '\n' | awk -F',' '
+    # Filter: Keep root panes ($2 == "") OR non-internal anchors (exclude periods)
+    $2 == "" || $2 !~ /\./ {
+        raw = $2
+        if (raw != "") {
+            # Convert technical anchor IDs to human-readable names:
+            # - Handle ALL_CAPS (convert to lowercase first)
+            # - Replace underscores and hyphens with spaces
+            # - Split camelCase (e.g., "nightShift" -> "night Shift")
+            # - Convert to Title Case
+            pretty = raw
+            if (pretty == toupper(pretty)) {
+                pretty = lcase(pretty)
+            }
+            gsub(/[_-]/, " ", pretty)
+            while (match(pretty, /[a-z][A-Z]/)) {
+                pretty = substr(pretty, 1, RSTART) " " substr(pretty, RSTART + 1)
+            }
+            n = split(pretty, words, " ")
+            pretty = ""
+            for (i=1; i<=n; i++) {
+                word = words[i]
+                pretty = pretty (i==1?"":" ") toupper(substr(word,1,1)) (length(word)>1?substr(word,2):"")
+            }
+            # Construct target URL with anchor
+            target = $3 "?" raw
+        } else {
+            # Root pane (no anchor)
+            target = $3
+        }
+        print $1 "," pretty "," target
+    }
+    function lcase(s) {
+        return tolower(s)
+    }
+' > "$tmp_data" 2>/dev/null
+tell application "System Settings"
+    set PaneID to id of current pane
+    set PaneName to name of current pane
+    set output to PaneName & ",," & PaneID
+    repeat with aName in (get name of every anchor of current pane)
+        set output to output & "\n" & PaneName & "," & aName & "," & PaneID
+    end repeat
+    return output
+end tell
+EOF
+
+# If data was successfully retrieved, merge it into the CSV
+if [[ -s "$tmp_data" ]]; then
+    tmp_file=$(mktemp)
+    # Prepend new data so it takes precedence during deduplication
+    cat "$tmp_data" > "$tmp_file"
+    [[ -f "$csv_file" ]] && cat "$csv_file" >> "$tmp_file"
+
+    # Deduplicate: Keep the first occurrence of each [Name, Section, Target] triple
+    awk -F',' '$1 != "" && $3 != "" && !seen[$1,$2,$3]++' "$tmp_file" > "$csv_file"
+
+    rm "$tmp_data" "$tmp_file"
+    echo "Recorded current pane and anchors to extensions.csv"
+else
+    echo "Error: Could not get current pane info. Make sure System Settings is open."
+    rm "$tmp_data"
+fi
+)'''
+
+"alt-s" = '''RunPreview(
+target={target}
+target_id="${target%%\?*}"
+bundle_id="${target_id%%\**}"
+bundle_path=$(mdfind "kMDItemCFBundleIdentifier == '$bundle_id'" | head -n 1)
+
+if [[ -n "$bundle_path" ]]; then
+    pl_data=$(plutil -p "$bundle_path/Contents/Info.plist")
+    uti=$(echo "$pl_data" | awk -F'"' '/sidebar-iconUTTypeIdentifier|ISTypeIdentifier/ {print $4; exit}')
+    symbol=$(echo "$pl_data" | awk -F'"' '/ISSymbolName/ {print $4; exit}')
+    echo "Bundle: $bundle_id"
+    echo "UTI:    ${uti:-none}"
+    echo "Symbol: ${symbol:-none}"
+else
+    echo "Bundle not found for $bundle_id"
+fi
+)'''

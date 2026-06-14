@@ -1,0 +1,130 @@
+# Preset to run cargo examples and binaries
+
+[start]
+command = '''
+# Examples
+if [ -f Cargo.toml ]; then
+  input="$(yq -r '.example[] | select(length > 0) | [.name, (.path // "examples/" + .name + ".rs"), (.required-features // [] | join(","))] | @tsv' Cargo.toml 2>/dev/null)"
+fi
+
+# Crawl if unspecified in Cargo.toml
+if [ -z "$input" ]; then
+  input="$(
+    for f in examples/*.rs; do
+      [ -f "$f" ] || continue
+      name="$(basename "$f" .rs)"
+      printf "%s\t%s\t\n" "$name" "$f"
+    done
+    for d in examples/*/src/main.rs; do
+      [ -f "$d" ] || continue
+      name=$(basename "$(dirname "$(dirname "$d")")")
+      printf "%s\t%s\t\n" "$name" "$d"
+    done
+  )"
+fi
+
+# Binaries
+if [ -f Cargo.toml ]; then
+  bin_input="$(yq -r '.bin[] | select(length > 0) | [.name, (.path // "src/bin/" + .name + ".rs"), (.required-features // [] | join(","))] | @tsv' Cargo.toml 2>/dev/null)"
+fi
+
+if [ -z "$bin_input" ]; then
+  bin_input="$(
+    for f in src/bin/*.rs; do
+      [ -f "$f" ] || continue
+      name="$(basename "$f" .rs)"
+      printf "%s\t%s\t\n" "$name" "$f"
+    done
+    for d in src/bin/*/main.rs; do
+      [ -f "$d" ] || continue
+      name="$(basename "$(dirname "$d")")"
+      printf "%s\t%s\t\n" "$name" "$d"
+    done
+    [ -f src/main.rs ] && printf "main\tsrc/main.rs\t\n"
+  )"
+fi
+
+# Targets
+target_input="$(
+  for f in target/{debug,release}/*; do
+    [ -x "$f" ] && [ -f "$f" ] || continue
+    [[ "$f" == */deps/* ]] && continue
+    name="$(basename "$f") ($(basename $(dirname "$f")))"
+    printf "%s\t%s\t\n" "$name" "$f"
+  done 2>/dev/null
+)"
+
+[ -n "$input" ] && echo "$input" | sed 's/^/ex\t/'
+[ -n "$bin_input" ] && echo "$bin_input" | sed 's/^/bin\t/'
+[ -n "$target_input" ] && echo "$target_input" | sed 's/^/target\t/'
+'''
+ansi = true
+
+[columns]
+split = '\t'
+max = 4
+default = 2
+
+[preview]
+[[preview.layout]]
+command = '''
+kind={1}
+f={3}
+if [ "$kind" = "target" ]; then
+  if command -v fs >/dev/null 2>&1; then
+    fs :tool lessfilter info "$f"
+  else
+    ls -l "$f"
+  fi
+else
+  [ -e "$f" ] || f="${f%???}/main.rs"
+  if command -v bat >/dev/null 2>&1; then
+    bat --color=always --plain "$f"
+  else
+    cat "$f"
+  fi
+fi
+'''
+percentage = 70
+
+[binds]
+"@accept" = '''Transform(
+  kind={1}
+  name={2}
+  features={4}
+  [[ -n "$features" ]] && features="-F $features"
+
+  case "$kind" in
+    target)
+      echo "Become({3} {$0})"
+      ;;
+    ex)
+      echo "Become(cargo run --example '$name' $features {$0})"
+      ;;
+    *)
+      echo "Become(cargo run --bin '$name' $features {$0})"
+      ;;
+  esac
+)
+'''
+
+"ctrl-l" = '''ExecuteOrConfirm(
+  kind={1}
+  fpath={3}
+  echo $PAGER
+  if [ "$kind" = "target" ]; then
+    ls -l "$fpath"
+    echo "Press enter to continue"
+    read -r
+  else
+    [ -e "$fpath" ] || fpath="${fpath%???}/main.rs"
+    $PAGER "$fpath"
+  fi
+)
+'''
+
+"alt-l" = '''Execute(
+  fpath={3}
+  $PAGER "$(dirname -- "$(dirname -- "$fpath")")/Cargo.toml"
+)
+'''

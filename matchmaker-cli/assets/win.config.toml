@@ -180,6 +180,7 @@ abort_empty = true
 "ctrl-shift-n" = "@next"
 "ctrl-shift-p" = "@prev"
 "ctrl-tab" = "@next"
+"alt-tab" = "@next"
 "ctrl-shift-tab" = "@prev"
 "ctrl-shift-backtab" = "@prev"
 "ctrl-d" = "@rm"

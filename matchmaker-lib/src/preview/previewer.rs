@@ -104,7 +104,14 @@ impl Previewer {
 
     pub async fn run(mut self) -> Result<(), Vec<Child>> {
         while self.rx.changed().await.is_ok() {
-            let m = self.rx.borrow_and_update().clone();
+            let mut m = self.rx.borrow_and_update().clone();
+
+            if self.config.trim_commands {
+                if let PreviewMessage::Run(cmd, _) = &mut m {
+                    *cmd = cmd.trim().to_string();
+                }
+            }
+
             log::trace!("Received: {m:?}");
 
             if let PreviewMessage::Run(cmd, _) = &m {

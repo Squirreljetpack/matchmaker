@@ -647,14 +647,6 @@ pub struct PreviewConfig {
     pub drag_width: Option<u16>,
 }
 
-impl PreviewConfig {
-    pub fn trim_commands(&mut self) {
-        for setting in &mut self.layout {
-            setting.command = setting.command.trim().to_string();
-        }
-    }
-}
-
 impl Default for PreviewConfig {
     fn default() -> Self {
         PreviewConfig {
@@ -724,7 +716,6 @@ pub struct PreviewerConfig {
     pub help: HelpDisplayConfig,
     pub shell: Option<Vec<OsString>>,
     pub trim_commands: bool,
-    pub hide_semantic_help: bool,
 
     /// See [`StartConfig`]
     pub command_args: Vec<OsString>,
@@ -742,7 +733,6 @@ impl Default for PreviewerConfig {
             help: Default::default(),
             shell: None,
             trim_commands: false,
-            hide_semantic_help: true,
 
             command_args: Default::default(),
         }
@@ -1105,26 +1095,4 @@ impl<'de> Deserialize<'de> for NucleoMatcherConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_preview_config_trim_commands() {
-        let mut config = PreviewConfig {
-            layout: vec![
-                PreviewSetting {
-                    command: "  echo hello  ".to_string(),
-                    ..Default::default()
-                },
-                PreviewSetting {
-                    command: "\nls -la\n".to_string(),
-                    ..Default::default()
-                },
-            ],
-            ..Default::default()
-        };
-
-        config.trim_commands();
-
-        assert_eq!(config.layout[0].command, "echo hello");
-        assert_eq!(config.layout[1].command, "ls -la");
-    }
 }

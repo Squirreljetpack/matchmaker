@@ -96,14 +96,19 @@ prompt = "restore> "
 set -e
 case $MM_INDEX in
   1)
-    echo "\n###############\nWorking directory: \n###############\n"
+    echo "### Pop Stash ###\n"
+    
+    echo "Working directory:"
+    printf "%${COLUMNS}s\n" | tr ' ' '-'
     git --no-pager diff --stat
-    echo "\n###############\nStash changes: \n###############\n"
+    
+    echo "Stash changes:"
+    printf "%${COLUMNS}s\n" | tr ' ' '-'
     git --no-pager stash show {1}
     echo
   ;;
   *)
-  echo "\n###############\nHard resetting\n###############\n"
+  echo "### Hard Reset ###\n"
   
   echo "--- File changes ---"
   git --no-pager diff --stat HEAD {1}
@@ -190,19 +195,28 @@ exit 1
 
 "@rebase" = "Execute(git rebase -i {1}'^')"
 
-"@checkout/pop stash" = '''
+"@checkout" = '''
 BecomeOr(
 set -e
 
 case $MM_INDEX in
   1)
-    echo "\n###############\nWorking directory: \n###############\n"
+    echo "### Apply Stash ###\n"
+    
+    echo "Working directory:"
+    printf "%${COLUMNS}s\n" | tr ' ' '-'
     git --no-pager diff --stat
-    echo "\n###############\nStash changes: \n###############\n"
-    git --no-pager stash show -u {1}
+    
+    echo "Stash changes:"
+    printf "%${COLUMNS}s\n" | tr ' ' '-'
+    git --no-pager stash show {1}
     echo
   ;;
-  *) git --no-pager diff --stat {1} -- {$1} ;;
+  *)
+  echo "### Soft Reset ###\n"
+
+  git --no-pager diff --stat {1} -- {$1}
+  ;;
 esac
 
 [ -n "$(git status --porcelain -- {$1})" ] &&

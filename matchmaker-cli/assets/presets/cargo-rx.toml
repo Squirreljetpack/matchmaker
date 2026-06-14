@@ -85,7 +85,6 @@ else
   fi
 fi
 '''
-percentage = 70
 
 [binds]
 "@accept" = '''Transform(

@@ -1,4 +1,4 @@
-use cba::{ebog, ibog};
+use cba::{_ibog, ebog, ibog};
 use serde::Deserialize;
 use std::{
     path::{Path, PathBuf},
@@ -37,41 +37,84 @@ pub fn handle_download(cli: &crate::clap::Cli) {
     };
     let presets_dir = crate::paths::presets_path();
 
-    let mut remote_target = subfolder.clone();
-    if cfg!(windows) && subfolder.ends_with(".toml") {
+    let is_unix = cfg!(target_os = "macos") || cfg!(target_os = "linux");
+    let os_prefix = if cfg!(target_os = "windows") {
+        "win."
+    } else if cfg!(target_os = "macos") {
+        "macos."
+    } else if cfg!(target_os = "linux") {
+        "linux."
+    } else {
+        ""
+    };
+
+    let mut candidates = Vec::new();
+    if subfolder.ends_with(".toml") {
         let path = Path::new(subfolder);
         if let (Some(parent), Some(file_name)) = (path.parent(), path.file_name()) {
-            let win_name = format!("win.{}", file_name.to_string_lossy());
-            remote_target = parent.join(win_name).to_string_lossy().into_owned();
+            // 1. OS-specific
+            if !os_prefix.is_empty() {
+                let os_name = format!("{}{}", os_prefix, file_name.to_string_lossy());
+                candidates.push(parent.join(os_name).to_string_lossy().into_owned());
+            }
+            // 2. Unix-specific
+            if is_unix {
+                let unix_name = format!("unix.{}", file_name.to_string_lossy());
+                candidates.push(parent.join(unix_name).to_string_lossy().into_owned());
+            }
+            // 3. Generic
+            candidates.push(subfolder.clone());
+        } else {
+            candidates.push(subfolder.clone());
+        }
+    } else {
+        candidates.push(subfolder.clone());
+    }
+
+    let mut items = Vec::new();
+    let mut found = false;
+
+    for target in candidates {
+        let api_url = format!(
+            "https://api.github.com/repos/{}/contents/{}/{}?ref={}",
+            REPO, BASE_PATH, target, BRANCH
+        );
+
+        _ibog!("Checking GitHub for '{}'...", target);
+
+        let output = Command::new("curl")
+            .args(["-s", "-H", "User-Agent: matchmaker-cli", &api_url])
+            .output()
+            .expect("Failed to execute curl");
+
+        let response: GitHubResponse =
+            serde_json::from_slice(&output.stdout).unwrap_or_else(|_| {
+                ebog!("Failed to parse GitHub response.");
+                exit(1);
+            });
+
+        match response {
+            GitHubResponse::Directory(files) => {
+                items = files;
+                found = true;
+                break;
+            }
+            GitHubResponse::File(file) => {
+                items = vec![file];
+                found = true;
+                break;
+            }
+            GitHubResponse::Error(_) => continue,
         }
     }
 
-    let api_url = format!(
-        "https://api.github.com/repos/{}/contents/{}/{}?ref={}",
-        REPO, BASE_PATH, remote_target, BRANCH
-    );
-
-    ibog!("Checking GitHub for '{}'...", subfolder);
-
-    let output = Command::new("curl")
-        .args(["-s", "-H", "User-Agent: matchmaker-cli", &api_url])
-        .output()
-        .expect("Failed to execute curl");
-
-    // 1. Deserialize directly into our Untagged Enum
-    let response: GitHubResponse = serde_json::from_slice(&output.stdout).unwrap_or_else(|_| {
-        ebog!("Failed to parse GitHub response.");
+    if !found {
+        ebog!(
+            "No compatible files found for '{}' on your platform.",
+            subfolder
+        );
         exit(1);
-    });
-
-    let items = match response {
-        GitHubResponse::Directory(files) => files,
-        GitHubResponse::File(file) => vec![file],
-        GitHubResponse::Error(err) => {
-            ebog!("GitHub API Error: {}", err.message);
-            exit(1);
-        }
-    };
+    }
 
     let mut download_count = 0;
 
@@ -86,24 +129,32 @@ pub fn handle_download(cli: &crate::clap::Cli) {
         };
 
         let is_toml = item.name.ends_with(".toml");
-        let is_win_prefixed = item.name.starts_with("win.");
+        let all_prefixes = ["win.", "macos.", "linux.", "unix."];
 
         let (should_download, local_name) = if is_toml {
-            #[cfg(windows)]
-            {
-                if is_win_prefixed {
-                    (true, item.name.strip_prefix("win.").unwrap().to_string())
-                } else {
-                    (false, String::new())
+            let mut prefix_to_strip = None;
+            let mut belongs_to_other_os = false;
+
+            for p in all_prefixes {
+                if item.name.starts_with(p) {
+                    let is_current_os = !os_prefix.is_empty() && p == os_prefix;
+                    let is_compatible_unix = p == "unix." && is_unix;
+
+                    if is_current_os || is_compatible_unix {
+                        prefix_to_strip = Some(p);
+                    } else {
+                        belongs_to_other_os = true;
+                    }
+                    break;
                 }
             }
-            #[cfg(not(windows))]
-            {
-                if !is_win_prefixed {
-                    (true, item.name.clone())
-                } else {
-                    (false, String::new())
-                }
+
+            if belongs_to_other_os {
+                (false, String::new())
+            } else if let Some(p) = prefix_to_strip {
+                (true, item.name.strip_prefix(p).unwrap().to_string())
+            } else {
+                (true, item.name.clone())
             }
         } else {
             (true, item.name.clone())

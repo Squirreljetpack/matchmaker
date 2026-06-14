@@ -1091,8 +1091,3 @@ impl<'de> Deserialize<'de> for NucleoMatcherConfig {
         Ok(NucleoMatcherConfig(config))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-}

@@ -1,0 +1,87 @@
+# Linux Preference Panes (XDG Desktop Entries)
+# Discovers settings panels by searching .desktop files with "Settings" category.
+
+[start]
+command = '''
+    # Determine current desktop for filtering
+    current_de="${XDG_CURRENT_DESKTOP:-}"
+    
+    # Common XDG application directories
+    search_paths=(
+        "/usr/share/applications"
+        "/usr/local/share/applications"
+        "$HOME/.local/share/applications"
+    )
+    
+    # 1. Find all .desktop files
+    # 2. Filter for those in the "Settings" category
+    # 3. Parse Name, Comment, and Exec fields
+    find "${search_paths[@]}" -name "*.desktop" 2>/dev/null | xargs grep -l "Categories=.*Settings" 2>/dev/null | while read -r file; do
+        # Filtering by Desktop Environment (OnlyShowIn / NotShowIn)
+        if [[ -n "$current_de" ]]; then
+            only_show=$(grep "^OnlyShowIn=" "$file" | cut -d= -f2-)
+            if [[ -n "$only_show" ]]; then
+                match=false
+                IFS=';' read -ra DEs <<< "$only_show"
+                for de in "${DEs[@]}"; do
+                    [[ "$current_de" == *"$de"* ]] && match=true && break
+                done
+                [[ "$match" == "false" ]] && continue
+            fi
+            
+            not_show=$(grep "^NotShowIn=" "$file" | cut -d= -f2-)
+            if [[ -n "$not_show" ]]; then
+                match=false
+                IFS=';' read -ra DEs <<< "$not_show"
+                for de in "${DEs[@]}"; do
+                    [[ "$current_de" == *"$de"* ]] && match=true && break
+                done
+                [[ "$match" == "true" ]] && continue
+            fi
+        fi
+
+        # Extraction
+        name=$(grep "^Name=" "$file" | head -1 | cut -d= -f2-)
+        comment=$(grep "^Comment=" "$file" | head -1 | cut -d= -f2-)
+        exec=$(grep "^Exec=" "$file" | head -1 | cut -d= -f2- | sed 's/ %.*//')
+        
+        [[ -z "$name" ]] || [[ -z "$exec" ]] && continue
+        
+        # Output: Name, Description (Section), Target (Exec)
+        echo "$name,${comment:-Settings},$exec"
+    done | sort -t, -k1,1
+'''
+
+ansi = false
+
+[matcher]
+sort = 40
+
+[columns]
+split = ','
+max = 3
+names = ["name", "section", { hidden = true, name = "target" }]
+default = 1
+
+[header]
+content = ["Name", "Description"]
+
+[preview]
+show = true
+
+[[preview.layout]]
+command = '''
+echo "Name:    "{name}
+echo "Desc:    "{section}
+echo "Command: {target}"
+printf "%${COLUMNS}s\n" | tr ' ' '-'
+'''
+
+[binds]
+"enter" = "@accept"
+"tty^^@accept" = '''Become(
+# Execute the settings panel and exit matchmaker
+{target}
+)
+'''
+"ctrl-r" = ["@record", "Reload"]

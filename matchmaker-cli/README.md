@@ -256,8 +256,6 @@ mm \
   exit.abort_empty=true
 
 # Notes:
-# - in mm, results.scroll_wrap is by default true, while results.wrap = true is included in the default config.
-# - in mm --multi (from fzf) is always true. It can be disabled by not binding the Select actions, as is done here
 # - matcher.sort_threshold is not available on the cargo version and requires the installer.
 # - results.autoscroll.context=0 is a setting which does not appear in fzf but which is 4 by default in mm.
 ```

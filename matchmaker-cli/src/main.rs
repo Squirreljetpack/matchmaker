@@ -65,7 +65,7 @@ async fn main() {
                 exit(i);
             }
             MatchError::EventLoopClosed => {
-                exit(127);
+                exit(125);
             }
             MatchError::TUIError(e) => {
                 ebog!("TUI"; "{e}")

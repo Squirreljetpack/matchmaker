@@ -21,9 +21,7 @@ use crate::config::{CursorSetting, ExitConfig, RowConnectionStyle};
 use crate::event::{BindSender, EventSender};
 use crate::message::{BindDirective, Event, Interrupt, RenderCommand};
 use crate::tui::Tui;
-use crate::ui::{
-    DisplayUI, OverlayUI, PickerUI, PreviewUI, QueryUI, ResultsUI, StatusUI, UI,
-};
+use crate::ui::{DisplayUI, OverlayUI, PickerUI, PreviewUI, QueryUI, ResultsUI, StatusUI, UI};
 use crate::{ActionAliaser, ActionExtHandler, Initializer, MatchError, SSS, Selection};
 
 fn apply_aliases<T: SSS, S: Selection, A: ActionExt>(
@@ -642,6 +640,10 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
                         // Columns
                         Action::SwitchColumn(col_name) => {
+                            if !state.filtering {
+                                continue;
+                            }
+
                             if worker.query.active_column_name(query.str_at_cursor()) != col_name
                                 && worker.columns.iter().any(|c| *c.name == col_name)
                             {
@@ -652,6 +654,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             }
                         }
                         Action::NextColumn | Action::PrevColumn => {
+                            if !state.filtering {
+                                continue;
+                            }
                             let cursor_byte = query.byte_index(query.cursor() as usize);
                             let active_idx = worker.query.active_column_index(cursor_byte);
 

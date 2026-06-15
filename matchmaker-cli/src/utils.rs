@@ -18,17 +18,13 @@ pub struct GitHubFile {
     pub download_url: Option<String>,
 }
 
-#[derive(Deserialize, Debug)]
-pub struct GitHubError {
-    pub message: String,
-}
-
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize)]
 #[serde(untagged)]
 pub enum GitHubResponse {
     Directory(Vec<GitHubFile>),
     File(GitHubFile),
-    Error(GitHubError),
+    #[allow(unused)]
+    Error(String),
 }
 
 pub fn handle_download(cli: &crate::clap::Cli) {

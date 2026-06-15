@@ -1,0 +1,202 @@
+# Tabby Model Selector
+
+[envs]
+TABBYHOST = { value = 'echo "${TS_ADDRESS:-http://localhost:5000}/tabby"', exec = true }
+SEARCHD = { value = 'echo "${LLMdir:-$HOME/models}/models/exl2"', exec = true }
+LORAD = { value = 'echo "${LLMdir:-$HOME/models}/loras"', exec = true }
+EMBEDDINGD = { value = 'echo "${LLMdir:-$HOME/models}/embeddings"', exec = true }
+CURL_TABBY = 'curl -s -H "Content-Type: application/json" -H "Authorization: Bearer ${TABBY_API_KEY}"'
+CHECK_API = '[[ -z "$TABBY_API_KEY" ]] && { echo -e "\033[31mError: TABBY_API_KEY is not set\033[0m" >&2; exit 1; }'
+
+[start]
+command = '''
+    eval "$CHECK_API"
+
+    # Use associative arrays for deduplication (Local overrides API)
+    typeset -A seen
+
+    # --- Models ---
+    if [[ -d $SEARCHD ]]; then
+        while read -r line; do
+            name=$(basename "$(dirname "$line")")
+            seen["m:$name"]=1
+            printf "%s\t%s\tmodel\n" "$name" "$line"
+        done < <(fd -t f -g "**/config.json" $SEARCHD --max-depth 2)
+    fi
+
+    api_models=$(eval $CURL_TABBY "$TABBYHOST/v1/model/list" --fail 2>/dev/null)
+    if [[ $? -eq 0 ]]; then
+        echo "$api_models" | jq -r '.data[].id' | while read -r id; do
+            if [[ -z ${seen["m:$id"]} ]]; then
+                printf "%s\t%s\tapi-model\n" "$id" "$id"
+                seen["m:$id"]=1
+            fi
+        done
+    fi
+
+    # --- LoRAs ---
+    if [[ -d $LORAD ]]; then
+        find $LORAD -maxdepth 1 -mindepth 1 -type d 2>/dev/null | while read -r line; do
+            name=$(basename "$line")
+            seen["l:$name"]=1
+            printf "%s\t%s\tlora\n" "$name" "$line"
+        done
+    fi
+
+    api_loras=$(eval $CURL_TABBY "$TABBYHOST/v1/loras/list" --fail 2>/dev/null)
+    if [[ $? -eq 0 ]]; then
+        echo "$api_loras" | jq -r '.data[].id' | while read -r id; do
+            if [[ -z ${seen["l:$id"]} ]]; then
+                printf "%s\t%s\tapi-lora\n" "$id" "$id"
+                seen["l:$id"]=1
+            fi
+        done
+    fi
+
+    # --- Embeddings ---
+    if [[ -d $EMBEDDINGD ]]; then
+        find $EMBEDDINGD -maxdepth 1 -mindepth 1 -type d 2>/dev/null | while read -r line; do
+            name=$(basename "$line")
+            seen["e:$name"]=1
+            printf "%s\t%s\tembedding\n" "$name" "$line"
+        done
+    fi
+
+    api_embs=$(eval $CURL_TABBY "$TABBYHOST/v1/model/embedding/list" --fail 2>/dev/null)
+    if [[ $? -eq 0 ]]; then
+        echo "$api_embs" | jq -r '.data[].id' | while read -r id; do
+            if [[ -z ${seen["e:$id"]} ]]; then
+                printf "%s\t%s\tapi-embedding\n" "$id" "$id"
+                seen["e:$id"]=1
+            fi
+        done
+    fi
+'''
+ansi = true
+
+[columns]
+split = '\t'
+names = ["name", "path", "type"]
+default = "name"
+
+[preview]
+show = true
+
+[[preview.layout]]
+# Model/LoRA/Embedding info
+command = '''
+if [[ {type} == api-* ]]; then
+    echo -e "\033[1;34mAPI Resource:\033[0m {name}"
+    echo -e "\033[1;30mType:\033[0m         {type}"
+else [[ {type} == model ]]; then
+    if command -v fs >/dev/null 2>&1; then
+        fs :tool lessfilter extended "$(dirname -- {path})"
+    else
+        ls -la "$(dirname -- {path})"
+    fi
+fi
+'''
+percentage = 60
+
+[[preview.layout]]
+command = 'eval $CHECK_API'
+side = "up"
+percentage = 80
+initial.hidden = true
+
+[[preview.layout]]
+command = '''eval $CURL_TABBY "$TABBYHOST/v1/model" | {
+    if command -v fx >/dev/null 2>&1; then
+        fx .
+    else
+        cat
+    fi
+}
+'''
+
+[binds]
+"alt-l" = 'RunPreview([[ {type} != api-* ]] && $PAGER "$(dirname -- {path})"/README.md)'
+# disk size
+"f2" = 'Preview([[ {type} != api-* ]] && ds $(dirname -- {path}))'
+"ctrl-g" = 'SwitchPreview'
+"?" = "SwitchPreview"
+
+# Unload operations
+"@unload" = 'Execute(eval $CURL_TABBY -X POST "$TABBYHOST/v1/model/unload" --fail-with-body)'
+"@unload_emb" = 'Execute(eval $CURL_TABBY -X POST "$TABBYHOST/v1/model/embedding/unload" --fail-with-body)'
+"@unload_lora" = 'Execute(eval $CURL_TABBY -X POST "$TABBYHOST/v1/loras/unload" --fail-with-body)'
+
+"ctrl-u" = ["@unload", "Reload"]
+"alt-u" = ["@unload_emb", "Reload"]
+"alt-shift-u" = ["@unload_lora", "Reload"]
+
+"@accept" = '''ExecuteOrConfirm(
+    eval $CHECK_API
+
+    type={type}
+    name={name}
+    path={path}
+
+    # --- API Direct Loading (Minimal Request) ---
+    if [[ $type == api-lora ]]; then
+        echo "Loading API LoRA: $name..."
+        echo "{\"name\": \"$name\"}" | eval $CURL_TABBY -X POST -d @- "$TABBYHOST/v1/loras/load\" --fail-with-body"
+        exit
+    elif [[ $type == api-embedding ]]; then
+        echo "Loading API Embedding: $name..."
+        echo "{\"name\": \"$name\"}" | eval $CURL_TABBY -X POST -d @- "$TABBYHOST/v1/model/embedding/load" --fail-with-body
+        exit
+    elif [[ $type == api-model ]]; then
+        echo "Loading API Model: $name..."
+        echo "{\"name\": \"$name\"}" | eval $CURL_TABBY -X POST -d @- "$TABBYHOST/v1/model/load" --fail-with-body
+        exit
+    fi
+
+    # --- Local Loading (With tabby.json overrides) ---
+    tabby_config=""
+    if [[ $type == lora ]]; then
+        tabby_config="$path/tabby.json"
+        typeset -A load_params=([scaling]=1.0)
+        endpoint="/v1/loras/load"
+    elif [[ $type == embedding ]]; then
+        tabby_config="$path/tabby.json"
+        typeset -A load_params=([device]='"cpu"')
+        endpoint="/v1/model/embedding/load"
+    elif [[ $type == model ]]; then
+        tabby_config="${path%config.json}tabby.json"
+        endpoint="/v1/model/load"
+        typeset -A load_params=(
+          [cache_mode]='"Q4"'
+          [max_seq_len]=32768
+          [num_experts_per_token]=3
+          [autosplit_reserve]='[96, 96, 96, 96]'
+          [no_flash_attention]=false
+          [use_cfg]=true
+          [gpu_split_auto]=true
+          [prompt_template]='""'
+        )
+    fi
+
+    if [[ -f "$tabby_config" ]]; then
+      echo "Loading overrides from $tabby_config"
+      for key in "${(@k)load_params}"; do
+        value="${load_params[$key]}"
+        load_params[$key]=$(jq --arg key "$key" --argjson default_value "$value" \
+          'if .[$key] == null then $default_value else .[$key] end' "$tabby_config")
+      done
+    fi
+
+    request_body="{\"name\": \"$name\""
+    for key in "${(@k)load_params}"; do
+      value="${load_params[$key]}"
+      [[ -n $value ]] && request_body+=", \"${key}\": ${value}"
+    done
+    request_body+="}"
+
+    echo "Requesting load for local $type $name..."
+    echo "$request_body" | eval $CURL_TABBY -X POST -d @- "$TABBYHOST$endpoint" --fail-with-body
+)'''
+
+[query]
+prompt = "tabby> "
+prompt_style.fg = "Magenta"

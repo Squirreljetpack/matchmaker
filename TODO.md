@@ -77,11 +77,10 @@
 # Rework column sizing and row rendering:
 while remaining > 0, render row.
 
-
-Do a random sample (n = 50 (configure in results))
-use to compute average, min, max, sd.
-
 allocate widths as follows, let n = total/#cols
 allocate widths for cols with max < n.
 Recompute n and allocate again.
 When no more cols with max < n, distribute equally.
+
+constant render:
+  Constant tick rate, only draw on tick + no events/status update since last tick

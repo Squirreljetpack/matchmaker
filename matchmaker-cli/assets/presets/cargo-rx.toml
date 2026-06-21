@@ -68,7 +68,7 @@ names = [ "kind", "name", "path", "flags" ]
 [preview]
 [[preview.layout]]
 command = '''
-f={3}
+f={path}
 
 if [ {kind} = "target" ]; then
   if command -v fs >/dev/null 2>&1; then
@@ -93,13 +93,13 @@ fi
 
   case {1} in
     target)
-      echo "Become({3} {$0})"
+      echo "Become({path} {$0})"
       ;;
     ex)
-      echo "Become(cargo run --example {2} $features {$0})"
+      echo "Become(cargo run --example {name} $features {$0})"
       ;;
     bin|*)
-      echo "Become(cargo run --bin {2} $features {$0})"
+      echo "Become(cargo run --bin {name} $features {$0})"
       ;;
   esac
 )
@@ -107,7 +107,6 @@ fi
 "ctrl-1" = "@summary"
 
 "@summary" = '''Execute(
-  fpath={3}
-  $PAGER "$(dirname -- "$(dirname -- "$fpath")")/Cargo.toml"
+  $PAGER "$(dirname -- "$(dirname -- {path})")/Cargo.toml"
 )
 '''

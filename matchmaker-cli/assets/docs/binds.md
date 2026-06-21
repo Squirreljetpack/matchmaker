@@ -170,7 +170,8 @@ Actions are the operations performed when a trigger is activated.
 
 | Action                | Description                                                               |
 | --------------------- | ------------------------------------------------------------------------- |
-| `CyclePreview`        | Cycle through available preview layouts.                                  |
+| `NextPreview`        | Cycle through available preview layouts.                                   |
+| `PrevPreview`        | Cycle through available preview layouts in reverse order.                  |
 | `Preview(cmd)`        | Show/hide preview using the provided shell command.                       |
 | `SetPreview(idx)`     | Set preview layout to index `idx`.                                        |
 | `SwitchPreview(idx)`  | Switch to layout `idx`, or toggle it if already active.                   |

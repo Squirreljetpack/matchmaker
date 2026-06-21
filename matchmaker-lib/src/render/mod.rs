@@ -532,9 +532,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         }
 
                         // Preview
-                        Action::CyclePreview => {
+                        Action::NextPreview | Action::PrevPreview => {
                             if let Some(p) = preview_ui.as_mut() {
-                                p.cycle_layout();
+                                p.cycle_layout(matches!(action, Action::PrevPreview));
                                 if !p.command().is_empty() {
                                     state.update_preview_payload(p.command());
                                 }

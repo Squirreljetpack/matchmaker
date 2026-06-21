@@ -1,4 +1,4 @@
-# Find and kill processes
+# English wiktionary
 
 [start.command]
 command = '''zstd -dc "$(dirname -- "$MM_OVERRIDE")"/"$ACTIVE_DICT".zst'''
@@ -53,7 +53,12 @@ echo {etymology}
 )
 '''
 "Start" = '''Transform(
-    echo "SetQuery("{$0}")"
+    set -- {$0}
+    if [ "$#" -eq 1 ]; then
+        printf 'SetQuery(^%s$)\n' "$1"
+    elif [ "$#" -gt 1 ]; then
+        printf 'SetQuery(%s)\n' "$@"
+    fi
 )
 '''
 

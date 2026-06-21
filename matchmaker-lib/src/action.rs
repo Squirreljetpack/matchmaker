@@ -53,7 +53,9 @@ pub enum Action<A: ActionExt = NullActionExt> {
 
     // Preview
     /// Cycle preview layouts
-    CyclePreview,
+    NextPreview,
+    /// Cycle preview layouts
+    PrevPreview,
     /// Show/hide preview for selection
     Preview(String),
     /// Show help in preview
@@ -362,7 +364,7 @@ enum_from_str_display!(
 
     HalfPageDown, HalfPageUp,
 
-    ToggleWrap, TogglePreviewWrap, CyclePreview, PreviewJump,
+    ToggleWrap, TogglePreviewWrap, NextPreview, PrevPreview, PreviewJump,
 
     PreviewHalfPageUp, PreviewHalfPageDown,
 

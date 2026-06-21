@@ -53,11 +53,12 @@ fi
 '''
 
 [[preview.layout]]
-command = "echo '### Ports ###\n'; lsof -p {2}"
-
-[[preview.layout]]
 command = "echo '### Resources ###\n'; top -pid {2}"
 initial.tail = true
+min = 10
+
+[[preview.layout]]
+command = "echo '### Ports ###\n'; lsof -p {2}"
 
 [binds]
 "Reloaded" = '''Transform(
@@ -76,10 +77,9 @@ initial.tail = true
 "@copy" = "CopyAsync(printf '%s\n' {+2})"
 "@show" = "RunPreview(echo {9})"
 
-
 "ctrl-k" = [
-    "#kill",
-    '''ExecuteOrConfirm(
+  "#kill",
+  '''ExecuteOrConfirm(
         pids=({+2})
         [ ${#pids[@]} -gt 1 ] && {
             printf "Kill: %s [y/N] " "${pids[*]}"
@@ -104,12 +104,12 @@ initial.tail = true
 
         exit 0
     )''',
-    "Reload"
+  "Reload",
 ]
 
 "alt-k" = [
-    "#kill -9",
-    '''ExecuteOrConfirm(
+  "#kill -9",
+  '''ExecuteOrConfirm(
         pids=({+2})
         [ ${#pids[@]} -gt 1 ] && {
             printf "Kill: %s [y/N] " "${pids[*]}"
@@ -134,12 +134,12 @@ initial.tail = true
 
         exit 0
     )''',
-    "Reload"
+  "Reload",
 ]
 
 "ctrl-shift-k" = [
-    "#kill parent",
-    '''ExecuteOrConfirm(
+  "#kill parent",
+  '''ExecuteOrConfirm(
         pids=({+1})
         [ ${#pids[@]} -gt 1 ] && {
             printf "Kill: %s [y/N] " "${pids[*]}"
@@ -164,12 +164,12 @@ initial.tail = true
 
         exit 0
     )''',
-    "Reload"
+  "Reload",
 ]
 
 "alt-shift-k" = [
-    "#kill parent -9",
-    '''ExecuteOrConfirm(
+  "#kill parent -9",
+  '''ExecuteOrConfirm(
         pids=({+1})
         [ ${#pids[@]} -gt 1 ] && {
             printf "Kill: %s [y/N] " "${pids[*]}"
@@ -194,12 +194,12 @@ initial.tail = true
 
         exit 0
     )''',
-    "Reload"
+  "Reload",
 ]
 
 "ctrl-g" = [
-    "#kill group",
-    '''ExecuteOrConfirm(
+  "#kill group",
+  '''ExecuteOrConfirm(
         pids=({+2})
         [ ${#pids[@]} -gt 1 ] && {
             printf "Kill: %s [y/N] " "${pids[*]}"
@@ -225,12 +225,12 @@ initial.tail = true
 
         exit 0
     )''',
-    "Reload"
+  "Reload",
 ]
 
 "alt-g" = [
-    "#kill group -9",
-    '''ExecuteOrConfirm(
+  "#kill group -9",
+  '''ExecuteOrConfirm(
         pids=({+2})
         [ ${#pids[@]} -gt 1 ] && {
             printf "Kill: %s [y/N] " "${pids[*]}"
@@ -256,5 +256,5 @@ initial.tail = true
 
         exit 0
     )''',
-    "Reload"
+  "Reload",
 ]

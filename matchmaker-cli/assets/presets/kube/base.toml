@@ -1,4 +1,4 @@
-# Common binds and actions for Docker presets
+# Common binds and actions for Kubernetes presets
 
 [binds]
     "alt-c" = "@follow_logs"

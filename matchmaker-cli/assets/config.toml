@@ -149,8 +149,9 @@ abort_empty = true
 "alt-/" = "PreviewJump"
 "?" = "SwitchPreview"
 # cycle preview layouts
-"ctrl-/" = "CyclePreview" # requires keyboard enhancement
-"alt-shift-/" = "CyclePreview"
+"ctrl-/" = "NextPreview" # requires keyboard enhancement
+"ctrl-shift-/" = "PrevPreview" # requires keyboard enhancement
+"alt-shift-/" = "NextPreview"
 
 "alt-h" = "Help"
 "alt-shift-=" = "ExpandPreview"

@@ -201,11 +201,15 @@ impl PreviewUI {
     }
 
     // -------- Layout -----------
-    pub fn cycle_layout(&mut self) {
+    pub fn cycle_layout(&mut self, rev: bool) {
         let len = self.config.layout.len();
 
         for _ in 0..len {
-            self.layout_idx = (self.layout_idx + 1) % len;
+            if rev {
+                self.layout_idx = (self.layout_idx + len - 1) % len;
+            } else {
+                self.layout_idx = (self.layout_idx + 1) % len;
+            }
 
             if self.config.layout[self.layout_idx].layout.max > 0 {
                 self.reinit();

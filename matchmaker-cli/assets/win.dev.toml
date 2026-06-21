@@ -85,7 +85,7 @@ border.padding = [2, 0]
 "shift+scrolldown" = "PreviewDown"
 "?" = "SwitchPreview"
 "shift-?" = "SwitchPreview"
-"ctrl-shift-/" = "CyclePreview" # cycle preview layouts
+"ctrl-shift-/" = "NextPreview" # cycle preview layouts
 "alt-h" = "Help"
 "alt-1" = "Pos(0)"
 

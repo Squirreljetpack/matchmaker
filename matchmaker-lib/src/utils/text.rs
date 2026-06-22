@@ -325,6 +325,27 @@ pub fn is_empty(text: &Text<'_>) -> bool {
     text.lines.iter().all(|l| l.spans.is_empty())
 }
 
+pub fn trim_text_lines(text: &mut Text) {
+    let lines = &text.lines;
+
+    // 1. Find indices
+    let start = lines.iter().position(|l| !l.spans.is_empty()).unwrap_or(0);
+    let end = lines
+        .iter()
+        .rposition(|l| !l.spans.is_empty())
+        .map(|i| i + 1)
+        .unwrap_or(0);
+
+    // 2. Modify the Vec in place
+    if start < end {
+        // Only keep the slice if there is actual content
+        text.lines = text.lines[start..end].to_vec();
+    } else {
+        // Everything was empty or whitespace
+        text.lines.clear();
+    }
+}
+
 /// Expand `placeholder` inside a Line and distribute spaces to reach `target_width`.
 pub fn expand_indents<'a>(
     input: Line<'a>,

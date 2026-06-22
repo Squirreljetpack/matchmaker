@@ -10,7 +10,7 @@ use crate::{
         BorderSetting, PreviewConfig, PreviewInitialSetting, PreviewSetting, ShowCondition, Side,
     },
     preview::Preview,
-    utils::text::wrapped_line_height,
+    utils::text::{trim_text_lines, wrapped_line_height},
 };
 
 #[derive(Debug)]
@@ -322,7 +322,7 @@ impl PreviewUI {
             return;
         };
 
-        target += self.initial().offset;
+        target += self.initial().offset.unwrap_or(-1);
 
         self.target = Some(if target < 0 {
             line_count.saturating_sub(target.unsigned_abs())
@@ -437,11 +437,77 @@ impl PreviewUI {
     }
 
     pub fn split(&self, area: Rect) -> [Rect; 2] {
+        use ratatui::layout::{Constraint, Direction, Layout};
+
         let Some(setting) = self.setting() else {
             return [Rect::default(), area];
         };
 
-        setting.layout.split(area, self.current_dimension)
+        let layout = &setting.layout;
+
+        let direction = match layout.side {
+            Side::Left | Side::Right => Direction::Horizontal,
+            Side::Top | Side::Bottom => Direction::Vertical,
+        };
+
+        let side_first = matches!(layout.side, Side::Left | Side::Top);
+
+        let total = if matches!(direction, Direction::Horizontal) {
+            area.width
+        } else {
+            area.height
+        };
+
+        let border_offset = match layout.side {
+            Side::Left | Side::Right => self.border().width(),
+            Side::Top | Side::Bottom => self.border().height(),
+        };
+
+        let side_size = if let Some(size) = self.current_dimension {
+            size.min(total)
+        } else {
+            let mut min = if layout.min < 0 {
+                // negative min => ensure sufficient space for results => don't include border offset
+                total.saturating_sub((-layout.min) as u16)
+            } else {
+                (layout.min as u16).saturating_add(border_offset)
+            };
+
+            let mut max = if layout.max < 0 {
+                total.saturating_sub((-layout.max) as u16)
+            } else {
+                (layout.max as u16).saturating_add(border_offset)
+            };
+
+            min = min.min(total);
+            max = max.min(total);
+
+            if min <= max {
+                layout.percentage.compute_clamped(total, min, max)
+            } else {
+                error!("PreviewLayout min > max: {min} > {max}. Ignoring max.");
+                layout.percentage.compute_clamped(total, min, 0)
+            }
+        };
+
+        let side_constraint = Constraint::Length(side_size);
+
+        let constraints = if side_first {
+            [side_constraint, Constraint::Min(0)]
+        } else {
+            [Constraint::Min(0), side_constraint]
+        };
+
+        let chunks = Layout::default()
+            .direction(direction)
+            .constraints(constraints)
+            .split(area);
+
+        if side_first {
+            [chunks[0], chunks[1]]
+        } else {
+            [chunks[1], chunks[0]]
+        }
     }
 
     pub fn expand(&mut self, n: u16) {
@@ -477,7 +543,11 @@ impl PreviewUI {
     }
 
     pub fn make_preview(&mut self) -> Paragraph<'_> {
-        let results = self.view.results();
+        let mut results = self.view.results();
+        if self.config.trim_ends {
+            trim_text_lines(&mut results)
+        }
+
         let rl = results.lines.len();
         let height = self.area.height as usize;
         let mut offset = self.offset;
@@ -497,9 +567,11 @@ impl PreviewUI {
 
             // get current offset
             offset = remaining_lines.saturating_sub(remaining_space);
-            // apply initial offset
-            if self.initial().offset < 0 {
-                offset = offset.saturating_sub((self.initial().offset).unsigned_abs());
+            // apply initial offset: it's more natural to default 0 so we shift by 1
+            if let Some(s) = self.initial().offset
+                && s < 0
+            {
+                offset = offset.saturating_sub(s.unsigned_abs());
             }
 
             // stop scrolling

@@ -21,7 +21,7 @@ pub use ratatui::{
 use crate::{
     SSS, Selection, Selector,
     config::{
-        DisplayConfig, PreviewLayout, QueryConfig, RenderConfig, ResultsConfig, StatusConfig,
+        DisplayConfig, QueryConfig, RenderConfig, ResultsConfig, StatusConfig,
         TerminalLayoutSettings, UiConfig,
     },
     nucleo::Worker,
@@ -229,64 +229,4 @@ impl<'a, T: SSS, O: Selection> PickerUI<'a, T, O> {
     }
 }
 
-impl PreviewLayout {
-    pub fn split(&self, area: Rect, override_size: Option<u16>) -> [Rect; 2] {
-        use crate::config::Side;
-        use ratatui::layout::{Constraint, Direction, Layout};
 
-        let direction = match self.side {
-            Side::Left | Side::Right => Direction::Horizontal,
-            Side::Top | Side::Bottom => Direction::Vertical,
-        };
-
-        let side_first = matches!(self.side, Side::Left | Side::Top);
-
-        let total = if matches!(direction, Direction::Horizontal) {
-            area.width
-        } else {
-            area.height
-        };
-
-        let side_size = if let Some(size) = override_size {
-            size.min(total)
-        } else {
-            let min = if self.min < 0 {
-                total.saturating_sub((-self.min) as u16)
-            } else {
-                self.min as u16
-            };
-
-            let max = if self.max < 0 {
-                total.saturating_sub((-self.max) as u16)
-            } else {
-                self.max as u16
-            };
-
-            if min <= max {
-                self.percentage.compute_clamped(total, min, max)
-            } else {
-                log::error!("PreviewLayout min > max: {min} > {max}. Ignoring max.");
-                self.percentage.compute_clamped(total, min, 0)
-            }
-        };
-
-        let side_constraint = Constraint::Length(side_size);
-
-        let constraints = if side_first {
-            [side_constraint, Constraint::Min(0)]
-        } else {
-            [Constraint::Min(0), side_constraint]
-        };
-
-        let chunks = Layout::default()
-            .direction(direction)
-            .constraints(constraints)
-            .split(area);
-
-        if side_first {
-            [chunks[0], chunks[1]]
-        } else {
-            [chunks[1], chunks[0]]
-        }
-    }
-}

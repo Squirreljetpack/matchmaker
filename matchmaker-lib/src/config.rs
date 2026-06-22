@@ -638,6 +638,8 @@ pub struct PreviewConfig {
     /// Whether to show the preview pane initially.
     /// Can either be a boolean or a number which the relevant dimension of the available ui area must exceed.
     pub show: ShowCondition,
+    /// Trim trailing and initial new lines,
+    pub trim_ends: bool,
 
     pub reevaluate_show_on_resize: bool,
 
@@ -661,21 +663,22 @@ impl Default for PreviewConfig {
             show: Default::default(),
             reevaluate_show_on_resize: false,
             drag_width: None,
+            trim_ends: false,
         }
     }
 }
 
 /// Determines the initial scroll offset of the preview window.
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PreviewInitialSetting {
     /// Extract the initial display index `n` of the preview window from this column.
     /// `n` lines are skipped after the header lines are consumed.
     pub index: Option<StringValue>,
-    /// For adjusting the initial scroll index.
+    /// For adjusting the initial scroll index. This defaults to -1 when indexing for compatibility with tools like rg with 1-indexed lines.
     #[partial(alias = "o")]
-    pub offset: isize,
+    pub offset: Option<isize>,
     /// How far from the bottom of the preview window the scroll offset should appear.
     #[partial(alias = "p")]
     pub percentage: Percentage,
@@ -687,17 +690,17 @@ pub struct PreviewInitialSetting {
     pub tail: bool,
 }
 
-impl Default for PreviewInitialSetting {
-    fn default() -> Self {
-        Self {
-            index: Default::default(),
-            offset: -1,
-            percentage: Default::default(),
-            header_lines: Default::default(),
-            tail: false,
-        }
-    }
-}
+// impl Default for PreviewInitialSetting {
+//     fn default() -> Self {
+//         Self {
+//             index: Default::default(),
+//             offset: None,
+//             percentage: Default::default(),
+//             header_lines: Default::default(),
+//             tail: false,
+//         }
+//     }
+// }
 
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

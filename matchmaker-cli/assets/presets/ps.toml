@@ -23,7 +23,9 @@ default = 9
 # --- Preview ---
 
 [preview]
-show = false
+# show = false
+wrap = false
+trim_ends = true
 
 [results]
 min_width = 4
@@ -55,7 +57,7 @@ fi
 [[preview.layout]]
 command = "echo '### Resources ###\n'; top -pid {2}"
 initial.tail = true
-min = 10
+min = 13
 
 [[preview.layout]]
 command = "echo '### Ports ###\n'; lsof -p {2}"

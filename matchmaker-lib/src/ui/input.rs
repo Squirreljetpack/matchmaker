@@ -132,6 +132,7 @@ impl InputUI {
         self.before = 0;
     }
 
+    // Doesn't recompute graphemes or update cursor
     pub fn prepare_column_change(&mut self) {
         let trimmed = self.input.trim_end();
         if let Some(pos) = trimmed.rfind(' ') {
@@ -147,8 +148,6 @@ impl InputUI {
         if !self.input.is_empty() && !self.input.ends_with(' ') {
             self.input.push(' ');
         }
-        self.recompute_graphemes();
-        self.cursor = self.graphemes.len();
     }
 
     /// Set cursor to a visual offset relative to start position

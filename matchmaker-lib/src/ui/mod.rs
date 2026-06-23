@@ -26,7 +26,6 @@ use crate::{
     },
     nucleo::Worker,
     preview::Preview,
-    render::Click,
     tui::Tui,
 };
 // UI
@@ -166,6 +165,16 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
         }
     }
 
+    pub fn active_column_index(&self) -> usize {
+        let cursor_byte = self.query.byte_index(self.query.cursor() as usize);
+
+        self.worker
+            .query
+            .current_column(cursor_byte)
+            .and_then(|name| self.worker.columns.iter().position(|c| &c.name == name))
+            .unwrap_or(self.worker.query.primary_column_index())
+    }
+
     pub fn layout(&self, area: Rect) -> [Rect; 4] {
         let PickerUI {
             query,
@@ -201,21 +210,6 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
 }
 
 impl<'a, T: SSS, O: Selection> PickerUI<'a, T, O> {
-    pub fn make_table(&mut self, click: &mut Click) -> (Table<'_>, u16) {
-        let cursor_byte = self.query.byte_index(self.query.cursor() as usize);
-        let active_column = self.worker.query.active_column_index(cursor_byte);
-
-        let table = self.results.make_table(
-            active_column,
-            &mut self.worker,
-            &mut self.selector,
-            self.matcher,
-            click,
-        );
-        let width = self.results.table_width();
-        (table, width)
-    }
-
     pub fn update(&mut self) {
         self.worker.find(&self.query.input);
     }
@@ -228,5 +222,3 @@ impl<'a, T: SSS, O: Selection> PickerUI<'a, T, O> {
         self.results.reverse()
     }
 }
-
-

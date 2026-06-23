@@ -672,19 +672,13 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                     _ => unreachable!(),
                                 } % num_columns;
 
-                                loop {
-                                    if next_idx < results.hidden_columns.len()
-                                        && results.hidden_columns[next_idx]
-                                    {
-                                        next_idx = match action {
-                                            Action::NextColumn => (next_idx + 1) % num_columns,
-                                            Action::PrevColumn => {
-                                                (next_idx + num_columns - 1) % num_columns
-                                            }
-                                            _ => unreachable!(),
-                                        };
+                                while next_idx < results.hidden_columns.len()
+                                    && results.hidden_columns[next_idx]
+                                {
+                                    next_idx = if matches!(action, Action::NextColumn) {
+                                        (next_idx + 1) % num_columns
                                     } else {
-                                        break;
+                                        (next_idx + num_columns - 1) % num_columns
                                     }
                                 }
 
@@ -952,7 +946,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     &picker_ui.results,
                     ui.area().width,
                 );
-                render_results(frame, results, &mut picker_ui, &mut click);
+                render_results(frame, results, &mut picker_ui, &mut click, state.filtering);
                 render_display(frame, header, &mut picker_ui.header, &picker_ui.results);
                 render_display(frame, footer, &mut footer_ui, &picker_ui.results);
                 if let Some(preview_ui) = preview_ui.as_mut() {
@@ -1092,14 +1086,33 @@ fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {
 fn render_results<T: SSS, S: Selection>(
     frame: &mut Frame,
     mut area: Rect,
-    ui: &mut PickerUI<T, S>,
+    picker_ui: &mut PickerUI<T, S>,
     click: &mut Click,
+    filtering: bool,
 ) {
-    let cap = matches!(ui.results.config.row_connection, RowConnectionStyle::Capped);
-    let (widget, table_width) = ui.make_table(click);
+    let cap = matches!(
+        picker_ui.results.config.row_connection,
+        RowConnectionStyle::Capped
+    );
+
+    // we do an strange thing by defaulting to empty column when non-filtering so that we can render for f:ist a certain way
+    let active_column = if !filtering {
+        picker_ui.worker.query.empty_column_index()
+    } else {
+        picker_ui.active_column_index()
+    };
+
+    let widget = picker_ui.results.make_table(
+        active_column,
+        &mut picker_ui.worker,
+        &mut picker_ui.selector,
+        picker_ui.matcher,
+        click,
+    );
+    let width = picker_ui.results.table_width();
 
     if cap {
-        area.width = area.width.min(table_width);
+        area.width = area.width.min(width);
     }
 
     frame.render_widget(widget, area);

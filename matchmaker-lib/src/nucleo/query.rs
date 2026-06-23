@@ -18,7 +18,7 @@ pub struct PickerQuery {
     /// This Vec is naturally sorted in ascending order and ranges do not overlap.
     column_ranges: Vec<(Range<usize>, Option<Arc<str>>)>,
 
-    empty_column: bool,
+    empty_column: Option<usize>,
 }
 
 impl PartialEq<HashMap<Arc<str>, Arc<str>>> for PickerQuery {
@@ -32,7 +32,7 @@ impl PickerQuery {
         let column_names: Box<[_]> = column_names.collect();
         let inner = HashMap::with_capacity(column_names.len());
         let column_ranges = vec![(0..usize::MAX, Some(column_names[primary_column].clone()))];
-        let empty_column = column_names.iter().any(|c| c.is_empty());
+        let empty_column = column_names.iter().position(|c| c.is_empty());
 
         Self {
             column_names,
@@ -54,6 +54,13 @@ impl PickerQuery {
 
     pub fn primary_column_name(&self) -> Option<&str> {
         self.column_names.get(self.primary_column).map(|s| &**s)
+    }
+
+    pub fn primary_column_index(&self) -> usize {
+        self.primary_column
+    }
+    pub fn empty_column_index(&self) -> usize {
+        self.empty_column.unwrap_or(self.primary_column)
     }
 
     pub fn parse(&mut self, input: &str) -> HashMap<Arc<str>, Arc<str>> {
@@ -124,12 +131,24 @@ impl PickerQuery {
                     in_field = true;
                 }
                 ' ' if in_field => {
-                    text.clear();
-                    in_field = false;
                     // If the text is empty and self.empty_column is set, pick an empty column
-                    if text.is_empty() && self.empty_column {
-                        field = self.column_names.iter().find(|x| x.is_empty());
+                    if text.is_empty()
+                        && let Some(field) = self.empty_column.map(|i| self.column_names.get(i))
+                    {
+                        // We must push a new column range here because the empty
+                        // column bypassed the `_ if in_field` character accumulation branch.
+                        if let Some((_range, current_field)) = column_ranges
+                            .last_mut()
+                            .filter(|(range, _)| range.end == usize::MAX)
+                        {
+                            *current_field = field.cloned();
+                        } else {
+                            column_ranges.push((idx..usize::MAX, field.cloned()));
+                        }
+                    } else {
+                        text.clear();
                     }
+                    in_field = false;
                 }
                 _ if in_field => {
                     text.push(ch);
@@ -182,7 +201,7 @@ impl PickerQuery {
 
         self.column_ranges
             .get(point)
-            .filter(|(range, _field)| cursor >= range.start && cursor <= range.end)
+            .filter(|(range, _field)| cursor >= range.start)
             .and_then(|(_range, field)| field.as_ref())
     }
 

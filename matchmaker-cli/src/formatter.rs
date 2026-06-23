@@ -269,15 +269,7 @@ fn get_val<'a>(
 ) -> Option<Cow<'a, str>> {
     if key == "!" {
         // current column
-        let cursor_byte = state
-            .picker_ui
-            .query
-            .byte_index(state.picker_ui.query.cursor() as usize);
-        let idx = state
-            .picker_ui
-            .worker
-            .query
-            .active_column_index(cursor_byte);
+        let idx = state.picker_ui.active_column_index();
 
         if let Some(col) = state.picker_ui.worker.columns.get(idx) {
             let indexed = Indexed {

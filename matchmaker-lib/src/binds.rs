@@ -673,24 +673,8 @@ pub fn display_help<A: ActionExt + Display>(
         }
     }
 
-    // Sort by actions (values) instead of triggers
-    entries.sort_by(|a, b| {
-        if config.sort_fn_last && a.2.is_some() != b.2.is_some() {
-            return a.2.is_some().cmp(&b.2.is_some());
-        }
-
-        if config.sort_fn_last && a.2.is_some() {
-            // If sort_fn_last is true and we are in the last section (F-keys), sort by numeric value
-            return a.2.cmp(&b.2);
-        }
-
-        let s1: Vec<String> = a.1.iter().map(|a| a.to_string()).collect();
-        let s2: Vec<String> = b.1.iter().map(|a| a.to_string()).collect();
-        s1.cmp(&s2)
-    });
-
     // Process all bindings into their final visible string sequences. Items between trace delimiters are replaced by the trace message
-    let entries_processed: Vec<(String, Vec<String>)> = entries
+    let mut entries_processed: Vec<(String, Vec<String>)> = entries
         .into_iter()
         .map(|(trigger, actions, _)| {
             let mut visible_items = Vec::new();
@@ -747,6 +731,53 @@ pub fn display_help<A: ActionExt + Display>(
             (trigger, visible_items)
         })
         .collect();
+
+    // 2. Sort directly on the final string representations
+    entries_processed.sort_by(|a, b| {
+        // Handle F-key positioning
+        if config.sort_fn_last {
+            let get_f_key = |trigger: &str| -> Option<u32> {
+                if trigger.starts_with('F')
+                    && trigger.len() > 1
+                    && trigger[1..].chars().all(|c| c.is_ascii_digit())
+                {
+                    trigger[1..].parse::<u32>().ok()
+                } else {
+                    None
+                }
+            };
+
+            let a_fkey = get_f_key(&a.0);
+            let b_fkey = get_f_key(&b.0);
+
+            if a_fkey.is_some() != b_fkey.is_some() {
+                return a_fkey.is_some().cmp(&b_fkey.is_some());
+            }
+            if a_fkey.is_some() {
+                return a_fkey.cmp(&b_fkey);
+            }
+        }
+
+        // Handle Trace prioritization purely from the strings
+        if config.quote_traces {
+            let is_trace_str = |items: &[String]| -> bool {
+                // Every item in the sequence must look like a trace
+                items.iter().all(
+                    |s| s.starts_with('"') && s.ends_with('"'), // || s.starts_with('@')
+                )
+            };
+
+            let a_trace = is_trace_str(&a.1);
+            let b_trace = is_trace_str(&b.1);
+
+            if a_trace != b_trace {
+                return b_trace.cmp(&a_trace); // Prioritize true over false
+            }
+        }
+
+        // Fallback to alphabetical sorting
+        a.1.cmp(&b.1)
+    });
 
     // Build output
     let Some(cfg) = &config.colors else {
@@ -1185,7 +1216,7 @@ mod test {
         let help_str = help.to_string();
 
         let lines: Vec<_> = help_str.lines().filter(|l| !l.is_empty()).collect();
-        // Sorting is by action first, then is_f_key? 
+        // Sorting is by action first, then is_f_key?
         // No, my code:
         /*
         if config.sort_fn_last && a.2 != b.2 {
@@ -1204,12 +1235,12 @@ mod test {
         let help_no_sort = display_help(&binds, &cfg, None);
         let help_no_sort_str = help_no_sort.to_string();
         let _lines_no_sort: Vec<_> = help_no_sort_str.lines().filter(|l| !l.is_empty()).collect();
-        
+
         let binds_diff: BindMap<NullActionExt> = bindmap!(
             key!(F1) => Action::Print("aaa".into()),
             key!(b) => Action::Print("bbb".into()),
         );
-        
+
         // sort_fn_last = true -> b (non-F) then F1
         cfg.sort_fn_last = true;
         let help_diff = display_help(&binds_diff, &cfg, None);

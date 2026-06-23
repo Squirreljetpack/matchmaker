@@ -6,7 +6,7 @@ ansi = true
 
 [columns]
 max = 3
-names = ["file", "pos", "content"]
+names = ["file", "pos", ""]
 split = '^(.*?):(\d+:\d+):(.*)$'
 default = 3
 

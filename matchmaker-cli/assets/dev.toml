@@ -157,13 +157,13 @@ max = 8
 
 [start.command]
 cmd = '''
-    if command -v fd >/dev/null 2>&1; then
-        fd --strip-cwd-prefix --print0
-    else
-        find . -print0
-    fi
-    '''
+if command -v fd >/dev/null 2>&1; then
+    fd --strip-cwd-prefix --print0
+else
+    find . -print0
+fi
+'''
 separator = "\\0"
 
 [exit]
-select_1 = false
+first = false

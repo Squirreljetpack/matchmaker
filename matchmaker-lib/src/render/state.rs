@@ -33,7 +33,7 @@ pub struct State {
 
     // Stores "last" state to emit events on change
     pub(crate) input: String,
-    pub(crate) iterations: u32,
+    pub(crate) iteration: u32,
     pub(crate) preview_visible: bool,
     pub(crate) layout: Layout,
     pub(crate) dragging: Option<Position>,
@@ -52,6 +52,7 @@ pub struct State {
     /// Setting this to true finishes the picker with the contents of [`Selector`].
     /// If [`Selector`] is disabled, the picker finishes with the current item.
     /// If there are no items to finish with, the picker finishes with [`crate::errors::MatchError::Abort`]\(0).
+    /// Note: this bypasses the accept hook.
     pub should_quit: bool,
     /// Setting this to true finishes the picker with [`crate::MatchError::NoMatch`].
     pub should_quit_nomatch: bool,
@@ -83,7 +84,7 @@ impl std::fmt::Debug for State {
             .field("interrupt", &self.interrupt)
             .field("interrupt_payload", &self.interrupt_payload)
             .field("input", &self.input)
-            .field("iterations", &self.iterations)
+            .field("iterations", &self.iteration)
             .field("async_actions_count", &count)
             .finish_non_exhaustive()
     }
@@ -113,7 +114,7 @@ impl State {
             overlay_index: None,
 
             input: String::new(),
-            iterations: 0,
+            iteration: 0,
             synced: [false; 2],
 
             events: Event::empty(),
@@ -258,13 +259,13 @@ impl State {
         picker_ui: &'a PickerUI<T, S>,
         overlay_ui: &'a Option<OverlayUI<A>>,
     ) {
-        if self.iterations == 0 {
+        if self.iteration == 0 {
             self.insert(Event::Start);
             self.input = picker_ui.query.input.clone();
         } else {
             self.update_input(&picker_ui.query.input);
         }
-        self.iterations += 1;
+        self.iteration += 1;
 
         let status = &picker_ui.results.status;
         self.synced[1] |= status.running;
@@ -280,7 +281,7 @@ impl State {
                 } else {
                     // this should be emitted every time input filter changes
                     // note that this will never emit on empty input
-                    log::trace!("resynced on iteration {}", self.iterations);
+                    log::trace!("resynced on iteration {}", self.iteration);
                     self.insert(Event::Resynced);
                 }
             }

@@ -118,6 +118,7 @@ pub type ConfigMMItem = Indexed<ConfigMMInnerItem>;
 impl ConfigMatchmaker {
     #[allow(unused)]
     /// Creates a new Matchmaker from a config::BaseConfig.
+    /// Calls [`Matchmaker::prepare`];
     pub fn new_from_config(
         render_config: RenderConfig,
         tui_config: TerminalConfig,
@@ -150,9 +151,13 @@ impl ConfigMatchmaker {
         };
 
         #[cfg(feature = "experimental")]
-        worker.reverse_items(worker_config.reverse);
-        #[cfg(feature = "experimental")]
-        worker.set_stability(*worker_config.sort_threshold);
+        {
+            worker.reverse_items(worker_config.reverse);
+            worker.set_stability(*worker_config.sort_threshold);
+            for (i, c) in cc.names.iter().enumerate() {
+                worker.set_column_options(i, c.options)
+            }
+        }
 
         let injector = worker.injector();
 
@@ -286,7 +291,7 @@ impl ConfigMatchmaker {
         let event_handlers = EventHandlers::new();
         let interrupt_handlers = InterruptHandlers::new();
 
-        let new = Matchmaker {
+        let mut new = Matchmaker {
             worker,
             render_config,
             tui_config,
@@ -295,6 +300,7 @@ impl ConfigMatchmaker {
             event_handlers,
             interrupt_handlers,
         };
+        new.prepare();
 
         let misc = OddEnds {
             splitter,
@@ -367,6 +373,10 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
         self.interrupt_handlers.set(variant, handler);
     }
 
+    pub fn prepare(&mut self) {
+        self.worker.find(&self.render_config.query.initial)
+    }
+
     /// The main method of the Matchmaker. It starts listening for events and renders the TUI with ratatui. It successfully returns with all the selected items selected when the Accept action is received.
     pub async fn pick<A: ActionExt>(self, builder: PickOptions<'_, T, S, A>) -> Result<Vec<S>> {
         let PickOptions {
@@ -378,14 +388,9 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
             overlay_config,
             hidden_columns,
             initializer,
+            accept_hook,
             ..
         } = builder;
-
-        if self.exit_config.select_1 && self.worker.counts().0 == 1 {
-            return Ok(self
-                .selector
-                .identify_to_vec([self.worker.get_nth(0).unwrap()]));
-        }
 
         let mut event_loop = if let Some(e) = builder.event_loop {
             e
@@ -446,9 +451,6 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
             ))
         };
 
-        // initial redraw to clear artifacts,
-        tui.redraw();
-
         let matcher = if let Some(matcher) = builder.matcher {
             matcher
         } else {
@@ -465,6 +467,9 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
             hidden_columns,
         );
 
+        // initial redraw to clear artifacts,
+        tui.redraw();
+
         let ret = render::render_loop(
             ui,
             picker,
@@ -480,6 +485,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
             ext_handler,
             ext_aliaser,
             initializer,
+            accept_hook,
             #[cfg(feature = "bracketed-paste")]
             paste_handler,
         )
@@ -534,6 +540,9 @@ pub type ActionExtHandler<T, S, A> =
 pub type ActionAliaser<T, S, A> =
     Box<dyn FnMut(Action<A>, &mut MMState<'_, '_, T, S>) -> Actions<A> + Send + Sync + 'static>;
 
+pub type AcceptHook<T, S> =
+    Box<dyn FnOnce(&mut MMState<'_, '_, T, S>) -> Vec<S> + Send + Sync + 'static>;
+
 pub type Initializer<T, S> = Box<dyn FnOnce(&mut MMState<'_, '_, T, S>) + Send + Sync + 'static>;
 
 /// Used to configure [`Matchmaker::pick`] with additional options.
@@ -548,6 +557,7 @@ pub struct PickOptions<'a, T: SSS, S: Selection, A: ActionExt = NullActionExt> {
     ext_aliaser: Option<ActionAliaser<T, S, A>>,
     #[cfg(feature = "bracketed-paste")]
     paste_handler: Option<PasteHandler<T, S>>,
+    accept_hook: Option<AcceptHook<T,S>>,
 
     overlays: Vec<Box<dyn Overlay<A = A>>>,
     overlay_config: Option<OverlayConfig>,
@@ -575,6 +585,7 @@ impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
             ext_aliaser: None,
             #[cfg(feature = "bracketed-paste")]
             paste_handler: None,
+            accept_hook: None,
             overlay_config: None,
             overlays: Vec::new(),
             channel: None,
@@ -646,11 +657,19 @@ impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
         self
     }
 
-    pub fn initializer<F>(mut self, aliaser: F) -> Self
+    pub fn initializer<F>(mut self, handler: F) -> Self
     where
         F: FnOnce(&mut MMState<'_, '_, T, S>) + Send + Sync + 'static,
     {
-        self.initializer = Some(Box::new(aliaser));
+        self.initializer = Some(Box::new(handler));
+        self
+    }
+
+    pub fn accept_hook<F>(mut self, handler: F) -> Self
+    where
+        F: FnOnce(&mut MMState<'_, '_, T, S>) -> Vec<S> + Send + Sync + 'static,
+    {
+        self.accept_hook = Some(Box::new(handler));
         self
     }
 

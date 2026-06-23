@@ -16,8 +16,6 @@ use matchmaker::{
 };
 use matchmaker_partial::{Apply, Set};
 
-use matchmaker::preview::AppendOnly;
-
 pub type MMState<'a, 'b> = matchmaker::render::MMState<'a, 'b, ConfigMMItem, ConfigMMInnerItem>;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -60,9 +58,6 @@ pub enum MMAction {
     /// Run a command and display output in preview window (TODO)
     RunPreview(String),
 
-    /// Accept current selection and print using output_template
-    Accept,
-
     // Unimplemented
     /// History up (TODO)
     HistoryUp,
@@ -72,8 +67,10 @@ pub enum MMAction {
     ExecuteOrConfirm(String),
     /// [`matchmaker::Action::Execute`], quit on success
     ExecuteAndQuit(String),
-    /// [`matchmaker::Action::Execute`], quit on success, confirm on error
+    /// [`matchmaker::Action::Execute`], quit on success, confirm on error, resume on signal
     BecomeOr(String),
+    /// [`matchmaker::Action::Execute`], quit on success, resume on error, exit on signal
+    BecomeOr2(String),
     /// Execute command and parse output as actions
     Transform(String),
     /// Execute command and parse output as configuration
@@ -84,9 +81,9 @@ pub struct ActionContext {
     pub bind_tx: BindSender<MMAction>,
     pub render_tx: matchmaker::event::RenderSender<MMAction>,
     pub additional_commands: (Vec<String>, usize),
-    pub output_template: Option<String>,
-    pub print_handle: AppendOnly<String>,
-    pub output_separator: String,
+    // pub output_template: Option<String>,
+    // pub print_handle: AppendOnly<String>,
+    // pub output_separator: String,
 }
 
 pub fn action_handler(
@@ -96,29 +93,9 @@ pub fn action_handler(
         bind_tx,
         render_tx,
         additional_commands,
-        output_template,
-        print_handle,
-        output_separator,
     }: &mut ActionContext,
 ) {
     match a {
-        MMAction::Accept => {
-            let repeat = |s: String| {
-                if atty::is(atty::Stream::Stdout) {
-                    print_handle.push(s);
-                } else {
-                    print!("{}{}", s, output_separator);
-                }
-            };
-
-            if let Some(template) = output_template {
-                crate::formatter::format_cli(state, template, Some(&repeat));
-            } else {
-                state.map_selected_to_vec(|_, x| repeat(x.to_cow().to_string()));
-            }
-
-            state.should_quit = true;
-        }
         // state
         MMAction::CycleSort => {
             #[cfg(feature = "experimental")]
@@ -265,6 +242,10 @@ pub fn action_handler(
             state.discriminant_payload = Some(2);
             state.set_interrupt(Interrupt::Execute, s);
         }
+        MMAction::BecomeOr2(s) => {
+            state.discriminant_payload = Some(3);
+            state.set_interrupt(Interrupt::Execute, s);
+        }
         MMAction::Transform(payload) => {
             let cmd = format_cli(state, &payload, None);
             if cmd.is_empty() {
@@ -409,11 +390,11 @@ enum_from_str_display! {
     MMAction;
 
     units:
-    CycleSort, HistoryUp, HistoryDown, Accept, ReloadPrev;
+    CycleSort, HistoryUp, HistoryDown, ReloadPrev;
 
 
     tuples:
-    Bind, Unbind, PushBind, PopBind, ExecuteOrConfirm, ExecuteAndQuit, BecomeOr, Transform, TransformConfig, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter, RunPreview;
+    Bind, Unbind, PushBind, PopBind, ExecuteOrConfirm, ExecuteAndQuit, BecomeOr, BecomeOr2, Transform, TransformConfig, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter, RunPreview;
 
     defaults:
     ;

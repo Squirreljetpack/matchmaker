@@ -35,7 +35,7 @@ Note that the default column names (when `columns.names` is unspecified) are `1`
 ## Special
 
 `!` refers to the active column.
-`#` refers to the active index.
+`#` refers to the current index.
 
 See examples for more information.
 

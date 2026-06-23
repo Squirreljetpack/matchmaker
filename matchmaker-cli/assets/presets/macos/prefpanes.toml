@@ -25,7 +25,11 @@ sort = 40
 [columns]
 split = ','
 max = 3
-names = ["name", "section", { hidden = true, name = "target" }]
+names = [
+  { name = "name", options = "Optional" },
+  { name = "section", options = "Optional | OrUseDefault" },
+  { hidden = true, name = "target" },
+]
 default = 1
 
 [header]

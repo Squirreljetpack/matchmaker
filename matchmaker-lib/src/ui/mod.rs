@@ -213,8 +213,8 @@ impl<'a, T: SSS, O: Selection> PickerUI<'a, T, O> {
     pub fn update(&mut self) {
         self.worker.find(&self.query.input);
     }
-    pub fn tick(&mut self) {
-        self.worker.find(&self.query.input);
+    pub fn update_status(&mut self) {
+        self.results.status = Worker::new_snapshot(&mut self.worker.nucleo).1;
     }
 
     // creation from UI ensures Some

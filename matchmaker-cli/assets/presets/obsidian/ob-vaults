@@ -1,0 +1,110 @@
+#!/bin/sh
+
+# === EDIT ME ===
+populate_cache() {
+  {
+    echo "$HOME/gh/FRONTEND/ASTRO/pblog/src/content/"
+    ls -d "$OBSIDIAN_HOME"/*/ 2>/dev/null
+  } |
+  while IFS= read -r line || [[ -n $line ]]; do
+    printf '%s\n' "${line%%/}"
+  done >"$CACHE"
+}
+
+# === FUNCTIONS ===
+emit_columns() {
+  while IFS= read -r line; do
+    vault="$(basename -- "$line")"
+    [[ -d $line ]] && printf '%s\t%s\n' "$vault" "$line"
+  done <"$CACHE"
+}
+
+usage() {
+  cat << EOF
+Usage: $(basename -- "$0") [option] [arguments]
+Without any arguments, lists all available vault paths.
+
+Options:
+  -b <file_path>  Check if a file/dir belongs to any vault. Prints the vault path if found.
+  -g <vault_name> Get the full path of a specific vault by its name.
+  -c              Emit vaults in a two-column format (Name\tPath).
+  -r              Force regenerate the vaults cache file.
+  -h, --help      Display this help message.
+EOF
+  (($#)) && exit $1
+}
+
+# === SCRIPT START ===
+CACHE=${OBSIDIAN_VAULTS_FILE:-"$(dirname -- "$0")/__vaults"}
+
+did_regen=false
+
+# Get vault path / check cache
+[[ -s "$CACHE" ]] || {
+  populate_cache
+  did_regen=true
+}
+
+case "$1" in
+  '')
+    # List available
+    while IFS= read -r line; do
+      [[ -d $line ]] && printf '%s\n' "$line"
+    done <"$CACHE"
+    ;;
+  -c)
+    emit_columns
+    ;;
+  -r)
+    [[ "$did_regen" = false ]] && populate_cache
+    ;;
+  -b)
+    shift 1
+    [[ -n "$1" ]] || usage 1
+
+
+    # Check vault belonging
+    target="$(realpath "$1" 2>/dev/null)"
+    found=false
+    while IFS= read -r line; do
+      [[ -d "$line" ]] || continue
+
+      if [[ "$target" == "$(realpath "$line")/"* ]]; then
+        printf '%s\n' "$line"
+        exit 0
+      fi
+    done <"$CACHE"
+
+    exit 1
+    ;;
+  -g)
+    shift 1
+    [[ -n "$1" ]] || {
+      # List available
+      while IFS= read -r line; do
+        [[ -d $line ]] && printf '%s\n' "$line"
+      done <"$CACHE"
+      exit 0
+    }
+
+    # Get vault path
+    while IFS= read -r line; do
+      [ -d "$line" ] || continue
+      name=$(basename -- "$line")
+
+      for arg in "$@"; do
+        if [ "$arg" = "$name" ]; then
+          printf '%s\n' "$line"
+          break
+        fi
+      done
+    done <"$CACHE"
+    exit 1
+    ;;
+  -h|--help)
+    usage 0
+    ;;
+  *)
+    usage 1
+    ;;
+esac

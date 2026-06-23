@@ -36,6 +36,7 @@ impl<A: ActionExt> BindMap<A> {
             key!(up) => Action::Up(1),
             key!(down) => Action::Down(1),
             key!(enter) => Action::Accept,
+
             key!(right) => Action::ForwardChar,
             key!(left) => Action::BackwardChar,
             key!(backspace) => Action::DeleteChar,
@@ -44,13 +45,7 @@ impl<A: ActionExt> BindMap<A> {
             key!(ctrl-h) => Action::DeleteWord,
             key!(ctrl-u) => Action::Cancel,
             key!(alt-a) => Action::QueryPos(0),
-            key!(alt-h) => Action::Help("".to_string()),
-            key!(ctrl-'[') => Action::ToggleWrap,
-            key!(ctrl-']') => Action::TogglePreviewWrap,
-            key!(ctrl-shift-right) => Action::HScroll(1),
-            key!(ctrl-shift-left) => Action::HScroll(-1),
-            key!(ctrl-shift-up) => Action::VScroll(1),
-            key!(ctrl-shift-down) => Action::VScroll(-1),
+
             key!(PageDown) => Action::HalfPageDown,
             key!(PageUp) => Action::HalfPageUp,
             key!(Home) => Action::Pos(0),
@@ -73,6 +68,43 @@ impl<A: ActionExt> BindMap<A> {
         }
 
         ret
+    }
+
+    /// non-"universal" keybinds, some requiring keyboard enhancements
+    pub fn with_extras(mut self) -> Self {
+        let ext = bindmap!(
+            // keyboard enhancement
+            key!(ctrl-'[') => Action::ToggleWrap,
+            key!(alt-']') => Action::TogglePreviewWrap,
+            key!(ctrl-shift-right) => Action::HScroll(1),
+            key!(ctrl-shift-left) => Action::HScroll(-1),
+            key!(ctrl-shift-up) => Action::VScroll(1),
+            key!(ctrl-shift-down) => Action::VScroll(-1),
+            key!(alt-right) => Action::HScroll(1),
+            key!(alt-left) => Action::HScroll(-1),
+            key!(alt-up) => Action::VScroll(1),
+            key!(alt-down) => Action::VScroll(-1),
+            key!(alt-'/') => Action::NextPreview,
+            key!(alt-shift-'/') => Action::PrevPreview,
+            key!(ctrl-'/') => Action::NextPreview,
+            key!(ctrl-shift-'/') => Action::PrevPreview,
+
+            key!(alt-h) => Action::Help("".to_string()),
+            key!(alt-'{') => Action::ToggleWrap,
+            key!(alt-'}') => Action::TogglePreviewWrap,
+
+            key!(tab) => [Action::Toggle, Action::Down(1)],
+            key!(shift-backtab) => [Action::Toggle, Action::Up(1)],
+            key!(ctrl-a) => [Action::Toggle, Action::Down(1)],
+            key!(ctrl-shift-a) => Action::ClearSelections
+
+            // not currently supported by crossterm
+            // "shift+scrollup" = "PreviewUp"
+            // "shift+scrolldown" = "PreviewDown"
+
+        );
+        self.extend(ext);
+        self
     }
 
     /// Check for infinite loops in semantic actions.

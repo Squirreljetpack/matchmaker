@@ -1,0 +1,105 @@
+# macOS window switcher
+
+[envs]
+IMAGEcmd = { value = "command -v chafa", exec = true }
+RESOLVE_APP = '''
+exe_path=$(ps -p "$pid" -o comm= 2>/dev/null)
+app_path=""
+probe="$exe_path"
+while [[ -n "$probe" && "$probe" != "/" ]]; do
+    if [[ "$probe" == *.app ]]; then
+        app_path="$probe"
+        break
+    fi
+    probe=$(dirname -- "$probe")
+done
+
+[[ -z "$app_path" ]] && app_path=$(mdfind "kMDItemContentType == 'com.apple.application-bundle' && kMDItemDisplayName == '$app.app'" | head -n 1)
+[[ -z "$app_path" ]] && app_path=$(mdfind "kMDItemContentType == 'com.apple.application-bundle' && kMDItemFSName == '$app.app'" | head -n 1)
+'''
+
+[start]
+command = '"$(dirname -- "$MM_OVERRIDE")"/list'
+input_separator = "\\0"
+trim = true
+
+[columns]
+split = "\\n"
+max = 4
+
+names = [
+  { name = "title", options = "Optional" },
+  { name = "app", options = "Optional | OrUseDefault" },
+  { name = "pid", hidden = true },
+  { name = "bounds", hidden = true },
+]
+
+default = "title"
+
+[header]
+content = ["Title", "App"]
+
+[preview]
+show = true
+wrap = false
+
+[[preview.layout]]
+command = '''
+echo "Name:   "{app}
+echo "Title:  "{title}
+echo "PID:    "{pid}
+printf "%${COLUMNS}s\n" | tr ' ' '-'
+echo
+
+[[ -z "$IMAGEcmd" ]] && exit
+
+pid={pid}; app={app}; eval "$RESOLVE_APP"
+[[ -z "$app_path" ]] && exit
+
+# Extract sanitized app path for caching.
+tmp_icon="/tmp/mm_window_$(echo "$app_path" | tr '*./ ' '____').png"
+
+icon_file=$(defaults read "$app_path/Contents/Info" CFBundleIconFile 2>/dev/null)
+[[ -z "$icon_file" ]] && exit
+[[ "$icon_file" != *.* ]] && icon_file="$icon_file.icns"
+
+icon_path="$app_path/Contents/Resources/$icon_file"
+[[ -f "$icon_path" ]] || exit
+
+if ! [[ -f "$tmp_icon" ]]; then
+    sips -s format png "$icon_path" --out "$tmp_icon" >/dev/null 2>&1
+fi
+
+[[ -f "$tmp_icon" ]] && eval "$IMAGEcmd" "$tmp_icon"
+'''
+side = "right"
+percentage = 40
+min = 30
+max = 120
+
+[binds]
+"enter" = "@accept"
+"@accept" = '''Become(launchctl asuser $(id -u) "$(dirname -- "$MM_OVERRIDE")"/switch --pid {pid} --title {title} --bounds {bounds})'''
+"@copy" = '''CopyAsync(
+pid={pid}; app={app}; eval "$RESOLVE_APP"
+echo "$app_path"
+)'''
+"alt-r" = "@reveal_app"
+"ctrl-r" = "Reload"
+
+"@reveal_app" = '''ExecuteOrConfirm(
+set -e
+pid={pid}; app={app}; eval "$RESOLVE_APP"
+if [[ -n "$app_path" ]]; then
+    open -R "$app_path"
+else
+    echo "Could not find app bundle for {app}"
+    exit 1
+fi
+)'''
+
+[query]
+prompt = "window> "
+
+[tui]
+percentage = 100

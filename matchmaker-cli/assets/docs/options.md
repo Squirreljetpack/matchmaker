@@ -18,7 +18,7 @@ Overrides follow the pattern `path=value` or `path value`.
   - `preview.initial` -> `p.i`
 - **Absolute Aliases**: The following common paths can be accessed directly:
   - `preview.layout.command` -> `px`
-  - `start.input_separator` -> `i`
+  - `start.input_separator` -> `n`
   - `start.output_template` -> `o`
   - `start.command` -> `x`
   - `start.command` -> `cmd`
@@ -28,6 +28,7 @@ Overrides follow the pattern `path=value` or `path value`.
   - `preview.layout` -> `P`
   - `header.content` -> `h`
   - `matcher.sort` -> `S`
+  - `query.initial` -> `Q`
 
 For example to split input on space, use `mm d " "`.
 
@@ -118,9 +119,10 @@ All colors and modifiers come from ratatui:
 
 ### Exit (`exit.`, `e`)
 
-- `select_1`: (bool) Exit automatically if there is only one match.
+- `first`: (bool) Exit automatically if there is only one match.
 - `allow_empty`: (bool) Allow returning without any items selected.
 - `abort_empty`: (bool) Abort if no items are provided.
+- `on_accept`: (String) Template to execute on accepted items.
 
 ### Matcher (`matcher.`, `m`)
 

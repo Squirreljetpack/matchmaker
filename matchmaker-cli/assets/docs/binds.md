@@ -236,7 +236,8 @@ Actions are the operations performed when a trigger is activated.
 | `ExecuteAndQuit(cmd)`  | Run a shell command (replaces TUI) and then quit.                                                                                   |
 | `Become(cmd)`          | Transform the process into the command.                                                                                             |
 | `BecomeSilent(cmd)`    | Transform the process into the command without clearing the screen (useful for transitioning between different matchmaker presets). |
-| `BecomeOr(cmd)`        | Execute the command, ask for confirmation on failure, quit on success, resume on interrupt.                                         |
+| `BecomeOr(cmd)`        | Execute the command, quit on success, ask for confirmation on failure,  resume on interrupt.                                         |
+| `BecomeOr2(cmd)`        | Execute the command, quit on success, resume on failure, exit on interrupt.                                         |
 | `Reload(cmd)`          | Rerun the initial command or a new one.                                                                                             |
 | `ReloadNext(n)`        | Cycle through `additional_commands`.                                                                                                |
 | `ReloadPrev`           | Cycle backwards through `additional_commands`.                                                                                      |

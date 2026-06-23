@@ -1,0 +1,540 @@
+Printers & Scanners,,com.apple.Print-Scan-Settings.extension
+Printers & Scanners,Fax,com.apple.Print-Scan-Settings.extension?fax
+Printers & Scanners,Print,com.apple.Print-Scan-Settings.extension?print
+Printers & Scanners,Scan,com.apple.Print-Scan-Settings.extension?scan
+Printers & Scanners,Share,com.apple.Print-Scan-Settings.extension?share
+Trackpad,,com.apple.Trackpad-Settings.extension
+Trackpad,Trackpad Tab,com.apple.Trackpad-Settings.extension?trackpadTab
+Keyboard,,com.apple.Keyboard-Settings.extension
+Keyboard,Caps Lock Input Sources,com.apple.Keyboard-Settings.extension?CapsLockInputSources
+Keyboard,Customize Modifier Keys,com.apple.Keyboard-Settings.extension?CustomizeModifierKeys
+Keyboard,Dictation,com.apple.Keyboard-Settings.extension?Dictation
+Keyboard,Function Keys,com.apple.Keyboard-Settings.extension?FunctionKeys
+Keyboard,Input Sources,com.apple.Keyboard-Settings.extension?InputSources
+Keyboard,Keyboard,com.apple.Keyboard-Settings.extension?Keyboard
+Keyboard,Language Input Methods,com.apple.Keyboard-Settings.extension?LanguageInputMethods
+Keyboard,Modifier Keys,com.apple.Keyboard-Settings.extension?ModifierKeys
+Keyboard,Shortcuts,com.apple.Keyboard-Settings.extension?Shortcuts
+Keyboard,Spelling,com.apple.Keyboard-Settings.extension?Spelling
+Keyboard,Spotlight,com.apple.Keyboard-Settings.extension?Spotlight
+Keyboard,Text Replacements,com.apple.Keyboard-Settings.extension?TextReplacements
+Keyboard,Touch Bar Settings,com.apple.Keyboard-Settings.extension?TouchBarSettings
+Keyboard,Use Smart Quotes,com.apple.Keyboard-Settings.extension?UseSmartQuotes
+Wallet & Apple Pay,,com.apple.WalletSettingsExtension
+Wallet & Apple Pay,Wallet,com.apple.WalletSettingsExtension?Wallet
+iCloud,,com.apple.systempreferences.AppleIDSettings:icloud
+iCloud,Apple Account,com.apple.systempreferences.AppleIDSettings:icloud?AppleAccount
+iCloud,I Cloud,com.apple.systempreferences.AppleIDSettings:icloud?iCloud
+Game Center,,com.apple.Game-Center-Settings.extension
+Game Center,Game Center Pane,com.apple.Game-Center-Settings.extension?GameCenterPane
+Internet Accounts,,com.apple.Internet-Accounts-Settings.extension
+Internet Accounts,Internet Accounts,com.apple.Internet-Accounts-Settings.extension?InternetAccounts
+Users & Groups,,com.apple.Users-Groups-Settings.extension
+Users & Groups,Login Options Pref,com.apple.Users-Groups-Settings.extension?loginOptionsPref
+Users & Groups,Password Pref,com.apple.Users-Groups-Settings.extension?passwordPref
+Touch ID & Password,,com.apple.Touch-ID-Settings.extension*TouchIDPasswordPrefs
+Touch ID & Password,Password,com.apple.Touch-ID-Settings.extension*TouchIDPasswordPrefs?Password
+Touch ID & Password,Touch Id,com.apple.Touch-ID-Settings.extension*TouchIDPasswordPrefs?TouchID
+Touch ID & Password,Watch,com.apple.Touch-ID-Settings.extension*TouchIDPasswordPrefs?Watch
+Privacy & Security,,com.apple.settings.PrivacySecurity.extension
+Privacy & Security,Advanced,com.apple.settings.PrivacySecurity.extension?Advanced
+Privacy & Security,File Vault,com.apple.settings.PrivacySecurity.extension?FileVault
+Privacy & Security,Location Access Report,com.apple.settings.PrivacySecurity.extension?Location_Access_Report
+Privacy & Security,Lockdown Mode,com.apple.settings.PrivacySecurity.extension?LockdownMode
+Privacy & Security,Privacy Accessibility,com.apple.settings.PrivacySecurity.extension?Privacy_Accessibility
+Privacy & Security,Privacy Advertising,com.apple.settings.PrivacySecurity.extension?Privacy_Advertising
+Privacy & Security,Privacy All Files,com.apple.settings.PrivacySecurity.extension?Privacy_AllFiles
+Privacy & Security,Privacy Analytics,com.apple.settings.PrivacySecurity.extension?Privacy_Analytics
+Privacy & Security,Privacy App Bundles,com.apple.settings.PrivacySecurity.extension?Privacy_AppBundles
+Privacy & Security,Privacy Audio Capture,com.apple.settings.PrivacySecurity.extension?Privacy_AudioCapture
+Privacy & Security,Privacy Automation,com.apple.settings.PrivacySecurity.extension?Privacy_Automation
+Privacy & Security,Privacy Bluetooth,com.apple.settings.PrivacySecurity.extension?Privacy_Bluetooth
+Privacy & Security,Privacy Calendars,com.apple.settings.PrivacySecurity.extension?Privacy_Calendars
+Privacy & Security,Privacy Camera,com.apple.settings.PrivacySecurity.extension?Privacy_Camera
+Privacy & Security,Privacy Contacts,com.apple.settings.PrivacySecurity.extension?Privacy_Contacts
+Privacy & Security,Privacy Dev Tools,com.apple.settings.PrivacySecurity.extension?Privacy_DevTools
+Privacy & Security,Privacy Files And Folders,com.apple.settings.PrivacySecurity.extension?Privacy_FilesAndFolders
+Privacy & Security,Privacy Focus,com.apple.settings.PrivacySecurity.extension?Privacy_Focus
+Privacy & Security,Privacy Home Kit,com.apple.settings.PrivacySecurity.extension?Privacy_HomeKit
+Privacy & Security,Privacy Listen Event,com.apple.settings.PrivacySecurity.extension?Privacy_ListenEvent
+Privacy & Security,Privacy Location Services,com.apple.settings.PrivacySecurity.extension?Privacy_LocationServices
+Privacy & Security,Privacy Media,com.apple.settings.PrivacySecurity.extension?Privacy_Media
+Privacy & Security,Privacy Microphone,com.apple.settings.PrivacySecurity.extension?Privacy_Microphone
+Privacy & Security,Privacy Motion,com.apple.settings.PrivacySecurity.extension?Privacy_Motion
+Privacy & Security,Privacy Nudity Detection,com.apple.settings.PrivacySecurity.extension?Privacy_NudityDetection
+Privacy & Security,Privacy Passkey Access,com.apple.settings.PrivacySecurity.extension?Privacy_PasskeyAccess
+Privacy & Security,Privacy Photos,com.apple.settings.PrivacySecurity.extension?Privacy_Photos
+Privacy & Security,Privacy Reminders,com.apple.settings.PrivacySecurity.extension?Privacy_Reminders
+Privacy & Security,Privacy Remote Desktop,com.apple.settings.PrivacySecurity.extension?Privacy_RemoteDesktop
+Privacy & Security,Privacy Screen Capture,com.apple.settings.PrivacySecurity.extension?Privacy_ScreenCapture
+Privacy & Security,Privacy Speech Recognition,com.apple.settings.PrivacySecurity.extension?Privacy_SpeechRecognition
+Privacy & Security,Privacy System Services,com.apple.settings.PrivacySecurity.extension?Privacy_SystemServices
+Privacy & Security,Security,com.apple.settings.PrivacySecurity.extension?Security
+Privacy & Security,Security Improvements,com.apple.settings.PrivacySecurity.extension?SecurityImprovements
+Lock Screen,,com.apple.Lock-Screen-Settings.extension
+Lock Screen,Display Off,com.apple.Lock-Screen-Settings.extension?DisplayOff
+Lock Screen,Large Clock,com.apple.Lock-Screen-Settings.extension?LargeClock
+Lock Screen,Lock Screen Message,com.apple.Lock-Screen-Settings.extension?LockScreenMessage
+Lock Screen,Login Window,com.apple.Lock-Screen-Settings.extension?LoginWindow
+Lock Screen,Password,com.apple.Lock-Screen-Settings.extension?Password
+Lock Screen,Screen Saver,com.apple.Lock-Screen-Settings.extension?ScreenSaver
+Screen Time,,com.apple.Screen-Time-Settings.extension
+Screen Time,Path=always Allowed,com.apple.Screen-Time-Settings.extension?path=always-allowed
+Screen Time,Path=app Limits,com.apple.Screen-Time-Settings.extension?path=app-limits
+Screen Time,Path=app Usage,com.apple.Screen-Time-Settings.extension?path=app-usage
+Screen Time,Path=communication Limits,com.apple.Screen-Time-Settings.extension?path=communication-limits
+Screen Time,Path=content And Privacy,com.apple.Screen-Time-Settings.extension?path=content-and-privacy
+Screen Time,Path=downtime,com.apple.Screen-Time-Settings.extension?path=downtime
+Screen Time,Path=notifications,com.apple.Screen-Time-Settings.extension?path=notifications
+Screen Time,Path=pickups,com.apple.Screen-Time-Settings.extension?path=pickups
+Screen Time,Path=requests,com.apple.Screen-Time-Settings.extension?path=requests
+Screen Time,Path=screen Distance,com.apple.Screen-Time-Settings.extension?path=screen-distance
+Focus,,com.apple.Focus-Settings.extension
+Focus,Focus,com.apple.Focus-Settings.extension?Focus
+Sound,,com.apple.Sound-Settings.extension
+Sound,Balance,com.apple.Sound-Settings.extension?balance
+Sound,Effects,com.apple.Sound-Settings.extension?effects
+Sound,Input,com.apple.Sound-Settings.extension?input
+Sound,Mute,com.apple.Sound-Settings.extension?mute
+Sound,Output,com.apple.Sound-Settings.extension?output
+Sound,Volume,com.apple.Sound-Settings.extension?volume
+Notifications,,com.apple.Notifications-Settings.extension
+Notifications,Notifications,com.apple.Notifications-Settings.extension?Notifications
+Notifications,Remote Notifications,com.apple.Notifications-Settings.extension?RemoteNotifications
+Wallpaper,,com.apple.Wallpaper-Settings.extension
+Wallpaper,Clock Appearance,com.apple.Wallpaper-Settings.extension?ClockAppearance
+Wallpaper,Screen Saver,com.apple.Wallpaper-Settings.extension?ScreenSaver
+Wallpaper,Wallpaper,com.apple.Wallpaper-Settings.extension?Wallpaper
+Spotlight,,com.apple.Spotlight-Settings.extension
+Spotlight,Privacy,com.apple.Spotlight-Settings.extension?privacy
+Spotlight,Search Results,com.apple.Spotlight-Settings.extension?searchResults
+Menu Bar,,com.apple.ControlCenter-Settings.extension
+Menu Bar,Battery,com.apple.ControlCenter-Settings.extension?Battery
+Menu Bar,Bluetooth,com.apple.ControlCenter-Settings.extension?Bluetooth
+Menu Bar,Clock,com.apple.ControlCenter-Settings.extension?Clock
+Menu Bar,Display,com.apple.ControlCenter-Settings.extension?Display
+Menu Bar,Do Not Disturb,com.apple.ControlCenter-Settings.extension?DoNotDisturb
+Menu Bar,Focus Modes,com.apple.ControlCenter-Settings.extension?FocusModes
+Menu Bar,Menu Bar,com.apple.ControlCenter-Settings.extension?MenuBar
+Menu Bar,Now Playing,com.apple.ControlCenter-Settings.extension?NowPlaying
+Menu Bar,Screen Mirroring,com.apple.ControlCenter-Settings.extension?ScreenMirroring
+Menu Bar,Siri,com.apple.ControlCenter-Settings.extension?Siri
+Menu Bar,Sound,com.apple.ControlCenter-Settings.extension?Sound
+Menu Bar,Spotlight,com.apple.ControlCenter-Settings.extension?Spotlight
+Menu Bar,Stage Manager,com.apple.ControlCenter-Settings.extension?StageManager
+Menu Bar,Time Machine,com.apple.ControlCenter-Settings.extension?TimeMachine
+Menu Bar,User Switcher,com.apple.ControlCenter-Settings.extension?UserSwitcher
+Menu Bar,Vpn,com.apple.ControlCenter-Settings.extension?VPN
+Menu Bar,Weather,com.apple.ControlCenter-Settings.extension?Weather
+Menu Bar,Wi Fi,com.apple.ControlCenter-Settings.extension?WiFi
+Menu Bar,Tutorial,com.apple.ControlCenter-Settings.extension?tutorial
+Displays,,com.apple.Displays-Settings.extension
+Displays,Advanced Section,com.apple.Displays-Settings.extension?advancedSection
+Displays,Ambience Section,com.apple.Displays-Settings.extension?ambienceSection
+Displays,Arrangement Section,com.apple.Displays-Settings.extension?arrangementSection
+Displays,Characteristic Section,com.apple.Displays-Settings.extension?characteristicSection
+Displays,Displays Section,com.apple.Displays-Settings.extension?displaysSection
+Displays,Miscellaneous Section,com.apple.Displays-Settings.extension?miscellaneousSection
+Displays,Night Shift Section,com.apple.Displays-Settings.extension?nightShiftSection
+Displays,Profile Section,com.apple.Displays-Settings.extension?profileSection
+Displays,Resolution Section,com.apple.Displays-Settings.extension?resolutionSection
+Displays,Sidecar Section,com.apple.Displays-Settings.extension?sidecarSection
+Desktop & Dock,,com.apple.Desktop-Settings.extension
+Desktop & Dock,Applications,com.apple.Desktop-Settings.extension?Applications
+Desktop & Dock,Desktop,com.apple.Desktop-Settings.extension?Desktop
+Desktop & Dock,Dock,com.apple.Desktop-Settings.extension?Dock
+Desktop & Dock,Hot Corners,com.apple.Desktop-Settings.extension?HotCorners
+Desktop & Dock,Mission Control,com.apple.Desktop-Settings.extension?MissionControl
+Desktop & Dock,Shortcuts,com.apple.Desktop-Settings.extension?Shortcuts
+Desktop & Dock,Stage Manager,com.apple.Desktop-Settings.extension?StageManager
+Desktop & Dock,Widgets,com.apple.Desktop-Settings.extension?Widgets
+Desktop & Dock,Window Tiling,com.apple.Desktop-Settings.extension?WindowTiling
+Desktop & Dock,Windows,com.apple.Desktop-Settings.extension?Windows
+Apple Intelligence & Siri,,com.apple.Siri-Settings.extension*siri-sae
+Apple Intelligence & Siri,Generative Assistant Settings View,com.apple.Siri-Settings.extension*siri-sae?GenerativeAssistantSettingsView
+Apple Intelligence & Siri,Siri,com.apple.Siri-Settings.extension*siri-sae?Siri
+Appearance,,com.apple.Appearance-Settings.extension
+Appearance,Main,com.apple.Appearance-Settings.extension?Main
+Accessibility,,com.apple.Accessibility-Settings.extension
+Accessibility,Ax Adaptive Voice Shortcuts Onboarding,com.apple.Accessibility-Settings.extension?AX_ADAPTIVE_VOICE_SHORTCUTS_ONBOARDING
+Accessibility,Ax Alt Mouse Buttons,com.apple.Accessibility-Settings.extension?AX_ALT_MOUSE_BUTTONS
+Accessibility,Ax Alt Mouse Enable Sounds,com.apple.Accessibility-Settings.extension?AX_ALT_MOUSE_ENABLE_SOUNDS
+Accessibility,Ax Alt Mouse Enable Visuals,com.apple.Accessibility-Settings.extension?AX_ALT_MOUSE_ENABLE_VISUALS
+Accessibility,Ax Animated Images,com.apple.Accessibility-Settings.extension?AX_ANIMATED_IMAGES
+Accessibility,Ax Background Sounds,com.apple.Accessibility-Settings.extension?AX_BACKGROUND_SOUNDS
+Accessibility,Ax Background Sounds Lock Screen,com.apple.Accessibility-Settings.extension?AX_BACKGROUND_SOUNDS_LOCK_SCREEN
+Accessibility,Ax Background Sounds Timer Options,com.apple.Accessibility-Settings.extension?AX_BACKGROUND_SOUNDS_TIMER_OPTIONS
+Accessibility,Ax Background Sounds Timer Toggle,com.apple.Accessibility-Settings.extension?AX_BACKGROUND_SOUNDS_TIMER_TOGGLE
+Accessibility,Ax Background Sounds Volume,com.apple.Accessibility-Settings.extension?AX_BACKGROUND_SOUNDS_VOLUME
+Accessibility,Ax Background Sound Filter Choose,com.apple.Accessibility-Settings.extension?AX_BACKGROUND_SOUND_FILTER_CHOOSE
+Accessibility,Ax Background Sound Timer Choose,com.apple.Accessibility-Settings.extension?AX_BACKGROUND_SOUND_TIMER_CHOOSE
+Accessibility,Ax Bg Sound Select Header,com.apple.Accessibility-Settings.extension?AX_BG_SOUND_SELECT_HEADER
+Accessibility,Ax Captioning Prefer Sdh,com.apple.Accessibility-Settings.extension?AX_CAPTIONING_PREFER_SDH
+Accessibility,Ax Configure Camera,com.apple.Accessibility-Settings.extension?AX_CONFIGURE_CAMERA
+Accessibility,Ax Cursor Size,com.apple.Accessibility-Settings.extension?AX_CURSOR_SIZE
+Accessibility,Ax Differentiate Without Color,com.apple.Accessibility-Settings.extension?AX_DIFFERENTIATE_WITHOUT_COLOR
+Accessibility,Ax Dim Flashing,com.apple.Accessibility-Settings.extension?AX_DIM_FLASHING
+Accessibility,Ax Display Filter Enabled,com.apple.Accessibility-Settings.extension?AX_DISPLAY_FILTER_ENABLED
+Accessibility,Ax Display Filter Intensity,com.apple.Accessibility-Settings.extension?AX_DISPLAY_FILTER_INTENSITY
+Accessibility,Ax Display Filter Tint Color,com.apple.Accessibility-Settings.extension?AX_DISPLAY_FILTER_TINT_COLOR
+Accessibility,Ax Display Filter Type,com.apple.Accessibility-Settings.extension?AX_DISPLAY_FILTER_TYPE
+Accessibility,Ax Dwell Action,com.apple.Accessibility-Settings.extension?AX_DWELL_ACTION
+Accessibility,Ax Dwell Auto Revert,com.apple.Accessibility-Settings.extension?AX_DWELL_AUTO_REVERT
+Accessibility,Ax Dwell Cursor Color,com.apple.Accessibility-Settings.extension?AX_DWELL_CURSOR_COLOR
+Accessibility,Ax Dwell In Menu Extra,com.apple.Accessibility-Settings.extension?AX_DWELL_IN_MENU_EXTRA
+Accessibility,Ax Dwell In Panels,com.apple.Accessibility-Settings.extension?AX_DWELL_IN_PANELS
+Accessibility,Ax Dwell Progress Indicator,com.apple.Accessibility-Settings.extension?AX_DWELL_PROGRESS_INDICATOR
+Accessibility,Ax Dwell Retrigger Tolerance,com.apple.Accessibility-Settings.extension?AX_DWELL_RETRIGGER_TOLERANCE
+Accessibility,Ax Dwell Tolerance,com.apple.Accessibility-Settings.extension?AX_DWELL_TOLERANCE
+Accessibility,Ax Dwell Wait Time,com.apple.Accessibility-Settings.extension?AX_DWELL_WAIT_TIME
+Accessibility,Ax Dwell Wait Time Home,com.apple.Accessibility-Settings.extension?AX_DWELL_WAIT_TIME_HOME
+Accessibility,Ax Dwell Zoom,com.apple.Accessibility-Settings.extension?AX_DWELL_ZOOM
+Accessibility,Ax Dwell Zoom Wait,com.apple.Accessibility-Settings.extension?AX_DWELL_ZOOM_WAIT
+Accessibility,Ax Enhance Contrast,com.apple.Accessibility-Settings.extension?AX_ENHANCE_CONTRAST
+Accessibility,Ax Facetime Transcriptions,com.apple.Accessibility-Settings.extension?AX_FACETIME_TRANSCRIPTIONS
+Accessibility,Ax Feature Audio,com.apple.Accessibility-Settings.extension?AX_FEATURE_AUDIO
+Accessibility,Ax Feature Avs,com.apple.Accessibility-Settings.extension?AX_FEATURE_AVS
+Accessibility,Ax Feature Captions,com.apple.Accessibility-Settings.extension?AX_FEATURE_CAPTIONS
+Accessibility,Ax Feature Descriptions,com.apple.Accessibility-Settings.extension?AX_FEATURE_DESCRIPTIONS
+Accessibility,Ax Feature Hearingaids,com.apple.Accessibility-Settings.extension?AX_FEATURE_HEARINGAIDS
+Accessibility,Ax Feature Keyboard,com.apple.Accessibility-Settings.extension?AX_FEATURE_KEYBOARD
+Accessibility,Ax Feature Personalvoice,com.apple.Accessibility-Settings.extension?AX_FEATURE_PERSONALVOICE
+Accessibility,Ax Feature Pointercontrol,com.apple.Accessibility-Settings.extension?AX_FEATURE_POINTERCONTROL
+Accessibility,Ax Feature Reader,com.apple.Accessibility-Settings.extension?AX_FEATURE_READER
+Accessibility,Ax Feature Shortcut,com.apple.Accessibility-Settings.extension?AX_FEATURE_SHORTCUT
+Accessibility,Ax Feature Siri,com.apple.Accessibility-Settings.extension?AX_FEATURE_SIRI
+Accessibility,Ax Feature Spokencontent,com.apple.Accessibility-Settings.extension?AX_FEATURE_SPOKENCONTENT
+Accessibility,Ax Feature Zoom,com.apple.Accessibility-Settings.extension?AX_FEATURE_ZOOM
+Accessibility,Ax Find Cursor,com.apple.Accessibility-Settings.extension?AX_FIND_CURSOR
+Accessibility,Ax Fka Auto Hide Checkbox,com.apple.Accessibility-Settings.extension?AX_FKA_AUTO_HIDE_CHECKBOX
+Accessibility,Ax Fka Color Pop Up,com.apple.Accessibility-Settings.extension?AX_FKA_COLOR_POP_UP
+Accessibility,Ax Fka Commands Restore Defaults,com.apple.Accessibility-Settings.extension?AX_FKA_COMMANDS_RESTORE_DEFAULTS
+Accessibility,Ax Fka Enable Checkbox,com.apple.Accessibility-Settings.extension?AX_FKA_ENABLE_CHECKBOX
+Accessibility,Ax Fka High Contrast Checkbox,com.apple.Accessibility-Settings.extension?AX_FKA_HIGH_CONTRAST_CHECKBOX
+Accessibility,Ax Fka Increase Size Checkbox,com.apple.Accessibility-Settings.extension?AX_FKA_INCREASE_SIZE_CHECKBOX
+Accessibility,Ax Flash Screen,com.apple.Accessibility-Settings.extension?AX_FLASH_SCREEN
+Accessibility,Ax Font Size,com.apple.Accessibility-Settings.extension?AX_FONT_SIZE
+Accessibility,Ax Headphone Hold Duration,com.apple.Accessibility-Settings.extension?AX_HEADPHONE_HOLD_DURATION
+Accessibility,Ax Headphone Noise Cancel,com.apple.Accessibility-Settings.extension?AX_HEADPHONE_NOISE_CANCEL
+Accessibility,Ax Headphone Press Speed,com.apple.Accessibility-Settings.extension?AX_HEADPHONE_PRESS_SPEED
+Accessibility,Ax Headphone Tone Volume,com.apple.Accessibility-Settings.extension?AX_HEADPHONE_TONE_VOLUME
+Accessibility,Ax Head Mouse,com.apple.Accessibility-Settings.extension?AX_HEAD_MOUSE
+Accessibility,Ax Head Mouse Button,com.apple.Accessibility-Settings.extension?AX_HEAD_MOUSE_BUTTON
+Accessibility,Ax Head Mouse Mode,com.apple.Accessibility-Settings.extension?AX_HEAD_MOUSE_MODE
+Accessibility,Ax Head Mouse Pause Resume,com.apple.Accessibility-Settings.extension?AX_HEAD_MOUSE_PAUSE_RESUME
+Accessibility,Ax Head Mouse Recalibrate,com.apple.Accessibility-Settings.extension?AX_HEAD_MOUSE_RECALIBRATE
+Accessibility,Ax Head Mouse Sensitivity,com.apple.Accessibility-Settings.extension?AX_HEAD_MOUSE_SENSITIVITY
+Accessibility,Ax Head Mouse Tolerance,com.apple.Accessibility-Settings.extension?AX_HEAD_MOUSE_TOLERANCE
+Accessibility,Ax Home Panel Dwell Actions,com.apple.Accessibility-Settings.extension?AX_HOME_PANEL_DWELL_ACTIONS
+Accessibility,Ax Hover Text Activation Lock Mode,com.apple.Accessibility-Settings.extension?AX_HOVER_TEXT_ACTIVATION_LOCK_MODE
+Accessibility,Ax Hover Text Bg Color,com.apple.Accessibility-Settings.extension?AX_HOVER_TEXT_BG_COLOR
+Accessibility,Ax Hover Text Border Color,com.apple.Accessibility-Settings.extension?AX_HOVER_TEXT_BORDER_COLOR
+Accessibility,Ax Hover Text Element Color,com.apple.Accessibility-Settings.extension?AX_HOVER_TEXT_ELEMENT_COLOR
+Accessibility,Ax Hover Text Enable,com.apple.Accessibility-Settings.extension?AX_HOVER_TEXT_ENABLE
+Accessibility,Ax Hover Text Fg Color,com.apple.Accessibility-Settings.extension?AX_HOVER_TEXT_FG_COLOR
+Accessibility,Ax Hover Text Font Family,com.apple.Accessibility-Settings.extension?AX_HOVER_TEXT_FONT_FAMILY
+Accessibility,Ax Hover Text Font Size,com.apple.Accessibility-Settings.extension?AX_HOVER_TEXT_FONT_SIZE
+Accessibility,Ax Hover Text Modifier,com.apple.Accessibility-Settings.extension?AX_HOVER_TEXT_MODIFIER
+Accessibility,Ax Hover Typing Bg Color,com.apple.Accessibility-Settings.extension?AX_HOVER_TYPING_BG_COLOR
+Accessibility,Ax Hover Typing Border Color,com.apple.Accessibility-Settings.extension?AX_HOVER_TYPING_BORDER_COLOR
+Accessibility,Ax Hover Typing Element Color,com.apple.Accessibility-Settings.extension?AX_HOVER_TYPING_ELEMENT_COLOR
+Accessibility,Ax Hover Typing Enable,com.apple.Accessibility-Settings.extension?AX_HOVER_TYPING_ENABLE
+Accessibility,Ax Hover Typing Entry Location,com.apple.Accessibility-Settings.extension?AX_HOVER_TYPING_ENTRY_LOCATION
+Accessibility,Ax Hover Typing Fg Color,com.apple.Accessibility-Settings.extension?AX_HOVER_TYPING_FG_COLOR
+Accessibility,Ax Hover Typing Font Family,com.apple.Accessibility-Settings.extension?AX_HOVER_TYPING_FONT_FAMILY
+Accessibility,Ax Hover Typing Font Size,com.apple.Accessibility-Settings.extension?AX_HOVER_TYPING_FONT_SIZE
+Accessibility,Ax Hover Typing Insertion Color,com.apple.Accessibility-Settings.extension?AX_HOVER_TYPING_INSERTION_COLOR
+Accessibility,Ax Ignore Trackpad,com.apple.Accessibility-Settings.extension?AX_IGNORE_TRACKPAD
+Accessibility,Ax Increase Contrast,com.apple.Accessibility-Settings.extension?AX_INCREASE_CONTRAST
+Accessibility,Ax Invert Color,com.apple.Accessibility-Settings.extension?AX_INVERT_COLOR
+Accessibility,Ax Invert Color Mode,com.apple.Accessibility-Settings.extension?AX_INVERT_COLOR_MODE
+Accessibility,Ax In App,com.apple.Accessibility-Settings.extension?AX_IN_APP
+Accessibility,Ax Kb Appearance Type,com.apple.Accessibility-Settings.extension?AX_KB_APPEARANCE_TYPE
+Accessibility,Ax Kb Auto Capitalization,com.apple.Accessibility-Settings.extension?AX_KB_AUTO_CAPITALIZATION
+Accessibility,Ax Kb Auto Spacing,com.apple.Accessibility-Settings.extension?AX_KB_AUTO_SPACING
+Accessibility,Ax Kb Hide,com.apple.Accessibility-Settings.extension?AX_KB_HIDE
+Accessibility,Ax Kb Hide Stepper,com.apple.Accessibility-Settings.extension?AX_KB_HIDE_STEPPER
+Accessibility,Ax Kb Hide Transparency,com.apple.Accessibility-Settings.extension?AX_KB_HIDE_TRANSPARENCY
+Accessibility,Ax Kb Key Accepted Mouse,com.apple.Accessibility-Settings.extension?AX_KB_KEY_ACCEPTED_MOUSE
+Accessibility,Ax Kb Right Click,com.apple.Accessibility-Settings.extension?AX_KB_RIGHT_CLICK
+Accessibility,Ax Kb Use Click Sounds,com.apple.Accessibility-Settings.extension?AX_KB_USE_CLICK_SOUNDS
+Accessibility,Ax Live Speech Add Category,com.apple.Accessibility-Settings.extension?AX_LIVE_SPEECH_ADD_CATEGORY
+Accessibility,Ax Live Speech Categories,com.apple.Accessibility-Settings.extension?AX_LIVE_SPEECH_CATEGORIES
+Accessibility,Ax Live Speech Enabled,com.apple.Accessibility-Settings.extension?AX_LIVE_SPEECH_ENABLED
+Accessibility,Ax Live Speech Font Size,com.apple.Accessibility-Settings.extension?AX_LIVE_SPEECH_FONT_SIZE
+Accessibility,Ax Live Speech Preferred Language,com.apple.Accessibility-Settings.extension?AX_LIVE_SPEECH_PREFERRED_LANGUAGE
+Accessibility,Ax Live Speech Saved Phrases,com.apple.Accessibility-Settings.extension?AX_LIVE_SPEECH_SAVED_PHRASES
+Accessibility,Ax Live Speech Voice Selection,com.apple.Accessibility-Settings.extension?AX_LIVE_SPEECH_VOICE_SELECTION
+Accessibility,Ax Menubar Dwell Actions,com.apple.Accessibility-Settings.extension?AX_MENUBAR_DWELL_ACTIONS
+Accessibility,Ax Menu Font Size,com.apple.Accessibility-Settings.extension?AX_MENU_FONT_SIZE
+Accessibility,Ax Mono Audio,com.apple.Accessibility-Settings.extension?AX_MONO_AUDIO
+Accessibility,Ax Motion Cues,com.apple.Accessibility-Settings.extension?AX_MOTION_CUES
+Accessibility,Ax Mouse Double Click Speed,com.apple.Accessibility-Settings.extension?AX_MOUSE_DOUBLE_CLICK_SPEED
+Accessibility,Ax Mouse Keys,com.apple.Accessibility-Settings.extension?AX_MOUSE_KEYS
+Accessibility,Ax Mouse Keys Delay,com.apple.Accessibility-Settings.extension?AX_MOUSE_KEYS_DELAY
+Accessibility,Ax Mouse Keys Ignore Trackpad,com.apple.Accessibility-Settings.extension?AX_MOUSE_KEYS_IGNORE_TRACKPAD
+Accessibility,Ax Mouse Keys Shortcut,com.apple.Accessibility-Settings.extension?AX_MOUSE_KEYS_SHORTCUT
+Accessibility,Ax Mouse Keys Speed,com.apple.Accessibility-Settings.extension?AX_MOUSE_KEYS_SPEED
+Accessibility,Ax Mouse Options,com.apple.Accessibility-Settings.extension?AX_MOUSE_OPTIONS
+Accessibility,Ax Mouse Scroll,com.apple.Accessibility-Settings.extension?AX_MOUSE_SCROLL
+Accessibility,Ax Mouse Scroll Behavior,com.apple.Accessibility-Settings.extension?AX_MOUSE_SCROLL_BEHAVIOR
+Accessibility,Ax Mouse Scroll Speed,com.apple.Accessibility-Settings.extension?AX_MOUSE_SCROLL_SPEED
+Accessibility,Ax Name Recognition,com.apple.Accessibility-Settings.extension?AX_NAME_RECOGNITION
+Accessibility,Ax Navigation Timing,com.apple.Accessibility-Settings.extension?AX_NAVIGATION_TIMING
+Accessibility,Ax Play System Sounds,com.apple.Accessibility-Settings.extension?AX_PLAY_SYSTEM_SOUNDS
+Accessibility,Ax Pme Amplification,com.apple.Accessibility-Settings.extension?AX_PME_AMPLIFICATION
+Accessibility,Ax Pme Balance,com.apple.Accessibility-Settings.extension?AX_PME_BALANCE
+Accessibility,Ax Pme Beam Forming,com.apple.Accessibility-Settings.extension?AX_PME_BEAM_FORMING
+Accessibility,Ax Pme Level,com.apple.Accessibility-Settings.extension?AX_PME_LEVEL
+Accessibility,Ax Pme Media,com.apple.Accessibility-Settings.extension?AX_PME_MEDIA
+Accessibility,Ax Pme Noise Suppressor,com.apple.Accessibility-Settings.extension?AX_PME_NOISE_SUPPRESSOR
+Accessibility,Ax Pme Own Voice Amplification,com.apple.Accessibility-Settings.extension?AX_PME_OWN_VOICE_AMPLIFICATION
+Accessibility,Ax Pme Phone,com.apple.Accessibility-Settings.extension?AX_PME_PHONE
+Accessibility,Ax Pme Sample,com.apple.Accessibility-Settings.extension?AX_PME_SAMPLE
+Accessibility,Ax Pme Setup,com.apple.Accessibility-Settings.extension?AX_PME_SETUP
+Accessibility,Ax Pme Shape,com.apple.Accessibility-Settings.extension?AX_PME_SHAPE
+Accessibility,Ax Pme Toggle,com.apple.Accessibility-Settings.extension?AX_PME_TOGGLE
+Accessibility,Ax Pme Tone,com.apple.Accessibility-Settings.extension?AX_PME_TONE
+Accessibility,Ax Pme Transparency,com.apple.Accessibility-Settings.extension?AX_PME_TRANSPARENCY
+Accessibility,Ax Pointer Fill Color,com.apple.Accessibility-Settings.extension?AX_POINTER_FILL_COLOR
+Accessibility,Ax Pointer Outline Color,com.apple.Accessibility-Settings.extension?AX_POINTER_OUTLINE_COLOR
+Accessibility,Ax Pointer Reset Color,com.apple.Accessibility-Settings.extension?AX_POINTER_RESET_COLOR
+Accessibility,Ax Prefers Horiz Text Layout,com.apple.Accessibility-Settings.extension?AX_PREFERS_HORIZ_TEXT_LAYOUT
+Accessibility,Ax Reader Auto Speak,com.apple.Accessibility-Settings.extension?AX_READER_AUTO_SPEAK
+Accessibility,Ax Reader Hotkey Enabled,com.apple.Accessibility-Settings.extension?AX_READER_HOTKEY_ENABLED
+Accessibility,Ax Reader Hotkey View In Reader,com.apple.Accessibility-Settings.extension?AX_READER_HOTKEY_VIEW_IN_READER
+Accessibility,Ax Reduce Cursor Modulation,com.apple.Accessibility-Settings.extension?AX_REDUCE_CURSOR_MODULATION
+Accessibility,Ax Reduce Motion,com.apple.Accessibility-Settings.extension?AX_REDUCE_MOTION
+Accessibility,Ax Reduce Transparency,com.apple.Accessibility-Settings.extension?AX_REDUCE_TRANSPARENCY
+Accessibility,Ax Rtt Enable,com.apple.Accessibility-Settings.extension?AX_RTT_ENABLE
+Accessibility,Ax Rtt Relay Number,com.apple.Accessibility-Settings.extension?AX_RTT_RELAY_NUMBER
+Accessibility,Ax Rtt Send Immediately,com.apple.Accessibility-Settings.extension?AX_RTT_SEND_IMMEDIATELY
+Accessibility,Ax Show Toolbar Button Shapes,com.apple.Accessibility-Settings.extension?AX_SHOW_TOOLBAR_BUTTON_SHAPES
+Accessibility,Ax Show Window Titlebar Icons,com.apple.Accessibility-Settings.extension?AX_SHOW_WINDOW_TITLEBAR_ICONS
+Accessibility,Ax Siri Atypical Speech,com.apple.Accessibility-Settings.extension?AX_SIRI_ATYPICAL_SPEECH
+Accessibility,Ax Slow Keys,com.apple.Accessibility-Settings.extension?AX_SLOW_KEYS
+Accessibility,Ax Slow Keys Delay,com.apple.Accessibility-Settings.extension?AX_SLOW_KEYS_DELAY
+Accessibility,Ax Slow Keys Sound,com.apple.Accessibility-Settings.extension?AX_SLOW_KEYS_SOUND
+Accessibility,Ax Spatial Audio Follows Head,com.apple.Accessibility-Settings.extension?AX_SPATIAL_AUDIO_FOLLOWS_HEAD
+Accessibility,Ax Speech Delay,com.apple.Accessibility-Settings.extension?AX_SPEECH_DELAY
+Accessibility,Ax Speech Phrase,com.apple.Accessibility-Settings.extension?AX_SPEECH_PHRASE
+Accessibility,Ax Speech Test,com.apple.Accessibility-Settings.extension?AX_SPEECH_TEST
+Accessibility,Ax Speech Voices,com.apple.Accessibility-Settings.extension?AX_SPEECH_VOICES
+Accessibility,Ax Spoken Alerts,com.apple.Accessibility-Settings.extension?AX_SPOKEN_ALERTS
+Accessibility,Ax Spoken Detect Languages,com.apple.Accessibility-Settings.extension?AX_SPOKEN_DETECT_LANGUAGES
+Accessibility,Ax Spoken Hotkey,com.apple.Accessibility-Settings.extension?AX_SPOKEN_HOTKEY
+Accessibility,Ax Spoken Language,com.apple.Accessibility-Settings.extension?AX_SPOKEN_LANGUAGE
+Accessibility,Ax Spoken Pointer Element,com.apple.Accessibility-Settings.extension?AX_SPOKEN_POINTER_ELEMENT
+Accessibility,Ax Spoken Pointer Element Delay,com.apple.Accessibility-Settings.extension?AX_SPOKEN_POINTER_ELEMENT_DELAY
+Accessibility,Ax Spoken Pointer Element Mode,com.apple.Accessibility-Settings.extension?AX_SPOKEN_POINTER_ELEMENT_MODE
+Accessibility,Ax Spoken Pointer Element Verbosity,com.apple.Accessibility-Settings.extension?AX_SPOKEN_POINTER_ELEMENT_VERBOSITY
+Accessibility,Ax Spoken Pronunciations,com.apple.Accessibility-Settings.extension?AX_SPOKEN_PRONUNCIATIONS
+Accessibility,Ax Spoken Pronunciations Edit,com.apple.Accessibility-Settings.extension?AX_SPOKEN_PRONUNCIATIONS_EDIT
+Accessibility,Ax Spoken Selection Highlight Content,com.apple.Accessibility-Settings.extension?AX_SPOKEN_SELECTION_HIGHLIGHT_CONTENT
+Accessibility,Ax Spoken Selection Highlight Sentence Color,com.apple.Accessibility-Settings.extension?AX_SPOKEN_SELECTION_HIGHLIGHT_SENTENCE_COLOR
+Accessibility,Ax Spoken Selection Highlight Sentence Style,com.apple.Accessibility-Settings.extension?AX_SPOKEN_SELECTION_HIGHLIGHT_SENTENCE_STYLE
+Accessibility,Ax Spoken Selection Highlight Word Color,com.apple.Accessibility-Settings.extension?AX_SPOKEN_SELECTION_HIGHLIGHT_WORD_COLOR
+Accessibility,Ax Spoken Selection Hotkey,com.apple.Accessibility-Settings.extension?AX_SPOKEN_SELECTION_HOTKEY
+Accessibility,Ax Spoken Selection Show Controller,com.apple.Accessibility-Settings.extension?AX_SPOKEN_SELECTION_SHOW_CONTROLLER
+Accessibility,Ax Spoken Typing Echo,com.apple.Accessibility-Settings.extension?AX_SPOKEN_TYPING_ECHO
+Accessibility,Ax Spoken Typing Echo Chars,com.apple.Accessibility-Settings.extension?AX_SPOKEN_TYPING_ECHO_CHARS
+Accessibility,Ax Spoken Typing Echo Modifier Keys,com.apple.Accessibility-Settings.extension?AX_SPOKEN_TYPING_ECHO_MODIFIER_KEYS
+Accessibility,Ax Spoken Typing Echo Selection,com.apple.Accessibility-Settings.extension?AX_SPOKEN_TYPING_ECHO_SELECTION
+Accessibility,Ax Spoken Typing Echo Words,com.apple.Accessibility-Settings.extension?AX_SPOKEN_TYPING_ECHO_WORDS
+Accessibility,Ax Spoken Voice,com.apple.Accessibility-Settings.extension?AX_SPOKEN_VOICE
+Accessibility,Ax Spring Loading,com.apple.Accessibility-Settings.extension?AX_SPRING_LOADING
+Accessibility,Ax Spring Loading Delay,com.apple.Accessibility-Settings.extension?AX_SPRING_LOADING_DELAY
+Accessibility,Ax Sticky Keys,com.apple.Accessibility-Settings.extension?AX_STICKY_KEYS
+Accessibility,Ax Sticky Keys Beep,com.apple.Accessibility-Settings.extension?AX_STICKY_KEYS_BEEP
+Accessibility,Ax Sticky Keys Display,com.apple.Accessibility-Settings.extension?AX_STICKY_KEYS_DISPLAY
+Accessibility,Ax Sticky Keys Display Location,com.apple.Accessibility-Settings.extension?AX_STICKY_KEYS_DISPLAY_LOCATION
+Accessibility,Ax Sticky Keys Shortcut,com.apple.Accessibility-Settings.extension?AX_STICKY_KEYS_SHORTCUT
+Accessibility,Ax Switch Autoscan,com.apple.Accessibility-Settings.extension?AX_SWITCH_AUTOSCAN
+Accessibility,Ax Switch Auto Capitalization,com.apple.Accessibility-Settings.extension?AX_SWITCH_AUTO_CAPITALIZATION
+Accessibility,Ax Switch Auto Spacing,com.apple.Accessibility-Settings.extension?AX_SWITCH_AUTO_SPACING
+Accessibility,Ax Switch Coalesce,com.apple.Accessibility-Settings.extension?AX_SWITCH_COALESCE
+Accessibility,Ax Switch Control Appearance Type,com.apple.Accessibility-Settings.extension?AX_SWITCH_CONTROL_APPEARANCE_TYPE
+Accessibility,Ax Switch Control Enable,com.apple.Accessibility-Settings.extension?AX_SWITCH_CONTROL_ENABLE
+Accessibility,Ax Switch Control Platform Switching,com.apple.Accessibility-Settings.extension?AX_SWITCH_CONTROL_PLATFORM_SWITCHING
+Accessibility,Ax Switch Cursor Size,com.apple.Accessibility-Settings.extension?AX_SWITCH_CURSOR_SIZE
+Accessibility,Ax Switch Cursor Speed,com.apple.Accessibility-Settings.extension?AX_SWITCH_CURSOR_SPEED
+Accessibility,Ax Switch Element Speed,com.apple.Accessibility-Settings.extension?AX_SWITCH_ELEMENT_SPEED
+Accessibility,Ax Switch First Item Delay,com.apple.Accessibility-Settings.extension?AX_SWITCH_FIRST_ITEM_DELAY
+Accessibility,Ax Switch Hide After Delay,com.apple.Accessibility-Settings.extension?AX_SWITCH_HIDE_AFTER_DELAY
+Accessibility,Ax Switch Hide After Delay Amount,com.apple.Accessibility-Settings.extension?AX_SWITCH_HIDE_AFTER_DELAY_AMOUNT
+Accessibility,Ax Switch Hover Text Toolbar,com.apple.Accessibility-Settings.extension?AX_SWITCH_HOVER_TEXT_TOOLBAR
+Accessibility,Ax Switch Min Duration,com.apple.Accessibility-Settings.extension?AX_SWITCH_MIN_DURATION
+Accessibility,Ax Switch Mouse Cursor Edge,com.apple.Accessibility-Settings.extension?AX_SWITCH_MOUSE_CURSOR_EDGE
+Accessibility,Ax Switch Mouse Move Style,com.apple.Accessibility-Settings.extension?AX_SWITCH_MOUSE_MOVE_STYLE
+Accessibility,Ax Switch Nav Feedback,com.apple.Accessibility-Settings.extension?AX_SWITCH_NAV_FEEDBACK
+Accessibility,Ax Switch Panel Editor,com.apple.Accessibility-Settings.extension?AX_SWITCH_PANEL_EDITOR
+Accessibility,Ax Switch Repeat Hold,com.apple.Accessibility-Settings.extension?AX_SWITCH_REPEAT_HOLD
+Accessibility,Ax Switch Resume Auto Scanning,com.apple.Accessibility-Settings.extension?AX_SWITCH_RESUME_AUTO_SCANNING
+Accessibility,Ax Switch Scan Cycle,com.apple.Accessibility-Settings.extension?AX_SWITCH_SCAN_CYCLE
+Accessibility,Ax Switch Scan Restart,com.apple.Accessibility-Settings.extension?AX_SWITCH_SCAN_RESTART
+Accessibility,Ax Switch Scan Speed,com.apple.Accessibility-Settings.extension?AX_SWITCH_SCAN_SPEED
+Accessibility,Ax Switch Timing,com.apple.Accessibility-Settings.extension?AX_SWITCH_TIMING
+Accessibility,Ax System Transcription Background Color Main,com.apple.Accessibility-Settings.extension?AX_SYSTEM_TRANSCRIPTION_BACKGROUND_COLOR_MAIN
+Accessibility,Ax System Transcription Enabled,com.apple.Accessibility-Settings.extension?AX_SYSTEM_TRANSCRIPTION_ENABLED
+Accessibility,Ax System Transcription Language,com.apple.Accessibility-Settings.extension?AX_SYSTEM_TRANSCRIPTION_LANGUAGE
+Accessibility,Ax System Transcription Text Color Main,com.apple.Accessibility-Settings.extension?AX_SYSTEM_TRANSCRIPTION_TEXT_COLOR_MAIN
+Accessibility,Ax System Transcription Text Font Family Main,com.apple.Accessibility-Settings.extension?AX_SYSTEM_TRANSCRIPTION_TEXT_FONT_FAMILY_MAIN
+Accessibility,Ax System Transcription Text Font Size Main,com.apple.Accessibility-Settings.extension?AX_SYSTEM_TRANSCRIPTION_TEXT_FONT_SIZE_MAIN
+Accessibility,Ax Touch Bar Zoom Enable,com.apple.Accessibility-Settings.extension?AX_TOUCH_BAR_ZOOM_ENABLE
+Accessibility,Ax Trackpad Dragging,com.apple.Accessibility-Settings.extension?AX_TRACKPAD_DRAGGING
+Accessibility,Ax Trackpad Dragging Behavior,com.apple.Accessibility-Settings.extension?AX_TRACKPAD_DRAGGING_BEHAVIOR
+Accessibility,Ax Trackpad Options,com.apple.Accessibility-Settings.extension?AX_TRACKPAD_OPTIONS
+Accessibility,Ax Trackpad Scroll,com.apple.Accessibility-Settings.extension?AX_TRACKPAD_SCROLL
+Accessibility,Ax Trackpad Scroll Behavior,com.apple.Accessibility-Settings.extension?AX_TRACKPAD_SCROLL_BEHAVIOR
+Accessibility,Ax Trackpad Scroll Speed,com.apple.Accessibility-Settings.extension?AX_TRACKPAD_SCROLL_SPEED
+Accessibility,Ax Type To Siri Enabled,com.apple.Accessibility-Settings.extension?AX_TYPE_TO_SIRI_ENABLED
+Accessibility,Ax Virtual Keyboard,com.apple.Accessibility-Settings.extension?AX_VIRTUAL_KEYBOARD
+Accessibility,Ax Virtual Keyboard Panel Editor,com.apple.Accessibility-Settings.extension?AX_VIRTUAL_KEYBOARD_PANEL_EDITOR
+Accessibility,Ax Voiceover Enabled,com.apple.Accessibility-Settings.extension?AX_VOICEOVER_ENABLED
+Accessibility,Ax Voice Control Audio Donation Enabled,com.apple.Accessibility-Settings.extension?AX_VOICE_CONTROL_AUDIO_DONATION_ENABLED
+Accessibility,Ax Voice Control Commands,com.apple.Accessibility-Settings.extension?AX_VOICE_CONTROL_COMMANDS
+Accessibility,Ax Voice Control Enabled,com.apple.Accessibility-Settings.extension?AX_VOICE_CONTROL_ENABLED
+Accessibility,Ax Voice Control Language,com.apple.Accessibility-Settings.extension?AX_VOICE_CONTROL_LANGUAGE
+Accessibility,Ax Voice Control Mic,com.apple.Accessibility-Settings.extension?AX_VOICE_CONTROL_MIC
+Accessibility,Ax Voice Control Open Training,com.apple.Accessibility-Settings.extension?AX_VOICE_CONTROL_OPEN_TRAINING
+Accessibility,Ax Voice Control Overlay,com.apple.Accessibility-Settings.extension?AX_VOICE_CONTROL_OVERLAY
+Accessibility,Ax Voice Control Overlay Fading Enabled,com.apple.Accessibility-Settings.extension?AX_VOICE_CONTROL_OVERLAY_FADING_ENABLED
+Accessibility,Ax Voice Control Play Sound Enabled,com.apple.Accessibility-Settings.extension?AX_VOICE_CONTROL_PLAY_SOUND_ENABLED
+Accessibility,Ax Voice Control Show Hints Enabled,com.apple.Accessibility-Settings.extension?AX_VOICE_CONTROL_SHOW_HINTS_ENABLED
+Accessibility,Ax Voice Control Vocabulary,com.apple.Accessibility-Settings.extension?AX_VOICE_CONTROL_VOCABULARY
+Accessibility,Ax Voice Option Commands Delete All,com.apple.Accessibility-Settings.extension?AX_VOICE_OPTION_COMMANDS_DELETE_ALL
+Accessibility,Ax Voice Option Commands Export,com.apple.Accessibility-Settings.extension?AX_VOICE_OPTION_COMMANDS_EXPORT
+Accessibility,Ax Voice Option Commands Import,com.apple.Accessibility-Settings.extension?AX_VOICE_OPTION_COMMANDS_IMPORT
+Accessibility,Ax Voice Option Vocab Delete All,com.apple.Accessibility-Settings.extension?AX_VOICE_OPTION_VOCAB_DELETE_ALL
+Accessibility,Ax Voice Option Vocab Export,com.apple.Accessibility-Settings.extension?AX_VOICE_OPTION_VOCAB_EXPORT
+Accessibility,Ax Voice Option Vocab Import,com.apple.Accessibility-Settings.extension?AX_VOICE_OPTION_VOCAB_IMPORT
+Accessibility,Ax Vo Open Training,com.apple.Accessibility-Settings.extension?AX_VO_OPEN_TRAINING
+Accessibility,Ax Vo Open Utility,com.apple.Accessibility-Settings.extension?AX_VO_OPEN_UTILITY
+Accessibility,Ax Zoom Adjust Size,com.apple.Accessibility-Settings.extension?AX_ZOOM_ADJUST_SIZE
+Accessibility,Ax Zoom Choose Display,com.apple.Accessibility-Settings.extension?AX_ZOOM_CHOOSE_DISPLAY
+Accessibility,Ax Zoom Disable Universal Control,com.apple.Accessibility-Settings.extension?AX_ZOOM_DISABLE_UNIVERSAL_CONTROL
+Accessibility,Ax Zoom Enable Gesture,com.apple.Accessibility-Settings.extension?AX_ZOOM_ENABLE_GESTURE
+Accessibility,Ax Zoom Enable Hotkeys,com.apple.Accessibility-Settings.extension?AX_ZOOM_ENABLE_HOTKEYS
+Accessibility,Ax Zoom Flash,com.apple.Accessibility-Settings.extension?AX_ZOOM_FLASH
+Accessibility,Ax Zoom Focus Movement,com.apple.Accessibility-Settings.extension?AX_ZOOM_FOCUS_MOVEMENT
+Accessibility,Ax Zoom Focus Movement Delay,com.apple.Accessibility-Settings.extension?AX_ZOOM_FOCUS_MOVEMENT_DELAY
+Accessibility,Ax Zoom Follow Focus Activation,com.apple.Accessibility-Settings.extension?AX_ZOOM_FOLLOW_FOCUS_ACTIVATION
+Accessibility,Ax Zoom Follow Focus Mode,com.apple.Accessibility-Settings.extension?AX_ZOOM_FOLLOW_FOCUS_MODE
+Accessibility,Ax Zoom Freeze Panning,com.apple.Accessibility-Settings.extension?AX_ZOOM_FREEZE_PANNING
+Accessibility,Ax Zoom Gesture Field,com.apple.Accessibility-Settings.extension?AX_ZOOM_GESTURE_FIELD
+Accessibility,Ax Zoom Individual Displays,com.apple.Accessibility-Settings.extension?AX_ZOOM_INDIVIDUAL_DISPLAYS
+Accessibility,Ax Zoom Invert,com.apple.Accessibility-Settings.extension?AX_ZOOM_INVERT
+Accessibility,Ax Zoom Keep Stationary,com.apple.Accessibility-Settings.extension?AX_ZOOM_KEEP_STATIONARY
+Accessibility,Ax Zoom Max Factor,com.apple.Accessibility-Settings.extension?AX_ZOOM_MAX_FACTOR
+Accessibility,Ax Zoom Min Factor,com.apple.Accessibility-Settings.extension?AX_ZOOM_MIN_FACTOR
+Accessibility,Ax Zoom Monitor Selection,com.apple.Accessibility-Settings.extension?AX_ZOOM_MONITOR_SELECTION
+Accessibility,Ax Zoom Monitor Selection Trackpad,com.apple.Accessibility-Settings.extension?AX_ZOOM_MONITOR_SELECTION_TRACKPAD
+Accessibility,Ax Zoom Move,com.apple.Accessibility-Settings.extension?AX_ZOOM_MOVE
+Accessibility,Ax Zoom Rapid,com.apple.Accessibility-Settings.extension?AX_ZOOM_RAPID
+Accessibility,Ax Zoom Resize Shortcuts,com.apple.Accessibility-Settings.extension?AX_ZOOM_RESIZE_SHORTCUTS
+Accessibility,Ax Zoom Restore,com.apple.Accessibility-Settings.extension?AX_ZOOM_RESTORE
+Accessibility,Ax Zoom Restore Shortcut,com.apple.Accessibility-Settings.extension?AX_ZOOM_RESTORE_SHORTCUT
+Accessibility,Ax Zoom Screen Share,com.apple.Accessibility-Settings.extension?AX_ZOOM_SCREEN_SHARE
+Accessibility,Ax Zoom Smooth,com.apple.Accessibility-Settings.extension?AX_ZOOM_SMOOTH
+Accessibility,Ax Zoom Style Popup,com.apple.Accessibility-Settings.extension?AX_ZOOM_STYLE_POPUP
+Accessibility,Ax Zoom Temp Detach,com.apple.Accessibility-Settings.extension?AX_ZOOM_TEMP_DETACH
+Accessibility,Ax Zoom Temp Toggle,com.apple.Accessibility-Settings.extension?AX_ZOOM_TEMP_TOGGLE
+Accessibility,Ax Zoom Toggle Fs And Pip,com.apple.Accessibility-Settings.extension?AX_ZOOM_TOGGLE_FS_AND_PIP
+Accessibility,Ax Zoom Trackpad,com.apple.Accessibility-Settings.extension?AX_ZOOM_TRACKPAD
+Accessibility,Alternate Control Methods,com.apple.Accessibility-Settings.extension?alternateControlMethods
+Accessibility,Display,com.apple.Accessibility-Settings.extension?display
+Accessibility,Full Keyboard Access Options,com.apple.Accessibility-Settings.extension?fullKeyboardAccessOptions
+Accessibility,Headphones,com.apple.Accessibility-Settings.extension?headphones
+Accessibility,Hover Text Colors,com.apple.Accessibility-Settings.extension?hoverTextColors
+Accessibility,Hover Text Settings,com.apple.Accessibility-Settings.extension?hoverTextSettings
+Accessibility,Hover Typing Colors,com.apple.Accessibility-Settings.extension?hoverTypingColors
+Accessibility,Hover Typing Settings,com.apple.Accessibility-Settings.extension?hoverTypingSettings
+Accessibility,Mouse And Trackpad,com.apple.Accessibility-Settings.extension?mouseAndTrackpad
+Accessibility,Pointer,com.apple.Accessibility-Settings.extension?pointer
+Accessibility,Switch Control Navigation,com.apple.Accessibility-Settings.extension?switchControlNavigation
+Accessibility,Switch Control Switches,com.apple.Accessibility-Settings.extension?switchControlSwitches
+Accessibility,Switch Control Typing,com.apple.Accessibility-Settings.extension?switchControlTyping
+Accessibility,Text,com.apple.Accessibility-Settings.extension?text
+Accessibility,Virtual Keyboard Dwell,com.apple.Accessibility-Settings.extension?virtualKeyboardDwell
+Accessibility,Virtual Keyboard Hot Corners,com.apple.Accessibility-Settings.extension?virtualKeyboardHotCorners
+Accessibility,Zoom Appearance,com.apple.Accessibility-Settings.extension?zoomAppearance
+Accessibility,Zoom Controls,com.apple.Accessibility-Settings.extension?zoomControls
+Accessibility,Zoom Follow Focus,com.apple.Accessibility-Settings.extension?zoomFollowFocus
+Accessibility,Zoom Hotkey Config,com.apple.Accessibility-Settings.extension?zoomHotkeyConfig
+Accessibility,Zoom Temp Modifiers Config,com.apple.Accessibility-Settings.extension?zoomTempModifiersConfig
+General,,com.apple.systempreferences.GeneralSettings
+Transfer or Reset,,com.apple.Transfer-Reset-Settings.extension
+Transfer or Reset,Primary,com.apple.Transfer-Reset-Settings.extension?primary
+Device Management,,com.apple.Profiles-Settings.extension
+Device Management,Main,com.apple.Profiles-Settings.extension?Main
+Time Machine,,com.apple.Time-Machine-Settings.extension
+Time Machine,Main,com.apple.Time-Machine-Settings.extension?main
+Startup Disk,,com.apple.Startup-Disk-Settings.extension
+Startup Disk,Startup Search Group,com.apple.Startup-Disk-Settings.extension?StartupSearchGroup
+Sharing,,com.apple.Sharing-Settings.extension
+Sharing,Hostname,com.apple.Sharing-Settings.extension?Hostname
+Sharing,Internet,com.apple.Sharing-Settings.extension?Internet
+Sharing,Services Ardservice,com.apple.Sharing-Settings.extension?Services_ARDService
+Sharing,Services Bluetooth Sharing,com.apple.Sharing-Settings.extension?Services_BluetoothSharing
+Sharing,Services Content Caching,com.apple.Sharing-Settings.extension?Services_ContentCaching
+Sharing,Services Media Sharing,com.apple.Sharing-Settings.extension?Services_MediaSharing
+Sharing,Services Personal File Sharing,com.apple.Sharing-Settings.extension?Services_PersonalFileSharing
+Sharing,Services Printer Sharing,com.apple.Sharing-Settings.extension?Services_PrinterSharing
+Sharing,Services Remote Apple Event,com.apple.Sharing-Settings.extension?Services_RemoteAppleEvent
+Sharing,Services Remote Login,com.apple.Sharing-Settings.extension?Services_RemoteLogin
+Sharing,Services Screen Sharing,com.apple.Sharing-Settings.extension?Services_ScreenSharing
+Sharing,Services Windows Sharing,com.apple.Sharing-Settings.extension?Services_WindowsSharing
+Login Items & Extensions,,com.apple.LoginItems-Settings.extension
+Login Items & Extensions,Extension Items,com.apple.LoginItems-Settings.extension?ExtensionItems
+Login Items & Extensions,Startup Items Pref,com.apple.LoginItems-Settings.extension?startupItemsPref
+Language & Region,,com.apple.Localization-Settings.extension
+Language & Region,Language,com.apple.Localization-Settings.extension?Language
+Language & Region,Region,com.apple.Localization-Settings.extension?Region
+Language & Region,Translation,com.apple.Localization-Settings.extension?translation
+Date & Time,,com.apple.Date-Time-Settings.extension
+Date & Time,24hour Time,com.apple.Date-Time-Settings.extension?24HourTime
+Date & Time,Date Time Pref,com.apple.Date-Time-Settings.extension?DateTimePref
+Date & Time,Time Zone Pref,com.apple.Date-Time-Settings.extension?TimeZonePref
+AutoFill & Passwords,,com.apple.Passwords-Settings.extension
+AutoFill & Passwords,Options,com.apple.Passwords-Settings.extension?Options
+AirDrop & Handoff,,com.apple.AirDrop-Handoff-Settings.extension
+AirDrop & Handoff,Air Drop Handoff,com.apple.AirDrop-Handoff-Settings.extension?AirDrop_Handoff
+AirDrop & Handoff,Air Play Receiver,com.apple.AirDrop-Handoff-Settings.extension?AirPlay_Receiver
+AppleCare & Warranty,,com.apple.Coverage-Settings.extension
+Software Update,,com.apple.Software-Update-Settings.extension
+Software Update,Software Update,com.apple.Software-Update-Settings.extension?SoftwareUpdate
+Storage,,com.apple.settings.Storage
+Storage,Storage Pref,com.apple.settings.Storage?storagePref
+About,,com.apple.SystemProfiler.AboutExtension
+About,About Section,com.apple.SystemProfiler.AboutExtension?aboutSection
+About,General Section,com.apple.SystemProfiler.AboutExtension?generalSection
+About,Legal Section,com.apple.SystemProfiler.AboutExtension?legalSection
+About,Software Section,com.apple.SystemProfiler.AboutExtension?softwareSection
+Battery,,com.apple.Battery-Settings.extension*BatteryPreferences
+Battery,Batteryhealth,com.apple.Battery-Settings.extension*BatteryPreferences?batteryhealth
+Battery,Current Source,com.apple.Battery-Settings.extension*BatteryPreferences?currentSource
+Battery,Options,com.apple.Battery-Settings.extension*BatteryPreferences?options
+Network,,com.apple.Network-Settings.extension
+Network,6to4,com.apple.Network-Settings.extension?6to4
+Network,Advanced Ethernet,com.apple.Network-Settings.extension?Advanced Ethernet
+Network,Advanced Modem,com.apple.Network-Settings.extension?Advanced Modem
+Network,Advanced Vpn,com.apple.Network-Settings.extension?Advanced VPN
+Network,Advanced Wi Fi,com.apple.Network-Settings.extension?Advanced Wi-Fi
+Network,Bluetooth,com.apple.Network-Settings.extension?Bluetooth
+Network,Bond,com.apple.Network-Settings.extension?Bond
+Network,Ethernet,com.apple.Network-Settings.extension?Ethernet
+Network,Firewall,com.apple.Network-Settings.extension?Firewall
+Network,Modem,com.apple.Network-Settings.extension?Modem
+Network,Network,com.apple.Network-Settings.extension?Network
+Network,Pppo E,com.apple.Network-Settings.extension?PPPoE
+Network,Proxies,com.apple.Network-Settings.extension?Proxies
+Network,Thunderbolt,com.apple.Network-Settings.extension?Thunderbolt
+Network,Vpn On Demand,com.apple.Network-Settings.extension?VPN on Demand
+Network,Virtual Interfaces,com.apple.Network-Settings.extension?VirtualInterfaces
+Bluetooth,,com.apple.BluetoothSettings
+Bluetooth,Main,com.apple.BluetoothSettings?Main
+Wi‑Fi,,com.apple.wifi-settings-extension
+Wi‑Fi,Advanced,com.apple.wifi-settings-extension?Advanced
+Wi‑Fi,General Details,com.apple.wifi-settings-extension?General_Details
+Wi‑Fi,General Join,com.apple.wifi-settings-extension?General_Join
+Wi‑Fi,General Main,com.apple.wifi-settings-extension?General_Main

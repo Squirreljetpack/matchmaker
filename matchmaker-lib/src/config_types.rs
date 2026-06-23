@@ -106,6 +106,8 @@ define_transparent_wrapper!(
 );
 use ratatui::widgets::Padding as rPadding;
 
+use crate::nucleo::ColumnOptions;
+
 define_transparent_wrapper!(
     #[derive(Copy, Clone, Default)]
     Padding: rPadding
@@ -143,6 +145,7 @@ impl Serialize for Padding {
     {
         use serde::ser::SerializeSeq;
         let padding = self;
+        dbg!(&self);
         if padding.top == padding.bottom
             && padding.left == padding.right
             && padding.top == padding.left
@@ -173,9 +176,9 @@ impl<'de> Deserialize<'de> for Padding {
         #[derive(Deserialize)]
         #[serde(untagged)]
         enum PaddingFormat {
-            Object(rPadding),
             Sequence(Vec<u16>),
             Single(u16),
+            Object(rPadding), // arrays can be deserialized into objects so it must be after sequence
         }
 
         let format = PaddingFormat::deserialize(deserializer)?;
@@ -306,6 +309,9 @@ pub struct ColumnSetting {
     #[serde(default)]
     pub hidden: bool,
     pub name: ColumnName,
+    // not feature gated for config compatibility
+    #[serde(default)]
+    pub options: ColumnOptions,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -412,6 +418,8 @@ impl<'de> Deserialize<'de> for ColumnSetting {
             ignore: bool,
             #[serde(default)]
             hidden: bool,
+            #[serde(default)]
+            options: ColumnOptions,
             name: ColumnName,
         }
 
@@ -426,11 +434,14 @@ impl<'de> Deserialize<'de> for ColumnSetting {
             Input::Str(name) => Ok(ColumnSetting {
                 ignore: true,
                 hidden: false,
+                options: Default::default(),
                 name,
             }),
             Input::Obj(obj) => Ok(ColumnSetting {
                 ignore: obj.ignore,
                 hidden: obj.hidden,
+
+                options: obj.options,
                 name: obj.name,
             }),
         }

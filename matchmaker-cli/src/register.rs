@@ -1,6 +1,9 @@
-use std::process::{Command, Stdio};
+use std::process::Command;
 
-use cba::{broc::CommandExt, env_vars};
+use cba::{
+    broc::{CommandExt, tty_or_inherit},
+    env_vars,
+};
 use log::info;
 use matchmaker::{
     AttachmentFormatter, Matchmaker, SSS, Selection, message::Interrupt, use_formatter,
@@ -38,7 +41,7 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
 
                 if let Some(mut child) = Command::from_script(&cmd)
                     .envs(vars)
-                    .stdin(maybe_tty())
+                    .stdin(tty_or_inherit())
                     ._spawn()
                 {
                     match child.wait() {
@@ -61,6 +64,19 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
                                         println!("\nPress enter to continue...");
                                         let mut input = String::new();
                                         let _ = std::io::stdin().read_line(&mut input);
+                                    }
+                                }
+                                Some(3) => {
+                                    if i.success() {
+                                        state.should_quit = true;
+                                    }
+
+                                    #[cfg(unix)]
+                                    {
+                                        use std::os::unix::process::ExitStatusExt;
+                                        if let Some(_) = i.stopped_signal() {
+                                            state.should_quit_nomatch = true; // better to propogate signal but this is a standby for now
+                                        }
                                     }
                                 }
                                 _ => {}
@@ -92,7 +108,7 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
 
                 if let Some(mut _child) = Command::from_script(&cmd)
                     .envs(vars)
-                    .stdin(maybe_tty())
+                    .stdin(tty_or_inherit())
                     ._spawn()
                 {
                     // match child.wait() {
@@ -106,15 +122,5 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
                 }
             };
         });
-    }
-}
-
-fn maybe_tty() -> Stdio {
-    if let Ok(tty) = std::fs::File::open("/dev/tty") {
-        // let _ = std::io::Write::flush(&mut tty); // does nothing but seems logical
-        Stdio::from(tty)
-    } else {
-        log::error!("Failed to open /dev/tty");
-        Stdio::inherit()
     }
 }

@@ -110,32 +110,39 @@ abort_empty = true
 "shift-backtab" = ["Toggle", "Up"]
 
 # Edit
-"right" = "ForwardChar"
-"left" = "BackwardChar"
-"ctrl-right" = "ForwardWord"
-"ctrl-left" = "BackwardWord"
-"backspace" = "DeleteChar"
-"ctrl-h" = "DeleteWord"
-"ctrl-u" = "Cancel"
-"alt-a" = "QueryPos(0)"
+### (DEFAULTS) ###
+# "right" = "ForwardChar"
+# "left" = "BackwardChar"
+# "ctrl-right" = "ForwardWord"
+# "ctrl-left" = "BackwardWord"
+# "backspace" = "DeleteChar"
+# "ctrl-h" = "DeleteWord"
+# "ctrl-u" = "Cancel"
+# "alt-a" = "QueryPos(0)"
 
 # Navigation
-"up" = "Up"
-"down" = "Down"
-"pagedown" = "HalfPageDown"
-"pageup" = "HalfPageUp"
-"shift-up" = "PreviewHalfPageUp"
-"shift-down" = "PreviewHalfPageDown"
-"ctrl-shift-up" = "VScroll(1)"
-"ctrl-shift-down" = "VScroll(-1)"
-"ctrl-shift-left" = "HScroll(-1)"
-"ctrl-shift-right" = "HScroll(1)"
-"alt-up" = "VScroll(1)"
-"alt-down" = "VScroll(-1)"
-"alt-left" = "HScroll(-1)"
-"alt-right" = "HScroll(1)"
 "alt-1" = "Pos(0)"
 "alt-0" = "Pos(-1)"
+
+### (DEFAULTS) ###
+# "up" = "Up"
+# "down" = "Down"
+# "pagedown" = "HalfPageDown"
+# "pageup" = "HalfPageUp"
+# "shift-up" = "PreviewHalfPageUp"
+# "shift-down" = "PreviewHalfPageDown"
+# "ctrl-shift-up" = "VScroll(1)"
+# "ctrl-shift-down" = "VScroll(-1)"
+# "ctrl-shift-left" = "HScroll(-1)"
+# "ctrl-shift-right" = "HScroll(1)"
+# "alt-up" = "VScroll(1)"
+# "alt-down" = "VScroll(-1)"
+# "alt-left" = "HScroll(-1)"
+# "alt-right" = "HScroll(1)"
+# "ctrl-[" = "ToggleWrap", # requires keyboard enhancement
+# "ctrl-]" = "TogglePreviewWrap",  # requires keyboard enhancement
+# "alt-{" = "ToggleWrap",
+# "alt-}" = "TogglePreviewWrap",
 
 # Columns
 "ctrl-." = "NextColumn"  # requires keyboard enhancement
@@ -144,16 +151,16 @@ abort_empty = true
 "alt-shift-." = "PrevColumn"
 
 # Preview
-# "shift+scrollup" = "PreviewUp" # not currently supported by crossterm
-# "shift+scrolldown" = "PreviewDown" # not currently supported by crossterm
-"alt-/" = "PreviewJump"
-"?" = "SwitchPreview"
-# cycle preview layouts
-"ctrl-/" = "NextPreview" # requires keyboard enhancement
-"ctrl-shift-/" = "PrevPreview" # requires keyboard enhancement
-"alt-shift-/" = "NextPreview"
+"ctrl-j" = "Preview"
 
-"alt-h" = "Help"
+### (DEFAULTS) ###
+# "?" = "SwitchPreview"
+# "alt-/" = "NextPreview"
+# "alt-shift-/" = "PrevPreview"
+# "ctrl-/" = "NextPreview" # requires keyboard enhancement
+# "ctrl-shift-/" = "PrevPreview" # requires keyboard enhancement
+# "alt-h" = "Help"
+
 "alt-shift-=" = "ExpandPreview"
 "alt-+" = "ExpandPreview" # A terminal might only transmit alt-shift-=
 "alt-hyphen" = "ShrinkPreview"

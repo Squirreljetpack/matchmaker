@@ -73,10 +73,10 @@ pub struct StartConfig {
     #[serde(alias = "output")]
     pub output_template: Option<String>,
 
-    /// (cli only)  Default command to execute when stdin is not being read.
+    /// (client-app responsibility) Default command to execute when stdin is not being read.
     #[partial(alias = "cmd", alias = "x")]
     pub command: CommandSetting,
-    /// (cli only) Additional command which can be cycled through using Action::ReloadNext
+    /// (client-app responsibility) Additional command which can be cycled through using Action::ReloadNext
     #[partial(alias = "ax")]
     pub additional_commands: Vec<String>,
 
@@ -105,8 +105,9 @@ pub struct StartConfig {
 #[serde(default, deny_unknown_fields)]
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct ExitConfig {
+    // note: a field for exit if query produces (n) matches is a consistent generalization but i don't think there's much use for it.
     /// Exit automatically if there is only one match.
-    pub select_1: bool,
+    pub first: bool,
     /// Allow returning without any items selected.
     pub allow_empty: bool,
     /// Abort if no items.
@@ -114,6 +115,9 @@ pub struct ExitConfig {
     /// Last processed key is written here.
     /// Set to an empty path to disable.
     pub last_key_path: Option<std::path::PathBuf>,
+
+    /// (client-app responsibility) Execution template for accepted items
+    pub on_accept: String,
 }
 
 /// The ui config.
@@ -572,7 +576,7 @@ pub struct DisplayConfig {
     #[serde(deserialize_with = "camelcase_normalized")]
     pub row_connection: RowConnectionStyle,
 
-    /// (cli only) This setting controls how many lines are read from the input for display with the header.
+    /// (client-app responsibility) This setting controls how many lines are read from the input for display with the header.
     /// Note: Incoming lines are partitioned into columns the same way regular lines are.
     #[partial(alias = "h")]
     pub header_lines: usize,

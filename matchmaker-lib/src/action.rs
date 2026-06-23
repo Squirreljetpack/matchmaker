@@ -161,6 +161,8 @@ pub enum Action<A: ActionExt = NullActionExt> {
     Char(char),
     /// Force redraw
     Redraw,
+    /// toggle first from [`crate::config::ExitConfig`]
+    ToggleExitFirst(Option<bool>), // for everything else we have TransformConfig
     /// Custom action
     Custom(A),
     /// Activate the nth overlay
@@ -379,7 +381,7 @@ enum_from_str_display!(
     (Up, 1), (Down, 1), (PreviewUp, 1), (PreviewDown, 1), (Quit, 1), (Overlay, 0), (Print, String::new()), (Help, String::new()), (Reload, String::new()), (PreviewScroll, 1), (PreviewHScroll, 1), (HScroll, 0), (VScroll, 0), (ExpandPreview, 1), (ShrinkPreview, 1);
 
     options:
-    SwitchPreview, SetPreview, ToggleColumn, ShowColumn
+    SwitchPreview, SetPreview, ToggleColumn, ShowColumn, ToggleExitFirst
 );
 
 macro_rules! enum_from_str_display {

@@ -1,13 +1,23 @@
-*
+/*
+!*.toml
 
-!*/
+!dict
+!obsidian
+!switcher
+!docker
+!git
+!kube
+!linux
+!macos
+!misc
+!obsidian
+!patches
+!ssh
+!switcher
+!unicode
+!zotero
 
-!.gitignore
-!.gitattributes
-!**/*.py
-!**/*.sh
-!**/*.toml
-!**/*.zst
-!**/README.md
-
-todo/
+# generated/downloaded
+*.html
+*.json*
+__*

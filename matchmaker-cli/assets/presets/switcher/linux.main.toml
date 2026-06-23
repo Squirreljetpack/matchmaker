@@ -1,0 +1,50 @@
+# Linux window switcher
+
+[start]
+command = '"$(dirname -- "$MM_OVERRIDE")"/list.sh'
+input_separator = "\\0"
+trim = true
+
+[columns]
+split = "\\n"
+max = 4
+names = [
+  { name = "title", options = "Optional" },
+  { name = "app", options = "Optional | OrUseDefault" },
+  { name = "pid", hidden = true },
+  { name = "id", hidden = true },
+]
+default = "title"
+
+[header]
+content = ["Title", "App"]
+
+[preview]
+show = true
+wrap = false
+
+[[preview.layout]]
+command = '''
+echo "Name:   "{app}
+echo "Title:  "{title}
+printf "%${COLUMNS}s\n" | tr ' ' '-'
+echo "PID:    "{pid}
+echo "ID:     "{id}
+'''
+side = "right"
+percentage = 40
+min = 30
+max = 120
+
+[binds]
+"enter" = "@accept"
+"@accept" = '''Become("$(dirname -- "$MM_OVERRIDE")"/switch.sh --id {id})'''
+"alt-enter" = '''Become("$(dirname -- "$MM_OVERRIDE")"/switch.sh --minimize --id {id})'''
+"@copy" = "CopyAsync(printf '%s\n' {id})"
+"ctrl-r" = "Reload"
+
+[query]
+prompt = "window> "
+
+[tui]
+percentage = 100

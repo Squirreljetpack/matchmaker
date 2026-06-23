@@ -3,6 +3,7 @@
 
 use super::{Line, Span, Style, Text};
 use bitflags::bitflags;
+use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     mem::take,
@@ -110,7 +111,7 @@ where
 // }
 
 bitflags! {
-    #[derive(Default, Clone, Debug)]
+    #[derive(Default, Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
     pub struct ColumnOptions: u8 {
         const Optional = 1 << 0;
         const OrUseDefault = 1 << 2;
@@ -229,6 +230,7 @@ where
             .map(|item| item.data)
     }
 
+    // not a method due for lifetime flexibility
     pub fn new_snapshot(nucleo: &mut nucleo::Nucleo<T>) -> (&nucleo::Snapshot<T>, Status) {
         let nucleo::Status { changed, running } = nucleo.tick(10);
         let snapshot = nucleo.snapshot();

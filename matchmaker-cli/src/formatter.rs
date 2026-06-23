@@ -5,9 +5,8 @@ use matchmaker::render::MMState;
 use matchmaker::{ConfigMMInnerItem, ConfigMMItem};
 use std::borrow::Cow;
 
-thread_local! {
-    pub static COLUMN_INDICES: std::cell::RefCell<bool>  = std::cell::RefCell::new(true);
-}
+// support {1} -> first column
+const COLUMN_INDICES: bool = true;
 
 type ConfigMMState<'a, 'b> = MMState<'a, 'b, ConfigMMItem, ConfigMMInnerItem>;
 
@@ -295,7 +294,7 @@ fn get_val<'a>(
 
             let idx = if let Some(i) = col_idx {
                 Some(i)
-            } else if COLUMN_INDICES.with_borrow(|x| *x) {
+            } else if COLUMN_INDICES {
                 key.parse::<usize>().ok().map(|x| x.saturating_sub(1))
             } else {
                 None
@@ -452,16 +451,19 @@ mod tests {
                 name: "col1".to_string().into(),
                 ignore: true,
                 hidden: false,
+                options: Default::default(),
             },
             matchmaker::config::ColumnSetting {
                 name: "col2".to_string().into(),
                 ignore: true,
                 hidden: false,
+                options: Default::default(),
             },
             matchmaker::config::ColumnSetting {
                 name: "col3".to_string().into(),
                 ignore: true,
                 hidden: false,
+                options: Default::default(),
             },
         ];
         columns_config.split =

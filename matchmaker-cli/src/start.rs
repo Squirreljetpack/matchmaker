@@ -11,6 +11,7 @@ use crate::{
     action::{ActionContext, MMAction, action_handler},
     clap::Cli,
     config::PartialConfig,
+    formatter::format_cli,
     paths::{last_key_path, presets_path},
     register::MMExt,
     utils::{expand_tilde, guess_clip_cmd, guess_editor_cmd, guess_pager_cmd},
@@ -29,7 +30,7 @@ use cba::{
 use cba::{bo::load_type, broc::CommandExt};
 use log::debug;
 use matchmaker::{
-    Action, ConfigInjector, MatchError, Matchmaker, OddEnds, PickOptions, SSS, acs,
+    Action, ConfigInjector, MatchError, Matchmaker, OddEnds, PickOptions, SSS,
     binds::{BindMap, BindMapExt},
     config::{CommandSetting, EnvValue, MatcherConfig, StartConfig},
     event::{EventLoop, RenderSender},
@@ -92,12 +93,26 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
     // apply overrides
     for mut p in cli.r#override {
         if p.is_relative() && p.extension().is_none() {
+            let os = std::env::consts::OS;
+
             let main_p = presets_path().join(&p).join("main.toml");
-            p = if !main_p.exists() {
-                presets_path().join(p.with_extension("toml"))
-            } else {
+            let main_os = presets_path().join(&p).join(format!("{}.main.toml", os));
+            let exact = presets_path().join(p.with_extension("toml"));
+            let mut os_name = std::ffi::OsString::from(format!("{}.", os));
+            os_name.push(exact.file_name().unwrap_or_default());
+            let exact_os = exact.with_file_name(os_name);
+
+            p = if main_p.exists() {
                 main_p
-            };
+            } else if main_os.exists() {
+                main_os
+            } else if exact.exists() {
+                exact
+            } else if exact_os.exists() {
+                exact_os
+            } else {
+                exact
+            }
         }
         // no recursion because tail bad
         let o: PartialConfig = load_type(&p, |s| toml::from_str(s))?;
@@ -171,7 +186,7 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
     }
 
     // check binds
-    config.binds = BindMap::default_binds().modify(|x| x.extend(config.binds));
+    config.binds = BindMap::default_binds().with_extras().modify(|x| x.extend(config.binds));
     config.binds.check_cycles().map_err(anyhow::Error::msg)?;
     config.binds.retain(|_, actions| !actions.is_empty()); // enables disabling a bind via override
     // there is an additional step of resolve_semantics:
@@ -394,6 +409,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     // ---------------------------------
 
     let abort_empty = exit.abort_empty;
+    let on_accept = std::mem::take(&mut exit.on_accept);
     let header_lines = render.header.header_lines;
     let print_handle = AppendOnly::new();
     let output_separator = output_separator.clone().unwrap_or("\n".into());
@@ -588,16 +604,43 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         bind_tx,
         render_tx: render_tx.clone(),
         additional_commands: (additional_commands, initial_index),
-        output_template,
-        print_handle: print_handle.clone(),
-        output_separator: output_separator.clone(),
+        // output_template,
+        // print_handle: print_handle.clone(),
+        // output_separator: output_separator.clone(),
     };
+
+    let _output_separator = output_separator.clone();
+    let _print_handle = print_handle.clone();
 
     options = options
         .ext_handler(move |x, y| action_handler(x, y, &mut action_context))
-        .ext_aliaser(|a, _state| match a {
-            Action::Accept => acs![MMAction::Accept],
-            _ => acs![a],
+        .accept_hook(move |state| {
+            if !on_accept.is_empty() {
+                let cmd = format_cli(state, &on_accept, None);
+                if cmd.is_empty() {
+                    ebog!("Invalid command template");
+                    return vec![];
+                } else {
+                    let vars = state.make_env_vars();
+                    Command::from_script(&cmd).envs(vars)._exec()
+                }
+            }
+
+            let repeat = |s: String| {
+                if atty::is(atty::Stream::Stdout) {
+                    _print_handle.push(s);
+                } else {
+                    print!("{}{}", s, _output_separator);
+                }
+            };
+
+            if let Some(template) = &output_template {
+                format_cli(state, template, Some(&repeat));
+            } else {
+                state.map_selected_to_vec(|_, x| repeat(x.to_cow().to_string()));
+            };
+
+            vec![]
         });
 
     if sync {
@@ -606,8 +649,9 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
 
     let ret = mm.pick(options).await;
 
+    log::trace!("dumping print handle: {} items", print_handle.len()); // this apparently helps with a race condition that erases output?
     print_handle.map_to_vec(|s| {
-        log::trace!("{s}"); // this apparently helps with a race condition that erases output?
+        // log::trace!("{s}");
         print!("{}{}", s, output_separator);
     });
 

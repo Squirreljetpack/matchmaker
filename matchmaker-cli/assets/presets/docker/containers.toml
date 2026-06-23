@@ -43,6 +43,7 @@ command = '"$DOCKERcmd" top {id}'
 "ctrl-k" = ["@kill", "Reload"]
 "ctrl-e" = "@exec"
 "alt-r" = ["@rm", "Reload"]
+"ctrl-m" = "@mount"
 
 # --- Scripts ---
 "@follow_logs" = 'Preview("$DOCKERcmd" logs -f -t {id})'
@@ -68,6 +69,17 @@ command = '"$DOCKERcmd" top {id}'
 "@kill" = 'Execute("$DOCKERcmd" kill {id}) Status(Killing...)'
 "@exec" = 'Become("$DOCKERcmd" exec -it {id} sh -c "if command -v zsh > /dev/null 2>&1; then exec zsh; elif command -v bash > /dev/null 2>&1; then exec bash; else exec sh; fi")'
 "@rm" = 'Execute("$DOCKERcmd" rm -f {id}) Status(Removing...)'
+
+"@mount" = '''BecomeOr(
+    container_id={id}
+    mounted_dir=$(podman unshare -- podman mount "$container_id") || { echo "Mount failed" && read; exit 1; }
+    echo "Mounted at: $mounted_dir"
+    echo "$mounted_dir" | tee >(${=CLIPcmd})
+    cd "$mounted_dir"
+    echo "Entering podman unshare shell. Type 'exit' to return. Use 'podman unmount $container_id' later to cleanup."
+    podman unshare
+    exec $SHELL
+)'''
 
 [query]
 prompt = "containers> "

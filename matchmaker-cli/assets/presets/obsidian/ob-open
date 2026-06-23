@@ -1,0 +1,79 @@
+#!/bin/sh
+
+# === EDIT ME ===
+WAIT=5
+
+uri() {
+  if command -v "jq" > /dev/null 2>&1; then
+    # POSIX replacement for print -nl; jq handles URL encoding
+    printf '%s' "$*" | jq -sRr @uri
+  else
+    # POSIX replacement using sed
+    printf '%s' "$*" | sed 's/ /%20/g; s/\//%2F/g'
+  fi
+}
+
+### SCRIPT START
+
+usage(){
+  echo "Opens a file in Obsidian, or their default application if not contained in a vault.
+
+  Usage: obf [options] [filename]
+  Options:
+    -s, --show    Show the filepath URI (expected by Obsidian) instead of opening.
+    -h, --help    Show this help message."
+
+  (($#)) && exit $1
+}
+
+SHOW=false
+file=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h|--help)
+      usage 0
+      ;;
+    -s|--show)
+      shift 1
+      (($#)) || usage 1
+      uri "$1"
+      ;;
+    -*)
+      echo "Unknown option: $1" >&2
+      usage 1
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+# Convert relative path to absolute path
+case "$1" in
+  "") usage 1 ;;
+  /*) file="$1";; # Already absolute
+  *)  file="$PWD/$file" ;;
+esac
+
+if vault=$(ob-vaults -b "$file"); then
+  if ps -e -o args= 2>/dev/null | grep -q '[O]bsidian'; then
+    fs :o "obsidian://open?path=$(uri "$file")"
+  else
+    fs :o "obsidian://open?path=$(uri "$file")"
+    # queue up some extra tries in case the request was dropped while obsidian was starting up
+    (
+      sleep "$WAIT"
+      fs :o "obsidian://open?path=$(uri "$file")"
+      sleep "$WAIT"
+      fs :o "obsidian://open?path=$(uri "$file")"
+    ) >/dev/null 2>&1 &
+  fi
+else
+  if [ -e "$file" ]; then
+    fs :o "$file"
+  else
+    # Normalize markdown link syntax using POSIX parameter expansion
+    fs :o "${file%%#*}" || exit 1
+  fi
+fi

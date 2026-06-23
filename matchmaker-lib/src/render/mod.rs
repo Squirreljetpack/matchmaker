@@ -22,7 +22,7 @@ use crate::event::{BindSender, EventSender};
 use crate::message::{BindDirective, Event, Interrupt, RenderCommand};
 use crate::tui::Tui;
 use crate::ui::{DisplayUI, OverlayUI, PickerUI, PreviewUI, QueryUI, ResultsUI, StatusUI, UI};
-use crate::{ActionAliaser, ActionExtHandler, Initializer, MatchError, SSS, Selection};
+use crate::{AcceptHook, ActionAliaser, ActionExtHandler, Initializer, MatchError, SSS, Selection};
 
 fn apply_aliases<T: SSS, S: Selection, A: ActionExt>(
     buffer: &mut Vec<RenderCommand<A>>,
@@ -54,7 +54,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
     mut tui: Tui<W>,
 
     mut overlay_ui: Option<OverlayUI<A>>,
-    exit_config: ExitConfig,
+    mut exit_config: ExitConfig,
 
     mut render_rx: mpsc::UnboundedReceiver<RenderCommand<A>>,
     controller_tx: EventSender,
@@ -64,6 +64,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
     mut ext_handler: Option<ActionExtHandler<T, S, A>>,
     mut ext_aliaser: Option<ActionAliaser<T, S, A>>,
     initializer: Option<Initializer<T, S>>,
+    accept_hook: Option<AcceptHook<T, S>>,
     #[cfg(feature = "bracketed-paste")] //
     mut paste_handler: Option<PasteHandler<T, S>>,
 ) -> Result<Vec<S>, MatchError> {
@@ -89,9 +90,36 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
     let mut buffer = Vec::with_capacity(256);
 
     while render_rx.recv_many(&mut buffer, 256).await > 0 {
-        if state.iterations == 0 {
+        if state.iteration == 0 {
+            picker_ui.update_status();
             log::debug!("Render loop started");
         }
+
+        // process (per-batch) exit conditions
+        if exit_config.first
+            && picker_ui.results.status.matched_count == 1
+            && let Some(item) = picker_ui.worker.get_nth(picker_ui.results.index())
+        {
+            picker_ui.selector.clear();
+            picker_ui.selector.sel(item);
+            log::trace!("Exiting due to exit.first on iteration {}", state.iteration);
+
+            let ret = if let Some(a) = accept_hook {
+                tui.exit(None);
+                let mut dispatcher = state.dispatcher(
+                    &mut ui,
+                    &mut picker_ui,
+                    &mut footer_ui,
+                    &mut preview_ui,
+                    &controller_tx,
+                );
+                a(&mut dispatcher)
+            } else {
+                vec![picker_ui.selector.eval(item)]
+            };
+            return Ok(ret);
+        }
+
         let (mut did_pause, mut did_reload, mut did_exit, mut did_resize, mut did_cursor_wrap) =
             (false, false, None, false, false);
 
@@ -109,23 +137,22 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             )
         };
 
-        if state.should_quit {
-            log::debug!("Exiting due to should_quit");
-            return if picker_ui.selector.is_disabled()
-                && let Some((_, item)) = get_current(&picker_ui)
-            {
-                Ok(vec![item])
-            } else {
-                Ok(picker_ui.selector.output().collect())
-            };
-        } else if state.should_quit_nomatch {
-            log::debug!("Exiting due to should_quit_nomatch");
-            return Err(MatchError::NoMatch);
-        }
-
         let mut events = buffer.drain(..);
         while let Some(event) = events.next() {
             state.clear_interrupt();
+            if state.should_quit {
+                log::debug!("Exiting due to should_quit");
+                return if picker_ui.selector.is_disabled()
+                    && let Some((_, item)) = get_current(&picker_ui)
+                {
+                    Ok(vec![item])
+                } else {
+                    Ok(picker_ui.selector.output().collect())
+                };
+            } else if state.should_quit_nomatch {
+                log::debug!("Exiting due to should_quit_nomatch");
+                return Err(MatchError::NoMatch);
+            }
 
             if !matches!(event, RenderCommand::Tick) {
                 info!("Received {event:?}");
@@ -413,7 +440,25 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             selections.clear();
                         }
                         Action::Accept => {
-                            let ret = if selections.is_empty() {
+                            // lowpri: maybe accept_hook should return Result, allowing continuations
+                            if selections.is_empty()
+                                && worker.get_nth(results.index()).is_none()
+                                && !exit_config.allow_empty
+                            {
+                                continue;
+                            };
+
+                            let ret = if let Some(a) = accept_hook {
+                                tui.exit(None);
+                                let mut dispatcher = state.dispatcher(
+                                    &mut ui,
+                                    &mut picker_ui,
+                                    &mut footer_ui,
+                                    &mut preview_ui,
+                                    &controller_tx,
+                                );
+                                a(&mut dispatcher)
+                            } else if selections.is_empty() {
                                 if let Some(item) = get_current(&picker_ui) {
                                     vec![item.1]
                                 } else if exit_config.allow_empty {
@@ -737,6 +782,12 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         Action::Redraw => {
                             tui.redraw();
                         }
+                        Action::ToggleExitFirst(x) => {
+                            exit_config.first = match x {
+                                None => !exit_config.first,
+                                Some(x) => x,
+                            }
+                        }
                         Action::Overlay(index) => {
                             if let Some(x) = overlay_ui.as_mut() {
                                 x.enable(index, &ui.area());
@@ -818,20 +869,6 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     return Err(MatchError::Become(state.payload().clone()));
                 }
             }
-
-            if state.should_quit {
-                log::debug!("Exiting due to should_quit");
-                return if picker_ui.selector.is_disabled()
-                    && let Some((_, item)) = get_current(&picker_ui)
-                {
-                    Ok(vec![item])
-                } else {
-                    Ok(picker_ui.selector.output().collect())
-                };
-            } else if state.should_quit_nomatch {
-                log::debug!("Exiting due to should_quit_nomatch");
-                return Err(MatchError::NoMatch);
-            }
         }
 
         // debug!("{state:?}");
@@ -844,14 +881,6 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         }
         if did_cursor_wrap {
             log::trace!("cursor wrapped"); // todo: event handler?
-        }
-
-        // process exit conditions
-        if exit_config.select_1
-            && picker_ui.results.status.matched_count == 1
-            && let Some((_, item)) = get_current(&picker_ui)
-        {
-            return Ok(vec![item]);
         }
 
         // resume tui
@@ -888,7 +917,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                 {
                     let [preview, mut picker_area] = preview_ui.split(_area);
 
-                    if state.iterations == 0 && picker_area.width <= 5 {
+                    if state.iteration == 0 && picker_area.width <= 5 {
                         warn!("UI too narrow, hiding preview");
                         preview_ui.show(false);
 

@@ -131,12 +131,11 @@ impl PickerQuery {
                     in_field = true;
                 }
                 ' ' if in_field => {
-                    // If the text is empty and self.empty_column is set, pick an empty column
                     if text.is_empty()
-                        && let Some(field) = self.empty_column.map(|i| self.column_names.get(i))
+                        && let Some(index) = self.empty_column
                     {
-                        // We must push a new column range here because the empty
-                        // column bypassed the `_ if in_field` character accumulation branch.
+                        field = self.column_names.get(index);
+                        // Update the column range for this column.
                         if let Some((_range, current_field)) = column_ranges
                             .last_mut()
                             .filter(|(range, _)| range.end == usize::MAX)

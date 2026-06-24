@@ -137,7 +137,6 @@ mm p.l "cmd=echo {}|||p=50|||max=20" cmd "ls" o "{=}"
 
 For quick reference, `mm --doc` provides fairly readable and comprehensive guides to various topics. The rendered markdown is also available [here](./matchmaker-cli/assets/docs/options.md).
 
-
 [^1]: Note that the flatten attribute on the render field means that the subfields of RenderConfig should be specified at the top level of the toml (i.e. your toml should specify `[results]` instead of `[render.results]`).
 
 [^2]: and parts of it [here](./matchmaker-lib/src/config-types.rs).

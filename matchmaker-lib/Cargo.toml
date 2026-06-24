@@ -3,11 +3,11 @@ name = "matchmaker-lib"
 version = "0.0.42"
 categories = ["command-line-utilities", "rust-patterns"]
 edition = "2024"
+exclude = ["assets/"]
 keywords = ["fuzzy", "finder", "tui", "nucleo", "fzf"]
 license = "MIT"
 repository = "https://github.com/Squirreljetpack/matchmaker"
 description = "A fuzzy finder for the terminal, powered by nucleo"
-exclude = ["assets/"]
 
 [dependencies]
 cli_boilerplate_automation = { version = "0", features = ["serde", "bring"] }

@@ -3,7 +3,7 @@
 Matchmaker uses a template system for formatting output and executing commands.
 Templates use `{}` placeholders with various modifiers to inject item data.
 
->[!NOTE]
+> [!NOTE]
 > Only valid keys are replaced, invalid keys are left alone. If you need it, you can also escape `{` like `\{`.
 
 ## Modifiers
@@ -183,19 +183,19 @@ Use `\s` and `\S` to insert flexible whitespace for alignment.
 
 When Matchmaker executes a command (e.g., via `Execute`, `Become`, or a preview command), it injects several environment variables that you can use in your scripts.
 
-| Variable             | FZF Equivalent     | Description                                        |
-| -------------------- | ------------------ | -------------------------------------------------- |
-| `MM_LINES`           | `FZF_LINES`        | Height of the terminal                             |
-| `MM_COLUMNS`         | `FZF_COLUMNS`      | Width of the terminal                              |
-| `MM_TOTAL_COUNT`     | `FZF_TOTAL_COUNT`  | Total number of items                              |
-| `MM_MATCH_COUNT`     | `FZF_MATCH_COUNT`  | Number of matched items                            |
-| `MM_SELECT_COUNT`    | `FZF_SELECT_COUNT` | Number of selected items                           |
-| `MM_POS`             | `FZF_POS`          | Current row index (0-indexed cursor position)      |
-| `MM_QUERY`           | `FZF_QUERY`        | Current input query                                |
-| `MM_PREVIEW_COMMAND` |                    | The current preview command                        |
-| `MM_OVERRIDE`        |                    | Path of the first applied override                 |
-| `MM_STORE`           |                    | Current value stored in state (via `Store` action) |
-| `MM_INDEX`           |                    | Index of populating command (from `additional_commands`). Starts at 0 if first command of `additional_commands` is empty and no input is being piped.  |
+| Variable             | FZF Equivalent     | Description                                                                                                                                           |
+| -------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MM_LINES`           | `FZF_LINES`        | Height of the terminal                                                                                                                                |
+| `MM_COLUMNS`         | `FZF_COLUMNS`      | Width of the terminal                                                                                                                                 |
+| `MM_TOTAL_COUNT`     | `FZF_TOTAL_COUNT`  | Total number of items                                                                                                                                 |
+| `MM_MATCH_COUNT`     | `FZF_MATCH_COUNT`  | Number of matched items                                                                                                                               |
+| `MM_SELECT_COUNT`    | `FZF_SELECT_COUNT` | Number of selected items                                                                                                                              |
+| `MM_POS`             | `FZF_POS`          | Current row index (0-indexed cursor position)                                                                                                         |
+| `MM_QUERY`           | `FZF_QUERY`        | Current input query                                                                                                                                   |
+| `MM_PREVIEW_COMMAND` |                    | The current preview command                                                                                                                           |
+| `MM_OVERRIDE`        |                    | Path of the first applied override                                                                                                                    |
+| `MM_STORE`           |                    | Current value stored in state (via `Store` action)                                                                                                    |
+| `MM_INDEX`           |                    | Index of populating command (from `additional_commands`). Starts at 0 if first command of `additional_commands` is empty and no input is being piped. |
 
 The `envs` section of your config is also injected, as well as `$CLIPcmd` and `$PASTEcmd` -- the auto-determined clipboard commands if they are not otherwise set.
 

@@ -13,9 +13,6 @@ names = ["name", "status", "state", "image", "id"]
 JQ = "jq"
 DOCKERcmd = { value = 'echo "$(dirname -- "$MM_OVERRIDE")"/dispatcher.sh', exec = true, force = true }
 
-[preview]
-show = true
-
 [[preview.layout]]
 # Logs
 command = '"$DOCKERcmd" logs --tail 200 {id} | PG_LANG=log $PAGER'

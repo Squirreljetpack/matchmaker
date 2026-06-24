@@ -8,10 +8,10 @@ split = ' '
 max = 4
 default = 1
 names = [
-  "host",
-  "type",
-  "key",
-  { name = "comment", hidden = true },
+    "host",
+    "type",
+    "key",
+    { name = "comment", hidden = true },
 ]
 
 # --- Preview ---

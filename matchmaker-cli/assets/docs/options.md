@@ -101,6 +101,7 @@ All colors and modifiers come from ratatui:
 - `os`, `output_separator`: (string) String separating output selections.
 - `output_template`: (string) Template string used to print results.
   - Absolute alias: `o`.
+- `on_accept`: (String) Template to execute on accepted items. Exclusive with output_template, output_separator.
 - `sync`: (bool) Whether to wait for the command to finish before starting.
 - `trim`: (bool) Trim whitespace from input lines.
   - Absolute alias: `t`.
@@ -122,7 +123,6 @@ All colors and modifiers come from ratatui:
 - `first`: (bool) Exit automatically if there is only one match.
 - `allow_empty`: (bool) Allow returning without any items selected.
 - `abort_empty`: (bool) Abort if no items are provided.
-- `on_accept`: (String) Template to execute on accepted items.
 
 ### Matcher (`matcher.`, `m`)
 

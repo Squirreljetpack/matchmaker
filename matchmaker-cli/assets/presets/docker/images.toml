@@ -14,9 +14,6 @@ content = "REPOSITORY\tTAG\tIMAGE ID\tCREATED\tSIZE"
 split = "\\t"
 names = ["repo", "tag", "id", "created", "size"]
 
-[preview]
-show = true
-
 [[preview.layout]]
 # History
 command = "$DOCKERcmd image history {id}"

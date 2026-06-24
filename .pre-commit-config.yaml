@@ -1,0 +1,15 @@
+repos:
+  - repo: local
+    hooks:
+      - id: dprint
+        name: dprint
+        entry: dprint fmt --allow-no-files
+        language: system
+        types: [text]
+  # - repo: local
+  #   hooks:
+  #   - id: tests
+  #     name: Run Tests
+  #     entry: cargo test
+  #     language: system
+  #     pass_filenames: false

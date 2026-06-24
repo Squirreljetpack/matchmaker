@@ -28,10 +28,10 @@ split = "\\n"
 max = 4
 
 names = [
-  { name = "title", options = "Optional" },
-  { name = "app", options = "Optional | OrUseDefault" },
-  { name = "pid", hidden = true },
-  { name = "bounds", hidden = true },
+    { name = "title", options = "Optional" },
+    { name = "app", options = "Optional | OrUseDefault" },
+    { name = "pid", hidden = true },
+    { name = "bounds", hidden = true },
 ]
 
 default = "title"

@@ -22,3 +22,6 @@ DFT_COLOR = "always"
 
 [exit]
 abort_empty = false
+
+[preview]
+show = true

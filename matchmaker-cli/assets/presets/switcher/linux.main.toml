@@ -9,10 +9,10 @@ trim = true
 split = "\\n"
 max = 4
 names = [
-  { name = "title", options = "Optional" },
-  { name = "app", options = "Optional | OrUseDefault" },
-  { name = "pid", hidden = true },
-  { name = "id", hidden = true },
+    { name = "title", options = "Optional" },
+    { name = "app", options = "Optional | OrUseDefault" },
+    { name = "pid", hidden = true },
+    { name = "id", hidden = true },
 ]
 default = "title"
 

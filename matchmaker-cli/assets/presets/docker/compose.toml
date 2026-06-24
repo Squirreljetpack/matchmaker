@@ -12,8 +12,6 @@ names = ["name", "status", "id", { name = "source", hidden = true }]
 [envs]
 JQ = "jq"
 
-[preview]
-show = true
 [previewer]
 # delay_clear = false
 

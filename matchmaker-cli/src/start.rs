@@ -186,7 +186,9 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
     }
 
     // check binds
-    config.binds = BindMap::default_binds().with_extras().modify(|x| x.extend(config.binds));
+    config.binds = BindMap::default_binds()
+        .with_extras()
+        .modify(|x| x.extend(config.binds));
     config.binds.check_cycles().map_err(anyhow::Error::msg)?;
     config.binds.retain(|_, actions| !actions.is_empty()); // enables disabling a bind via override
     // there is an additional step of resolve_semantics:
@@ -326,6 +328,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 mode,
                 save_orphans,
                 skip_invalid_lines,
+                on_accept,
             },
         mut exit,
         mut envs,
@@ -409,7 +412,6 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     // ---------------------------------
 
     let abort_empty = exit.abort_empty;
-    let on_accept = std::mem::take(&mut exit.on_accept);
     let header_lines = render.header.header_lines;
     let print_handle = AppendOnly::new();
     let output_separator = output_separator.clone().unwrap_or("\n".into());

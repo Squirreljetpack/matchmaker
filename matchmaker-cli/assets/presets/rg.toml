@@ -57,10 +57,10 @@ scroll_wrap = true
 "Start" = "@enter_rg"
 # Reload on query change, disable reparsing, update bind
 "@enter_rg" = [
-  "Filtering(false)",
-  '''Bind(QueryChange = Reload)''',
-  # Prompt indicator
-  '''Transform(
+    "Filtering(false)",
+    '''Bind(QueryChange = Reload)''',
+    # Prompt indicator
+    '''Transform(
     if [[ -n "$MM_QUERY" ]]; then
         echo "SetStyledPrompt({blue,italic:(${MM_QUERY#\%1 })} )"
     else
@@ -70,12 +70,12 @@ scroll_wrap = true
     echo "SetQuery($MM_STORE)"
     echo "Store($MM_QUERY)"
 )''',
-  "Bind(@reload = @enter_mm)",
+    "Bind(@reload = @enter_mm)",
 ]
 "@enter_mm" = [
-  "Filtering(true)",
-  "Unbind(QueryChange)",
-  '''Transform(
+    "Filtering(true)",
+    "Unbind(QueryChange)",
+    '''Transform(
     if [[ -n "$MM_QUERY" ]]; then
         echo "SetPrompt(($MM_QUERY) )"
     else
@@ -87,5 +87,5 @@ scroll_wrap = true
     echo "SwitchColumn(1)"
 )
 ''',
-  "Bind(@reload = @enter_rg)",
+    "Bind(@reload = @enter_rg)",
 ]

@@ -20,7 +20,7 @@ prompt = "keys> "
 "@next" = "BecomeSilent(mm -o ssh/known)"
 "@prev" = "BecomeSilent(mm -o ssh/hosts)"
 "@rm" = [
-  '''ExecuteOrConfirm(
+    '''ExecuteOrConfirm(
 pub_key={1}
 priv_key="${pub_key%.pub}"
 
@@ -39,7 +39,7 @@ case "$confirm" in
         ;;
 esac
 )''',
-  "Reload",
+    "Reload",
 ]
 
 # --- Scripts ---

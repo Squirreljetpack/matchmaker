@@ -4,8 +4,8 @@ source = 'base.toml'
 [start]
 command = 'git log --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "${1:-.}"'
 additional_commands = [
-  "",
-  '''
+    "",
+    '''
   if $HAS_AWK; then
       git stash list --format="%gd%x00%at%x00%gs" |
       awk -F'\x00' -v OFS='\x00' -v fmt="$DATE_FORMAT" \
@@ -14,7 +14,7 @@ additional_commands = [
       git stash list --format="%gd%x00%cr%x00%gs"
   fi
   ''',
-  '''
+    '''
   if $HAS_AWK; then
     git reflog --all --format="%h%x00%at%x00%gD: %gs" -- "${1:-.}" |
     awk -F'\x00' -v OFS='\x00' -v fmt="$DATE_FORMAT" \
@@ -23,7 +23,7 @@ additional_commands = [
       git reflog --date=human --format="%h%x00%ad%x00%s" -- "${1:-.}"
   fi
   ''',
-  'git log --all --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "${1:-.}"',
+    'git log --all --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "${1:-.}"',
 ]
 
 [columns]
@@ -91,8 +91,8 @@ prompt = "restore> "
 [binds]
 "@accept" = ["@checkout", "Reload"]
 "@accept_2" = [
-  "#apply stash/hard reset",
-  '''BecomeOr(
+    "#apply stash/hard reset",
+    '''BecomeOr(
 set -e
 case $MM_INDEX in
   1)

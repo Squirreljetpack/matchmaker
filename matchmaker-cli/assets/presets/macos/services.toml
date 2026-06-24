@@ -104,8 +104,8 @@ max = 0
 "ctrl-p" = ["@pause", "Reload"]
 
 "ctrl-g" = [
-  "#go to binary",
-  '''ExecuteOrConfirm(
+    "#go to binary",
+    '''ExecuteOrConfirm(
         label={label}; eval "$RESOLVE_TARGET"
         program=$(launchctl print "$target" 2>/dev/null | awk '
             /^[ \t]*(program)[ \t]*=[ \t]*/ {

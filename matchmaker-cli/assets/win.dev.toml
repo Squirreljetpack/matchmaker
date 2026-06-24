@@ -95,14 +95,11 @@ border.padding = [2, 0]
 "alt-o" = "Become(%EDITOR% {})"
 "ctrl-r" = "Reload"
 
-[start]
-command = {
-    cmd = '''
+[start.command]
+cmd = '''
 if (Get-Command fd -ErrorAction SilentlyContinue) {
     fd --strip-cwd-prefix --print0
 } else {
     Get-ChildItem -Recurse -File | ForEach-Object { "$($_.FullName)`0" }
-}
-''',
-    separator = "\\0"
-}
+}'''
+separator = "\\0"

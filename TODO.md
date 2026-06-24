@@ -30,6 +30,8 @@
 - Picker overlay
 - builder with intermediate type states for pick options + make state depend on context C and aext A
 
+- replace ansi-2-text for performance and correctness (i.e. man output)
+
 # Previewer
 
 - Offload large previews to disk
@@ -75,6 +77,7 @@
 - more compatible keybinds: tagset for modes, provide alternates for key sequences which might not be available i.e. ? vs shift-?
 
 # Rework column sizing and row rendering:
+
 while remaining > 0, render row.
 
 allocate widths as follows, let n = total/#cols
@@ -83,4 +86,4 @@ Recompute n and allocate again.
 When no more cols with max < n, distribute equally.
 
 constant render:
-  Constant tick rate, only draw on tick + no events/status update since last tick
+Constant tick rate, only draw on tick + no events/status update since last tick

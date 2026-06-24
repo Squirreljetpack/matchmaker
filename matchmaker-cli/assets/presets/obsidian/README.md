@@ -6,4 +6,5 @@ A TUI for browsing Obsidian notes:
 - ob-inbox: append to special (inbox) notes
 
 Requires:
+
 - f:ist

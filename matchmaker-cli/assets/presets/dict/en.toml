@@ -21,6 +21,8 @@ names = ["word", "pos", "definition", { name = 'synonyms', hidden = true }, { na
 prefer_prefix = true
 
 # --- Preview ---
+[preview]
+show = true
 
 [[preview.layout]]
 # Tree view
@@ -61,6 +63,5 @@ echo {etymology}
     fi
 )
 '''
-
 
 [tui]

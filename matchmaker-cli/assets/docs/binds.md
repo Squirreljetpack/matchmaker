@@ -51,9 +51,9 @@ You define a semantic trigger by binding it to one or more actions in your confi
 ```toml
 [binds]
 "@my_macro" = [
-  "ExecuteSilent(echo 'Starting...')",
-  "Filtering(true)",
-  "SetPrompt(working> )",
+    "ExecuteSilent(echo 'Starting...')",
+    "Filtering(true)",
+    "SetPrompt(working> )",
 ]
 ```
 
@@ -127,7 +127,7 @@ In this example, if the mode is `vim`, `h` and `l` will move the cursor horizont
 Matchmaker initializes with a default mode based on how it was started:
 
 - `t0`: When only input is connected to terminal.
-- `t1`:  When only output is connected to terminal.
+- `t1`: When only output is connected to terminal.
 - `command`: Both input and output are connected to terminal.
 - `piped`: Neither input nor output are connected to terminal.
 
@@ -170,8 +170,8 @@ Actions are the operations performed when a trigger is activated.
 
 | Action                | Description                                                               |
 | --------------------- | ------------------------------------------------------------------------- |
-| `NextPreview`        | Cycle through available preview layouts.                                   |
-| `PrevPreview`        | Cycle through available preview layouts in reverse order.                  |
+| `NextPreview`         | Cycle through available preview layouts.                                  |
+| `PrevPreview`         | Cycle through available preview layouts in reverse order.                 |
 | `Preview(cmd)`        | Show/hide preview using the provided shell command.                       |
 | `SetPreview(idx)`     | Set preview layout to index `idx`.                                        |
 | `SwitchPreview(idx)`  | Switch to layout `idx`, or toggle it if already active.                   |
@@ -236,8 +236,8 @@ Actions are the operations performed when a trigger is activated.
 | `ExecuteAndQuit(cmd)`  | Run a shell command (replaces TUI) and then quit.                                                                                   |
 | `Become(cmd)`          | Transform the process into the command.                                                                                             |
 | `BecomeSilent(cmd)`    | Transform the process into the command without clearing the screen (useful for transitioning between different matchmaker presets). |
-| `BecomeOr(cmd)`        | Execute the command, quit on success, ask for confirmation on failure,  resume on interrupt.                                         |
-| `BecomeOr2(cmd)`        | Execute the command, quit on success, resume on failure, exit on interrupt.                                         |
+| `BecomeOr(cmd)`        | Execute the command, quit on success, ask for confirmation on failure, resume on interrupt.                                         |
+| `BecomeOr2(cmd)`       | Execute the command, quit on success, resume on failure, exit on interrupt.                                                         |
 | `Reload(cmd)`          | Rerun the initial command or a new one.                                                                                             |
 | `ReloadNext(n)`        | Cycle through `additional_commands`.                                                                                                |
 | `ReloadPrev`           | Cycle backwards through `additional_commands`.                                                                                      |
@@ -313,10 +313,10 @@ ansi = true
 [binds]
 "Start" = "@enter_rg"
 "@enter_rg" = [ # Reload on query change, disable reparsing, update bind
-  "Filtering(false)",
-  '''Bind(QueryChange = Reload)''',
-  # Prompt indicator (
-  '''Transform(
+    "Filtering(false)",
+    '''Bind(QueryChange = Reload)''',
+    # Prompt indicator (
+    '''Transform(
     [[ -n "$MM_QUERY" ]] &&
     prompt="($MM_QUERY)" ||
     prompt="rg>"
@@ -325,12 +325,12 @@ ansi = true
     echo "SetQuery($MM_STORE)"
     echo "Store($MM_QUERY)"
 )''',
-  "Bind(@reload = @enter_mm)",
+    "Bind(@reload = @enter_mm)",
 ]
 "@enter_mm" = [
-  "Filtering(true)",
-  "Unbind(QueryChange)",
-  '''Transform(
+    "Filtering(true)",
+    "Unbind(QueryChange)",
+    '''Transform(
 	[[ -n "$MM_QUERY" ]] &&
 	prompt="($MM_QUERY)" ||
 	prompt="mm"
@@ -340,7 +340,7 @@ ansi = true
     echo "Store($MM_QUERY)"
 )
 ''',
-  "Bind(@reload = @enter_rg)",
+    "Bind(@reload = @enter_rg)",
 ]
 
 "ctrl-r" = "@reload"

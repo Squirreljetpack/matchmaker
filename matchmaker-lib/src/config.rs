@@ -54,8 +54,7 @@ pub struct WorkerConfig {
     pub reverse: bool, // TODO: test with sort_threshold
 }
 
-/// Configures how input is fed to to the worker(s).
-///
+/// (client-app responsibility). Configures how input is fed to to the worker(s).
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
@@ -64,22 +63,25 @@ pub struct StartConfig {
     #[partial(alias = "is")]
     pub input_separator: Option<char>,
 
+    /// Print accepted items as.
     #[serde(deserialize_with = "escaped_opt_string")]
     #[partial(alias = "os")]
     pub output_separator: Option<String>,
-
     /// Format string to print accepted items as.
     #[partial(alias = "ot")]
     #[serde(alias = "output")]
     pub output_template: Option<String>,
+    /// Execution template for accepted items. Exclusive with output_template and output_separator.
+    pub on_accept: String,
 
-    /// (client-app responsibility) Default command to execute when stdin is not being read.
+    /// Default command to execute when stdin is not being read.
     #[partial(alias = "cmd", alias = "x")]
     pub command: CommandSetting,
-    /// (client-app responsibility) Additional command which can be cycled through using Action::ReloadNext
+    /// Additional command which can be cycled through using Action::ReloadNext
     #[partial(alias = "ax")]
     pub additional_commands: Vec<String>,
 
+    /// Execution directory
     #[partial(alias = "d")]
     pub directory: EnvValue,
 
@@ -115,9 +117,6 @@ pub struct ExitConfig {
     /// Last processed key is written here.
     /// Set to an empty path to disable.
     pub last_key_path: Option<std::path::PathBuf>,
-
-    /// (client-app responsibility) Execution template for accepted items
-    pub on_accept: String,
 }
 
 /// The ui config.

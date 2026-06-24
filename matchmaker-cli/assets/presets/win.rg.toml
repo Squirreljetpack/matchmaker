@@ -60,10 +60,10 @@ scroll_wrap = true
 "Start" = "@enter_rg"
 # Reload on query change, disable reparsing, update bind
 "@enter_rg" = [
-  "Filtering(false)",
-  '''Bind(QueryChange = Reload)''',
-  # Prompt indicator
-  '''Transform(
+    "Filtering(false)",
+    '''Bind(QueryChange = Reload)''',
+    # Prompt indicator
+    '''Transform(
     if ($env:MM_QUERY) {
         $trimmedQuery = $env:MM_QUERY -replace '^%1\s*', ''
         Write-Output "SetStyledPrompt({blue,italic:($trimmedQuery)} )"
@@ -74,12 +74,12 @@ scroll_wrap = true
     Write-Output "SetQuery($env:MM_STORE)"
     Write-Output "Store($env:MM_QUERY)"
 )''',
-  "Bind(@reload = @enter_mm)",
+    "Bind(@reload = @enter_mm)",
 ]
 "@enter_mm" = [
-  "Filtering(true)",
-  "Unbind(QueryChange)",
-  '''Transform(
+    "Filtering(true)",
+    "Unbind(QueryChange)",
+    '''Transform(
     if ($env:MM_QUERY) {
         Write-Output "SetPrompt(($env:MM_QUERY) )"
     } else {
@@ -91,5 +91,5 @@ scroll_wrap = true
     Write-Output "SwitchColumn(1)"
 )
 ''',
-  "Bind(@reload = @enter_rg)",
+    "Bind(@reload = @enter_rg)",
 ]

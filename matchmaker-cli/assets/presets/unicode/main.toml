@@ -3,9 +3,9 @@
 [start]
 command = '''zstd -dc "$(dirname -- "$MM_OVERRIDE")"/unicode.zst'''
 additional_commands = [
-  "",
-  '''zstd -dc "$(dirname -- "$MM_OVERRIDE")"/emoji.zst''',
-  '''zstd -dc "$(dirname -- "$MM_OVERRIDE")"/emoji_compat.zst''',
+    "",
+    '''zstd -dc "$(dirname -- "$MM_OVERRIDE")"/emoji.zst''',
+    '''zstd -dc "$(dirname -- "$MM_OVERRIDE")"/emoji_compat.zst''',
 ]
 
 [envs]
@@ -20,6 +20,9 @@ names = ["char", "name", "cat", "meta"]
 default = "name"
 
 # --- Preview ---
+[preview]
+show = true
+
 [[preview.layout]]
 command = '''
 if ((MM_INDEX == 0)); then
@@ -29,7 +32,7 @@ if ((MM_INDEX == 0)); then
   name={name}
   cat={cat}
   meta={meta}
-  
+
   printf "%${COLUMNS}s\n" | tr ' ' '-'
   echo "  $char  "$name
   printf "%${COLUMNS}s\n" | tr ' ' '-'
@@ -44,7 +47,7 @@ elif ((MM_INDEX == 1)); then
   # Emoji (Rendered)
   char={char}
   hex=$(printf "U+%X\n" "'$char")
-  
+
   printf "%${COLUMNS}s\n" | tr ' ' '-'
   echo "  $char  "{name}
   printf "%${COLUMNS}s\n" | tr ' ' '-'
@@ -77,7 +80,7 @@ else
   ')
   char="$(printf "%b" "$emoji_seq")"
   hex=$(echo {char} | awk -F'-' '{for(i=1;i<=NF;i++) printf "U+%s ", toupper($i)}')
-  
+
   printf "%${COLUMNS}s\n" | tr ' ' '-'
   echo "  $char  "{name}
   printf "%${COLUMNS}s\n" | tr ' ' '-'
@@ -180,7 +183,7 @@ fi
 "enter" = ["Print({=char})", "Quit"]
 
 "tty^^enter" = [
-  '''Copy(
+    '''Copy(
 if ((MM_INDEX == 0 || MM_INDEX == 1)); then
   echo {char}
 else
@@ -188,7 +191,7 @@ else
   printf "%b" "$emoji_seq"
 fi
 )''',
-  "Quit",
+    "Quit",
 ]
 
 # --- Scripts ---

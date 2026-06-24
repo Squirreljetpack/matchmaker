@@ -3,6 +3,7 @@
     "emphasisKind": "asterisks"
   },
   "toml": {
+    "indentWidth": 4
   },
   "excludes": [],
   "plugins": [

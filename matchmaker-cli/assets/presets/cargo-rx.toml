@@ -63,7 +63,7 @@ target_input="$(
 split = '\t'
 max = 4
 default = "name"
-names = [ "kind", "name", "path", "flags" ]
+names = ["kind", "name", "path", "flags"]
 
 [preview]
 [[preview.layout]]

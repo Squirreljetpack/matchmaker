@@ -1,0 +1,16 @@
+[start]
+command = 'man -k "$@"'
+ansi = true
+
+[envs]
+MANcmd = { value = 'command -v batman >/dev/null && echo batman || echo man', exec = true }
+
+[columns]
+split = "\\s+-"
+max = 2
+
+[preview]
+show = true
+
+[[preview.layout]]
+command = '''entry={1}; $MANcmd ${entry%%\(*}'''

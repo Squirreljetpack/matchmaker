@@ -1,5 +1,6 @@
 [binds]
-"@open" = ['''
+"@open" = [
+    '''
 Execute(
   file={1}
   [[ "$MM_PREVIEW_COMMAND" == *"cached"* ]] && flags="--cached" || flags=""
@@ -10,7 +11,9 @@ Execute(
     $EDITOR "$file"
   fi
 )
-''', "Reload"]
+''',
+    "Reload",
+]
 
 "@open_2" = '''
 Become(

@@ -10,9 +10,9 @@ grep -v '/HEAD$' |
 sed "s| refs/remotes/$remote/| $remote:|"; done
 '''
 additional_commands = [
-  "",
-  "git for-each-ref --format='%(objectname:short) %(refname:lstrip=2)' refs/tags",
-  "git ls-remote --heads --tags ${1:-origin} | awk '{print substr($1,1,7), $2}'",
+    "",
+    "git for-each-ref --format='%(objectname:short) %(refname:lstrip=2)' refs/tags",
+    "git ls-remote --heads --tags ${1:-origin} | awk '{print substr($1,1,7), $2}'",
 ]
 
 [columns]
@@ -489,7 +489,6 @@ read -r branch
 [ -n "$branch" ] || exit
 git switch -c "$branch"
 )'''
-
 
 "@show_remotes" = '''ExecuteOrConfirm(
 git remote | while IFS= read -r remote; do

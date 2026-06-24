@@ -26,9 +26,9 @@ sort = 40
 split = ','
 max = 3
 names = [
-  { name = "name", options = "Optional" },
-  { name = "section", options = "Optional | OrUseDefault" },
-  { hidden = true, name = "target" },
+    { name = "name", options = "Optional" },
+    { name = "section", options = "Optional | OrUseDefault" },
+    { hidden = true, name = "target" },
 ]
 default = 1
 

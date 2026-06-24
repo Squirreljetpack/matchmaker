@@ -1,15 +1,17 @@
 # Common binds and actions for Docker presets
+[preview]
+show = true
 
 [binds]
-    "alt-c" = "@follow_logs"
-    "ctrl-y" = "@copy_id"
-    "alt-d"  = "@show_2"
-    "alt-l"  = "@show_config"
-    "alt-t"  = "@show_stats"
+"alt-c" = "@follow_logs"
+"ctrl-y" = "@copy_id"
+"alt-d" = "@show_2"
+"alt-l" = "@show_config"
+"alt-t" = "@show_stats"
 
-    "ctrl-r" = [ "@restart", "Reload" ]
-    "ctrl-x" = [ "@toggle_start", "Reload" ]
-    "alt-x"  = [ "@toggle_pause", "Reload" ]
+"ctrl-r" = ["@restart", "Reload"]
+"ctrl-x" = ["@toggle_start", "Reload"]
+"alt-x" = ["@toggle_pause", "Reload"]
 
-    "@copy" = "CopyAsync(echo {id})"
-    "@next" = "Reload"
+"@copy" = "CopyAsync(echo {id})"
+"@next" = "Reload"

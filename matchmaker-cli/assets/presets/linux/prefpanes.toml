@@ -5,14 +5,14 @@
 command = '''
     # Determine current desktop for filtering
     current_de="${XDG_CURRENT_DESKTOP:-}"
-    
+
     # Common XDG application directories
     search_paths=(
         "/usr/share/applications"
         "/usr/local/share/applications"
         "$HOME/.local/share/applications"
     )
-    
+
     # 1. Find all .desktop files
     # 2. Filter for those in the "Settings" category
     # 3. Parse Name, Comment, and Exec fields
@@ -28,7 +28,7 @@ command = '''
                 done
                 [[ "$match" == "false" ]] && continue
             fi
-            
+
             not_show=$(grep "^NotShowIn=" "$file" | cut -d= -f2-)
             if [[ -n "$not_show" ]]; then
                 match=false
@@ -44,9 +44,9 @@ command = '''
         name=$(grep "^Name=" "$file" | head -1 | cut -d= -f2-)
         comment=$(grep "^Comment=" "$file" | head -1 | cut -d= -f2-)
         exec=$(grep "^Exec=" "$file" | head -1 | cut -d= -f2- | sed 's/ %.*//')
-        
+
         [[ -z "$name" ]] || [[ -z "$exec" ]] && continue
-        
+
         # Output: Name, Description (Section), Target (Exec)
         echo "$name,${comment:-Settings},$exec"
     done | sort -t, -k1,1

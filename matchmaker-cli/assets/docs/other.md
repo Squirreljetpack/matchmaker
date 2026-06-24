@@ -59,3 +59,14 @@ Filter a specific column using `%name` or any abbreviation thereof:
 
 - `%path .toml`: Matches items where the `path` column ends with `.toml`.
 - `helix %p .toml !lang`: Match `helix`, path ends in `.toml`, exclude `lang`.
+
+---
+
+## Miscellaneous
+
+### Exit codes
+
+- 125: EventLoopClosed
+- 404: No Match
+- 11: Start Error
+- 100: Signal to resume from BecomeOrConfirm (when emitted by spawned scripts)

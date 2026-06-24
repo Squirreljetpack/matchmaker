@@ -67,7 +67,7 @@ command = '"$DOCKERcmd" top {id}'
 "@exec" = 'Become("$DOCKERcmd" exec -it {id} sh -c "if command -v zsh > /dev/null 2>&1; then exec zsh; elif command -v bash > /dev/null 2>&1; then exec bash; else exec sh; fi")'
 "@rm" = 'Execute("$DOCKERcmd" rm -f {id}) Status(Removing...)'
 
-"@mount" = '''BecomeOr(
+"@mount" = '''BecomeOrConfirm(
     container_id={id}
     mounted_dir=$(podman unshare -- podman mount "$container_id") || { echo "Mount failed" && read; exit 1; }
     echo "Mounted at: $mounted_dir"

@@ -232,12 +232,12 @@ Actions are the operations performed when a trigger is activated.
 | `ExecuteThen(cmd)`     | Run asynchronously; subsequent actions execute after completion and only if it succeeds.                                            |
 | `CopyAsync(cmd)`       | Run a command asynchronously and copy its output to the clipboard (works across ssh: see `tui.osc52`).                              |
 | `Copy(cmd)`            | Same as CopyAsync but run synchronously. Use in chained actions which exit on completion                                            |
-| `ExecuteOrConfirm(c)`  | Run a shell command (replaces TUI), but ask for confirmation if it fails.                                                           |
-| `ExecuteAndQuit(cmd)`  | Run a shell command (replaces TUI) and then quit.                                                                                   |
+| `ExecuteOrConfirm(c)`  | Run a shell command, and prompt for confirmation if failed.                                                                         |
+| `ExecuteAndQuit(cmd)`  | Run a shell command, and quit on success.                                                                                           |
 | `Become(cmd)`          | Transform the process into the command.                                                                                             |
 | `BecomeSilent(cmd)`    | Transform the process into the command without clearing the screen (useful for transitioning between different matchmaker presets). |
-| `BecomeOr(cmd)`        | Execute the command, quit on success, ask for confirmation on failure, resume on interrupt.                                         |
-| `BecomeOr2(cmd)`       | Execute the command, quit on success, resume on failure, exit on interrupt.                                                         |
+| `BecomeOrConfirm(cmd)` | Execute the command, quit on success, ask for confirmation on failure, resume on user-originated termination or exit code 100.      |
+| `BecomeOrResume(cmd)`  | Execute the command, quit on success, resume on failure, exit on any nonstandard termination.                                       |
 | `Reload(cmd)`          | Rerun the initial command or a new one.                                                                                             |
 | `ReloadNext(n)`        | Cycle through `additional_commands`.                                                                                                |
 | `ReloadPrev`           | Cycle backwards through `additional_commands`.                                                                                      |

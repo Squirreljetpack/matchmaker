@@ -89,10 +89,10 @@ prompt = "status> "
 "ctrl-shift-c" = ["@commit_ai", "Reload"]
 "alt-r" = ["@restore", "Reload"]
 "ctrl-t" = ["@stash", "Reload"]
-"alt-t" = ["@stash_dirty", "Reload"]
+"alt-t" = ["@stash_unstaged", "Reload"]
 "@rm" = ["#untrack", "@untrack", "Reload"]
-"ctrl-shift-d" = ["@delete", "Reload"]
-"alt-d" = ["@disk-delete", "Reload"]
+"ctrl-shift-d" = ["#delete", "ExecuteOrConfirm(git add -- {+1}; git rm -rf -- {+1})", "Reload"]
+"alt-d" = ["#delete from disk", "ExecuteOrConfirm(rm -rf -- {+1})", "Reload"]
 "alt-i" = ["@ignore", "Reload"]
 "ctrl-i" = ["#edit gitignore", "Execute($EDITOR .gitignore)", "Reload"]
 "ctrl-b" = "@save-staged"
@@ -203,7 +203,7 @@ fi
 )
 '''
 
-"@stash_dirty" = "ExecuteOrConfirm(git stash --keep-index --include-untracked)"
+"@stash_unstaged" = "ExecuteOrConfirm(git stash --keep-index --include-untracked)"
 
 "@untrack" = '''
 ExecuteOrConfirm(
@@ -228,15 +228,6 @@ fi
 )
 '''
 
-"@disk-delete" = "ExecuteOrConfirm(rm -rf -- {+1})"
-
-"@delete" = '''
-ExecuteOrConfirm(
-git add -- {+1}
-git rm -rf -- {+1}
-)
-'''
-
 "@ignore" = '''
 ExecuteOrConfirm(
 set -e
@@ -248,7 +239,7 @@ done
 '''
 
 "@commit" = '''
-BecomeOr(
+BecomeOrConfirm(
 set -e
 if git diff --cached --quiet; then
   git add .
@@ -275,7 +266,7 @@ fi
 )
 '''
 
-"@save_staged" = '''BecomeOr(
+"@save_staged" = '''BecomeOrConfirm(
 set -e
 
 # Get the current branch name and short hash
@@ -294,13 +285,13 @@ if git diff --cached --quiet; then
 else
   # 1. Package the index into a tree
   tree=$(git write-tree)
-  
+
   # 2. Create a standalone commit from that tree attached to HEAD
   commit=$(echo "$msg" | git commit-tree "$tree" -p HEAD)
-  
+
   # 3. Point the new branch at the newly created commit
   git branch "$name" "$commit"
-  
+
   echo "Staged changes successfully saved to '$name'."
   exit 1
 fi

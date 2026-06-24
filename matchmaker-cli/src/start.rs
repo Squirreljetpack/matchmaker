@@ -306,6 +306,8 @@ pub fn process_envs(mut envs: HashMap<String, EnvValue>) -> HashMap<String, Stri
     processed_envs
 }
 
+const START_ERROR: Result<(), MatchError> = Err(MatchError::Abort(11));
+
 pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let Config {
         render,
@@ -405,7 +407,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         }
 
         if failed && force {
-            std::process::exit(1);
+            return START_ERROR;
         }
     }
 
@@ -456,7 +458,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     ) = Matchmaker::new_from_config(render, tui, worker, columns, exit, preprocess);
 
     if has_error {
-        return Err(MatchError::Abort(1));
+        return START_ERROR;
     }
 
     // make previewer
@@ -527,8 +529,8 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             skip_invalid_lines,
         )
     } else {
-        eprintln!("error: no input detected.");
-        std::process::exit(99)
+        ebog!("no input detected.");
+        return START_ERROR;
     };
 
     // ---------------------- register handlers ---------------------------

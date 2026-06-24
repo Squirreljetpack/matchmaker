@@ -28,21 +28,21 @@ fi
 [binds]
 "right" = [
     "#browse",
-    '''BecomeOr2(
+    '''BecomeOrResume(
 cd {path}
 FS_OPTS='opener=ob-open' fs
 )''',
 ]
 "ctrl-r" = [
     "#search",
-    '''BecomeOr2(
+    '''BecomeOrResume(
   set -- {+path}
   printf '%s\n' "$@" | fs :rg '^#{1,6} ' --filtering --rebase --no-fixed-strings --query '% '
 )''',
 ]
 "ctrl-f" = [
     "#find",
-    '''BecomeOr2(printf '%s\n' {+path} | ob-files)''',
+    '''BecomeOrResume(printf '%s\n' {+path} | ob-files)''',
 ]
 
 "@open" = "ExecuteSilent(fs :o {+path})"

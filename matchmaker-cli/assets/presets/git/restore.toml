@@ -92,16 +92,16 @@ prompt = "restore> "
 "@accept" = ["@checkout", "Reload"]
 "@accept_2" = [
     "#apply stash/hard reset",
-    '''BecomeOr(
+    '''BecomeOrConfirm(
 set -e
 case $MM_INDEX in
   1)
     echo "### Pop Stash ###\n"
-    
+
     echo "Working directory:"
     printf "%${COLUMNS}s\n" | tr ' ' '-'
     git --no-pager diff --stat
-    
+
     echo "Stash changes:"
     printf "%${COLUMNS}s\n" | tr ' ' '-'
     git --no-pager stash show {1}
@@ -109,15 +109,15 @@ case $MM_INDEX in
   ;;
   *)
   echo "### Hard Reset ###\n"
-  
+
   echo "--- File changes ---"
   git --no-pager diff --stat HEAD {1}
   echo
-    
+
   echo "--- Commits ADDED ---"
   git --no-pager log --oneline HEAD..{1}
   echo
-    
+
   echo "--- Commits REMOVED ---"
   git --no-pager log --oneline {1}..HEAD
   echo
@@ -144,6 +144,7 @@ esac
 "alt-c" = "@diffstat"
 "alt-m" = ["@edit_msg", "Reload"]
 "ctrl-e" = ["@rebase", "Reload"]
+"alt-s" = "BecomeOrConfirm(git-squash {+1})"
 "@next" = "BecomeSilent(mm -o git/switch)"
 "@prev" = "BecomeSilent(mm -o git/status)"
 "@help" = '''RunPreview(
@@ -196,17 +197,17 @@ exit 1
 "@rebase" = "Execute(git rebase -i {1}'^')"
 
 "@checkout" = '''
-BecomeOr(
+BecomeOrConfirm(
 set -e
 
 case $MM_INDEX in
   1)
     echo "### Apply Stash ###\n"
-    
+
     echo "Working directory:"
     printf "%${COLUMNS}s\n" | tr ' ' '-'
     git --no-pager diff --stat
-    
+
     echo "Stash changes:"
     printf "%${COLUMNS}s\n" | tr ' ' '-'
     git --no-pager stash show {1}
@@ -242,7 +243,7 @@ esac
 )
 '''
 
-"@soft_reset" = '''BecomeOr(
+"@soft_reset" = '''BecomeOrConfirm(
 set -e
 case $MM_INDEX in
 1)
@@ -327,7 +328,7 @@ esac
 )'''
 
 "@tag" = '''
-BecomeOr(
+BecomeOrConfirm(
 set -e
 
 case $MM_INDEX in
@@ -477,7 +478,7 @@ case $MM_INDEX in
 
       # Amend the message
       git commit --allow-empty --amend -m "$msg"
-      
+
       # Finish replaying subsequent commits
       git rebase --continue
   fi

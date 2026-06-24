@@ -5,3 +5,15 @@
 # [[ preview 2: show ]]
 
 # accept: feeds into -o git/restore
+
+[binds]
+"ctrl-f" = ["@force-add", "Reload"]
+
+"@force_add" = '''ExecuteOrConfirm(
+set -- {+1}
+for p; do
+  [[ "$p" == /* ]] || p="$GIT_PREFIX$p";
+  git add -f "$p"
+  echo "!$p" >> ".gitignore"
+done;
+)'''

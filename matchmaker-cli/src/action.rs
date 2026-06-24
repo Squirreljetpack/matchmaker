@@ -68,9 +68,9 @@ pub enum MMAction {
     /// [`matchmaker::Action::Execute`], quit on success
     ExecuteAndQuit(String),
     /// [`matchmaker::Action::Execute`], quit on success, confirm on error, resume on signal
-    BecomeOr(String),
+    BecomeOrConfirm(String),
     /// [`matchmaker::Action::Execute`], quit on success, resume on error, exit on signal
-    BecomeOr2(String),
+    BecomeOrResume(String),
     /// Execute command and parse output as actions
     Transform(String),
     /// Execute command and parse output as configuration
@@ -238,11 +238,11 @@ pub fn action_handler(
             state.discriminant_payload = Some(1);
             state.set_interrupt(Interrupt::Execute, s);
         }
-        MMAction::BecomeOr(s) => {
+        MMAction::BecomeOrConfirm(s) => {
             state.discriminant_payload = Some(2);
             state.set_interrupt(Interrupt::Execute, s);
         }
-        MMAction::BecomeOr2(s) => {
+        MMAction::BecomeOrResume(s) => {
             state.discriminant_payload = Some(3);
             state.set_interrupt(Interrupt::Execute, s);
         }
@@ -394,7 +394,7 @@ enum_from_str_display! {
 
 
     tuples:
-    Bind, Unbind, PushBind, PopBind, ExecuteOrConfirm, ExecuteAndQuit, BecomeOr, BecomeOr2, Transform, TransformConfig, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter, RunPreview;
+    Bind, Unbind, PushBind, PopBind, ExecuteOrConfirm, ExecuteAndQuit, BecomeOrConfirm, BecomeOrResume, Transform, TransformConfig, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter, RunPreview;
 
     defaults:
     ;

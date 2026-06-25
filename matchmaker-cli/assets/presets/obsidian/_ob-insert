@@ -1,0 +1,120 @@
+#!/bin/zsh
+
+# Default options
+early_add=0
+
+# Parse optional flags
+while [[ "$1" == -* ]]; do
+  case "$1" in
+    -e|--early) early_add=1; shift ;;
+    *) echo "Unknown option: $1" >&2; exit 1 ;;
+  esac
+done
+
+# Check for required arguments
+if [[ $# -lt 3 ]]; then
+  echo "Usage: $0 [-e|--early] <markdown_file> <heading> <string_to_insert>"
+  echo "  -e, --early   Add before the very next heading (useful for inserting above subheadings)"
+  exit 1
+fi
+
+md_file="$1"
+heading="$2"
+string_to_insert="$3"
+
+if [[ ! -f "$md_file" ]]; then
+  echo "Error: File '$md_file' not found." >&2
+  exit 1
+fi
+
+# Parse optional line number from heading argument (format: [line_num:]heading)
+if [[ "$heading" == *:* ]] && [[ "${heading%%:*}" =~ ^[0-9]+$ ]]; then
+  ln="${heading%%:*}"
+  heading="${heading#*:}"
+else
+  ln=""
+fi
+
+# Extract the heading marker (e.g., "##") and its level length
+heading_marker="${heading%% *}"
+heading_level=${#heading_marker}
+
+if [[ "$heading_marker" != \#* ]]; then
+  echo "Error: '$heading' does not appear to be a valid Markdown heading." >&2
+  exit 2
+fi
+
+# If no line number was provided, find the last occurrence of the exact heading
+if [[ -z "$ln" ]]; then
+  ln=$(grep -F -x -n "$heading" "$md_file" | tail -n 1 | cut -d: -f1)
+  ln=${ln:-0}
+fi
+
+# Create a safe temporary file
+tmp_file=$(mktemp)
+
+awk -v insert="$string_to_insert" \
+    -v check_line="$ln" \
+    -v target_level="$heading_level" \
+    -v early_add="$early_add" '
+BEGIN {
+    found = 0
+    add_to = 0
+}
+{
+    lines[NR] = $0
+
+    # Toggle code block state to avoid matching # inside code
+    if (match($0, /^```/)) {
+        in_code_block = !in_code_block
+    }
+
+    if (!in_code_block) {
+        # Check for headings (must have a space after the hashes)
+        if (match($0, /^#+ /)) {
+            current_level = RLENGTH - 1
+
+            # early_add stops at ANY heading. Standard stops at same or higher level headings.
+            if (NR > check_line && (current_level <= target_level || early_add)) {
+                found = NR
+            }
+        }
+
+        # Track the last non-empty line before hitting the next boundary
+        if ($0 !~ /^$/ && found == 0) {
+            add_to = NR
+        }
+    }
+}
+END {
+    # Edge case: inserting at the very top of an empty file
+    if (early_add && add_to == 0 && check_line == 0) {
+        print insert
+        print ""
+        add_to = -1
+    }
+
+    # Print all lines, injecting the string with smart spacing
+    for (i = 1; i <= NR; i++) {
+        print lines[i]
+
+        if (i == add_to) {
+            # Ensure a blank line BEFORE the insert if the previous line wasn'"'"'t empty
+            if (lines[i] !~ /^$/) print ""
+
+            print insert
+
+            # Ensure a blank line AFTER the insert if the next line isn'"'"'t empty
+            if (i < NR && lines[i+1] !~ /^$/) print ""
+        }
+    }
+
+    # Fallback: if file was empty or heading not found, append to end
+    if (add_to == 0) {
+        if (NR > 0 && lines[NR] !~ /^$/) print ""
+        print insert
+    }
+}' "$md_file" > "$tmp_file"
+
+cat "$tmp_file" > "$md_file"
+rm -f "$tmp_file"

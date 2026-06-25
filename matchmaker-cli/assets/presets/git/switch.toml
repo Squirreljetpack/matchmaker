@@ -12,8 +12,18 @@ sed "s| refs/remotes/$remote/| $remote:|"; done
 additional_commands = [
     "",
     "git for-each-ref --format='%(objectname:short) %(refname:lstrip=2)' refs/tags",
-    "git ls-remote --heads --tags ${1:-origin} | awk '{print substr($1,1,7), $2}'",
+    # "git ls-remote | awk '{print substr($1,1,7), $2}'", # unfiltered
+    '''
+    git ls-remote "$(eval $LSREMOTE)" 'refs/heads/*' 'refs/tags/*' 'refs/pull/*/head' 'refs/merge-requests/*/head' | awk '{sub(/^refs\//, "", $2); print substr($1,1,7), $2}'
+    ''',
+    '''
+    git show-ref | awk '{sub(/^refs\//, "", $2); print substr($1,1,7), $2}'
+    ''',
 ]
+
+[envs]
+# same logic as git ls-remote default
+"LSREMOTE" = { value = "git config branch.$(git symbolic-ref --short -q HEAD).remote || echo origin" }
 
 [columns]
 split = " "
@@ -99,22 +109,36 @@ prompt = "switch> "
     HEADERS=(
       branches
       tags
-      remotes
+      ls-remote
+      refs
     )
+
+    case "$MM_INDEX" in
+        0) ref=" ($(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD))" ;;
+        2) ref=" ($(eval $LSREMOTE))" ;;
+        3) ref=" (cached)" ;;
+    esac
+
     setopt KSH_ARRAYS 2>/dev/null
-    ref="$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD)"
-    echo "SetHeader(${HEADERS[$MM_INDEX]} ($ref))"
+    echo "SetHeader(${HEADERS[$MM_INDEX]}$ref)"
 )
 '''
 "Reloaded" = '''Transform(
     HEADERS=(
       branches
       tags
-      remotes
+      ls-remote
+      refs
     )
+
+    case "$MM_INDEX" in
+        0) ref=" ($(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD))" ;;
+        2) ref=" ($(eval $LSREMOTE))" ;;
+        3) ref=" (cached)" ;;
+    esac
+
     setopt KSH_ARRAYS 2>/dev/null
-    ref="$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD)"
-    echo "SetHeader(${HEADERS[$MM_INDEX]} ($ref))"
+    echo "SetHeader(${HEADERS[$MM_INDEX]}$ref)"
 )
 '''
 
@@ -123,15 +147,15 @@ ExecuteOrConfirm(
 set -e
 case "$MM_INDEX" in
 0)
-    ref={2}
-    if [[ "$ref" == *":"* ]]; then
-        remote="${ref%%:*}"
+    branch={2}
+    if [[ "branch" == *":"* ]]; then
+        remote="${branch%%:*}"
         echo "Fetching $remote..."
         git fetch "$remote"
     else
         current="$(git branch --show-current)"
-        git switch "$ref"
-        echo "Updating branch $ref..."
+        git switch "$branch"
+        echo "Updating branch $branch..."
         git pull --rebase --autostash
         git status -sb
         git switch "$current"
@@ -142,20 +166,23 @@ case "$MM_INDEX" in
     git fetch --tags
     ;;
 2)
-    remote="$(git config --get branch.$(git branch --show-current).remote)"
+    remote="$(eval $LSREMOTE)"
     echo "Fetching $remote..."
     git fetch $remote
+    ;;
+3)
+    echo "Fetching all remotes (with prune)..."
+    git fetch --all --prune
     ;;
 esac
 false
 )
 '''
 
-# Switch and exit: less spurious than switch_silent
 "@switch" = '''
 Become(
 set -e
-if [ -n "$(git status --porcelain)" ]; then
+if [ -n "$(git -c color.ui=always status --porcelain -s | tee /dev/tty)" ]; then
     printf "Local changes detected, continue? [y/N/stash] "
     read -r ans
     case "$ans" in
@@ -165,19 +192,19 @@ if [ -n "$(git status --porcelain)" ]; then
     esac
 fi
 
-remote="$(git config --get branch.$(git branch --show-current).remote)"
-
 case "$MM_INDEX" in
 0)
-  ref={2}
-  ref=${ref#*:}
-  git switch "$ref"
+  branch={2}
+  git switch -q "${branch#*:}" &&
+  git --no-pager branch -vv --list "$(git branch --show-current)" --color=always
   ;;
 1)
   git switch --detach {2}
   ;;
 2)
-  ref={2}
+  ref=refs/{2}
+  remote="$(eval "$LSREMOTE")"
+
   case "$ref" in
     refs/heads/*)
       name="${ref#refs/heads/}"
@@ -188,9 +215,20 @@ case "$MM_INDEX" in
           git switch -c "$name" --track "$remote/$name"
       fi
       ;;
-    refs/tags/*)
+    *)
       git fetch "$remote" "$ref"
       git switch --detach FETCH_HEAD
+      ;;
+  esac
+  ;;
+3)
+  ref=refs/{2}
+  case "$ref" in
+    refs/heads/*)
+      git switch "${ref#refs/heads/}"
+      ;;
+    *)
+      git switch --detach "$ref"
       ;;
   esac
   ;;
@@ -202,27 +240,38 @@ esac
 set -e
 case "$MM_INDEX" in
 0)
-    ref={2}
-    ref=${ref#*:}
-    git switch "$ref"
+    branch={2}
+    git switch "${branch#*:}"
     ;;
 1)
     git switch --detach {2}
     ;;
 2)
-    ref={2}
+    ref=refs/{2}
+    remote="$(eval "$LSREMOTE")"
     case "$ref" in
     refs/heads/*)
         name="${ref#refs/heads/}"
         git fetch "$remote" "$ref:$name"
         git switch -c "$name" --track "$remote/$name"
         ;;
-    refs/tags/*)
+    *)
         git fetch "$remote" "$ref"
         git switch --detach FETCH_HEAD
         ;;
     esac
-;;
+    ;;
+3)
+    ref=refs/{2}
+    case "$ref" in
+      refs/heads/*)
+        git switch "${ref#refs/heads/}"
+        ;;
+      *)
+        git switch --detach "$ref"
+        ;;
+    esac
+    ;;
 esac
 )'''
 
@@ -232,12 +281,12 @@ set -e
 
 case "$MM_INDEX" in
 0)
-    ref={2}
-    if [[ "$ref" == *":"* ]]; then
-         remote="${ref%%:*}"
-         branch="${ref#*:}"
+    branch={2}
+    if [[ "$branch" == *":"* ]]; then
+         remote="${branch%%:*}"
+         branch="${branch#*:}"
          if [ -n "$remote" ] && [ -n "$branch" ]; then
-             printf "Do you want to DELETE remote branch '%s' from '%s'? [y/N]: " "$branch" "$remote"
+             printf "Delete remote branch '%s' from '%s'? [y/N]: " "$branch" "$remote"
              read -r confirm
              case "$confirm" in
                  [Yy]*)
@@ -254,12 +303,12 @@ case "$MM_INDEX" in
              exit 1
          fi
     else
-        printf "Delete local branch %s? [y/N] " "$ref"
+        printf "Delete local branch %s? [y/N] " "$branch"
         read -r ans
 
         case "$ans" in
             [yY]*)
-                git branch -D "$ref"
+                git branch -D "$branch"
 
                 upstream="$(git rev-parse --abbrev-ref "$ref@{u}" 2>/dev/null || true)"
 
@@ -277,58 +326,62 @@ case "$MM_INDEX" in
                     esac
                 fi
                 ;;
+            *)
+                exit 0
+                ;;
         esac
     fi
     ;;
 1)
     set -- {+2};
     auto_remote=0
-    remote={$1};
-    [[ -n $remote ]] || remote="$(git rev-parse --abbrev-ref @{u} | cut -d/ -f1)"
-    
+    remote="$(eval "$LSREMOTE")"
+
     while (($#)); do
         printf "Delete tag $1? [y/N/aA] "
         read -r ans
-    
+
         case "$ans" in
-            a|A*)
+            [aA]*)
                 git tag -d "$@"
-    
+
                 printf "Delete remote tags too? [y/N] "
                 read -r rans
-    
+
                 case "$rans" in
-                    y|Y*)
+                    [yY]*)
                         for t in "$@"; do
                             set -- "$@" "refs/tags/$t"
                             shift
                         done
-                        
+
                         git push "$remote" --delete "$@"
                         ;;
+                    *)
+                        exit 0
+                        ;;
                 esac
-                exit 0
                 ;;
-            y|Y*)
+            [yY]*)
                 git tag -d "$1"
-    
+
                 if [ "$auto_remote" -eq 1 ]; then
                     git push "$remote" --delete "refs/tags/$1"
                 else
                     printf "Delete remote tag too? [y/N/(all)] "
                     read -r rans
-    
+
                     case "$rans" in
-                        a|A*)
+                        [aA]*)
                             auto_remote=1
                             git push "$remote" --delete "refs/tags/$1"
                             ;;
-                        y|Y*)
+                        [yY]*)
                             git push "$remote" --delete "refs/tags/$1"
                             ;;
                     esac
                 fi
-    
+
                 shift
                 ;;
             *)
@@ -337,6 +390,131 @@ case "$MM_INDEX" in
         esac
     done
     ;;
+2)
+    remote="$(eval $LSREMOTE)"
+    set -- {+2}
+
+    for arg in "$@"; do
+        set -- "$@" "refs/$arg"
+        shift
+    done
+
+    printf "Delete %d refs from %s? [Y/n]: " "$#" "$remote"
+    read -r response
+
+    case "$response" in
+        [Yy]*|"")
+            git push "$remote" --delete "$@"
+            ;;
+        *)
+            echo "Deletion cancelled."
+            exit 1
+            ;;
+    esac
+    ;;
+3)
+    set -- {+2}
+
+    type=""
+    remote=""
+    mixed_remotes=false
+
+    # Guard against mixed types
+    for item; do
+        case "$item" in
+            heads/*)
+                current_type="head"
+                set -- "$@" "${item#heads/}"
+                ;;
+            tags/*)
+                current_type="tag"
+                set -- "$@" "${item#tags/}"
+                ;;
+            remotes/*)
+                current_type="remote"
+                clean_ref="${item#remotes/}"
+                current_remote="${clean_ref%%/*}"
+                branch="${clean_ref#*/}"
+
+                if [ -z "$remote" ]; then
+                    remote="$current_remote"
+                elif [ "$remote" != "$current_remote" ]; then
+                    mixed_remotes=true
+                fi
+
+                set -- "$@" "$clean_ref"
+                ;;
+            *)
+                echo "Unknown or unsupported reference type: $item"
+                exit 1
+                ;;
+        esac
+
+        if [ -n "$type" ] && [ "$type" != "$current_type" ]; then
+            echo "Error: Mixed types are not supported." >&2
+            exit 1
+        fi
+        type="$current_type"
+        shift
+    done
+
+    case "$type" in
+        head)
+            printf "Delete %d local branches? [y/N] " "$#"
+            read -r ans
+            case "$ans" in
+                [yY]*) git branch -D "$@" ;;
+            esac
+            ;;
+
+        tag)
+            printf "Delete %d tags? [y/N] " "$#"
+            read -r ans
+            case "$ans" in
+                [yY]*) git tag -d "$@" ;;
+            esac
+            ;;
+
+        remote)
+            if $mixed_remotes; then
+                printf "Mixed remotes detected. Delete %d local tracking caches? [y/N]: " "$#"
+                read -r ans
+                case "$ans" in
+                    [yY]*)
+                        echo "Deleting local tracking caches..."
+                        git branch -d -r "$@"
+                        ;;
+                    *)
+                        echo "Skipped."
+                        ;;
+                esac
+            else
+                printf "Delete %d remote branches from '%s'? [Y=push delete / c=cache only / n=cancel]: " "$#" "$remote"
+                read -r ans
+
+                case "$ans" in
+                    [Yy]*|"")
+                        echo "Pushing deletions to remote..."
+                        # Extract just the branch names for the push command
+                        for item; do
+                            set -- "$@" "${1#*/}"
+                            shift
+                        done
+                        git push "$remote" --delete "$@"
+                        ;;
+                    [Cc]*)
+                        echo "Deleting local tracking caches..."
+                        git branch -d -r "$@"
+                        ;;
+                    *)
+                        echo "Skipped."
+                        ;;
+                esac
+            fi
+            ;;
+    esac
+    ;;
+
 *)
     echo "Unavailable"
     exit 1
@@ -349,14 +527,13 @@ esac
 ExecuteOrConfirm(
 set -e
 
-remote={$1};
-[[ -n $remote ]] || remote="$(git rev-parse --abbrev-ref @{u} | cut -d/ -f1)"
+remote="$(eval "$LSREMOTE")"
 
 case "$MM_INDEX" in
 0)
-    ref={2}
-    if [[ "$ref" == *":"* ]]; then
-        old_remote="${ref%%:*}"
+    branch={2}
+    if [[ "$branch" == *":"* ]]; then
+        old_remote="${branch%%:*}"
         printf "Rename REMOTE %s to: " "$old_remote"
         read -r new_name
         if [ -n "$new_name" ]; then
@@ -366,7 +543,7 @@ case "$MM_INDEX" in
             # Input was empty -> Prompt to delete
             printf "Do you want to DELETE remote '%s'? [y/N]: " "$old_remote"
             read -r confirm
-            
+
             case "$confirm" in
                 [Yy]*)
                     git remote remove "$old_remote"
@@ -378,17 +555,17 @@ case "$MM_INDEX" in
             esac
         fi
     else
-        printf "Rename branch %s to: " "$ref"
+        printf "Rename branch %s to: " "$branch"
         read -r new_name
         [ -n "$new_name" ] || exit
-        git branch -m "$ref" "$new_name"
+        git branch -m "$branch" "$new_name"
 
         printf "push? [y/N] "
         read -r ans
         case "$ans" in
         [yY]*)
             git push "$remote" "$new_name" &&
-            git push "$remote" --delete "$ref"
+            git push "$remote" --delete "$branch"
             ;;
         esac
     fi
@@ -413,6 +590,30 @@ case "$MM_INDEX" in
             ;;
     esac
     ;;
+3)
+    ref=refs/{2}
+    case "$ref" in
+        refs/heads/*)
+            branch="${ref#refs/heads/}"
+            printf "Rename local branch %s to: " "$branch"
+            read -r new_name
+            [ -n "$new_name" ] || exit
+            git branch -m "$branch" "$new_name"
+            ;;
+        refs/tags/*)
+            tag="${ref#refs/tags/}"
+            printf "Rename tag %s to: " "$tag"
+            read -r new_tag
+            [ -n "$new_tag" ] || exit
+            git tag "$new_tag" "$tag"
+            git tag -d "$tag"
+            ;;
+        *)
+            echo "Cannot rename remote tracking references."
+            false
+            ;;
+    esac
+    ;;
 *)
     echo "Unavailable"
     false
@@ -424,9 +625,7 @@ esac
 "@add_remote" = '''ExecuteOrConfirm(
 set -e
 
-remote={$1}
-[[ -n $remote ]] || remote="$(git rev-parse --abbrev-ref @{u} 2>/dev/null | cut -d/ -f1)"
-[[ -n $remote ]] || remote=origin
+remote="$(eval "$LSREMOTE")"
 
 printf "Remote name [%s]: " "$remote"
 read -r name
@@ -439,7 +638,7 @@ if git remote 2>/dev/null | grep -q "^$name$"; then
     printf "Remote '%s' already exists (%s).\n" "$name" "$current_url"
     printf "Change its URL? [y/N] "
     read -r ans
-    
+
     case "$ans" in
         [yY]*)
             printf "New URL: "
@@ -448,7 +647,7 @@ if git remote 2>/dev/null | grep -q "^$name$"; then
             ;;
         *)
             prompt_set=true
-        ;;
+            ;;
     esac
 else
     printf "Remote URL: "
@@ -465,7 +664,7 @@ if $prompt_set && [ -n "$current_branch" ]; then
         read -r set_def
         case "$set_def" in
             [yY]*)
-                # We use git config here instead of branch --set-upstream-to 
+                # We use git config here instead of branch --set-upstream-to
                 # because it works completely offline without needing to fetch first.
                 git config "branch.$current_branch.remote" "$name"
                 git config "branch.$current_branch.merge" "refs/heads/$current_branch"
@@ -476,8 +675,7 @@ fi
 )'''
 
 "@copy_remote" = '''CopyAsync(
-remote={$1}
-[[ -n $remote ]] || remote="$(git rev-parse --abbrev-ref @{u} 2>/dev/null | cut -d/ -f1)"
+remote="$(eval "$LSREMOTE")"
 git remote get-url "$remote"
 )
 '''

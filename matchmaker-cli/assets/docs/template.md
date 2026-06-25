@@ -195,7 +195,7 @@ When Matchmaker executes a command (e.g., via `Execute`, `Become`, or a preview 
 | `MM_PREVIEW_COMMAND` |                    | The current preview command                                                                                                                           |
 | `MM_OVERRIDE`        |                    | Path of the first applied override                                                                                                                    |
 | `MM_STORE`           |                    | Current value stored in state (via `Store` action)                                                                                                    |
-| `MM_INDEX`           |                    | Index of populating command (from `additional_commands`). Starts at 0 if first command of `additional_commands` is empty and no input is being piped. |
+| `MM_INDEX`           |                    | Index of populating command (from `additional_commands`). Starts at 0 if first command of `additional_commands` is empty and no input is being piped. Can be set from environment by `_MM_INDEX` |
 
 The `envs` section of your config is also injected, as well as `$CLIPcmd` and `$PASTEcmd` -- the auto-determined clipboard commands if they are not otherwise set.
 

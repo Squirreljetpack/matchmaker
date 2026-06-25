@@ -139,12 +139,11 @@ esac
 ]
 "ctrl-t" = ["@tag", "Reload"]
 "alt-r" = "@soft_reset"
-"@rm" = ["@clean", "Reload"]
+"@rm" = ["#squash/stash/drop/clean", "@clean", "Reload"]
 "ctrl-c" = "@compare"
 "alt-c" = "@diffstat"
 "alt-m" = ["@edit_msg", "Reload"]
 "ctrl-e" = ["@rebase", "Reload"]
-"alt-s" = "BecomeOrConfirm(git-squash {+1})"
 "@next" = "BecomeSilent(mm -o git/switch)"
 "@prev" = "BecomeSilent(mm -o git/status)"
 "@help" = '''RunPreview(
@@ -397,14 +396,24 @@ set -e
 
 case $MM_INDEX in
 0)
-  printf "Run aggressive GC (rewrites object storage, removes unreachable data)? [y/N] "
-  read -r ans
-  case "$ans" in
-    [yY]*)
-      git gc --prune=now --aggressive
-      false
-      ;;
-  esac
+  set -- {+1};
+  if (($# > 1)) && command -v git-squash >/dev/null 2>&1; then
+    git-squash "$@" # git-squash will prompt
+    exit 1 # keep output visible
+  else
+    printf "Stash all changes to HEAD? [Y/n/or type custom message]: "
+    read -r ans
+    case "$ans" in
+      [yY]*|"")
+        git stash
+        ;;
+      [nN]*)
+        ;;
+      *)
+        git stash push -u -m "$ans"
+        ;;
+      esac
+  fi
   ;;
 
 1)
@@ -412,10 +421,12 @@ case $MM_INDEX in
   ;;
 
 2)
-  printf "Run full cleanup GC (expires reflogs + removes unreachable objects immediately)? [y/N] "
+  printf "WARNING: Destructive action. Permanent data deletion.\n"
+  printf "Proceed with full cleanup GC (expire reflogs)? [y/N] "
   read -r ans
   case "$ans" in
     [yY]*)
+      echo "Purging history and running GC..."
       git -c gc.reflogExpire=0 -c gc.reflogExpireUnreachable=0 \
       -c gc.rerere.rresolved=0 -c gc.rerere.unresolved=0 \
       -c gc.pruneExpire=now gc
@@ -425,8 +436,14 @@ case $MM_INDEX in
   ;;
 
 3)
-  echo "Unavailable"
-  exit 1
+  printf "Run aggressive GC (recompress + remove old unreachable data)? [y/N] "
+  read -r ans
+  case "$ans" in
+    [yY]*)
+      git gc --prune=now --aggressive
+      false
+      ;;
+  esac
   ;;
 
 esac

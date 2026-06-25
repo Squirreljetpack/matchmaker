@@ -230,6 +230,7 @@ impl<A: ActionExt> BindMap<A> {
 
     pub fn resolve_actions(&self, actions: &Actions<A>, mode: &str) -> Option<Actions<A>> {
         let mut resolved = Vec::new();
+        let mut in_trace = false;
 
         for action in actions.iter() {
             if let Action::Semantic(alias) = action {
@@ -243,8 +244,9 @@ impl<A: ActionExt> BindMap<A> {
                         alias_actions.clone()
                     };
 
+                    // inner alias names replace outer alias display in chains
                     let already_traced = matches!(flat_actions.first(), Some(Action::Trace(_)));
-                    if !already_traced {
+                    if !already_traced && !in_trace {
                         resolved.push(Action::Trace(format!("@@{alias}")));
                         resolved.extend(flat_actions.into_iter());
                         resolved.push(Action::Trace(String::new()));
@@ -256,6 +258,9 @@ impl<A: ActionExt> BindMap<A> {
                     return None;
                 }
             } else {
+                if let Action::Trace(s) = action {
+                    in_trace = !s.is_empty();
+                }
                 resolved.push(action.clone());
             }
         }

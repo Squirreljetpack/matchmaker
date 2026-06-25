@@ -347,7 +347,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
 
     let mut initial_index = 0;
     if additional_commands.len() > 1 {
-        if let Ok(index_str) = std::env::var("MM_INDEX") {
+        if let Ok(index_str) = std::env::var("_MM_INDEX") {
             if let Ok(index) = index_str.parse::<usize>() {
                 if index < additional_commands.len() {
                     initial_index = index;

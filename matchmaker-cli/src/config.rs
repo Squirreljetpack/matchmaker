@@ -86,6 +86,18 @@ mod tests {
 
     #[test]
     fn config_round_trip() {
+        let default_toml = include_str!("../assets/config.toml");
+        let config: Config = toml::from_str(default_toml).expect("failed to parse default TOML");
+        let serialized = toml::to_string_pretty(&config).expect("failed to serialize to TOML");
+        let deserialized: Config = toml::from_str(&serialized)
+            .unwrap_or_else(|e| panic!("failed to parse serialized TOML:\n{}\n{e}", serialized));
+
+        // Assert the round-trip produces the same data
+        assert_eq!(config, deserialized);
+    }
+
+    #[test]
+    fn dev_config_round_trip() {
         let default_toml = include_str!("../assets/dev.toml");
         let config: Config = toml::from_str(default_toml).expect("failed to parse default TOML");
         let serialized = toml::to_string_pretty(&config).expect("failed to serialize to TOML");

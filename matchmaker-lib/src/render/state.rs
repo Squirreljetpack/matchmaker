@@ -349,8 +349,18 @@ pub struct MMState<'a, 'b: 'a, T: SSS, S: Selection> {
 }
 
 impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
-    pub fn previewer_area(&self) -> Option<&Rect> {
-        self.preview_ui.as_ref().map(|ui| &ui.area)
+    pub fn previewer_area(&self) -> Option<Rect> {
+        self.preview_ui.as_ref().map(|ui| {
+            let mut ret = ui.area;
+            if let Some(o) = ui.current_dimension {
+                if ui.is_vertical() {
+                    ret.height = o
+                } else {
+                    ret.width = o
+                }
+            }
+            ret
+        })
     }
 
     pub fn tui_area(&self) -> Rect {

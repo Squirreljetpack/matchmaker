@@ -62,12 +62,15 @@ side = "right"
 percentage = 40
 min = 30
 max = 120
+border = { type = "LightDoubleDashed", color = "DarkGray" }
 
 [[preview.layout]]
 side = "top"
 percentage = 40
 min = 30
 max = 120
+border.type = "Plain"
+border.padding = [2, 0]
 
 [binds]
 # Essentia
@@ -75,7 +78,7 @@ max = 120
 "esc" = "Quit"
 "enter" = "@accept"
 "ctrl-enter" = "@accept_2"
-"ctrl-a" = "CycleAll"
+"ctrl-a" = "CycleSelections"
 "tab" = ["Select", "Down"]
 "shift-backtab" = ["Toggle", "Up"]
 

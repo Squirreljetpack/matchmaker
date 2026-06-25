@@ -143,15 +143,15 @@ Actions are the operations performed when a trigger is activated.
 
 ### Selection
 
-| Action            | Description                                                |
-| ----------------- | ---------------------------------------------------------- |
-| `Select`          | Add the current item to the selections.                    |
-| `Deselect`        | Remove the current item from the selections.               |
-| `Toggle`          | Toggle the selection state of the current item.            |
-| `CycleAll`        | Toggle selection for all items in the current view.        |
-| `ClearSelections` | Clear all active selections.                               |
-| `Accept`          | Accept the current selection and exit.                     |
-| `Quit(code)`      | Exit Matchmaker with the specified exit code (default: 1). |
+| Action                       | Description                                                |
+| ---------------------------- | ---------------------------------------------------------- |
+| `Select`                     | Add the current item to the selections.                    |
+| `Deselect`                   | Remove the current item from the selections.               |
+| `ToggleSelection` / `Toggle` | Toggle the selection state of the current item.            |
+| `CycleSelections` / `Cycle`  | Toggle selection for all items in the current view.        |
+| `ClearSelections` / `Clear`  | Clear all active selections.                               |
+| `Accept`                     | Accept the current selection and exit.                     |
+| `Quit(code)`                 | Exit Matchmaker with the specified exit code (default: 1). |
 
 ### Navigation
 
@@ -197,21 +197,21 @@ Actions are the operations performed when a trigger is activated.
 
 ### Input & Search
 
-| Action            | Description                                                  |
-| ----------------- | ------------------------------------------------------------ |
-| `ForwardChar`     | Move cursor one character forward.                           |
-| `BackwardChar`    | Move cursor one character backward.                          |
-| `ForwardWord`     | Move cursor one word forward.                                |
-| `BackwardWord`    | Move cursor one word backward.                               |
-| `DeleteChar`      | Delete the character under the cursor.                       |
-| `DeleteWord`      | Delete the word before the cursor.                           |
-| `DeleteLineStart` | Delete from cursor to the start of the line.                 |
-| `DeleteLineEnd`   | Delete from cursor to the end of the line.                   |
-| `Cancel`          | Clear the current input query.                               |
-| `SetQuery(s)`     | Replace the input query with `s`.                            |
-| `QueryPos(n)`     | Move the input cursor to position `n`.                       |
-| `Filtering(bool)` | Toggle or set whether input filters results (default: true). |
-| `CycleSort`       | Cycle through sorting stability levels.                      |
+| Action                  | Description                                                  |
+| ----------------------- | ------------------------------------------------------------ |
+| `ForwardChar`           | Move cursor one character forward.                           |
+| `BackwardChar`          | Move cursor one character backward.                          |
+| `ForwardWord`           | Move cursor one word forward.                                |
+| `BackwardWord`          | Move cursor one word backward.                               |
+| `DeleteChar`            | Delete the character under the cursor.                       |
+| `DeleteWord`            | Delete the word before the cursor.                           |
+| `DeleteLineStart`       | Delete from cursor to the start of the line.                 |
+| `DeleteLineEnd`         | Delete from cursor to the end of the line.                   |
+| `ClearQuery` / `Cancel` | Clear the current input query.                               |
+| `SetQuery(s)`           | Replace the input query with `s`.                            |
+| `QueryPos(n)`           | Move the input cursor to position `n`.                       |
+| `Filtering(bool)`       | Toggle or set whether input filters results (default: true). |
+| `CycleSort`             | Cycle through sorting stability levels.                      |
 
 ### Binds (Dynamic)
 

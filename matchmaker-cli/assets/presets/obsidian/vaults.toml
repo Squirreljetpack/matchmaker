@@ -7,6 +7,7 @@ PATH = { value = 'echo "$(dirname -- "$MM_OVERRIDE"):$PATH"', exec = true, force
 [start]
 command = 'ob-vaults -c'
 sync = true
+on_accept = 'for vault in {+vault}; do; fs :o "obsidian://open?vault=$vault"; done'
 
 [columns]
 split = '\t'
@@ -60,4 +61,3 @@ percentage = 30
 [exit]
 first = true
 abort_empty = true
-on_accept = 'for vault in {+vault}; do; fs :o "obsidian://open?vault=$vault"; done'

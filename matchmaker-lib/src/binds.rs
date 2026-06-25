@@ -43,7 +43,7 @@ impl<A: ActionExt> BindMap<A> {
             key!(ctrl-right) => Action::ForwardWord,
             key!(ctrl-left) => Action::BackwardWord,
             key!(ctrl-h) => Action::DeleteWord,
-            key!(ctrl-u) => Action::Cancel,
+            key!(ctrl-u) => Action::ClearQuery,
             key!(alt-a) => Action::QueryPos(0),
 
             key!(PageDown) => Action::HalfPageDown,
@@ -70,12 +70,15 @@ impl<A: ActionExt> BindMap<A> {
         ret
     }
 
-    /// non-"universal" keybinds, some requiring keyboard enhancements
+    /// non-"universal" keybinds, some requiring keyboard enhancements, mostly for copying sections from
     pub fn with_extras(mut self) -> Self {
         let ext = bindmap!(
             // keyboard enhancement
             key!(ctrl-'[') => Action::ToggleWrap,
             key!(alt-']') => Action::TogglePreviewWrap,
+            key!(alt-'{') => Action::ToggleWrap,
+            key!(alt-'}') => Action::TogglePreviewWrap,
+
             key!(ctrl-shift-right) => Action::HScroll(1),
             key!(ctrl-shift-left) => Action::HScroll(-1),
             key!(ctrl-shift-up) => Action::VScroll(1),
@@ -88,14 +91,11 @@ impl<A: ActionExt> BindMap<A> {
             key!(alt-shift-'/') => Action::PrevPreview,
             key!(ctrl-'/') => Action::NextPreview,
             key!(ctrl-shift-'/') => Action::PrevPreview,
-
             key!(alt-h) => Action::Help("".to_string()),
-            key!(alt-'{') => Action::ToggleWrap,
-            key!(alt-'}') => Action::TogglePreviewWrap,
 
-            key!(tab) => [Action::Toggle, Action::Down(1)],
-            key!(shift-backtab) => [Action::Toggle, Action::Up(1)],
-            key!(ctrl-a) => [Action::Toggle, Action::Down(1)],
+            key!(tab) => [Action::ToggleSelection, Action::Down(1)],
+            key!(shift-backtab) => [Action::ToggleSelection, Action::Up(1)],
+            key!(ctrl-a) => Action::CycleSelections,
             key!(ctrl-shift-a) => Action::ClearSelections
 
             // not currently supported by crossterm
@@ -105,6 +105,11 @@ impl<A: ActionExt> BindMap<A> {
         );
         self.extend(ext);
         self
+    }
+
+    pub fn extend_from(&mut self, mut others: Self) {
+        others.extend(std::mem::take(self));
+        *self = others;
     }
 
     /// Check for infinite loops in semantic actions.
@@ -1073,7 +1078,7 @@ mod test {
             Trigger {
                 kind: TriggerKind::Semantic("s6".into()),
                 mode: String::new()
-            } => Action::Cancel,
+            } => Action::ClearQuery,
         );
         bind_map_multi.resolve_semantics();
         let actions = bind_map_multi.get(&key!(c).into()).unwrap();
@@ -1133,7 +1138,7 @@ mod test {
             Trigger {
                 kind: TriggerKind::Semantic("s1".into()),
                 mode: "mode1".into()
-            } => Action::Cancel,
+            } => Action::ClearQuery,
         );
 
         bind_map.resolve_semantics();
@@ -1149,7 +1154,7 @@ mod test {
                 mode: "mode1".into(),
             })
             .unwrap();
-        assert!(a_mode1.iter().any(|a| matches!(a, Action::Cancel)));
+        assert!(a_mode1.iter().any(|a| matches!(a, Action::ClearQuery)));
     }
 
     #[test]

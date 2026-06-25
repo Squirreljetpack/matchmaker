@@ -54,7 +54,7 @@ impl PreviewUI {
                 && b.sides.is_none()
                 && !b.is_empty()
             {
-                b.sides = Some(x.layout.side.opposite())
+                b.sides = Some(x.layout.side.opposite().into())
             }
         }
 
@@ -425,14 +425,8 @@ impl PreviewUI {
 
     pub fn drag_width(&self) -> u16 {
         self.config.drag_width.unwrap_or_else(|| {
-            let side = self
-                .setting()
-                .map(|s| &s.layout.side)
-                .unwrap_or(&Side::Right);
-            match side {
-                Side::Left | Side::Right => self.border().width(),
-                Side::Top | Side::Bottom => self.border().height(),
-            }
+            let side = self.setting().map(|s| s.layout.side).unwrap_or(Side::Right);
+            self.border().dimension(side.opposite())
         })
     }
 
@@ -445,10 +439,7 @@ impl PreviewUI {
 
         let layout = &setting.layout;
 
-        let direction = match layout.side {
-            Side::Left | Side::Right => Direction::Horizontal,
-            Side::Top | Side::Bottom => Direction::Vertical,
-        };
+        let direction = layout.side.into();
 
         let side_first = matches!(layout.side, Side::Left | Side::Top);
 

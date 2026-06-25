@@ -519,7 +519,7 @@ macro_rules! enum_from_str_display {
 
                     /* ------------------------------------- */
 
-                    _ => Err(format!("Unknown action {}", s)),
+                    _ => Err("".to_string()),
                 }
             }
         }

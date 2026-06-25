@@ -2,6 +2,7 @@ use std::fmt;
 
 use cba::define_transparent_wrapper;
 use ratatui::{
+    layout::Direction,
     style::{Color, Modifier, Style},
     widgets::Borders,
 };
@@ -242,7 +243,7 @@ impl<'de> Deserialize<'de> for Padding {
 //     FormatString: String
 // );
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Side {
     Top,
@@ -253,12 +254,12 @@ pub enum Side {
 }
 
 impl Side {
-    pub fn opposite(&self) -> Borders {
+    pub fn opposite(&self) -> Self {
         match self {
-            Side::Top => Borders::BOTTOM,
-            Side::Bottom => Borders::TOP,
-            Side::Left => Borders::RIGHT,
-            Side::Right => Borders::LEFT,
+            Side::Top => Side::Bottom,
+            Side::Bottom => Side::Top,
+            Side::Left => Side::Right,
+            Side::Right => Side::Left,
         }
     }
 
@@ -266,6 +267,26 @@ impl Side {
         match self {
             Side::Left | Side::Right => true,
             _ => false,
+        }
+    }
+}
+
+impl Into<Borders> for Side {
+    fn into(self) -> Borders {
+        match self {
+            Side::Top => Borders::TOP,
+            Side::Bottom => Borders::BOTTOM,
+            Side::Left => Borders::LEFT,
+            Side::Right => Borders::RIGHT,
+        }
+    }
+}
+
+impl Into<Direction> for Side {
+    fn into(self) -> Direction {
+        match self {
+            Side::Top | Side::Bottom => Direction::Vertical,
+            _ => Direction::Horizontal,
         }
     }
 }

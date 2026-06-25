@@ -428,12 +428,12 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                 selections.desel(item);
                             }
                         }
-                        Action::Toggle => {
+                        Action::ToggleSelection => {
                             if let Some(item) = worker.get_nth(results.index()) {
                                 selections.toggle(item);
                             }
                         }
-                        Action::CycleAll => {
+                        Action::CycleSelections => {
                             selections.cycle_all_bg(worker.raw_results());
                         }
                         Action::ClearSelections => {
@@ -776,7 +776,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         Action::DeleteWord => query.delete_word(),
                         Action::DeleteLineStart => query.delete_line_start(),
                         Action::DeleteLineEnd => query.delete_line_end(),
-                        Action::Cancel => query.cancel(),
+                        Action::ClearQuery => query.cancel(),
 
                         // Other
                         Action::Redraw => {

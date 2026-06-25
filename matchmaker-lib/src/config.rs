@@ -4,6 +4,7 @@
 use std::ffi::OsString;
 
 use matchmaker_partial_macros::partial;
+use ratatui::layout::Rect;
 
 pub use crate::config_types::*;
 pub use crate::utils::{Percentage, serde::StringOrVec};
@@ -857,6 +858,7 @@ impl BorderSetting {
         ret
     }
 
+    // note that matchmaker populates borders in branch 2 with opposite in the creation of PreviewUI, remapping ALL -> OPPOSITE
     pub fn sides(&self) -> Borders {
         if let Some(s) = self.sides {
             s
@@ -895,12 +897,20 @@ impl BorderSetting {
         self.sides() == Borders::NONE
     }
 
+    pub fn inner(&self, mut outer: Rect) -> Rect {
+        outer.width -= self.width();
+        outer.height -= self.height();
+        outer.x += self.left();
+        outer.y += self.top();
+
+        outer
+    }
+
     pub fn height(&self) -> u16 {
         let mut height = 0;
-        height += self.sides().contains(Borders::TOP) as u16
-            + self.sides().contains(Borders::BOTTOM) as u16;
-        height += self.padding.top + self.padding.bottom;
-        height += (!self.title.is_empty() as u16).saturating_sub(!self.is_empty() as u16);
+        height += self.sides().contains(Borders::BOTTOM) as u16;
+        height += self.padding.bottom;
+        height += self.top();
 
         height
     }
@@ -917,7 +927,7 @@ impl BorderSetting {
 
     pub fn left(&self) -> u16 {
         let mut width = 0;
-        width += !self.is_empty() as u16;
+        width += self.sides().contains(Borders::LEFT) as u16;
         width += self.padding.left;
 
         width
@@ -925,11 +935,22 @@ impl BorderSetting {
 
     pub fn top(&self) -> u16 {
         let mut height = 0;
-        height += !self.is_empty() as u16;
+        height += self.sides().contains(Borders::TOP) as u16;
         height += self.padding.top;
-        height += (!self.title.is_empty() as u16).saturating_sub(!self.is_empty() as u16);
+
+        height += (!self.title.is_empty() as u16)
+            .saturating_sub(self.sides().contains(Borders::TOP) as u16);
 
         height
+    }
+
+    pub fn dimension(&self, side: Side) -> u16 {
+        match side {
+            Side::Left => self.left(),
+            Side::Right => self.width() - self.left(),
+            Side::Top => self.top(),
+            Side::Bottom => self.height() - self.top(),
+        }
     }
 }
 

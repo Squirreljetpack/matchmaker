@@ -105,7 +105,7 @@ abort_empty = true
 "enter" = "@accept"
 "alt-enter" = "@accept_2"
 "ctrl-enter" = "@accept_2"
-"ctrl-a" = "CycleAll"
+"ctrl-a" = "CycleSelections"
 "tab" = ["Toggle", "Down"]
 "shift-backtab" = ["Toggle", "Up"]
 

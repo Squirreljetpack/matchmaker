@@ -18,9 +18,9 @@ pub enum Action<A: ActionExt = NullActionExt> {
     /// Remove item from selections
     Deselect,
     /// Toggle item in selections
-    Toggle,
+    ToggleSelection,
     /// Toggle all selections
-    CycleAll,
+    CycleSelections,
     /// Clear all selections
     ClearSelections,
     /// Accept current selection
@@ -150,7 +150,7 @@ pub enum Action<A: ActionExt = NullActionExt> {
     /// Delete to end of line
     DeleteLineEnd,
     /// Clear input
-    Cancel,
+    ClearQuery,
     /// Set input query
     SetQuery(String),
     /// Set query cursor pos
@@ -253,10 +253,10 @@ impl fmt::Display for NullActionExt {
 }
 
 impl std::str::FromStr for NullActionExt {
-    type Err = ();
+    type Err = String;
 
     fn from_str(_: &str) -> Result<Self, Self::Err> {
-        Err(())
+        Err(String::new())
     }
 }
 
@@ -323,7 +323,7 @@ impl<A: ActionExt + Display> serde::Serialize for Action<A> {
     }
 }
 
-impl<'de, A: ActionExt + FromStr> Deserialize<'de> for Actions<A> {
+impl<'de, A: ActionExt + FromStr<Err = String>> Deserialize<'de> for Actions<A> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -362,7 +362,7 @@ impl<A: ActionExt + Display> Serialize for Actions<A> {
 // ----- action serde
 enum_from_str_display!(
     units:
-    Select, Deselect, Toggle, CycleAll, ClearSelections, Accept,
+    Select, Deselect, ToggleSelection = Toggle, CycleSelections = Cycle, ClearSelections = Clear, Accept,
 
     HalfPageDown, HalfPageUp,
 
@@ -370,7 +370,7 @@ enum_from_str_display!(
 
     PreviewHalfPageUp, PreviewHalfPageDown,
 
-    ForwardChar,BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord, DeleteLineStart, DeleteLineEnd, Cancel, Redraw, NextColumn, PrevColumn, PrintKey;
+    ForwardChar,BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord, DeleteLineStart, DeleteLineEnd, ClearQuery = Cancel, Redraw, NextColumn, PrevColumn, PrintKey;
 
     tuples:
     Execute, ExecuteAsync, ExecuteThen, ExecuteSilent, Become, BecomeSilent, Preview,
@@ -386,10 +386,10 @@ enum_from_str_display!(
 
 macro_rules! enum_from_str_display {
     (
-        units: $( $(#[$uattr:meta])* $unit:ident),*;
-        tuples: $( $(#[$tattr:meta])* $tuple:ident),*;
-        defaults: $( $(#[$dattr:meta])* ($default:ident, $default_value:expr)),*;
-        options: $( $(#[$oattr:meta])* $optional:ident),*
+        units: $( $(#[$uattr:meta])* $unit:ident $(= $ualias:ident)? ),*;
+        tuples: $( $(#[$tattr:meta])* $tuple:ident $(= $talias:ident)? ),*;
+        defaults: $( $(#[$dattr:meta])* ($default:ident $(= $dalias:ident)?, $default_value:expr) ),*;
+        options: $( $(#[$oattr:meta])* $optional:ident $(= $oalias:ident)? ),*
     ) => {
         impl<A: ActionExt + Display> std::fmt::Display for Action<A> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -442,15 +442,17 @@ macro_rules! enum_from_str_display {
             }
         }
 
-        impl<A: ActionExt + FromStr> std::str::FromStr for Action<A> {
+        impl<A: ActionExt + FromStr<Err = String>> std::str::FromStr for Action<A> {
             type Err = String;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 use crate::utils::string::ALLOWED_CHARS;
 
                 let s = s.trim();
-                if let Ok(x) = s.parse::<A>() {
-                    return Ok(Self::Custom(x))
+                match s.parse::<A>() {
+                    Ok(x) => return Ok(Self::Custom(x)),
+                    Err(e) if !e.is_empty() => return Err(e),
+                    _ => {}
                 }
 
                 if let Some(s) = s.strip_prefix("@") {
@@ -478,7 +480,8 @@ macro_rules! enum_from_str_display {
                 match name {
                     $(
                         $(#[$uattr])*
-                        n if n.eq_ignore_ascii_case(stringify!($unit)) => {
+                        n if n.eq_ignore_ascii_case(stringify!($unit))
+                           $(|| n.eq_ignore_ascii_case(stringify!($ualias)))? => {
                             if data.is_some() {
                                 Err(format!("Unexpected data for unit variant {}", name))
                             } else {
@@ -489,7 +492,8 @@ macro_rules! enum_from_str_display {
 
                     $(
                         $(#[$tattr])*
-                        n if n.eq_ignore_ascii_case(stringify!($tuple)) => {
+                        n if n.eq_ignore_ascii_case(stringify!($tuple))
+                           $(|| n.eq_ignore_ascii_case(stringify!($talias)))? => {
                             let d = data
                             .ok_or_else(|| format!("Missing data for {}", stringify!($tuple)))?
                             .parse()
@@ -500,7 +504,8 @@ macro_rules! enum_from_str_display {
 
                     $(
                         $(#[$dattr])*
-                        n if n.eq_ignore_ascii_case(stringify!($default)) => {
+                        n if n.eq_ignore_ascii_case(stringify!($default))
+                           $(|| n.eq_ignore_ascii_case(stringify!($dalias)))? => {
                             let d = match data {
                                 Some(val) => val
                                 .parse()
@@ -513,7 +518,8 @@ macro_rules! enum_from_str_display {
 
                     $(
                         $(#[$oattr])*
-                        n if n.eq_ignore_ascii_case(stringify!($optional)) => {
+                        n if n.eq_ignore_ascii_case(stringify!($optional))
+                           $(|| n.eq_ignore_ascii_case(stringify!($oalias)))? => {
                             let d = match data {
                                 Some(val) if !val.is_empty() => {
                                     Some(

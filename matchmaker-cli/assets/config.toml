@@ -104,7 +104,7 @@ abort_empty = true
 "enter" = "@accept"
 "alt-enter" = "@accept_2"
 # "ctrl-enter" = "@accept_2" # requires enhancement
-"ctrl-a" = "CycleAll"
+"ctrl-a" = "CycleSelections"
 "tab" = ["Toggle", "Down"]
 "shift-backtab" = ["Toggle", "Up"]
 
@@ -150,7 +150,7 @@ abort_empty = true
 "alt-shift-." = "PrevColumn"
 
 # Preview
-"ctrl-j" = "Preview"
+"ctrl-j" = "PreviewJump"
 
 ### (DEFAULTS) ###
 # "?" = "SwitchPreview"

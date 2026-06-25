@@ -32,7 +32,7 @@ On the way:
 
 [^11]: The benefits of a structured, hierarchical, global baseline configuration are many, including but not limited to the fact that toml strings make it much easier to bind keys to complex shell scripts.
 
-[^12]: Custom exit codes, select all (`CycleAll`), PageUp/Down, Show Help, Cycle columns (`NextColumn`), Multiple input commands (`ReloadNext`), etc. ...
+[^12]: Custom exit codes, select all (`CycleSelections`), PageUp/Down, Show Help, Cycle columns (`NextColumn`), Multiple input commands (`ReloadNext`), etc. ...
 
 [^13]: This is useful for when you want to write a shell script that dispatches different actions on the output of matchmaker based on the key that was pressed.
 

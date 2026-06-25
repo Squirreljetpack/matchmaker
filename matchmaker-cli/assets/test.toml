@@ -67,7 +67,7 @@ max = 120
 "ctrl-c" = "Quit"
 "esc" = "Quit"
 "enter" = "Accept"
-"ctrl-a" = "CycleAll"
+"ctrl-a" = "CycleSelections"
 "tab" = ["Select", "Down"]
 "shift-backtab" = ["Toggle", "Up"]
 

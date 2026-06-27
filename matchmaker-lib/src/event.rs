@@ -1,5 +1,5 @@
 use crate::action::{Action, ActionExt, Actions, NullActionExt};
-use crate::binds::{BindMap, BindMapExt, SimpleMouseEvent, Trigger, TriggerKind};
+use crate::binds::{BindMap, BindMapExt, ResolvedBindMap, SimpleMouseEvent, TriggerKind};
 use crate::message::{BindDirective, Event, RenderCommand};
 use anyhow::Result;
 use arc_swap::ArcSwap;
@@ -27,7 +27,7 @@ pub struct EventLoop<A: ActionExt> {
     txs: Vec<mpsc::UnboundedSender<RenderCommand<A>>>,
     tick_interval: time::Duration,
 
-    binds: Arc<ArcSwap<BindMap<A>>>,
+    binds: Arc<ArcSwap<ResolvedBindMap<A>>>,
     original_binds: BindMap<A>,
     combiner: Combiner,
     fmt: KeyCombinationFormat,
@@ -64,7 +64,7 @@ impl<A: ActionExt> EventLoop<A> {
             txs: vec![],
             tick_interval: time::Duration::from_millis(200),
 
-            binds: Arc::new(ArcSwap::from_pointee(BindMap::new())),
+            binds: Arc::new(ArcSwap::from_pointee(ResolvedBindMap::new())),
             original_binds: BindMap::new(),
             combiner,
             fmt,
@@ -82,11 +82,13 @@ impl<A: ActionExt> EventLoop<A> {
         }
     }
 
-    pub fn with_binds(mut binds: BindMap<A>) -> Self {
+    pub fn with_binds(binds: BindMap<A>) -> Self {
         let mut ret = Self::new();
         ret.original_binds = binds.clone();
-        binds.resolve_semantics();
-        ret.binds = Arc::new(ArcSwap::from_pointee(binds));
+        let mode = MODE.lock().unwrap();
+        let resolved = binds.resolve_semantics(&mode);
+        ret.binds = Arc::new(ArcSwap::from_pointee(resolved));
+        log::trace!("Resolved with mode {mode:?}: {:?}", ret.binds);
         ret
     }
 
@@ -100,12 +102,19 @@ impl<A: ActionExt> EventLoop<A> {
         self
     }
 
-    pub fn get_binds_ptr(&self) -> Arc<ArcSwap<BindMap<A>>> {
+    pub fn get_binds_ptr(&self) -> Arc<ArcSwap<ResolvedBindMap<A>>> {
         self.binds.clone()
     }
 
-    pub fn binds(&self) -> Arc<BindMap<A>> {
+    pub fn binds(&self) -> Arc<ResolvedBindMap<A>> {
         self.binds.load_full()
+    }
+
+    /// Returns a reference to the original (unresolved) bind map.
+    /// Useful for operations that need access to the full bind map with mode information,
+    /// such as help display or trace checking.
+    pub fn original_binds(&self) -> &BindMap<A> {
+        &self.original_binds
     }
 
     pub fn add_tx(&mut self, handler: mpsc::UnboundedSender<RenderCommand<A>>) -> &mut Self {
@@ -130,22 +139,10 @@ impl<A: ActionExt> EventLoop<A> {
     }
 
     fn get_bind(&self, kind: TriggerKind) -> Option<Actions<A>> {
-        let mode = crate::MODE.lock().ok()?.clone();
         let binds = self.binds.load();
-        binds
-            .get(&Trigger {
-                kind: kind.clone(),
-                mode: mode.clone(),
-            })
-            .or_else(|| {
-                (!mode.is_empty()).then(|| {
-                    binds.get(&Trigger {
-                        kind,
-                        mode: String::new(),
-                    })
-                })?
-            })
-            .cloned()
+        // The resolved bindmap is keyed by TriggerKind for O(1) lookups.
+        // Mode filtering was already applied during resolve_semantics.
+        binds.get(&kind).cloned()
     }
 
     fn handle_event(&mut self, e: Event) {
@@ -193,14 +190,34 @@ impl<A: ActionExt> EventLoop<A> {
                 }
             }
 
+            BindDirective::SetMode(s) => {
+                set_mode(&s);
+            }
+
+            BindDirective::PushMode(s) => {
+                let trimmed = s.trim();
+                if !trimmed.is_empty()
+                    && let Ok(mut mode) = MODE.lock()
+                {
+                    mode.push(trimmed.into());
+                }
+            }
+
+            BindDirective::PopMode => {
+                if let Ok(mut mode) = MODE.lock() {
+                    mode.pop();
+                }
+            }
+
             BindDirective::Action(action) => {
                 self.send_actions(vec![action], None);
                 return;
             }
         }
-        let mut binds = self.original_binds.clone();
-        binds.resolve_semantics();
-        self.binds.store(Arc::new(binds));
+        let binds = self.original_binds.clone();
+        let mode = MODE.lock().unwrap();
+        let resolved = binds.resolve_semantics(&mode);
+        self.binds.store(Arc::new(resolved));
     }
 
     // todo: should its return type carry info
@@ -393,7 +410,13 @@ impl<A: ActionExt> EventLoop<A> {
         self.current_task = Some(handle);
     }
 
-    fn send_actions<'a>(&self, actions: impl IntoIterator<Item = Action<A>>, key: Option<String>) {
+    fn send_actions<'a>(
+        &mut self,
+        actions: impl IntoIterator<Item = Action<A>>,
+        key: Option<String>,
+    ) {
+        let actions: Vec<Action<A>> = actions.into_iter().collect();
+
         for action in actions {
             match action {
                 Action::PrintKey => {
@@ -406,11 +429,8 @@ impl<A: ActionExt> EventLoop<A> {
                         self.send_actions(actions.clone(), None);
                     }
                 }
-                Action::SetMode(m) => {
-                    if let Ok(mut mode) = crate::MODE.lock() {
-                        *mode = m;
-                    }
-                }
+                #[cfg(not(debug_assertions))]
+                Action::Trace(_) => {}
                 _ => self.send(action.into()),
             }
         }
@@ -481,4 +501,20 @@ pub async fn write_to_file(path: PathBuf, content: String) -> Result<()> {
     fs::rename(&tmp_path, &path).await?;
 
     Ok(())
+}
+// -----------------------------------------
+pub static MODE: std::sync::Mutex<Vec<Box<str>>> = std::sync::Mutex::new(Vec::new());
+
+/// Set the current mode stack from a comma-separated string.
+/// Empty segments are filtered out. If the lock is poisoned, the call is a no-op.
+pub fn set_mode(mode: &str) {
+    if let Ok(mut m) = MODE.lock() {
+        *m = mode
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| s.into())
+            .collect();
+        log::trace!("Set mode: {mode}");
+    }
 }

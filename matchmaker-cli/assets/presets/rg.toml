@@ -51,7 +51,7 @@ scroll_wrap = true
 "?" = "SwitchPreview"
 
 "@accept" = ["Print({=1}:{=2})", "Quit"]
-"tty^^@accept" = "Become($EDITOR {1})"
+"0,1^^@accept" = "Become($EDITOR {1})"
 
 # --- Scripts ---
 "Start" = "@enter_rg"

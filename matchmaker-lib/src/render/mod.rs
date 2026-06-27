@@ -351,8 +351,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             }
                         }
                         MouseEventKind::Drag(MouseButton::Left) => {
-                            if let Some(start_pos) = state.dragging {
-                                if let Some(p) = preview_ui.as_mut() {
+                            if let Some(start_pos) = state.dragging
+                                && let Some(p) = preview_ui.as_mut() {
                                     let side =
                                         p.setting().map(|s| &s.layout.side).unwrap_or(&Side::Right);
                                     match side {
@@ -387,7 +387,6 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                                     }
                                     state.dragging = Some(pos);
                                 }
-                            }
                         }
                         MouseEventKind::Up(MouseButton::Left) => {
                             state.dragging = None;
@@ -402,14 +401,13 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     return Ok(vec![]);
                 }
                 RenderCommand::Action(action) => {
-                    if let Some(x) = overlay_ui.as_mut() {
-                        if match action {
+                    if let Some(x) = overlay_ui.as_mut()
+                        && match action {
                             Action::Char(c) => x.handle_input(c),
                             _ => x.handle_action(&action),
                         } {
                             continue;
                         }
-                    }
                     let PickerUI {
                         query,
                         results,
@@ -521,7 +519,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             }
                         }
                         Action::HalfPageDown | Action::HalfPageUp => {
-                            let x = (results.height() + 1) / 2;
+                            let x = results.height().div_ceil(2);
                             let next = matches!(action, Action::HalfPageDown) ^ results.reverse();
                             for _ in 0..x.into() {
                                 did_cursor_wrap = if next {
@@ -555,7 +553,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         }
                         Action::PreviewHalfPageUp | Action::PreviewHalfPageDown => {
                             if let Some(p) = preview_ui.as_mut() {
-                                let n = (p.area.height + 1) / 2;
+                                let n = p.area.height.div_ceil(2);
 
                                 if matches!(action, Action::PreviewHalfPageUp) {
                                     p.up(n)
@@ -752,11 +750,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             if let Some(name) = col_name {
                                 if let Some(idx) =
                                     worker.columns.iter().position(|c| *c.name == name)
-                                {
-                                    if idx < results.hidden_columns.len() {
+                                    && idx < results.hidden_columns.len() {
                                         results.hidden_columns[idx] = false;
                                     }
-                                }
                             } else {
                                 for val in results.hidden_columns.iter_mut() {
                                     *val = false;
@@ -809,11 +805,6 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             }
                         }
                         Action::Char(c) => picker_ui.query.push_char(c),
-                        Action::SetMode(s) => {
-                            if let Ok(mut m) = crate::MODE.lock() {
-                                *m = s;
-                            }
-                        }
 
                         // unreachable
                         Action::PrintKey => {}

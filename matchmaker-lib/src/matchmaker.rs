@@ -14,30 +14,19 @@ use ratatui::text::Text;
 use tokio::io::AsyncReadExt;
 
 use crate::{
-    MatchError, RenderFn, Result, SSS, Selection, Selector,
-    action::{Action, ActionExt, Actions, NullActionExt},
-    binds::BindMap,
-    config::{
+    MatchError, RenderFn, Result, SSS, Selection, Selector, action::{Action, ActionExt, Actions, NullActionExt}, binds::BindMap, config::{
         ColumnsConfig, ExitConfig, OverlayConfig, PreviewerConfig, RenderConfig, Split,
         TerminalConfig, WorkerConfig,
-    },
-    event::{EventLoop, RenderSender},
-    message::{Event, Interrupt, RenderCommand},
-    nucleo::{
+    }, event::{EventLoop, RenderSender}, message::{Event, Interrupt, RenderCommand}, nucleo::{
         Indexed, Segmented, Worker,
         injector::{
             AnsiInjector, Either, IndexedInjector, Injector, PreprocessOptions, SegmentedInjector,
             SplitterFn, WorkerInjector,
         },
-    },
-    preview::{
+    }, preview::{
         AppendOnly, Preview,
         previewer::{PreviewMessage, Previewer},
-    },
-    render::{self, BoxedHandler, DynamicMethod, EventHandlers, InterruptHandlers, MMState},
-    tui,
-    ui::{Overlay, OverlayUI, UI},
-    utils::{
+    }, render::{self, BoxedHandler, DynamicMethod, EventHandlers, InterruptHandlers, MMState}, tui, ui::{Overlay, OverlayUI, UI}, utils::{
         text::is_empty,
         tokio::{tokio_command_from_script, wait_with_timeout},
     },
@@ -210,11 +199,10 @@ impl ConfigMatchmaker {
                             for (group_idx, col_idx_opt) in
                                 capture_to_idx.iter().enumerate().skip(1)
                             {
-                                if let Some(col_idx) = col_idx_opt {
-                                    if let Some(m) = caps.get(group_idx) {
+                                if let Some(col_idx) = col_idx_opt
+                                    && let Some(m) = caps.get(group_idx) {
                                         ranges[*col_idx] = (m.start() as u32, m.end() as u32);
                                     }
-                                }
                             }
                         }
 
@@ -812,7 +800,7 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
         self.register_interrupt_handler(Interrupt::ExecuteSilent, move |state| {
             let template = state.payload();
             if !template.is_empty() {
-                let cmd = use_formatter(&formatter_2, state, &template, None);
+                let cmd = use_formatter(&formatter_2, state, template, None);
                 if cmd.is_empty() {
                     return;
                 }
@@ -851,7 +839,7 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
                 && let template = state.payload()
                 && !template.is_empty()
             {
-                let cmd = use_formatter(&formatter, state, &template, None);
+                let cmd = use_formatter(&formatter, state, template, None);
                 if cmd.is_empty() {
                     return;
                 }
@@ -888,11 +876,10 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
                     match child.wait().await {
                         Ok(s) => {
                             info!("Async command [{}] exited with {}", cmd, s);
-                            if require_success || s.success() {
-                                if let Some(closure) = closure_opt {
+                            if (require_success || s.success())
+                                && let Some(closure) = closure_opt {
                                     closure();
                                 }
-                            }
                         }
                         Err(e) => {
                             log::warn!("Failed to wait on async command [{}]: {}", cmd, e);
@@ -920,7 +907,7 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
                 && let template = state.payload()
                 && !template.is_empty()
             {
-                let cmd = use_formatter(&formatter_1, state, &template, None);
+                let cmd = use_formatter(&formatter_1, state, template, None);
                 if cmd.is_empty() {
                     return;
                 }
@@ -1004,7 +991,7 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
                 && let template = state.payload()
                 && !template.is_empty()
             {
-                let cmd = use_formatter(&formatter, state, &template, None);
+                let cmd = use_formatter(&formatter, state, template, None);
                 if cmd.is_empty() {
                     return;
                 }
@@ -1118,7 +1105,7 @@ pub fn make_previewer<T: SSS, S: Selection + 'static>(
     previewer_config: PreviewerConfig, // note: help_str is provided separately so help_colors is ignored
     formatter: AttachmentFormatter<T, S>,
     help_factory: Box<
-        dyn Fn(&crate::config::HelpDisplayConfig, &str) -> Text<'static> + Send + Sync,
+        dyn Fn(&crate::config::HelpDisplayConfig) -> Text<'static> + Send + Sync,
     >,
 ) -> Previewer {
     // initialize previewer
@@ -1180,8 +1167,7 @@ pub fn make_previewer<T: SSS, S: Selection + 'static>(
             let msg = match payload {
                 Some(Err(m)) => {
                     let m = if is_empty(&m) {
-                        let mode = crate::MODE.lock().map(|m| m.clone()).unwrap_or_default();
-                        help_factory(&help_config, &mode)
+                        help_factory(&help_config)
                     } else {
                         m
                     };

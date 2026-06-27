@@ -6,7 +6,7 @@ use std::{
 use serde::{Deserialize, Serialize, Serializer};
 
 use crate::utils::string::allowed_semantic_char;
-use crate::{SSS, utils::serde::StringOrVec};
+use crate::{utils::serde::StringOrVec, SSS};
 
 /// Bindable actions
 /// # Additional
@@ -169,8 +169,6 @@ pub enum Action<A: ActionExt = NullActionExt> {
     Overlay(usize),
     /// Alias for a semantic trigger
     Semantic(String),
-    /// Set the application mode
-    SetMode(String),
     /// A description of a binding, only used for help display.
     Trace(String),
 }
@@ -374,7 +372,7 @@ enum_from_str_display!(
 
     tuples:
     Execute, ExecuteAsync, ExecuteThen, ExecuteSilent, Become, BecomeSilent, Preview,
-    SetQuery, Pos, QueryPos, SwitchColumn, Store, SetMode,
+    SetQuery, Pos, QueryPos, SwitchColumn, Store,
     CopyAsync, Copy;
 
     defaults:

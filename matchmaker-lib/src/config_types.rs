@@ -271,9 +271,9 @@ impl Side {
     }
 }
 
-impl Into<Borders> for Side {
-    fn into(self) -> Borders {
-        match self {
+impl From<Side> for Borders {
+    fn from(val: Side) -> Self {
+        match val {
             Side::Top => Borders::TOP,
             Side::Bottom => Borders::BOTTOM,
             Side::Left => Borders::LEFT,
@@ -282,9 +282,9 @@ impl Into<Borders> for Side {
     }
 }
 
-impl Into<Direction> for Side {
-    fn into(self) -> Direction {
-        match self {
+impl From<Side> for Direction {
+    fn from(val: Side) -> Self {
+        match val {
             Side::Top | Side::Bottom => Direction::Vertical,
             _ => Direction::Horizontal,
         }

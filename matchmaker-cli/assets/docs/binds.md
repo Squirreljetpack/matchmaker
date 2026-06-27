@@ -106,11 +106,16 @@ Actions can be bound to events:
 
 ### Modes
 
-Triggers can be optionally prefixed with a mode (consisting of alphanumeric characters) followed by `^^`. A bind with a mode will only be active when the application is in that specific mode.
+Triggers can be optionally prefixed with a mode pattern followed by `^^`. A bind with a mode will only be active when the current application mode matches the pattern.
 
-**Syntax:** `mode^^trigger = actions`
+**Syntax:** `mode_pattern^^trigger = actions`
 
-Binds defined without a mode act as fallbacks and are active in all modes unless overridden by a mode-specific bind.
+The mode pattern uses a prefix-based filter:
+
+- **Positive prefixes** (e.g., `0`, `vim`): The current mode must contain a tag starting with this prefix.
+- **Negative prefixes** (e.g., `!0`, `!piped`): The current mode must NOT contain a tag starting with this prefix.
+- Multiple prefixes are separated by commas and all must match (AND logic).
+- An empty pattern matches every mode.
 
 **Example:**
 
@@ -124,12 +129,28 @@ Binds defined without a mode act as fallbacks and are active in all modes unless
 
 In this example, if the mode is `vim`, `h` and `l` will move the cursor horizontally. In any other mode, they will move the selection cursor vertically.
 
-Matchmaker initializes with a default mode based on how it was started:
+**More complex examples:**
 
-- `t0`: When only input is connected to terminal.
-- `t1`: When only output is connected to terminal.
-- `command`: Both input and output are connected to terminal.
-- `piped`: Neither input nor output are connected to terminal.
+```toml
+[binds]
+# Only active when both stdin and stdout are terminals
+"0,1^^enter" = "Accept"
+
+# Active in any mode EXCEPT when stdin is a terminal
+"!0^^esc" = "Quit(1)"
+
+# Active when mode contains "vim" but not "insert"
+"vim,!insert^^h" = "BackwardChar"
+```
+
+Binds defined without a mode act as fallbacks and are active in all modes unless overridden by a mode-specific bind.
+
+Matchmaker initializes with a default mode based on how it was started. The mode is a comma-separated list of tags:
+
+- `0,1`: Both stdin and stdout are connected to a terminal (full TTY).
+- `0`: Only stdin is connected to a terminal (input is interactive, output is piped).
+- `1`: Only stdout is connected to a terminal (input is piped, output is interactive).
+- `""` (empty): Neither input nor output are connected to a terminal (fully piped).
 
 You can set the initial mode using `start.mode`.
 
@@ -331,9 +352,9 @@ ansi = true
     "Filtering(true)",
     "Unbind(QueryChange)",
     '''Transform(
-	[[ -n "$MM_QUERY" ]] &&
-	prompt="($MM_QUERY)" ||
-	prompt="mm"
+ [[ -n "$MM_QUERY" ]] &&
+ prompt="($MM_QUERY)" ||
+ prompt="mm"
 
     echo "SetPrompt({blue,italic:$prompt })"
     echo "SetQuery($MM_STORE)"
@@ -346,4 +367,4 @@ ansi = true
 "ctrl-r" = "@reload"
 ```
 
-This example is simplified to demonstrate the special actions `Bind`, `Store`, `Transform`, and `Semantic`. You can find the full version at https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/presets/rg.toml
+This example is simplified to demonstrate the special actions `Bind`, `Store`, `Transform`, and `Semantic`. You can find the full version at <https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/presets/rg.toml>

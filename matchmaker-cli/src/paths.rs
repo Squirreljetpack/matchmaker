@@ -37,7 +37,7 @@ expr_as_path_fn!(
     presets_path,
     default_config_path()
         .parent()
-        .unwrap_or(&std::path::Path::new(""))
+        .unwrap_or(std::path::Path::new(""))
         .join("presets")
 );
 

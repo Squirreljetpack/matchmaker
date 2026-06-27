@@ -106,11 +106,10 @@ impl Previewer {
         while self.rx.changed().await.is_ok() {
             let mut m = self.rx.borrow_and_update().clone();
 
-            if self.config.trim_commands {
-                if let PreviewMessage::Run(cmd, _) = &mut m {
+            if self.config.trim_commands
+                && let PreviewMessage::Run(cmd, _) = &mut m {
                     *cmd = cmd.trim().to_string();
                 }
-            }
 
             log::trace!("Received: {m:?}");
 
@@ -186,9 +185,9 @@ impl Previewer {
                 PreviewMessage::Run(cmd, variables) => {
                     self.last = cmd.clone();
                     let mut cmd_builder = if let Some(s) = &self.config.shell
-                        && s.len() > 0
+                        && !s.is_empty()
                     {
-                        let mut iter = s.into_iter();
+                        let mut iter = s.iter();
                         let mut program = Command::new(iter.next().unwrap());
                         program.args(iter).arg(&cmd);
                         program
@@ -347,12 +346,11 @@ impl Previewer {
             // drop future
             let mut old = Box::pin(old);
             match old.as_mut().now_or_never() {
-                Some(Ok(result)) => {
+                Some(Ok(result))
                     // unicode error
-                    if !result {
+                    if !result => {
                         self.send(Event::Redraw)
                     }
-                }
                 None => {
                     old.abort(); // still works because `AbortHandle` is separate
                 }

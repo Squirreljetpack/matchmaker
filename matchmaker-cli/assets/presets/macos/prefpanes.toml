@@ -17,8 +17,6 @@ command = '''
     } | awk -F',' '!seen[$1,$2,$3]++' | sort
 '''
 
-ansi = false
-
 [matcher]
 sort = 40
 
@@ -104,8 +102,7 @@ fi
 '''
 
 [binds]
-"enter" = "@accept"
-"tty^^@accept" = '''Become(
+"0,1^^@accept" = '''Become(
 target={3}
 if [[ "$target" == *".prefPane" ]]; then
     open "$target"

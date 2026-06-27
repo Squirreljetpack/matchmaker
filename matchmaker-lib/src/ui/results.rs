@@ -179,7 +179,7 @@ impl ResultsUI {
         let end = self.end();
         let index = index.min(end);
 
-        if index < self.bottom as u32 || index >= self.bottom + self.height as u32 {
+        if index < self.bottom || index >= self.bottom + self.height as u32 {
             self.bottom = (end + 1)
                 .saturating_sub(self.height as u32) // don't exceed the first item of the last self.height items
                 .min(index);
@@ -305,7 +305,7 @@ impl ResultsUI {
         matcher: &mut nucleo::Matcher,
         click: &mut Click,
     ) -> Table<'a> {
-        let offset = self.bottom as u32;
+        let offset = self.bottom;
         let end = self.bottom + self.height as u32;
         let as_cols = !self.config.stacked_columns;
 
@@ -535,7 +535,7 @@ impl ResultsUI {
                     } else {
                         let mut push = vec![];
 
-                        for (x, col) in row.into_iter().enumerate().rev() {
+                        for (x, col) in row.iter_mut().enumerate().rev() {
                             let mut col = col.clone();
                             let mut height = col.height() as u16;
                             if remaining_height == 0 {
@@ -629,7 +629,7 @@ impl ResultsUI {
             } else {
                 let mut push = vec![];
 
-                for (x, col) in row.into_iter().enumerate().rev() {
+                for (x, col) in row.iter_mut().enumerate().rev() {
                     let mut col = col.clone();
                     let mut height = col.height() as u16;
                     if remaining_height == 0 {
@@ -670,7 +670,7 @@ impl ResultsUI {
                     *c
                 };
                 if self.height - remaining_height > c {
-                    let idx = self.bottom as u32 + i as u32 - 1;
+                    let idx = self.bottom + i as u32 - 1;
                     log::debug!(
                         "Mapped click position to index: {c} -> {idx} with remaining {remaining_height}",
                     );
@@ -820,7 +820,7 @@ impl ResultsUI {
         // doesn't loop back after results is exhausted so we have to set here
         if let Click::ResultPos(_c) = click {
             log::debug!("Mapped click to last row = {i}");
-            *click = Click::ResultIdx(self.bottom as u32 + i as u32 - 1);
+            *click = Click::ResultIdx(self.bottom + i as u32 - 1);
         }
 
         if self.reverse() {

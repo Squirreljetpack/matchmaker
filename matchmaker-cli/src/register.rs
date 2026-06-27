@@ -94,7 +94,7 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
                                     #[cfg(unix)]
                                     {
                                         use std::os::unix::process::ExitStatusExt;
-                                        if let Some(_) = i.stopped_signal() {
+                                        if i.stopped_signal().is_some() {
                                             // better to propogate this signal but this is a standby for now
                                             state.should_quit_nomatch = true; 
                                         }

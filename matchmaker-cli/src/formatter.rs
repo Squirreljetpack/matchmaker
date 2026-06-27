@@ -16,11 +16,10 @@ fn is_valid_key(s: &str) -> bool {
         return true;
     }
 
-    if let Some(num) = body.strip_prefix('$') {
-        if num.chars().all(|c| c.is_ascii_digit()) && !num.is_empty() {
+    if let Some(num) = body.strip_prefix('$')
+        && num.chars().all(|c| c.is_ascii_digit()) && !num.is_empty() {
             return true;
         }
-    }
 
     body.chars().all(|c| c.is_alphanumeric())
 }
@@ -81,13 +80,12 @@ fn format_cli_inner(
 
     'outer: while let Some((_, c)) = chars.next() {
         if c == '\\' {
-            if let Some(&(_, next)) = chars.peek() {
-                if next == '{' {
+            if let Some(&(_, next)) = chars.peek()
+                && next == '{' {
                     chars.next();
                     result.push('{');
                     continue;
                 }
-            }
             result.push('\\');
             continue;
         }
@@ -144,11 +142,10 @@ fn any_need_current(template: &str) -> bool {
 
     'outer: while let Some((_, c)) = chars.next() {
         if c == '\\' {
-            if let Some(&(_, next)) = chars.peek() {
-                if next == '{' {
+            if let Some(&(_, next)) = chars.peek()
+                && next == '{' {
                     chars.next();
                 }
-            }
             continue;
         }
 
@@ -300,15 +297,14 @@ fn get_val<'a>(
                 None
             };
 
-            if let Some(idx) = idx {
-                if let Some(col) = state.picker_ui.worker.columns.get(idx) {
+            if let Some(idx) = idx
+                && let Some(col) = state.picker_ui.worker.columns.get(idx) {
                     let indexed = Indexed {
                         index: 0,
                         inner: item.clone(),
                     };
                     return Some(col.raw(&indexed).to_string().into());
                 }
-            }
 
             None
         }
@@ -323,7 +319,7 @@ fn handle_range<'a, 'b>(
     item_override: Option<&ConfigMMInnerItem>,
 ) -> Option<String> {
     let parts: Vec<&str> = key.split("..").collect();
-    let start_key = parts.get(0).copied().unwrap_or("");
+    let start_key = parts.first().copied().unwrap_or("");
     let end_key = parts.get(1).copied().unwrap_or("");
 
     let start_idx = if start_key.is_empty() {

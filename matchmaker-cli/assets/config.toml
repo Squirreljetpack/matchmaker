@@ -28,17 +28,17 @@ scroll_wrap = true
 command = '''
 if [ -d {1} ]; then
     if command -v eza >/dev/null 2>&1; then
-        eza --color=always -T -L 2 {1}
+        eza --color=always -T -L 2 -- {1}
     else
         find {1} -maxdepth 2 | sed 's|[^/]*/|  |g'
     fi
 else
     if command -v bat >/dev/null 2>&1; then
-        bat --binary no-printing --color=always {1}
+        bat --binary no-printing --color=always -- {1}
     elif command -v $PAGER >/dev/null 2>&1; then
-        $PAGER {1}
+        $PAGER -- {1}
     else
-        cat {1}
+        cat -- {1}
     fi
 fi
 '''
@@ -197,8 +197,8 @@ abort_empty = true
 "@accept" = "Accept"
 "@accept_2" = "Accept"
 "@look" = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)"
-"@open" = "Execute($EDITOR {1})"
-"@open_2" = "Become($EDITOR {1})"
+"@open" = "ExecuteOrConfirm($EDITOR -- {1})"
+"@open_2" = "Become($EDITOR -- {1})"
 "@reload" = "Reload"
 "@next" = ["ReloadNext", "Cancel"]
 "@prev" = ["ReloadPrev", "Cancel"]

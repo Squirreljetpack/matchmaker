@@ -378,7 +378,7 @@ pub enum TriggerKind {
     Mouse(SimpleMouseEvent),
     Event(Event),
     /// A "semantic" trigger, such as `Open`, which should be resolved or rejected before starting the picker.
-    /// This is serialized/deserialized with a `@` prefix, such as "@Open" = "Execute(open {})"
+    /// This is serialized/deserialized with a `@` prefix, such as "@open" = "ExecuteOrConfirm(open {})"
     Semantic(String),
 }
 

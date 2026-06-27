@@ -8,3 +8,4 @@ matchmaker-cli/assets/presets/todo
 *.jsonl
 emojis.json
 UnicodeData.txt
+TODO/

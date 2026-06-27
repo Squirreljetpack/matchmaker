@@ -128,7 +128,7 @@ border.padding = [2, 0]
 "@accept" = "Accept"
 "@accept_2" = "Accept"
 "@look" = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)"
-"@open" = "Execute($EDITOR {})"
+"@open" = "ExecuteOrConfirm($EDITOR {})"
 "@open_2" = "Become($EDITOR {})"
 "@reload" = "Reload"
 

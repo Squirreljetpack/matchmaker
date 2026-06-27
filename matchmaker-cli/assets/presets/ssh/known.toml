@@ -32,7 +32,8 @@ content = ["host", "type", "key"]
 prompt = "known> "
 
 [binds]
-"@open" = "Execute(ssh -vT {host} 2>&1)"
+"@show" = "ExecuteOrConfirm(ssh -vT {host} 2>&1)"
+"@open" = "ExecuteOrConfirm($EDITOR ~/.ssh/known_hosts)"
 "@next" = '''BecomeSilent(
 if tailscale status --peers=false > /dev/null 2>&1; then
     mm -o ssh/tailscale

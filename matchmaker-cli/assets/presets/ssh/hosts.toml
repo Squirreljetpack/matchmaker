@@ -16,7 +16,7 @@ command = '''
                     out_hostname = (hostname == "-") ? out_host : hostname
 
                     # Using printf with null byte \x00 via %c for portability
-                    printf "%s%c%s%c%s%c%s%c%s\n", 
+                    printf "%s%c%s%c%s%c%s%c%s\n",
                            out_host, 0, out_hostname, 0, user, 0, port, 0, file
                 }
             }
@@ -81,7 +81,7 @@ prompt = "hosts> "
 
 "@accept" = ["#ssh", "Become(ssh {host})"]
 "@accept_2" = "Become(echo {host})"
-"@open" = "Execute($EDITOR {file})"
+"@open" = "ExecuteOrConfirm($EDITOR -- {file})"
 "@open_2" = "Become($EDITOR {file})"
 "@next" = "BecomeSilent(mm -o ssh/keys)"
 "@prev" = "BecomeSilent(mm -o ssh/tailscale)"

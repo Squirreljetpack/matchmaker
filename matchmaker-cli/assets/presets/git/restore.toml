@@ -168,7 +168,7 @@ esac
 "@reload" = "ReloadNext"
 "@reload_2" = "ReloadPrev"
 
-"@open" = "Execute($EDITOR {$1})"
+"@open" = "ExecuteOrConfirm($EDITOR {$1})"
 "@open_2" = []
 
 "@compare" = '''RunPreview(

@@ -1,0 +1,92 @@
+# Pi agent sessions browser
+
+[start]
+command = '''
+for f in **/*.jsonl; do
+    [ -e "$f" ] || continue
+    base=$(basename -- "$f" .jsonl)
+    session=${base##*_}
+
+    cwdt=$(head -n 1 -- "$f" | jq -r '[.cwd, (.timestamp | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601 | strftime("%Y-%m-%d %H:%M:%S"))] | @tsv')
+
+    cwd=${cwdt%	*}
+    case "$cwd" in
+        "$HOME"*) cwd="~${cwd#"$HOME"}" ;;
+    esac
+    ts=${cwdt#*	}
+
+    printf "%s\t%s\t%s\t%s\n" "$f" "$ts" "$cwd" "$session"
+done | sort -r
+'''
+
+ansi = false
+directory = { value = "~/.pi/agent/sessions", force = true }
+
+[columns]
+max = 4
+names = [
+    { name = "file", hidden = true },
+    { name = "time", options = "Optional | OrUseDefault" },
+    { name = "dir", options = "Optional" },
+    { name = "id", options = "Optional | OrUseDefault" },
+]
+default = "dir"
+split = '\t'
+
+# --- Preview Pane 1: Session metadata ---
+[preview]
+show = true
+scroll.percentage = 70
+scroll.index = 2
+
+[[preview.layout]]
+command = '''
+jq -rs '
+  (map(select(.type == "session")) | .[0] // \{}) as $session |
+  (map(select(.type == "model_change")) | .[0] // \{}) as $model |
+  (map(select(.type == "message" and .message.role == "user")) | .[0] // \{}) as $user_msg |
+  (map(select(.type == "message" and .message.role == "assistant")) | .[0] // \{}) as $assistant_msg |
+  "- Provider: `\($model.provider // "N/A")`",
+  "- Model: `\($model.modelId // "N/A")`",
+  "",
+  "# Prompt",
+  "---",
+  ([$user_msg.message.content // [] | .[] | select(.type == "text") | .text] | join("\n") // "N/A"),
+  "",
+  "# Response",
+  "---",
+  ([$assistant_msg.message.content // [] | .[] |
+    if .type == "thinking" then "[thinking] \(.thinking)"
+    elif .type == "text" then .text
+    elif .type == "toolCall" then "[tool call: \(.name)] \(.arguments | tojson)"
+    else empty end
+  ] | join("\n") // "N/A")
+' "$PWD"/{file} | bat -pp -l md --color=always
+read
+'''
+
+[[preview.layout]]
+max = 0
+
+[[preview.layout]]
+command = '''
+if command -v bat >/dev/null 2>&1; then
+    bat --color=always --style=full --wrap=never -- "$PWD"/{file}
+else
+    cat -- "$PWD"/{file}
+fi
+'''
+
+# --- Binds ---
+[binds]
+"@show" = '''ExecuteAsync(node "$(dirname -- "$MM_OVERRIDE")"/export-session.mjs -o /tmp/pi/html/session.html $PWD/{file} && eval $OPENcmd /tmp/pi/html/session.html)'''
+"@accept_2" = '''ExecuteOrConfirm(fx {1})'''
+"tty^^@accept" = '''Become(cd -- {dir} && pi -c {id})'''
+"?" = "SwitchPreview"
+"@rm" = ["ExecuteAsync(rm -- {+})", "Reload"]
+"@copy" = "CopyAsync(printf '%s\n' {+id})"
+"@copy_all" = "CopyAsync(printf '%s\n' {+file})"
+
+# --- Environment ---
+[envs]
+OPENcmd = "open"

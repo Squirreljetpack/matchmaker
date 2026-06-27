@@ -21,7 +21,6 @@ max_height = 16
 [footer]
 # --- Preview ---
 [preview]
-show = true
 wrap = true
 scroll_wrap = true
 
@@ -78,11 +77,12 @@ always_trigger = true
 [start.command]
 command = '''
 if (Get-Command fd -ErrorAction SilentlyContinue) {
-    fd --strip-cwd-prefix
+    fd --strip-cwd-prefix --print0
 } else {
     Get-ChildItem -Recurse -File | ForEach-Object FullName
 }
 '''
+separator = "\\0"
 
 [start]
 ansi = false # don't set to true here
@@ -104,58 +104,65 @@ abort_empty = true
 "esc" = "Quit"
 "enter" = "@accept"
 "alt-enter" = "@accept_2"
-"ctrl-enter" = "@accept_2"
+# "ctrl-enter" = "@accept_2" # requires enhancement
 "ctrl-a" = "CycleSelections"
 "tab" = ["Toggle", "Down"]
 "shift-backtab" = ["Toggle", "Up"]
 
 # Edit
-"right" = "ForwardChar"
-"left" = "BackwardChar"
-"ctrl-right" = "ForwardWord"
-"ctrl-left" = "BackwardWord"
-"backspace" = "DeleteChar"
-"ctrl-h" = "DeleteWord"
-"ctrl-u" = "Cancel"
-"alt-a" = "QueryPos(0)"
+### (DEFAULTS) ###
+# "right" = "ForwardChar"
+# "left" = "BackwardChar"
+# "ctrl-right" = "ForwardWord"
+# "ctrl-left" = "BackwardWord"
+# "backspace" = "DeleteChar"
+# "ctrl-h" = "DeleteWord"
+# "ctrl-u" = "Cancel"
+# "alt-a" = "QueryPos(0)"
 
 # Navigation
-"up" = "Up"
-"down" = "Down"
-"pagedown" = "HalfPageDown"
-"pageup" = "HalfPageUp"
-"shift-up" = "PreviewHalfPageUp"
-"shift-down" = "PreviewHalfPageDown"
-"ctrl-shift-up" = "VScroll(1)"
-"ctrl-shift-down" = "VScroll(-1)"
-"ctrl-shift-left" = "HScroll(-1)"
-"ctrl-shift-right" = "HScroll(1)"
-"alt-up" = "VScroll(1)"
-"alt-down" = "VScroll(-1)"
-"alt-left" = "HScroll(-1)"
-"alt-right" = "HScroll(1)"
 "alt-1" = "Pos(0)"
 "alt-0" = "Pos(-1)"
 
+### (DEFAULTS) ###
+# "up" = "Up"
+# "down" = "Down"
+# "pagedown" = "HalfPageDown"
+# "pageup" = "HalfPageUp"
+# "shift-up" = "PreviewHalfPageUp"
+# "shift-down" = "PreviewHalfPageDown"
+# "ctrl-shift-up" = "VScroll(1)"
+# "ctrl-shift-down" = "VScroll(-1)"
+# "ctrl-shift-left" = "HScroll(-1)"
+# "ctrl-shift-right" = "HScroll(1)"
+# "alt-up" = "VScroll(1)"
+# "alt-down" = "VScroll(-1)"
+# "alt-left" = "HScroll(-1)"
+# "alt-right" = "HScroll(1)"
+# "ctrl-[" = "ToggleWrap", # requires keyboard enhancement
+# "ctrl-]" = "TogglePreviewWrap",  # requires keyboard enhancement
+# "alt-{" = "ToggleWrap",
+# "alt-}" = "TogglePreviewWrap",
+
 # Columns
-"ctrl-." = "NextColumn"
-"ctrl-shift-." = "PrevColumn"
+"ctrl-." = "NextColumn" # requires keyboard enhancement
+"ctrl-shift-." = "PrevColumn" # requires keyboard enhancement
 "alt-." = "NextColumn"
 "alt-shift-." = "PrevColumn"
 
 # Preview
-"shift+scrollup" = "PreviewUp"
-"shift+scrolldown" = "PreviewDown"
-"alt-/" = "PreviewJump"
-"?" = "SwitchPreview"
-# cycle preview layouts
-"ctrl-/" = "NextPreview" # requires keyboard enhancement
-"ctrl-shift-/" = "PrevPreview" # requires keyboard enhancement
-"alt-shift-/" = "NextPreview"
+"ctrl-j" = "PreviewJump"
 
-"alt-h" = "Help"
+### (DEFAULTS) ###
+# "?" = "SwitchPreview"
+# "alt-/" = "NextPreview"
+# "alt-shift-/" = "PrevPreview"
+# "ctrl-/" = "NextPreview" # requires keyboard enhancement
+# "ctrl-shift-/" = "PrevPreview" # requires keyboard enhancement
+# "alt-h" = "Help"
+
 "alt-shift-=" = "ExpandPreview"
-"alt-+" = "ExpandPreview"
+"alt-+" = "ExpandPreview" # A terminal might only transmit alt-shift-=
 "alt-hyphen" = "ShrinkPreview"
 
 # Reserved
@@ -180,7 +187,7 @@ abort_empty = true
 "ctrl-shift-r" = "@reload_2"
 "ctrl-shift-n" = "@next"
 "ctrl-shift-p" = "@prev"
-"ctrl-tab" = "@next"
+"ctrl-tab" = "@next" # requires keyboard enhancement
 "alt-tab" = "@next"
 "ctrl-shift-tab" = "@prev"
 "ctrl-shift-backtab" = "@prev"
@@ -191,19 +198,19 @@ abort_empty = true
 "@accept" = "Accept"
 "@accept_2" = "Accept"
 "@look" = "Execute(powershell -Command \"$env:MM_PREVIEW_COMMAND | & $env:PAGER\")"
-"@open" = "Execute(powershell -Command \"& $env:EDITOR {1}\")"
+"@open" = "ExecuteOrConfirm(powershell -Command \"& $env:EDITOR {1}\")"
 "@open_2" = "Become(powershell -Command \"& $env:EDITOR {1}\")"
 "@reload" = "Reload"
 "@next" = ["ReloadNext", "Cancel"]
 "@prev" = ["ReloadPrev", "Cancel"]
 "@help" = "Help"
-"@refresh" = "Redraw"
+"@refresh" = "Redraw" # invalid unicode or unsupported emoji can break rendering
 
 # Printing
 "alt-p" = "@print"
 "alt-shift-p" = "@print_2"
 "ctrl-y" = "@copy"
-"ctrl-shift-y" = "@copy_all"
+"ctrl-shift-y" = "@copy_all" # requires keyboard enhancement
 "alt-shift-y" = "@copy_all"
 "alt-y" = "@copy_active"
 

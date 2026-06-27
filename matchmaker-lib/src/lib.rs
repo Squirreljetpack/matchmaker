@@ -7,6 +7,7 @@ pub mod binds;
 pub mod config;
 mod config_types;
 pub mod event;
+mod mode_filter;
 
 pub mod message;
 pub mod render;
@@ -28,5 +29,3 @@ pub use aliases::*;
 pub use errors::*;
 
 pub mod noninteractive;
-
-pub static MODE: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());

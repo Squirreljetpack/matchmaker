@@ -161,7 +161,7 @@ impl PreviewUI {
         if let ret = &self.config.layout[self.layout_idx]
             && ret.layout.max != 0
         {
-            Some(&ret)
+            Some(ret)
         } else {
             None
         }
@@ -197,7 +197,7 @@ impl PreviewUI {
 
     pub fn is_vertical(&self) -> bool {
         self.setting()
-            .map_or(false, |s| s.layout.side.is_vertical())
+            .is_some_and(|s| s.layout.side.is_vertical())
     }
 
     // -------- Layout -----------

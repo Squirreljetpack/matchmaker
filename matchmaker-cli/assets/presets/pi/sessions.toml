@@ -2,38 +2,44 @@
 
 [start]
 command = '''
+if stat --version 2>/dev/null | grep -q GNU; then
+    get_mtime() { stat -c %y -- "$1" | cut -d. -f1; }
+else
+    get_mtime() { stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" -- "$1"; }
+fi
+
 for f in **/*.jsonl; do
-    [ -e "$f" ] || continue
     base=$(basename -- "$f" .jsonl)
     session=${base##*_}
+    ts=$(get_mtime "$f")
 
-    cwdt=$(head -n 1 -- "$f" | jq -r '[.cwd, (.timestamp | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601 | strftime("%Y-%m-%d %H:%M:%S"))] | @tsv')
-
-    cwd=${cwdt%	*}
-    case "$cwd" in
-        "$HOME"*) cwd="~${cwd#"$HOME"}" ;;
-    esac
-    ts=${cwdt#*	}
-
-    printf "%s\t%s\t%s\t%s\n" "$f" "$ts" "$cwd" "$session"
-done | sort -r
+    cwd=$(head -n 1 -- "$f" | jq -r '.cwd')
+    printf "%s\t%s\t%s\t%s\n" "$f" "$ts" "${cwd/#$HOME\//~/}" "$session"
+done | sort -t $'\t' -r -k 2,2
 '''
 
-ansi = false
 directory = { value = "~/.pi/agent/sessions", force = true }
+
+[envs]
+OPENcmd = "open"
+TMPdir = "/tmp/pi/html"
 
 [columns]
 max = 4
 names = [
     { name = "file", hidden = true },
-    { name = "time", options = "Optional | OrUseDefault" },
+    { name = "mtime", options = "Optional | OrUseDefault" },
     { name = "dir", options = "Optional" },
     { name = "id", options = "Optional | OrUseDefault" },
 ]
 default = "dir"
 split = '\t'
 
-# --- Preview Pane 1: Session metadata ---
+[header]
+content = ["file", "mtime", "dir", "id"]
+[matcher]
+sort = 40
+# --- Preview ---
 [preview]
 show = true
 scroll.percentage = 70
@@ -46,6 +52,7 @@ jq -rs '
   (map(select(.type == "model_change")) | .[0] // \{}) as $model |
   (map(select(.type == "message" and .message.role == "user")) | .[0] // \{}) as $user_msg |
   (map(select(.type == "message" and .message.role == "assistant")) | .[0] // \{}) as $assistant_msg |
+  "- Timestamp: `\($session.timestamp // "N/A")`",
   "- Provider: `\($model.provider // "N/A")`",
   "- Model: `\($model.modelId // "N/A")`",
   "",
@@ -79,14 +86,10 @@ fi
 
 # --- Binds ---
 [binds]
-"@show" = '''ExecuteAsync(node "$(dirname -- "$MM_OVERRIDE")"/export-session.mjs -o /tmp/pi/html/session.html $PWD/{file} && eval $OPENcmd /tmp/pi/html/session.html)'''
+"@show" = '''ExecuteOrConfirm(mkdir -p $TMPdir && node "$(dirname -- "$MM_OVERRIDE")"/export-session.mjs -o $TMPdir/session.html $PWD/{file} && eval $OPENcmd /tmp/pi/html/session.html)'''
 "@accept_2" = '''ExecuteOrConfirm(fx {1})'''
-"tty^^@accept" = '''Become(cd -- {dir} && pi -c {id})'''
+"0,1^^@accept" = 'Become(cwd={dir}; cd "${cwd/#\~/$HOME}" && pi --session {id})'
 "?" = "SwitchPreview"
 "@rm" = ["ExecuteAsync(rm -- {+})", "Reload"]
 "@copy" = "CopyAsync(printf '%s\n' {+id})"
 "@copy_all" = "CopyAsync(printf '%s\n' {+file})"
-
-# --- Environment ---
-[envs]
-OPENcmd = "open"

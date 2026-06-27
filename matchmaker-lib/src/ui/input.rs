@@ -244,13 +244,11 @@ impl InputUI {
         self.backward_word();
         let mut new_cursor = self.cursor;
 
-        if new_cursor == 0 && old_cursor > 1 {
-            if let Some(first) = self.input.chars().next() {
-                if matches!(first, '^' | '!' | '\'') {
+        if new_cursor == 0 && old_cursor > 1
+            && let Some(first) = self.input.chars().next()
+                && matches!(first, '^' | '!' | '\'') {
                     new_cursor = 1;
                 }
-            }
-        }
 
         let start = self.byte_index(new_cursor);
         let end = self.byte_index(old_cursor);
@@ -290,9 +288,9 @@ impl InputUI {
 
         let start_byte = self.byte_index(self.before);
         let end_byte = self.byte_index(end_idx);
-        let visible_input = &self.input[start_byte..end_byte];
+        
 
-        visible_input
+        (&self.input[start_byte..end_byte]) as _
     }
 
     pub fn cursor_rel_offset(&self) -> u16 {

@@ -52,8 +52,6 @@ command = '''
     done | sort -t, -k1,1
 '''
 
-ansi = false
-
 [matcher]
 sort = 40
 
@@ -79,7 +77,7 @@ printf "%${COLUMNS}s\n" | tr ' ' '-'
 
 [binds]
 "enter" = "@accept"
-"tty^^@accept" = '''Become(
+"0,1^^@accept" = '''Become(
 # Execute the settings panel and exit matchmaker
 {target}
 )

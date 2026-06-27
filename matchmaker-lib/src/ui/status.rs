@@ -83,11 +83,10 @@ impl StatusUI {
         self.status_template = template
             .unwrap_or(status_config.template.clone().into())
             .style(status_config.style)
-            .into()
     }
 
     pub fn parse_template_to_status_line(s: &str) -> Line<'static> {
-        let parts = match split_on_nesting(&s, ['{', '}']) {
+        let parts = match split_on_nesting(s, ['{', '}']) {
             Ok(x) => x,
             Err(n) => {
                 if n > 0 {
@@ -158,21 +157,19 @@ impl StatusUI {
                 continue;
             }
 
-            if !fg_set {
-                if let Ok(color) = Color::from_str(token) {
+            if !fg_set
+                && let Ok(color) = Color::from_str(token) {
                     style = style.fg(color);
                     fg_set = true;
                     continue;
                 }
-            }
 
-            if !bg_set {
-                if let Ok(color) = Color::from_str(token) {
+            if !bg_set
+                && let Ok(color) = Color::from_str(token) {
                     style = style.bg(color);
                     bg_set = true;
                     continue;
                 }
-            }
 
             match token.to_lowercase().as_str() {
                 "bold" => {

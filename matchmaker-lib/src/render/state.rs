@@ -5,7 +5,7 @@ use ratatui::text::Text;
 use crate::{
     SSS, Selection, Selector,
     action::{ActionExt, Actions},
-    event::{BindSender, EventSender},
+    event::{self, BindSender, EventSender},
     message::{BindDirective, Event, Interrupt},
     nucleo::{Status, injector::WorkerInjector},
     ui::{DisplayUI, OverlayUI, PickerUI, PreviewUI, Rect, UI},
@@ -332,7 +332,7 @@ impl State {
     }
 
     pub fn events(&mut self) -> Event {
-        self.events.clone()
+        self.events
     }
 }
 
@@ -446,7 +446,10 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
             "FZF_SELECT_COUNT" => self.selections().len().to_string(),
             "FZF_POS" => get_current(self.picker_ui).map_or("".to_string(), |x| format!("{}", x.0)),
             "FZF_QUERY" => self.input.clone(),
-            "FZF_MODE" => crate::MODE.lock().map(|m| m.clone()).unwrap_or_default(),
+            "FZF_MODE" => event::MODE
+                .lock()
+                .map(|m| m.iter().map(|s| s.as_ref()).collect::<Vec<_>>().join(","))
+                .unwrap_or_default(),
 
             "MM_LINES" => self.tui_area().height.to_string(),
             "MM_COLUMNS" => self.tui_area().width.to_string(),
@@ -455,7 +458,10 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
             "MM_SELECT_COUNT" => self.selections().len().to_string(),
             "MM_POS" => get_current(self.picker_ui).map_or("".to_string(), |x| format!("{}", x.0)),
             "MM_QUERY" => self.input.clone(),
-            "MM_MODE" => crate::MODE.lock().map(|m| m.clone()).unwrap_or_default(),
+            "MM_MODE" => event::MODE
+                .lock()
+                .map(|m| m.iter().map(|s| s.as_ref()).collect::<Vec<_>>().join(","))
+                .unwrap_or_default(),
         };
 
         vars.extend(self.envs.clone());

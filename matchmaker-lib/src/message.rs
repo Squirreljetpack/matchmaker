@@ -106,5 +106,11 @@ pub enum BindDirective<A: ActionExt> {
     PushBind(Trigger, Action<A>),
     Unbind(Trigger),
     PopBind(Trigger),
+    /// Replace the entire mode stack with the given comma-separated tags.
+    SetMode(String),
+    /// Push a single mode tag onto the mode stack.
+    PushMode(String),
+    /// Pop the top mode tag from the mode stack.
+    PopMode,
     Action(Action<A>),
 }

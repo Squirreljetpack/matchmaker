@@ -163,11 +163,10 @@ pub fn handle_download(cli: &crate::clap::Cli) {
                 presets_dir.join(subfolder).join(local_name)
             };
 
-            if let Some(parent) = dest_path.parent() {
-                if !cba::bs::create_dir(parent) {
+            if let Some(parent) = dest_path.parent()
+                && !cba::bs::create_dir(parent) {
                     std::process::exit(1)
                 }
-            }
 
             ibog!(
                 "Downloading {}...",
@@ -181,7 +180,7 @@ pub fn handle_download(cli: &crate::clap::Cli) {
                 .status()
                 .ok();
 
-            if status.map_or(false, |s| s.success()) {
+            if status.is_some_and(|s| s.success()) {
                 download_count += 1;
             }
         }
@@ -272,7 +271,7 @@ pub fn guess_editor_cmd() -> &'static str {
                 return cmd;
             }
         }
-        return "echo";
+        "echo"
     }
 
     #[cfg(windows)]

@@ -182,7 +182,7 @@ fi
 
 "enter" = ["Print({=char})", "Quit"]
 
-"tty^^enter" = [
+"0,1^^enter" = [
     '''Copy(
 if ((MM_INDEX == 0 || MM_INDEX == 1)); then
   echo {char}

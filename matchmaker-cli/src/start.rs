@@ -257,9 +257,7 @@ pub fn process_envs(mut envs: HashMap<String, EnvValue>) -> HashMap<String, Stri
                 envs.insert("CLIPcmd".to_string(), EnvValue::new(clip));
 
                 if envs.get("PASTEcmd").is_none()
-                    && std::env::var("PASTEcmd")
-                        .ok()
-                        .map_or(true, |x| x.is_empty())
+                    && std::env::var("PASTEcmd").ok().is_none_or(|x| x.is_empty())
                 {
                     envs.insert("PASTEcmd".to_string(), EnvValue::new(paste));
                 }
@@ -267,38 +265,34 @@ pub fn process_envs(mut envs: HashMap<String, EnvValue>) -> HashMap<String, Stri
         }
     }
 
-    if envs.get("PAGER").is_none() && std::env::var("PAGER").ok().map_or(true, |x| x.is_empty()) {
+    if envs.get("PAGER").is_none() && std::env::var("PAGER").ok().is_none_or(|x| x.is_empty()) {
         let ev = EnvValue::new(guess_pager_cmd());
         envs.insert("PAGER".to_string(), ev);
     }
 
-    if envs.get("EDITOR").is_none() && std::env::var("EDITOR").ok().map_or(true, |x| x.is_empty()) {
+    if envs.get("EDITOR").is_none() && std::env::var("EDITOR").ok().is_none_or(|x| x.is_empty()) {
         let ev = EnvValue::new(guess_editor_cmd());
         envs.insert("PAGER".to_string(), ev);
     }
 
     // First pass: static envs
     for (k, v) in &envs {
-        if !v.value.is_empty() && !v.exec {
-            if v.force || std::env::var_os(k).is_none() {
-                processed_envs.insert(k.clone(), v.value.to_string());
-            }
+        if !v.value.is_empty() && !v.exec && (v.force || std::env::var_os(k).is_none()) {
+            processed_envs.insert(k.clone(), v.value.to_string());
         }
     }
 
     // Second pass: dynamic envs
     for (k, v) in &envs {
-        if !v.value.is_empty() && v.exec {
-            if v.force || std::env::var_os(k).is_none() {
-                if let Some(output) = Command::from_script(&v.value)
-                    .envs(&processed_envs)
-                    .read_to_string()
-                    ._elog()
-                {
-                    processed_envs.insert(k.clone(), output.trim().to_string());
-                } else {
-                    _wbog!("Failed to execute env command for {}: {}", k, v.value);
-                }
+        if !v.value.is_empty() && v.exec && (v.force || std::env::var_os(k).is_none()) {
+            if let Some(output) = Command::from_script(&v.value)
+                .envs(&processed_envs)
+                .read_to_string()
+                ._elog()
+            {
+                processed_envs.insert(k.clone(), output.trim().to_string());
+            } else {
+                _wbog!("Failed to execute env command for {}: {}", k, v.value);
             }
         }
     }
@@ -338,22 +332,20 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     } = config;
 
     // -------- determine command ------------
-    if let Some(first) = additional_commands.first_mut() {
-        if first.is_empty() {
-            *first = command.clone();
-        }
+    if let Some(first) = additional_commands.first_mut()
+        && first.is_empty()
+    {
+        *first = command.clone();
     }
     let additional_commands = additional_commands;
 
     let mut initial_index = 0;
-    if additional_commands.len() > 1 {
-        if let Ok(index_str) = std::env::var("_MM_INDEX") {
-            if let Ok(index) = index_str.parse::<usize>() {
-                if index < additional_commands.len() {
-                    initial_index = index;
-                }
-            }
-        }
+    if additional_commands.len() > 1
+        && let Ok(index_str) = std::env::var("_MM_INDEX")
+        && let Ok(index) = index_str.parse::<usize>()
+        && index < additional_commands.len()
+    {
+        initial_index = index;
     }
 
     let command = if initial_index > 0 {
@@ -423,27 +415,24 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         exit.last_key_path = Some(last_key_path().into())
     }
 
-    let event_loop = EventLoop::with_binds(binds).with_tick_rate(render.tick_rate());
-
     // set event loop mode
     let mode = if let Some(m) = mode {
         m
     } else {
         match (
-            !initial_cmd.is_empty(), // has command => t0
+            !initial_cmd.is_empty(), // has command => stdin is terminal
             atty::is(atty::Stream::Stdout),
         ) {
-            (true, true) => "tty",
-            (true, false) => "t0",
-            (false, true) => "t1",
-            (false, false) => "piped",
+            (true, true) => "0,1", // both stdin and stdout are terminals
+            (true, false) => "0",  // only stdin is a terminal
+            (false, true) => "1",  // only stdout is a terminal
+            (false, false) => "",  // neither is a terminal (piped)
         }
         .to_string()
     };
-    log::trace!("mode: {}", mode);
-    if let Ok(mut m) = matchmaker::MODE.lock() {
-        *m = mode;
-    }
+    matchmaker::event::set_mode(&mode);
+
+    let event_loop = EventLoop::with_binds(binds).with_tick_rate(render.tick_rate());
 
     // make matcher and matchmaker with matchmaker-and-matcher-maker
     let copy_trailing_newline = tui.copy_trailing_newline;
@@ -462,7 +451,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     }
 
     // make previewer
-    if !event_loop.binds().check_traces() {
+    if !event_loop.original_binds().check_traces() {
         // maybe abort with error
     }
     let cli_formatter = Either::Right(
@@ -478,9 +467,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         &mut mm,
         previewer,
         cli_formatter.clone(),
-        Box::new(move |config, mode| {
-            matchmaker::binds::display_help(&binds_ptr.load(), config, Some(mode))
-        }),
+        Box::new(move |config| matchmaker::binds::display_help(&binds_ptr.load(), config)),
     );
 
     // ---------------------- build options ---------------------------

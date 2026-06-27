@@ -697,7 +697,7 @@ fn render_cell<T: SSS>(
                         current_spans.push(Span::styled(take(&mut current_span), current_style));
                         current_style = style;
                     };
-                    while let Some((grapheme2, style2)) = graphemes.next() {
+                    for (grapheme2, style2) in graphemes.by_ref() {
                         if grapheme2.width() == 0 {
                             new.push_str(grapheme2);
                         } else {

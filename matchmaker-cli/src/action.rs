@@ -30,6 +30,14 @@ pub enum MMAction {
     /// pop an action from a bind
     PopBind(String),
 
+    // mode
+    /// Replace the entire mode stack with the given comma-separated tags.
+    SetMode(String),
+    /// Push a single mode tag onto the mode stack.
+    PushMode(String),
+    /// Pop the top mode tag from the mode stack.
+    PopMode,
+
     // state
     /// Toggle refiltering of results by query.
     Filtering(Option<bool>),
@@ -189,6 +197,17 @@ pub fn action_handler(
         MMAction::PopBind(s) => {
             let trigger = unwrap!(s.parse()._elog());
             let _ = bind_tx.send(BindDirective::PopBind(trigger));
+        }
+
+        // mode
+        MMAction::SetMode(s) => {
+            let _ = bind_tx.send(BindDirective::SetMode(s));
+        }
+        MMAction::PushMode(s) => {
+            let _ = bind_tx.send(BindDirective::PushMode(s));
+        }
+        MMAction::PopMode => {
+            let _ = bind_tx.send(BindDirective::PopMode);
         }
 
         // set
@@ -390,11 +409,11 @@ enum_from_str_display! {
     MMAction;
 
     units:
-    CycleSort, HistoryUp, HistoryDown, ReloadPrev;
+    CycleSort, HistoryUp, HistoryDown, ReloadPrev, PopMode;
 
 
     tuples:
-    Bind, Unbind, PushBind, PopBind, ExecuteOrConfirm, ExecuteAndQuit, BecomeOrConfirm, BecomeOrResume, Transform, TransformConfig, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter, RunPreview;
+    Bind, Unbind, PushBind, PopBind, SetMode, PushMode, ExecuteOrConfirm, ExecuteAndQuit, BecomeOrConfirm, BecomeOrResume, Transform, TransformConfig, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter, RunPreview;
 
     defaults:
     ;

@@ -48,7 +48,7 @@ pub fn fit_width(input: &str, width: usize) -> String {
 
     // Pad if needed
     if used < width {
-        out.extend(std::iter::repeat(' ').take(width - used));
+        out.extend(std::iter::repeat_n(' ', width - used));
     }
 
     out

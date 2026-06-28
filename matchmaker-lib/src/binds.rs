@@ -140,13 +140,7 @@ impl<A: ActionExt> BindMap<A> {
     /// actions) are filtered out.
     /// Resolves all semantic aliases into concrete actions for the given mode.
     ///
-    /// This filters the bind map to only include triggers whose `mode` PrefixFilter
-    /// matches the given `mode` string, then fully resolves all semantic aliases.
-    /// Triggers that don't resolve successfully (e.g., a semantic trigger with no
-    /// actions) are filtered out.
-    ///
     /// Returns a [`ResolvedBindMap`] keyed by [`TriggerKind`] for O(1) lookups.
-    /// The original bind map is not modified.
     pub fn resolve_semantics(&self, mode: &[Box<str>]) -> ResolvedBindMap<A> {
         let mut resolved: ResolvedBindMap<A> = HashMap::new();
 

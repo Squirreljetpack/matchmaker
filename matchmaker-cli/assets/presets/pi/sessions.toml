@@ -51,10 +51,30 @@ jq -rs '
   (map(select(.type == "session")) | .[0] // \{}) as $session |
   (map(select(.type == "model_change")) | .[0] // \{}) as $model |
   (map(select(.type == "message" and .message.role == "user")) | .[0] // \{}) as $user_msg |
-  (map(select(.type == "message" and .message.role == "assistant")) | .[0] // \{}) as $assistant_msg |
-  "- Timestamp: `\($session.timestamp // "N/A")`",
-  "- Provider: `\($model.provider // "N/A")`",
+  (map(select(.type == "message" and .message.role == "assistant")) | last // \{}) as $assistant_msg |
+  (map(select(.type == "message" and .message.usage != null)) | map(.message.usage)) as $all_usage |
+  ($all_usage | map(.input // 0) | add // 0) as $input |
+  ($all_usage | map(.cacheRead // 0) | add // 0) as $cache_read |
+  ($all_usage | map(.cacheWrite // 0) | add // 0) as $cache_write |
+  ($all_usage | map(.output // 0) | add // 0) as $output |
+  ($all_usage | map(.cost.total // 0) | add // 0 | .*100 | round / 100) as $cost |
+  ($input + $cache_read + $cache_write) as $total_input |
+  ($total_input + $output) as $total_tokens |
+  (
+      if $session.timestamp then
+        ($session.timestamp
+         | sub("\\.[0-9]+Z$"; "Z")
+         | fromdateiso8601
+         | strftime("%Y-%m-%d %H:%M:%S"))
+      else
+        "N/A"
+      end
+  ) as $session_ts |
+  "- Began: `\($session_ts)`",
   "- Model: `\($model.modelId // "N/A")`",
+  "- Input: `\($total_input)`",
+  "- Output: `\($output)`",
+  "- Cost: `$\($cost)`",
   "",
   "# Prompt",
   "---",
@@ -68,17 +88,18 @@ jq -rs '
     elif .type == "toolCall" then "[tool call: \(.name)] \(.arguments | tojson)"
     else empty end
   ] | join("\n") // "N/A")
-' "$PWD"/{file} | bat -pp -l md --color=always
-read
+' -- {file} | bat --wrap=never --color=always -pp -l md
 '''
 
 [[preview.layout]]
-max = 0
+command = '''
+"$(dirname -- "$MM_OVERRIDE")"/session_stats.py --price -- {+file}
+'''
 
 [[preview.layout]]
 command = '''
 if command -v bat >/dev/null 2>&1; then
-    bat --color=always --style=full --wrap=never -- "$PWD"/{file}
+    bat --wrap=never --color=always --style=full -- "$PWD"/{file}
 else
     cat -- "$PWD"/{file}
 fi
@@ -90,6 +111,6 @@ fi
 "@accept_2" = '''ExecuteOrConfirm(fx {1})'''
 "0,1^^@accept" = 'Become(cwd={dir}; cd "${cwd/#\~/$HOME}" && pi --session {id})'
 "?" = "SwitchPreview"
-"@rm" = ["ExecuteAsync(rm -- {+})", "Reload"]
+"@rm" = ["ExecuteAsync(rm -- {+file})", "Reload"]
 "@copy" = "CopyAsync(printf '%s\n' {+id})"
 "@copy_all" = "CopyAsync(printf '%s\n' {+file})"

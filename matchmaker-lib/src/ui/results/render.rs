@@ -2,7 +2,7 @@ use super::*;
 use crate::{
     SSS,
     config::AutoscrollSettings,
-    nucleo::{Column, Style, Text, render_item::render_cell},
+    nucleo::{Style, Text, Worker, render_item::render_cell},
     ui::ResultsUI,
     utils::text::{to_static, truncation_indicator, wrap_text_static},
 };
@@ -70,8 +70,7 @@ use crate::{
 /// - Assemble rendered rows into the final table.
 pub fn render_row<'a, T: SSS>(
     item: &'a nucleo::Item<T>,
-    snapshot: &nucleo::Snapshot<T>,
-    columns: &[Column<T>],
+    worker: &Worker<T>,
 
     width_limits: &[u16],
     hidden_cols: &[bool],
@@ -98,6 +97,8 @@ pub fn render_row<'a, T: SSS>(
     let mut to_skip = vscroll_offset;
     let mut skip = true; // assume no visible lines until proven otherwise
     let mut row_candidates = vec![];
+    let columns = &worker.columns;
+    let snapshot = worker.nucleo.snapshot();
 
     for (i, c) in columns.iter().enumerate() {
         if hidden_cols.get(i).is_some_and(|x| *x) {
@@ -233,10 +234,9 @@ impl ResultsUI {
     /// - `None` if the item couldn't be rendered
     pub(super) fn get_row<T: SSS>(
         &mut self,
-        snapshot: &nucleo::Snapshot<T>,
         idx: u32,
         matcher: &mut nucleo::Matcher,
-        columns: &[Column<T>],
+        worker: &Worker<T>,
         // post_render styling options
         selector: &mut Selector<T, impl Selection>,
         is_current: bool,
@@ -249,7 +249,7 @@ impl ResultsUI {
         let vscroll_offset = self.vscroll_to_skip(is_current);
         let stacked = self.config.stacked_columns;
 
-        let item = snapshot.get_item(idx)?;
+        let item = worker.nucleo.snapshot().get_item(idx)?;
         let id = selector.id(&item.data);
         let mut row_widths = vec![0u16; self.v_cols()];
 
@@ -277,8 +277,7 @@ impl ResultsUI {
             };
             let texts = render_row(
                 &item,
-                snapshot,
-                columns,
+                worker,
                 &self.width_limits,
                 &self.hidden_columns,
                 stacked,

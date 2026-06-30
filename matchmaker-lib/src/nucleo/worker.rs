@@ -15,7 +15,7 @@ use std::{
 use super::{injector::WorkerInjector, query::PickerQuery};
 use crate::SSS;
 
-type ColumnFormatFn<T> = Box<dyn for<'a> Fn(&'a T) -> Text<'a> + Send + Sync>;
+type ColumnFormatFn<T> = Box<dyn Fn(&T) -> Text<'_> + Send + Sync>;
 type ColumnRawFn<T> = Box<dyn for<'a> Fn(&'a T) -> Cow<'a, str> + Send + Sync>;
 pub struct Column<T> {
     pub name: Arc<str>,

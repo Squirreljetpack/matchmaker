@@ -71,15 +71,12 @@ impl ResultsUI {
 
         let mut idx = self.cursor as u32;
 
-        let columns = &worker.columns;
-
         // Step 1: Render cursor item
         let mut total_height = 0;
         if let Some(h) = self.get_row(
-            snapshot,
             self.bottom + idx,
             matcher,
-            columns,
+            worker,
             selector,
             !self.cursor_disabled,
             active_column,
@@ -111,10 +108,9 @@ impl ResultsUI {
 
                 // Add item
                 if let Some(h) = self.get_row(
-                    snapshot,
                     self.bottom + idx,
                     matcher,
-                    columns,
+                    worker,
                     selector,
                     false,
                     active_column,
@@ -166,10 +162,9 @@ impl ResultsUI {
 
             // Add item
             if let Some(h) = self.get_row(
-                snapshot,
                 self.bottom + idx,
                 matcher,
-                columns,
+                worker,
                 selector,
                 false,
                 active_column,
@@ -264,10 +259,9 @@ impl ResultsUI {
 
                 // Add item
                 if let Some(h) = self.get_row(
-                    snapshot,
                     self.bottom + idx,
                     matcher,
-                    columns,
+                    worker,
                     selector,
                     false,
                     active_column,

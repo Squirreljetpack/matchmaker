@@ -1,11 +1,12 @@
+use crate::Selection;
 use crate::nucleo::Indexed;
-use crate::{Identifier, Selection};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use std::sync::Mutex;
 use std::{borrow::Borrow, hash::Hash, sync::Arc};
 
 pub type SelectionValidator<S> = fn(&S) -> bool;
+pub type Identifier<T, S> = fn(&T) -> (u32, S);
 
 #[derive(Debug)]
 pub struct Selector<T, S> {

@@ -77,78 +77,128 @@ border.padding = [2, 0]
 "ctrl-c" = "Quit"
 "esc" = "Quit"
 "enter" = "@accept"
-"ctrl-enter" = "@accept_2"
+# "alt-enter" = "@accept_2"
+# "ctrl-enter" = "@accept_2" # requires enhancement
 "ctrl-a" = "CycleSelections"
-"tab" = ["Select", "Down"]
+"tab" = ["Toggle", "Down"]
 "shift-backtab" = ["Toggle", "Up"]
 
 # Edit
-"right" = "ForwardChar"
-"left" = "BackwardChar"
-"ctrl-right" = "ForwardWord"
-"ctrl-left" = "BackwardWord"
-"backspace" = "DeleteChar"
-"ctrl-h" = "DeleteWord"
-"ctrl-u" = "Cancel"
+### (DEFAULTS) ###
+# "right" = "ForwardChar"
+# "left" = "BackwardChar"
+# "ctrl-right" = "ForwardWord"
+# "ctrl-left" = "BackwardWord"
+# "backspace" = "DeleteChar"
+# "ctrl-h" = "DeleteWord"
+# "ctrl-u" = "Cancel"
+# "alt-a" = "QueryPos(0)"
 
 # Navigation
-"up" = "Up"
-"down" = "Down"
-"pageup" = "HalfPageDown"
-"pagedown" = "HalfPageUp"
-"ctrl-p" = "Up(10)"
-"ctrl-n" = "Down(10)"
-"shift-up" = "PreviewUp"
-"shift-down" = "PreviewDown"
-"ctrl-shift-up" = "PreviewHalfPageUp"
-"ctrl-shift-down" = "PreviewHalfPageDown"
-"shift-right" = "HScroll(1)"
-"shift-left" = "HScroll(-1)"
+"alt-1" = "Pos(0)"
+"alt-0" = "Pos(-1)"
 
-"shift+scrollup" = "PreviewUp"
-"shift+scrolldown" = "PreviewDown"
-"alt-h" = "Help"
-"?" = "SwitchPreview(0)"
-"shift-?" = "SwitchPreview(0)"
-"ctrl-/" = "NextPreview"
-"ctrl-shift-/" = "NextPreview" # ctrl-shift-/
+### (DEFAULTS) ###
+# "up" = "Up"
+# "down" = "Down"
+# "pagedown" = "HalfPageDown"
+# "pageup" = "HalfPageUp"
+# "shift-up" = "PreviewHalfPageUp"
+# "shift-down" = "PreviewHalfPageDown"
+# "ctrl-shift-up" = "VScroll(1)"
+# "ctrl-shift-down" = "VScroll(-1)"
+# "ctrl-shift-left" = "HScroll(-1)"
+# "ctrl-shift-right" = "HScroll(1)"
+# "alt-up" = "VScroll(1)"
+# "alt-down" = "VScroll(-1)"
+# "alt-left" = "HScroll(-1)"
+# "alt-right" = "HScroll(1)"
+# "ctrl-[" = "ToggleWrap", # requires keyboard enhancement
+# "ctrl-]" = "TogglePreviewWrap",  # requires keyboard enhancement
+# "alt-{" = "ToggleWrap",
+# "alt-}" = "TogglePreviewWrap",
 
 # Columns
-"ctrl-." = "NextColumn"
+"ctrl-." = "NextColumn" # requires keyboard enhancement
+"ctrl-shift-." = "PrevColumn" # requires keyboard enhancement
+"alt-." = "NextColumn"
+"alt-shift-." = "PrevColumn"
 
-"alt-enter" = "Print({1})"
+# Preview
+"ctrl-j" = "PreviewJump"
+
+### (DEFAULTS) ###
+# "?" = "SwitchPreview"
+# "alt-/" = "NextPreview"
+# "alt-shift-/" = "PrevPreview"
+# "ctrl-/" = "NextPreview" # requires keyboard enhancement
+# "ctrl-shift-/" = "PrevPreview" # requires keyboard enhancement
+# "alt-h" = "Help"
+
+"alt-shift-=" = "ExpandPreview"
+"alt-+" = "ExpandPreview" # A terminal might only transmit alt-shift-=
+"alt-hyphen" = "ShrinkPreview"
+
+# Reserved
+"F1" = "@help"
+"F2" = "@rename"
+"F3" = "@search"
+"F4" = "@rm"
+"F5" = "@refresh"
+"F6" = "@cycle"
+"F7" = "@build"
+"F8" = "@step"
+"F9" = "@toggle"
+"F10" = "@menu"
+"F11" = "@look"
+"F12" = "@save"
 
 # Programmable
 "ctrl-l" = "@look" # "maximize" the preview
 "ctrl-o" = "@open"
 "alt-o" = "@open_2"
 "ctrl-r" = "@reload"
+"ctrl-shift-r" = "@reload_2"
 "ctrl-shift-n" = "@next"
+"ctrl-shift-p" = "@prev"
+"ctrl-tab" = "@next" # requires keyboard enhancement
+"alt-tab" = "@next"
+"ctrl-shift-tab" = "@prev"
+"ctrl-shift-backtab" = "@prev"
+"ctrl-d" = "@rm"
+"Delete" = "@rm"
+"ctrl-s" = "@show"
 
 "@accept" = "Accept"
 "@accept_2" = "Accept"
 "@look" = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)"
-"@open" = "ExecuteOrConfirm($EDITOR {})"
-"@open_2" = "Become($EDITOR {})"
+"@open" = "ExecuteOrConfirm($EDITOR -- {1})"
+"@open_2" = "Become($EDITOR -- {1})"
 "@reload" = "Reload"
+"@next" = ["ReloadNext", "Cancel"]
+"@prev" = ["ReloadPrev", "Cancel"]
+"@help" = "Help"
+"@refresh" = "Redraw"
 
 # Printing
 "alt-p" = "@print"
 "alt-shift-p" = "@print_2"
 "ctrl-y" = "@copy"
-"ctrl-shift-y" = "@copy_all"
-"alt-y" = "@copy_col"
+"ctrl-shift-y" = "@copy_all" # requires keyboard enhancement
+"alt-shift-y" = "@copy_all"
+"alt-y" = "@copy_active"
 
 "@print" = "Print({-})"
 "@print_2" = "Print({-!})"
 "@copy" = "CopyAsync(printf '%s\n' {+1})"
 "@copy_all" = "CopyAsync(printf {})"
-"@copy_col" = "CopyAsync(printf '%s\n' {+!})"
+"@copy_active" = "CopyAsync(printf '%s\n' {+!})"
 
 # test
 "ctrl-t" = "Become(set -e; false; echo hi;)"
 "alt-t" = "@test"
 "@test" = "Execute(echo ----; read v; echo $v; echo ----)"
+"alt-enter" = "Print({1})"
 
 [matcher]
 trim = true

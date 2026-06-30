@@ -120,8 +120,14 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             return Ok(ret);
         }
 
-        let (mut did_pause, mut did_reload, mut did_exit, mut did_resize, mut did_cursor_wrap) =
-            (false, false, None, false, false);
+        let (
+            mut did_pause,
+            mut did_reload,
+            mut did_exit,
+            mut did_resize,
+            mut did_cursor_wrap,
+            mut did_tick,
+        ) = (false, false, None, false, false, false);
 
         if let Some(aliaser) = &mut ext_aliaser {
             apply_aliases(
@@ -157,6 +163,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
             if !matches!(event, RenderCommand::Tick) {
                 info!("Received {event:?}");
             } else {
+                did_tick = true;
                 // log::trace!("Recieved {event:?}");
             }
 
@@ -199,8 +206,10 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     picker_ui.query.set_prompt(None);
                     picker_ui.status.set(None);
                     picker_ui.status.init();
+                    picker_ui.results.set_dirty();
                 }
                 RenderCommand::Redraw => {
+                    picker_ui.results.set_dirty();
                     tui.redraw();
                 }
                 RenderCommand::HeaderTable(columns) => {
@@ -352,41 +361,42 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         }
                         MouseEventKind::Drag(MouseButton::Left) => {
                             if let Some(start_pos) = state.dragging
-                                && let Some(p) = preview_ui.as_mut() {
-                                    let side =
-                                        p.setting().map(|s| &s.layout.side).unwrap_or(&Side::Right);
-                                    match side {
-                                        Side::Right => {
-                                            if pos.x < start_pos.x {
-                                                p.expand(start_pos.x - pos.x);
-                                            } else if pos.x > start_pos.x {
-                                                p.shrink(pos.x - start_pos.x);
-                                            }
-                                        }
-                                        Side::Left => {
-                                            if pos.x > start_pos.x {
-                                                p.expand(pos.x - start_pos.x);
-                                            } else if pos.x < start_pos.x {
-                                                p.shrink(start_pos.x - pos.x);
-                                            }
-                                        }
-                                        Side::Bottom => {
-                                            if pos.y < start_pos.y {
-                                                p.expand(start_pos.y - pos.y);
-                                            } else if pos.y > start_pos.y {
-                                                p.shrink(pos.y - start_pos.y);
-                                            }
-                                        }
-                                        Side::Top => {
-                                            if pos.y > start_pos.y {
-                                                p.expand(pos.y - start_pos.y);
-                                            } else if pos.y < start_pos.y {
-                                                p.shrink(start_pos.y - pos.y);
-                                            }
+                                && let Some(p) = preview_ui.as_mut()
+                            {
+                                let side =
+                                    p.setting().map(|s| &s.layout.side).unwrap_or(&Side::Right);
+                                match side {
+                                    Side::Right => {
+                                        if pos.x < start_pos.x {
+                                            p.expand(start_pos.x - pos.x);
+                                        } else if pos.x > start_pos.x {
+                                            p.shrink(pos.x - start_pos.x);
                                         }
                                     }
-                                    state.dragging = Some(pos);
+                                    Side::Left => {
+                                        if pos.x > start_pos.x {
+                                            p.expand(pos.x - start_pos.x);
+                                        } else if pos.x < start_pos.x {
+                                            p.shrink(start_pos.x - pos.x);
+                                        }
+                                    }
+                                    Side::Bottom => {
+                                        if pos.y < start_pos.y {
+                                            p.expand(start_pos.y - pos.y);
+                                        } else if pos.y > start_pos.y {
+                                            p.shrink(pos.y - start_pos.y);
+                                        }
+                                    }
+                                    Side::Top => {
+                                        if pos.y > start_pos.y {
+                                            p.expand(pos.y - start_pos.y);
+                                        } else if pos.y < start_pos.y {
+                                            p.shrink(start_pos.y - pos.y);
+                                        }
+                                    }
                                 }
+                                state.dragging = Some(pos);
+                            }
                         }
                         MouseEventKind::Up(MouseButton::Left) => {
                             state.dragging = None;
@@ -405,9 +415,10 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                         && match action {
                             Action::Char(c) => x.handle_input(c),
                             _ => x.handle_action(&action),
-                        } {
-                            continue;
                         }
+                    {
+                        continue;
+                    }
                     let PickerUI {
                         query,
                         results,
@@ -750,9 +761,10 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                             if let Some(name) = col_name {
                                 if let Some(idx) =
                                     worker.columns.iter().position(|c| *c.name == name)
-                                    && idx < results.hidden_columns.len() {
-                                        results.hidden_columns[idx] = false;
-                                    }
+                                    && idx < results.hidden_columns.len()
+                                {
+                                    results.hidden_columns[idx] = false;
+                                }
                             } else {
                                 for val in results.hidden_columns.iter_mut() {
                                     *val = false;
@@ -831,7 +843,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
                     did_pause = true;
                 }
                 Interrupt::Reload => {
-                    picker_ui.worker.restart(false);
+                    picker_ui.restart();
                     state.synced = [false; 2];
                     did_reload = true;
                 }
@@ -884,102 +896,108 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
         let mut overlay_ui_ref = overlay_ui.as_mut();
         let mut cursor_y_offset = 0;
 
-        tui.terminal
-            .draw(|frame| {
-                let mut area = frame.area();
+        if did_tick {
+            tui.terminal
+                .draw(|frame| {
+                    let mut area = frame.area();
 
-                // mutates area!
-                render_ui(frame, &mut area, &ui);
+                    // mutates area!
+                    render_ui(frame, &mut area, &ui);
 
-                let mut _area = area;
+                    let mut _area = area;
 
-                let full_width_footer = footer_ui.is_single_column()
-                    && footer_ui.config.row_connection == RowConnectionStyle::Full;
+                    let full_width_footer = footer_ui.is_single_column()
+                        && footer_ui.config.row_connection == RowConnectionStyle::Full;
 
-                let mut footer =
-                    if full_width_footer || preview_ui.as_ref().is_none_or(|p| !p.visible()) {
-                        split(&mut _area, footer_ui.height(), picker_ui.reverse())
+                    let mut footer =
+                        if full_width_footer || preview_ui.as_ref().is_none_or(|p| !p.visible()) {
+                            split(&mut _area, footer_ui.height(), picker_ui.reverse())
+                        } else {
+                            Rect::default()
+                        };
+
+                    let [preview, picker_area, footer] = if let Some(preview_ui) =
+                        preview_ui.as_mut()
+                        && preview_ui.visible()
+                    {
+                        let [preview, mut picker_area] = preview_ui.split(_area);
+
+                        if state.iteration == 0 && picker_area.width <= 5 {
+                            warn!("UI too narrow, hiding preview");
+                            preview_ui.show(false);
+
+                            [Rect::default(), _area, footer]
+                        } else {
+                            if !full_width_footer {
+                                footer = split(
+                                    &mut picker_area,
+                                    footer_ui.height(),
+                                    picker_ui.reverse(),
+                                );
+                            }
+
+                            [preview, picker_area, footer]
+                        }
                     } else {
-                        Rect::default()
+                        [Rect::default(), _area, footer]
                     };
 
-                let [preview, picker_area, footer] = if let Some(preview_ui) = preview_ui.as_mut()
-                    && preview_ui.visible()
-                {
-                    let [preview, mut picker_area] = preview_ui.split(_area);
+                    let [input, status, header, results] = picker_ui.layout(picker_area);
 
-                    if state.iteration == 0 && picker_area.width <= 5 {
-                        warn!("UI too narrow, hiding preview");
-                        preview_ui.show(false);
+                    // save dimensions and check if dimensions changed
+                    did_resize = state.update_layout(Layout {
+                        preview,
+                        input,
+                        status,
+                        header,
+                        results,
+                        footer,
+                    });
 
-                        [Rect::default(), _area, footer]
-                    } else {
-                        if !full_width_footer {
-                            footer =
-                                split(&mut picker_area, footer_ui.height(), picker_ui.reverse());
+                    if did_resize {
+                        picker_ui.results.update_dimensions(&results);
+                        picker_ui.query.update_width(input.width);
+                        footer_ui.update_width(
+                            if footer_ui.config.row_connection == RowConnectionStyle::Capped {
+                                area.width
+                            } else {
+                                footer.width
+                            },
+                        );
+                        picker_ui.header.update_width(header.width);
+                        // although these only want update when the whole ui change
+                        ui.update_dimensions(area);
+                        if let Some(x) = overlay_ui_ref.as_deref_mut() {
+                            x.update_dimensions(&area);
                         }
+                        if let Some(preview_ui) = preview_ui.as_mut() {
+                            preview_ui.update_dimensions(&preview);
+                        }
+                    };
 
-                        [preview, picker_area, footer]
-                    }
-                } else {
-                    [Rect::default(), _area, footer]
-                };
-
-                let [input, status, header, results] = picker_ui.layout(picker_area);
-
-                // save dimensions and check if dimensions changed
-                did_resize = state.update_layout(Layout {
-                    preview,
-                    input,
-                    status,
-                    header,
-                    results,
-                    footer,
-                });
-
-                if did_resize {
-                    picker_ui.results.update_dimensions(&results);
-                    picker_ui.query.update_width(input.width);
-                    footer_ui.update_width(
-                        if footer_ui.config.row_connection == RowConnectionStyle::Capped {
-                            area.width
-                        } else {
-                            footer.width
-                        },
+                    cursor_y_offset = render_input(frame, input, &mut picker_ui.query).y;
+                    render_status(
+                        frame,
+                        status,
+                        &picker_ui.status,
+                        &picker_ui.results,
+                        ui.area().width,
                     );
-                    picker_ui.header.update_width(header.width);
-                    // although these only want update when the whole ui change
-                    ui.update_dimensions(area);
-                    if let Some(x) = overlay_ui_ref.as_deref_mut() {
-                        x.update_dimensions(&area);
-                    }
+                    render_results(frame, results, &mut picker_ui, &mut click, state.filtering);
+                    render_display(frame, header, &mut picker_ui.header, &picker_ui.results);
+                    render_display(frame, footer, &mut footer_ui, &picker_ui.results);
                     if let Some(preview_ui) = preview_ui.as_mut() {
-                        preview_ui.update_dimensions(&preview);
+                        state.update_preview_visible(preview_ui);
+                        if preview_ui.visible() {
+                            render_preview(frame, preview, preview_ui);
+                        }
                     }
-                };
-
-                cursor_y_offset = render_input(frame, input, &mut picker_ui.query).y;
-                render_status(
-                    frame,
-                    status,
-                    &picker_ui.status,
-                    &picker_ui.results,
-                    ui.area().width,
-                );
-                render_results(frame, results, &mut picker_ui, &mut click, state.filtering);
-                render_display(frame, header, &mut picker_ui.header, &picker_ui.results);
-                render_display(frame, footer, &mut footer_ui, &picker_ui.results);
-                if let Some(preview_ui) = preview_ui.as_mut() {
-                    state.update_preview_visible(preview_ui);
-                    if preview_ui.visible() {
-                        render_preview(frame, preview, preview_ui);
+                    if let Some(x) = overlay_ui_ref {
+                        x.draw(frame);
                     }
-                }
-                if let Some(x) = overlay_ui_ref {
-                    x.draw(frame);
-                }
-            })
-            .map_err(|e| MatchError::TUIError(e.to_string()))?;
+                })
+                .map_err(|e| MatchError::TUIError(e.to_string()))?;
+        }
 
         if did_resize {
             // useful to clear artifacts
@@ -993,7 +1011,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
 
         // note: the remainder could be scoped by a conditional on having run?
         // ====== Event handling ==========
-        state.update(&picker_ui, &overlay_ui);
+        state.update(&mut picker_ui, &overlay_ui);
         let events = state.events();
 
         // ---- Invoke handlers -------
@@ -1066,10 +1084,10 @@ impl Click {
         bind_tx: &BindSender<A>,
     ) {
         match self {
-            Self::ResultIdx(u) => {
+            Click::ResultIdx(u) => {
                 buffer.push(RenderCommand::Action(Action::Pos(*u as i32)));
             }
-            Self::Semantic(s) => {
+            Click::Semantic(s) => {
                 bind_tx
                     .send(BindDirective::Action(Action::Semantic(s.clone())))
                     ._elog();
@@ -1122,20 +1140,20 @@ fn render_results<T: SSS, S: Selection>(
         picker_ui.active_column_index()
     };
 
-    let widget = picker_ui.results.make_table(
+    picker_ui.results.update_table(
         active_column,
         &mut picker_ui.worker,
         &mut picker_ui.selector,
         picker_ui.matcher,
         click,
     );
-    let width = picker_ui.results.table_width();
+    let (table, width) = picker_ui.results.get_table();
 
     if cap {
         area.width = area.width.min(width);
     }
 
-    frame.render_widget(widget, area);
+    frame.render_widget(table, area);
 }
 
 /// Returns the offset of the cursor against the drawing area
@@ -1169,7 +1187,7 @@ fn render_display(frame: &mut Frame, area: Rect, ui: &mut DisplayUI, results_ui:
     if !ui.show {
         return;
     }
-    let widths = results_ui.widths().to_vec();
+    let widths = results_ui.width_limits().to_vec();
 
     let widget = ui.make_display(
         results_ui.indentation() as u16 + results_ui.config.border.left(),

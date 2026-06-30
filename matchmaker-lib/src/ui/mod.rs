@@ -9,14 +9,14 @@ pub use display::*;
 pub use input::*;
 pub use overlay::*;
 pub use preview::*;
-pub use results::*;
-pub use status::*;
 
 pub use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     widgets::Table,
-}; // reexport for convenience
+};
+pub use results::*;
+pub use status::*; // reexport for convenience
 
 use crate::{
     SSS, Selection, Selector,
@@ -83,7 +83,7 @@ impl UI {
             worker,
             selection_set,
         );
-        picker.results.hidden_columns(hidden_columns);
+        picker.results.set_hidden_columns(hidden_columns);
 
         let preview = if let Some(view) = view {
             Some(PreviewUI::new(view, config.preview, ui_area))
@@ -152,17 +152,22 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
         header_config: DisplayConfig,
         matcher: &'a mut nucleo::Matcher,
         worker: Worker<T>,
-        selections: Selector<T, S>,
+        selector: Selector<T, S>,
     ) -> Self {
         Self {
-            results: ResultsUI::new(results_config),
+            results: ResultsUI::new(results_config, worker.columns.len()),
             status: StatusUI::new(status_config),
             query: QueryUI::new(input_config),
             header: DisplayUI::new(header_config),
             matcher,
-            selector: selections,
+            selector,
             worker,
         }
+    }
+
+    pub(crate) fn restart(&mut self) {
+        self.worker.restart(false);
+        self.results.set_dirty();
     }
 
     pub fn active_column_index(&self) -> usize {

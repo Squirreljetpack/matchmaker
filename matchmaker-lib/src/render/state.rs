@@ -256,14 +256,16 @@ impl State {
 
     pub(crate) fn update<'a, T: SSS, S: Selection, A: ActionExt>(
         &'a mut self,
-        picker_ui: &'a PickerUI<T, S>,
+        picker_ui: &'a mut PickerUI<T, S>,
         overlay_ui: &'a Option<OverlayUI<A>>,
     ) {
         if self.iteration == 0 {
             self.insert(Event::Start);
             self.input = picker_ui.query.input.clone();
         } else {
-            self.update_input(&picker_ui.query.input);
+            if self.update_input(&picker_ui.query.input) {
+                picker_ui.results.set_dirty();
+            }
         }
         self.iteration += 1;
 
@@ -300,6 +302,7 @@ impl State {
         if changed {
             self.last_id = new_id;
             self.insert(Event::CursorChange);
+            
             if self.last_id.is_none() {
                 self.insert(Event::CursorLost);
             }
@@ -433,7 +436,7 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
     }
 
     pub fn restart_worker(&mut self) {
-        self.picker_ui.worker.restart(false);
+        self.picker_ui.restart();
         self.state.synced = [false; 2];
     }
 

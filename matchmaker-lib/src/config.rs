@@ -435,6 +435,8 @@ pub struct ResultsConfig {
 
     #[partial(recurse)]
     pub separator_style: StyleSetting,
+
+    pub width_overrides: Vec<u16>,
 }
 
 impl Default for ResultsConfig {
@@ -491,6 +493,8 @@ impl Default for ResultsConfig {
             separator_style: Default::default(),
             show_skipped: true,
             vscroll_current_only: true,
+
+            width_overrides: vec![],
         }
     }
 }

@@ -88,6 +88,7 @@ impl<A: ActionExt> EventLoop<A> {
         let mode = MODE.lock().unwrap();
         let resolved = binds.resolve_semantics(&mode);
         ret.binds = Arc::new(ArcSwap::from_pointee(resolved));
+        #[cfg(not(debug_assertions))]
         log::trace!("Resolved with mode {mode:?}: {:?}", ret.binds);
         ret
     }
@@ -222,12 +223,13 @@ impl<A: ActionExt> EventLoop<A> {
 
     // todo: should its return type carry info
     pub async fn run(&mut self) {
-        log::trace!("{:?}", self.binds.load());
+        // log::trace!("{:?}", self.binds.load());
         self.event_stream = Some(EventStream::new());
         let mut interval = time::interval(self.tick_interval);
+        interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
 
         if let Some(path) = self.key_file.clone() {
-            log::debug!("Cleaning up temp files @ {path:?}");
+            // log::debug!("Cleaning up temp files @ {path:?}");
             tokio::spawn(async move {
                 cleanup_tmp_files(&path).await._elog();
             });
@@ -269,6 +271,8 @@ impl<A: ActionExt> EventLoop<A> {
             };
 
             tokio::select! {
+                biased;
+
                 _ = interval.tick() => {
                     self.send(RenderCommand::Tick)
                 }

@@ -15,6 +15,4 @@ impl<T: Send + 'static> Selection for T {}
 #[cfg(not(feature = "parallelism"))]
 impl<T> Selection for T {}
 
-pub type Identifier<T, S> = fn(&T) -> (u32, S);
-
 pub type RenderFn<T> = Box<dyn for<'a> Fn(&'a T, &'a str) -> String + Send + Sync>;

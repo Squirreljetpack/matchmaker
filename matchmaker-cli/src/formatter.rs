@@ -17,9 +17,11 @@ fn is_valid_key(s: &str) -> bool {
     }
 
     if let Some(num) = body.strip_prefix('$')
-        && num.chars().all(|c| c.is_ascii_digit()) && !num.is_empty() {
-            return true;
-        }
+        && num.chars().all(|c| c.is_ascii_digit())
+        && !num.is_empty()
+    {
+        return true;
+    }
 
     body.chars().all(|c| c.is_alphanumeric())
 }
@@ -81,11 +83,12 @@ fn format_cli_inner(
     'outer: while let Some((_, c)) = chars.next() {
         if c == '\\' {
             if let Some(&(_, next)) = chars.peek()
-                && next == '{' {
-                    chars.next();
-                    result.push('{');
-                    continue;
-                }
+                && next == '{'
+            {
+                chars.next();
+                result.push('{');
+                continue;
+            }
             result.push('\\');
             continue;
         }
@@ -143,9 +146,10 @@ fn any_need_current(template: &str) -> bool {
     'outer: while let Some((_, c)) = chars.next() {
         if c == '\\' {
             if let Some(&(_, next)) = chars.peek()
-                && next == '{' {
-                    chars.next();
-                }
+                && next == '{'
+            {
+                chars.next();
+            }
             continue;
         }
 
@@ -298,13 +302,14 @@ fn get_val<'a>(
             };
 
             if let Some(idx) = idx
-                && let Some(col) = state.picker_ui.worker.columns.get(idx) {
-                    let indexed = Indexed {
-                        index: 0,
-                        inner: item.clone(),
-                    };
-                    return Some(col.raw(&indexed).to_string().into());
-                }
+                && let Some(col) = state.picker_ui.worker.columns.get(idx)
+            {
+                let indexed = Indexed {
+                    index: 0,
+                    inner: item.clone(),
+                };
+                return Some(col.raw(&indexed).to_string().into());
+            }
 
             None
         }
@@ -357,8 +362,8 @@ fn handle_range<'a, 'b>(
 
     let columns_to_join: Vec<usize> = (start_idx..end_idx)
         .filter(|&i| {
-            i >= state.picker_ui.results.hidden_columns.len()
-                || !state.picker_ui.results.hidden_columns[i]
+            i >= state.picker_ui.results.hidden_cols().len()
+                || !state.picker_ui.results.hidden_cols()[i]
         })
         .collect();
 

@@ -66,6 +66,15 @@ impl StyleSetting {
 
         style
     }
+
+    pub fn into_style_no_submodifiers(self) -> Style {
+        Style {
+            fg: self.fg,
+            bg: self.bg,
+            add_modifier: self.modifier,
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -92,7 +101,7 @@ impl HorizontalSeparator {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum RowConnectionStyle {
     #[default]
     Disjoint,

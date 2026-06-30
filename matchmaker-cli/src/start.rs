@@ -88,6 +88,7 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
         config.render.status.template = r#"\m/\t"#.to_string();
     }
 
+    #[cfg(not(debug_assertions))]
     log::trace!("Initial cfg: {config:?}");
 
     // apply overrides
@@ -201,6 +202,7 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
         }
     }
 
+    #[cfg(not(debug_assertions))]
     debug!("Config computed: {config:?}");
 
     Ok(config)
@@ -589,7 +591,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         }
     });
 
-    debug!("{mm:?}");
+    // debug!("{mm:?}");
 
     let mut action_context = ActionContext {
         bind_tx,

@@ -1,5 +1,6 @@
 pub mod injector;
 pub mod query;
+pub mod render_item;
 pub mod variants;
 mod worker;
 
@@ -121,6 +122,7 @@ impl<T: Clone> Indexed<T> {
 
 impl<T> Indexed<T> {
     /// Matchmaker requires a way to identify and store selected items from their references in the nucleo matcher. This method simply identifies them by their insertion index and is intended when the output type is not needed (i.e. externally managed).
+    /// Additionally, note that Matchmaker relies on the id output for caching row displays. If you don't wrap your item in Indexed, your identifier should identify items with u32::MAX.
     pub fn dummy_identifier(&self) -> (u32, ()) {
         (self.index, ())
     }

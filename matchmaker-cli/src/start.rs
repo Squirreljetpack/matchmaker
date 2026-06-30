@@ -13,7 +13,6 @@ use crate::{
     config::PartialConfig,
     formatter::format_cli,
     paths::{last_key_path, presets_path},
-    register::MMExt,
     utils::{expand_tilde, guess_clip_cmd, guess_editor_cmd, guess_pager_cmd},
 };
 use crate::{config::Config, paths::default_config_path};
@@ -36,10 +35,7 @@ use matchmaker::{
     event::{EventLoop, RenderSender},
     make_previewer,
     message::Interrupt,
-    nucleo::{
-        ColumnIndexable,
-        injector::{AnsiInjector, Either, IndexedInjector, Injector, SegmentedInjector},
-    },
+    nucleo::injector::{Either, IndexedInjector, Injector},
     preview::AppendOnly,
     render::MMState,
     use_formatter,
@@ -442,7 +438,6 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         mut mm,
         injector,
         OddEnds {
-            splitter,
             hidden_columns,
             has_error,
         },
@@ -459,7 +454,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let cli_formatter = Either::Right(
         crate::formatter::format_cli
             as for<'a, 'b, 'c> fn(
-                &'a MMState<'b, 'c, matchmaker::ConfigMMItem, matchmaker::ConfigMMInnerItem>,
+                &'a MMState<'b, 'c, matchmaker::ConfigMMItem, matchmaker::nucleo::ConfigPreprocessedData, String>,
                 &'a str,
                 Option<&dyn Fn(String)>,
             ) -> String,
@@ -531,7 +526,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     );
 
     // execute handlers
-    mm.register_execute_handler(cli_formatter.clone());
+    mm._register_execute_handler(cli_formatter.clone());
     mm._register_execute_async_handler(cli_formatter.clone());
     mm.register_copy(
         cli_formatter.clone(),
@@ -547,8 +542,6 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     mm.register_interrupt_handler(Interrupt::Reload, move |state| {
         let injector = state.injector();
         let injector = IndexedInjector::new_globally_indexed(injector);
-        let injector = SegmentedInjector::new(injector, splitter.clone());
-        let injector = AnsiInjector::new(injector, preprocess);
 
         let push_fn = inject_line(
             state.picker_ui.header.config.header_lines,
@@ -630,7 +623,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             if let Some(template) = &output_template {
                 format_cli(state, template, Some(&repeat));
             } else {
-                state.map_selected_to_vec(|_, x| repeat(x.to_cow().to_string()));
+                state.map_selected_to_vec(|_, x| repeat(x.as_str().to_string()));
             };
 
             vec![]
@@ -668,25 +661,18 @@ fn inject_line(
     move |line: String| {
         if remaining > 0 {
             let item = injector.wrap(line).unwrap();
-            let item = injector.injector.wrap(item).unwrap();
             header_buf.push(item);
             remaining -= 1;
 
             if remaining == 0 {
                 let rows: Vec<Vec<Line>> = header_buf
                     .drain(..)
-                    .map(|seg| {
-                        let row = (0..seg.len())
-                            .map(move |i| {
-                                let mut s = seg.get_text(i);
-                                if s.lines.is_empty() {
-                                    Line::default()
-                                } else {
-                                    to_static(s.lines.remove(0))
-                                }
-                            })
-                            .collect();
-                        trim_trailing_empty(row)
+                    .map(|_item| {
+                        // With the new architecture, items are Indexed<String>.
+                        // The splitting into columns is handled by the column preprocessor.
+                        // For the header, we just use the string as a single line.
+                        let s = _item.inner.clone();
+                        vec![Line::from(s)]
                     })
                     .collect();
 

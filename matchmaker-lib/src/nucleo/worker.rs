@@ -7,26 +7,26 @@ use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     sync::{
-        Arc,
         atomic::{self, AtomicU32},
+        Arc,
     },
 };
 
 use super::{injector::WorkerInjector, query::PickerQuery};
 use crate::SSS;
 
-type ColumnFormatFn<T> = Box<dyn Fn(&T) -> Text<'_> + Send + Sync>;
-type ColumnRawFn<T> = Box<dyn for<'a> Fn(&'a T) -> Cow<'a, str> + Send + Sync>;
-pub struct Column<T> {
+type ColumnFormatFn<T, D> = Box<dyn for<'a> Fn(&'a T, &'a D) -> Text<'a> + Send + Sync>;
+type ColumnRawFn<T, D> = Box<dyn for<'a> Fn(&'a T, &'a D) -> Cow<'a, str> + Send + Sync>;
+pub struct Column<T, D = ()> {
     pub name: Arc<str>,
-    pub(super) format: ColumnFormatFn<T>,
-    pub(super) raw: Option<ColumnRawFn<T>>,
+    pub(super) format: ColumnFormatFn<T, D>,
+    pub(super) raw: Option<ColumnRawFn<T, D>>,
     /// Whether the column should be passed to nucleo for matching and filtering.
     pub(super) filter: bool,
 }
 
-impl<T> Column<T> {
-    pub fn new_boxed(name: impl Into<Arc<str>>, format: ColumnFormatFn<T>) -> Self {
+impl<T, D> Column<T, D> {
+    pub fn new_boxed(name: impl Into<Arc<str>>, format: ColumnFormatFn<T, D>) -> Self {
         Self {
             name: name.into(),
             format,
@@ -37,7 +37,7 @@ impl<T> Column<T> {
 
     pub fn new<F>(name: impl Into<Arc<str>>, f: F) -> Self
     where
-        F: for<'a> Fn(&'a T) -> Text<'a> + SSS,
+        F: for<'a> Fn(&'a T, &'a D) -> Text<'a> + SSS,
     {
         Self {
             name: name.into(),
@@ -49,7 +49,7 @@ impl<T> Column<T> {
 
     pub fn with_raw<F>(mut self, f: F) -> Self
     where
-        F: for<'a> Fn(&'a T) -> Cow<'a, str> + SSS,
+        F: for<'a> Fn(&'a T, &'a D) -> Cow<'a, str> + SSS,
     {
         self.raw = Some(Box::new(f));
         self
@@ -65,16 +65,16 @@ impl<T> Column<T> {
         self.filter
     }
 
-    pub fn format<'a>(&self, item: &'a T) -> Text<'a> {
-        (self.format)(item)
+    pub fn format<'a>(&self, item: &'a T, d: &'a D) -> Text<'a> {
+        (self.format)(item, d)
     }
 
     // Note: the characters should match the output of [`Self::format`]
-    pub fn raw<'a>(&self, item: &'a T) -> Cow<'a, str> {
+    pub fn raw<'a>(&self, item: &'a T, d: &'a D) -> Cow<'a, str> {
         if let Some(r) = &self.raw {
-            (r)(item)
+            (r)(item, d)
         } else {
-            Cow::Owned((self.format)(item).to_string())
+            Cow::Owned((self.format)(item, d).to_string())
         }
     }
 }
@@ -82,7 +82,7 @@ impl<T> Column<T> {
 /// Worker: can instantiate, push, and get results. A view into computation.
 ///
 /// Additionally, the worker can affect the computation via find and restart.
-pub struct Worker<T>
+pub struct Worker<T, D = ()>
 where
     T: SSS,
 {
@@ -93,7 +93,11 @@ where
     /// A pre-allocated buffer used to collect match indices when fetching the results
     /// from the matcher. This avoids having to re-allocate on each pass.
     pub col_indices_buffer: Vec<u32>,
-    pub columns: Arc<[Column<T>]>,
+    pub columns: Arc<[Column<T, D>]>,
+    /// Preprocessor for raw column functions (used during injection)
+    pub raw_preprocessor: Arc<dyn Fn(&T) -> D + Send + Sync>,
+    /// Preprocessor for text column functions (used during rendering)
+    pub text_preprocessor: Arc<dyn Fn(&T) -> D + Send + Sync>,
 
     // Background tasks which push to the injector check their version matches this or exit
     pub(super) version: Arc<AtomicU32>,
@@ -114,12 +118,17 @@ bitflags! {
     }
 }
 
-impl<T> Worker<T>
+impl<T, D> Worker<T, D>
 where
     T: SSS,
 {
     /// Column names must be distinct!
-    pub fn new(columns: impl IntoIterator<Item = Column<T>>, default_column: usize) -> Self {
+    pub fn new(
+        columns: impl IntoIterator<Item = Column<T, D>>,
+        default_column: usize,
+        raw_preprocessor: Arc<dyn Fn(&T) -> D + Send + Sync>,
+        text_preprocessor: Arc<dyn Fn(&T) -> D + Send + Sync>,
+    ) -> Self {
         let columns: Arc<[_]> = columns.into_iter().collect();
         let matcher_columns = columns.iter().filter(|col| col.filter).count() as u32;
 
@@ -136,6 +145,8 @@ where
             query: PickerQuery::new(columns.iter().map(|col| &col.name).cloned(), default_column),
             column_options: vec![ColumnOptions::default(); columns.len()],
             columns,
+            raw_preprocessor,
+            text_preprocessor,
             version: Arc::new(AtomicU32::new(0)),
         }
     }
@@ -156,10 +167,11 @@ where
         self.nucleo.reverse_items(reverse_items);
     }
 
-    pub fn injector(&self) -> WorkerInjector<T> {
+    pub fn injector(&self) -> WorkerInjector<T, D> {
         WorkerInjector {
             inner: self.nucleo.injector(),
             columns: self.columns.clone(),
+            raw_preprocessor: self.raw_preprocessor.clone(),
             version: self.version.load(atomic::Ordering::Relaxed),
             picker_version: self.version.clone(),
         }
@@ -226,21 +238,6 @@ where
             .map(|item| item.data)
     }
 
-    // not a method due for lifetime flexibility
-    pub fn new_snapshot(nucleo: &mut nucleo::Nucleo<T>) -> (&nucleo::Snapshot<T>, Status) {
-        let nucleo::Status { changed, running } = nucleo.tick(10);
-        let snapshot = nucleo.snapshot();
-        (
-            snapshot,
-            Status {
-                item_count: snapshot.item_count(),
-                matched_count: snapshot.matched_item_count(),
-                running,
-                changed,
-            },
-        )
-    }
-
     pub fn raw_results(&self) -> impl ExactSizeIterator<Item = &T> + DoubleEndedIterator + '_ {
         let snapshot = self.nucleo.snapshot();
         snapshot.matched_items(..).map(|item| item.data)
@@ -285,7 +282,8 @@ where
 
         let snapshot = self.nucleo.snapshot();
         snapshot.matched_items(..).find_map(|item| {
-            let content = col.raw(item.data);
+            let d = (self.raw_preprocessor)(item.data);
+            let content = col.raw(item.data, &d);
             if content == query {
                 Some(item.data)
             } else {
@@ -295,10 +293,10 @@ where
     }
 
     pub fn format_with<'a>(&'a self, item: &'a T, col: &str) -> Option<Cow<'a, str>> {
-        self.columns
-            .iter()
-            .find(|c| &*c.name == col)
-            .map(|c| c.raw(item))
+        self.columns.iter().find(|c| &*c.name == col).map(|c| {
+            let d = (self.raw_preprocessor)(item);
+            c.raw(item, &d).into_owned().into()
+        })
     }
 }
 
@@ -308,6 +306,23 @@ pub struct Status {
     pub matched_count: u32,
     pub running: bool,
     pub changed: bool,
+}
+
+/// Standalone function to create a snapshot from nucleo without requiring D type parameter
+pub fn new_snapshot<T: Sync + Send + 'static>(
+    nucleo: &mut nucleo::Nucleo<T>,
+) -> (&nucleo::Snapshot<T>, Status) {
+    let nucleo::Status { changed, running } = nucleo.tick(10);
+    let snapshot = nucleo.snapshot();
+    (
+        snapshot,
+        Status {
+            item_count: snapshot.item_count(),
+            matched_count: snapshot.matched_item_count(),
+            running,
+            changed,
+        },
+    )
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -68,9 +68,9 @@ use crate::{
 /// - Decide whether to display empty rows.
 /// - Apply row-level styling (selection, cursor, connection modes).
 /// - Assemble rendered rows into the final table.
-pub fn render_row<'a, T: SSS>(
-    item: &'a nucleo::Item<T>,
-    worker: &Worker<T>,
+pub fn render_row<T: SSS, D>(
+    item: &nucleo::Item<T>,
+    worker: &Worker<T, D>,
 
     width_limits: &[u16],
     hidden_cols: &[bool],
@@ -99,13 +99,14 @@ pub fn render_row<'a, T: SSS>(
     let mut row_candidates = vec![];
     let columns = &worker.columns;
     let snapshot = worker.nucleo.snapshot();
+    let d = (worker.text_preprocessor)(item.data);
 
     for (i, c) in columns.iter().enumerate() {
         if hidden_cols.get(i).is_some_and(|x| *x) {
             continue;
         }
 
-        let mut t = c.format(item.data);
+        let mut t = c.format(item.data, &d);
         let w = t.width();
         width_callback(i, w);
 
@@ -189,7 +190,7 @@ pub fn render_row<'a, T: SSS>(
                     cell,
                     col_idx,
                     snapshot,
-                    &item,
+                    item,
                     matcher,
                     highlight_style,
                     wrap,
@@ -232,11 +233,11 @@ impl ResultsUI {
     /// ### Returns:
     /// - `Some(height)` if rows were successfully pushed (height is the total height added)
     /// - `None` if the item couldn't be rendered
-    pub(super) fn get_row<T: SSS>(
+    pub(super) fn get_row<T: SSS, D>(
         &mut self,
         idx: u32,
         matcher: &mut nucleo::Matcher,
-        worker: &Worker<T>,
+        worker: &Worker<T, D>,
         // post_render styling options
         selector: &mut Selector<T, impl Selection>,
         is_current: bool,
@@ -250,7 +251,7 @@ impl ResultsUI {
         let stacked = self.config.stacked_columns;
 
         let item = worker.nucleo.snapshot().get_item(idx)?;
-        let id = selector.id(&item.data);
+        let id = selector.id(item.data);
         let mut row_widths = vec![0u16; self.v_cols()];
 
         // check cache

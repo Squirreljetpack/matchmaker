@@ -24,7 +24,7 @@ use crate::{
         DisplayConfig, QueryConfig, RenderConfig, ResultsConfig, StatusConfig,
         TerminalLayoutSettings, UiConfig,
     },
-    nucleo::Worker,
+    nucleo::{Worker, new_snapshot},
     preview::Preview,
     tui::Tui,
 };
@@ -37,15 +37,15 @@ pub struct UI {
 
 // requires columns > 1
 impl UI {
-    pub fn new<'a, T: SSS, S: Selection, W: std::io::Write>(
+    pub fn new<'a, T: SSS, D, S: Selection, W: std::io::Write>(
         mut config: RenderConfig,
         matcher: &'a mut nucleo::Matcher,
-        worker: Worker<T>,
+        worker: Worker<T, D>,
         selection_set: Selector<T, S>,
         view: Option<Preview>,
         tui: &mut Tui<W>,
         hidden_columns: Vec<bool>,
-    ) -> (Self, PickerUI<'a, T, S>, DisplayUI, Option<PreviewUI>) {
+    ) -> (Self, PickerUI<'a, T, D, S>, DisplayUI, Option<PreviewUI>) {
         assert!(!worker.columns.is_empty());
 
         if config.results.reverse.is_none() {
@@ -134,24 +134,24 @@ impl UI {
     }
 }
 
-pub struct PickerUI<'a, T: SSS, S: Selection> {
+pub struct PickerUI<'a, T: SSS, D, S: Selection> {
     pub results: ResultsUI,
     pub status: StatusUI,
     pub query: QueryUI,
     pub header: DisplayUI,
     pub matcher: &'a mut nucleo::Matcher,
     pub selector: Selector<T, S>,
-    pub worker: Worker<T>,
+    pub worker: Worker<T, D>,
 }
 
-impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
+impl<'a, T: SSS, D, S: Selection> PickerUI<'a, T, D, S> {
     pub fn new(
         results_config: ResultsConfig,
         status_config: StatusConfig,
         input_config: QueryConfig,
         header_config: DisplayConfig,
         matcher: &'a mut nucleo::Matcher,
-        worker: Worker<T>,
+        worker: Worker<T, D>,
         selector: Selector<T, S>,
     ) -> Self {
         Self {
@@ -214,12 +214,12 @@ impl<'a, T: SSS, S: Selection> PickerUI<'a, T, S> {
     }
 }
 
-impl<'a, T: SSS, O: Selection> PickerUI<'a, T, O> {
+impl<'a, T: SSS, D, O: Selection> PickerUI<'a, T, D, O> {
     pub fn update(&mut self) {
         self.worker.find(&self.query.input);
     }
     pub fn update_status(&mut self) {
-        self.results.status = Worker::new_snapshot(&mut self.worker.nucleo).1;
+        self.results.status = new_snapshot(&mut self.worker.nucleo).1;
     }
 
     // creation from UI ensures Some

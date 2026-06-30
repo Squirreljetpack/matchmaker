@@ -1,19 +1,19 @@
 use crate::ui::ResultsUI;
 use ratatui::widgets::{Row, Table};
 
-use crate::{SSS, Selection, Selector, nucleo::Worker, render::Click};
+use crate::{SSS, Selection, Selector, nucleo::{Worker, new_snapshot}, render::Click};
 
 impl ResultsUI {
-    pub fn update_table<T: SSS>(
+    pub fn update_table<T: SSS, D>(
         &mut self,
         active_column: usize,
-        worker: &mut Worker<T>,
+        worker: &mut Worker<T, D>,
         selector: &mut Selector<T, impl Selection>,
         matcher: &mut nucleo::Matcher,
         click: &mut Click,
     ) {
         // Step 0: Refresh the nucleo snapshot and status before rendering
-        let (snapshot, status) = Worker::new_snapshot(&mut worker.nucleo);
+        let (_snapshot, status) = new_snapshot(&mut worker.nucleo);
         let old_mc = self.matched_count;
         let mc = status.matched_count;
         self.matched_count = mc;
@@ -54,7 +54,7 @@ impl ResultsUI {
 
         // todo: This is supposed to cover all invalidations but I'm not so certain
         let cursor_moved = self.cursor_moved;
-        if !cursor_moved.is_some() && !self.status.changed && !self.row_cache[0].is_empty() {
+        if cursor_moved.is_none() && !self.status.changed && !self.row_cache[0].is_empty() {
             return;
         }
         self.cursor_moved = None;
@@ -189,8 +189,7 @@ impl ResultsUI {
                 .iter()
                 .filter_map(|(i, _)| (*i != u32::MAX).then_some(*i))
                 .next()
-            {
-                if lowest_idx > self.bottom {
+                && lowest_idx > self.bottom {
                     let delta = lowest_idx - self.bottom;
                     if delta < self.height as u32 {
                         self.bottom += delta;
@@ -204,7 +203,6 @@ impl ResultsUI {
                         );
                     }
                 }
-            }
 
             // Append after_rows
             rows.extend(after_rows);

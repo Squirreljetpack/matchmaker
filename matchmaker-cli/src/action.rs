@@ -1,22 +1,28 @@
 use std::{process::Command, str::FromStr};
 
 use cba::{
-    StringError, bait::ResultExt, bring::split::split_on_unescaped_delimiter, broc::CommandExt,
-    unwrap,
+    bait::ResultExt, bring::split::split_on_unescaped_delimiter, broc::CommandExt, unwrap,
+    StringError,
 };
 use log::{debug, error};
 use matchmaker::{
-    Action, Actions, ConfigMMInnerItem, ConfigMMItem,
     binds::Trigger,
     config::PartialRenderConfig,
     event::BindSender,
     message::{BindDirective, Interrupt, RenderCommand},
     nucleo::Line,
     ui::StatusUI,
+    Action, Actions, ConfigMMItem,
 };
 use matchmaker_partial::{Apply, Set};
 
-pub type MMState<'a, 'b> = matchmaker::render::MMState<'a, 'b, ConfigMMItem, ConfigMMInnerItem>;
+pub type MMState<'a, 'b> = matchmaker::render::MMState<
+    'a,
+    'b,
+    ConfigMMItem,
+    matchmaker::nucleo::ConfigPreprocessedData,
+    String,
+>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MMAction {

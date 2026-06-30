@@ -24,10 +24,10 @@ use crate::tui::Tui;
 use crate::ui::{DisplayUI, OverlayUI, PickerUI, PreviewUI, QueryUI, ResultsUI, StatusUI, UI};
 use crate::{AcceptHook, ActionAliaser, ActionExtHandler, Initializer, MatchError, SSS, Selection};
 
-fn apply_aliases<T: SSS, S: Selection, A: ActionExt>(
+fn apply_aliases<T: SSS, D, S: Selection, A: ActionExt>(
     buffer: &mut Vec<RenderCommand<A>>,
-    aliaser: &mut ActionAliaser<T, S, A>,
-    dispatcher: &mut MMState<'_, '_, T, S>,
+    aliaser: &mut ActionAliaser<T, D, S, A>,
+    dispatcher: &mut MMState<'_, '_, T, D, S>,
 ) {
     let mut out = Vec::new();
 
@@ -46,9 +46,9 @@ fn apply_aliases<T: SSS, S: Selection, A: ActionExt>(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt>(
+pub(crate) async fn render_loop<'a, W: Write, T: SSS, D, S: Selection, A: ActionExt>(
     mut ui: UI,
-    mut picker_ui: PickerUI<'a, T, S>,
+    mut picker_ui: PickerUI<'a, T, D, S>,
     mut footer_ui: DisplayUI,
     mut preview_ui: Option<PreviewUI>,
     mut tui: Tui<W>,
@@ -60,11 +60,11 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, S: Selection, A: ActionExt
     controller_tx: EventSender,
     bind_tx: BindSender<A>,
 
-    mut dynamic_handlers: DynamicHandlers<T, S>,
-    mut ext_handler: Option<ActionExtHandler<T, S, A>>,
-    mut ext_aliaser: Option<ActionAliaser<T, S, A>>,
-    initializer: Option<Initializer<T, S>>,
-    accept_hook: Option<AcceptHook<T, S>>,
+    mut dynamic_handlers: DynamicHandlers<T, D, S>,
+    mut ext_handler: Option<ActionExtHandler<T, D, S, A>>,
+    mut ext_aliaser: Option<ActionAliaser<T, D, S, A>>,
+    initializer: Option<Initializer<T, D, S>>,
+    accept_hook: Option<AcceptHook<T, D, S>>,
     #[cfg(feature = "bracketed-paste")] //
     mut paste_handler: Option<PasteHandler<T, S>>,
 ) -> Result<Vec<S>, MatchError> {
@@ -1121,10 +1121,10 @@ fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {
     frame.render_widget(widget, area);
 }
 
-fn render_results<T: SSS, S: Selection>(
+fn render_results<T: SSS, D, S: Selection>(
     frame: &mut Frame,
     mut area: Rect,
-    picker_ui: &mut PickerUI<T, S>,
+    picker_ui: &mut PickerUI<T, D, S>,
     click: &mut Click,
     filtering: bool,
 ) {

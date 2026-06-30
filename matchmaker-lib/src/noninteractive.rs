@@ -1,8 +1,9 @@
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crate::{
+    nucleo::{injector::Injector, new_snapshot, Column, Render, Worker},
     SSS,
-    nucleo::{Column, Render, Worker, injector::Injector},
 };
 
 /// Map f on matches without starting the interface.
@@ -12,7 +13,13 @@ pub fn get_matches<T: SSS + Render>(
     timeout: Duration,
     mut f: impl FnMut(&T) -> bool,
 ) {
-    let mut worker = Worker::new([Column::new("", |item: &T| item.as_text())], 0);
+    let preprocessor = Arc::new(|_: &T| ());
+    let mut worker = Worker::new(
+        [Column::new("", |item: &T, _: &()| item.as_text())],
+        0,
+        preprocessor.clone(),
+        preprocessor,
+    );
     let mut total = 0;
 
     let injector = worker.injector();
@@ -25,7 +32,7 @@ pub fn get_matches<T: SSS + Render>(
 
     let start = Instant::now();
     loop {
-        let (_, status) = Worker::new_snapshot(&mut worker.nucleo);
+        let (_, status) = new_snapshot(&mut worker.nucleo);
 
         if status.item_count == total && !status.running {
             break;

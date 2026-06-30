@@ -10,12 +10,12 @@ use matchmaker::{
 };
 
 #[easy_ext::ext(MMExt)]
-impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
+impl<T: SSS, D: 'static, S: Selection + 'static> Matchmaker<T, D, S> {
     /// Causes [`Action::Execute`] to cause the program to execute the program specified by its payload.
     /// Note:
     /// - not intended for direct use.
     /// - Assumes preview and cmd formatter are the same.
-    pub fn register_execute_handler(&mut self, formatter: AttachmentFormatter<T, S>) {
+    pub fn register_execute_handler(&mut self, formatter: AttachmentFormatter<T, D, S>) {
         let formatter_ = formatter.clone();
         self.register_interrupt_handler(Interrupt::Execute, move |state| {
             let discriminant = state.discriminant_payload.take();

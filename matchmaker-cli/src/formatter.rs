@@ -2,13 +2,13 @@ use cba::bath::shell_quote_impl;
 use cba::unwrap;
 use matchmaker::nucleo::Indexed;
 use matchmaker::render::MMState;
-use matchmaker::{ConfigMMInnerItem, ConfigMMItem};
+use matchmaker::ConfigMMItem;
 use std::borrow::Cow;
 
 // support {1} -> first column
 const COLUMN_INDICES: bool = true;
 
-type ConfigMMState<'a, 'b> = MMState<'a, 'b, ConfigMMItem, ConfigMMInnerItem>;
+type ConfigMMState<'a, 'b> = MMState<'a, 'b, ConfigMMItem, matchmaker::nucleo::ConfigPreprocessedData, String>;
 
 fn is_valid_key(s: &str) -> bool {
     let body = s.strip_prefix(&['=', '-', '_', '+'][..]).unwrap_or(s);
@@ -36,8 +36,8 @@ fn is_valid_content(s: &str) -> bool {
     }
 }
 
-/// Process_key accepts a ConfigMMInnerItem and uses it in the non-multi branch instead of getting the item from current_raw.
-/// Note: Although it accepts Option<..>, it can be considered as accepting a definite ConfigMMInnerItem. The second case with none is unreachable.
+/// Process_key accepts a String and uses it in the non-multi branch instead of getting the item from current_raw.
+/// Note: Although it accepts Option<..>, it can be considered as accepting a definite String. The second case with none is unreachable.
 /// If repeat is Some(f), and the template contains a non-multi replacement, we use state.map_selected_to_vec. For each selected, use that as the get_current() override. Return String::new().
 /// Otherwise, if repeat is None or if the template only consists of non-multi replacement, return a single string, pass the current to process_key. (If state.get_current() is None, return String::new(), which signals no action)
 pub fn format_cli(
@@ -75,7 +75,7 @@ pub fn format_cli(
 fn format_cli_inner(
     state: &ConfigMMState<'_, '_>,
     template: &str,
-    item_override: Option<(u32, &ConfigMMInnerItem)>,
+    item_override: Option<(u32, &String)>,
 ) -> String {
     let mut result = String::with_capacity(template.len());
     let mut chars = template.char_indices().peekable();
@@ -184,7 +184,7 @@ fn any_need_current(template: &str) -> bool {
 fn process_key(
     input: &str,
     state: &ConfigMMState<'_, '_>,
-    item_override: Option<(u32, &ConfigMMInnerItem)>,
+    item_override: Option<(u32, &String)>,
 ) -> Option<String> {
     let mut key = input;
     let mut quote = true;
@@ -264,7 +264,7 @@ fn process_key(
 
 fn get_val<'a>(
     key: &str,
-    (index, item): (u32, &'a ConfigMMInnerItem),
+    (index, item): (u32, &'a String),
     state: &ConfigMMState<'_, '_>,
 ) -> Option<Cow<'a, str>> {
     if key == "!" {
@@ -276,12 +276,13 @@ fn get_val<'a>(
                 index: 0,
                 inner: item.clone(),
             };
-            return Some(col.raw(&indexed).to_string().into());
+            let d = (state.picker_ui.worker.raw_preprocessor)(&indexed);
+            return Some(col.raw(&indexed, &d).to_string().into());
         }
         None
     } else {
         if key.is_empty() {
-            Some(item.to_cow())
+            Some(Cow::Borrowed(item.as_str()))
         } else if key == "#" {
             Some(index.to_string().into())
         } else {
@@ -308,7 +309,8 @@ fn get_val<'a>(
                     index: 0,
                     inner: item.clone(),
                 };
-                return Some(col.raw(&indexed).to_string().into());
+                let d = (state.picker_ui.worker.raw_preprocessor)(&indexed);
+                return Some(col.raw(&indexed, &d).to_string().into());
             }
 
             None
@@ -321,7 +323,7 @@ fn handle_range<'a, 'b>(
     state: &ConfigMMState<'_, '_>,
     quote: bool,
     multi: bool,
-    item_override: Option<&ConfigMMInnerItem>,
+    item_override: Option<&String>,
 ) -> Option<String> {
     let parts: Vec<&str> = key.split("..").collect();
     let start_key = parts.first().copied().unwrap_or("");
@@ -376,9 +378,10 @@ fn handle_range<'a, 'b>(
                         index: 0,
                         inner: item.clone(),
                     };
+                    let d = (state.picker_ui.worker.raw_preprocessor)(&indexed);
                     for &col_idx in &columns_to_join {
                         let col = &state.picker_ui.worker.columns[col_idx];
-                        let val = col.raw(&indexed).to_string();
+                        let val = col.raw(&indexed, &d).to_string();
                         row_res.push(val);
                     }
                     let joined = row_res.join(" ");
@@ -397,9 +400,10 @@ fn handle_range<'a, 'b>(
                 index: 0,
                 inner: item.clone(),
             };
+            let d = (state.picker_ui.worker.raw_preprocessor)(&indexed);
             for &col_idx in &columns_to_join {
                 let col = &state.picker_ui.worker.columns[col_idx];
-                let val = col.raw(&indexed).to_string();
+                let val = col.raw(&indexed, &d).to_string();
                 row_res.push(val);
             }
             let joined = row_res.join(" ");
@@ -412,7 +416,8 @@ fn handle_range<'a, 'b>(
             let mut row_res = Vec::new();
             for &col_idx in &columns_to_join {
                 let col = &state.picker_ui.worker.columns[col_idx];
-                let val = col.raw(item).to_string();
+                let d = (state.picker_ui.worker.raw_preprocessor)(item);
+                let val = col.raw(item, &d).to_string();
                 row_res.push(val);
             }
             let joined = row_res.join(" ");

@@ -4,14 +4,14 @@
 use std::{
     marker::PhantomData,
     sync::{
-        Arc,
         atomic::{AtomicU32, Ordering},
+        Arc,
     },
 };
 
 use super::worker::{Column, Worker, WorkerError};
 use super::{Indexed, Segmented};
-use crate::{SSS, nucleo::SegmentableItem};
+use crate::{nucleo::SegmentableItem, SSS};
 
 pub trait Injector {
     type InputItem;
@@ -60,17 +60,18 @@ impl Injector for () {
     type InputItem = ();
 }
 
-pub struct WorkerInjector<T> {
+pub struct WorkerInjector<T, D = ()> {
     pub(super) inner: nucleo::Injector<T>,
-    pub(super) columns: Arc<[Column<T>]>,
+    pub(super) columns: Arc<[Column<T, D>]>,
+    pub(super) raw_preprocessor: Arc<dyn Fn(&T) -> D + Send + Sync>,
     pub(super) version: u32,
     pub(super) picker_version: Arc<AtomicU32>,
 }
 
-impl<T: SSS> Injector for WorkerInjector<T> {
+impl<T: SSS, D> Injector for WorkerInjector<T, D> {
     type InputItem = T;
     type Inner = ();
-    type Context = Worker<T>;
+    type Context = Worker<T, D>;
 
     fn new(_: Self::Inner, data: Self::Context) -> Self {
         data.injector()
@@ -91,7 +92,8 @@ impl<T: SSS> Injector for WorkerInjector<T> {
         if self.version != self.picker_version.load(Ordering::Relaxed) {
             return Err(WorkerError::InjectorShutdown);
         }
-        push_impl(&self.inner, &self.columns, item);
+        let d = (self.raw_preprocessor)(&item);
+        push_impl(&self.inner, &self.columns, item, &d);
         Ok(())
     }
 
@@ -103,27 +105,43 @@ impl<T: SSS> Injector for WorkerInjector<T> {
         if self.version != self.picker_version.load(Ordering::Relaxed) {
             return Err(WorkerError::InjectorShutdown);
         }
-        extend_impl(&self.inner, &self.columns, items);
+        // For extend, we need to preprocess each item
+        let items_with_d: Vec<(T, D)> = items
+            .into_iter()
+            .map(|item| {
+                let d = (self.raw_preprocessor)(&item);
+                (item, d)
+            })
+            .collect();
+        extend_impl(&self.inner, &self.columns, items_with_d);
         Ok(())
     }
 }
 
-pub(super) fn push_impl<T>(injector: &nucleo::Injector<T>, columns: &[Column<T>], item: T) {
+pub(super) fn push_impl<T, D>(
+    injector: &nucleo::Injector<T>,
+    columns: &[Column<T, D>],
+    item: T,
+    d: &D,
+) {
     injector.push(item, |item, dst| {
         for (column, text) in columns.iter().filter(|column| column.filter).zip(dst) {
-            *text = column.raw(item).into()
+            *text = column.raw(item, d).into()
         }
     });
 }
 
 #[cfg(feature = "experimental")]
-pub(super) fn extend_impl<T, I>(injector: &nucleo::Injector<T>, columns: &[Column<T>], items: I)
-where
-    I: IntoIterator<Item = T> + ExactSizeIterator,
+pub(super) fn extend_impl<T, D, I>(
+    injector: &nucleo::Injector<T>,
+    columns: &[Column<T, D>],
+    items: I,
+) where
+    I: IntoIterator<Item = (T, D)> + ExactSizeIterator,
 {
-    injector.extend(items, |item, dst| {
+    injector.extend(items, |(item, d), dst| {
         for (column, text) in columns.iter().filter(|column| column.filter).zip(dst) {
-            *text = column.raw(item).into()
+            *text = column.raw(&item, &d).into()
         }
     });
 }
@@ -215,6 +233,7 @@ impl<T: SegmentableItem, I: Injector<InputItem = Segmented<T>>> Injector
         &self.injector
     }
 }
+pub type PreprocessOptions = (bool, bool);
 
 mod ansi {
     use std::{borrow::Cow, ops::Range};
@@ -324,11 +343,12 @@ pub use ansi::*;
 // }
 
 // ----------- CLONE ----------------------------
-impl<T> Clone for WorkerInjector<T> {
+impl<T, D> Clone for WorkerInjector<T, D> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
             columns: Arc::clone(&self.columns),
+            raw_preprocessor: Arc::clone(&self.raw_preprocessor),
             version: self.version,
             picker_version: Arc::clone(&self.picker_version),
         }

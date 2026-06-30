@@ -7,7 +7,7 @@ use std::{
     sync::Arc,
 };
 
-use cba::{bait::ResultExt, bath::PathExt, broc::CommandExt, ebog, env_vars};
+use cba::{bait::ResultExt, bath::PathExt, broc::CommandExt, env_vars};
 use easy_ext::ext;
 use log::{debug, info, warn};
 use ratatui::text::Text;
@@ -18,10 +18,9 @@ use crate::{
         ColumnsConfig, ExitConfig, OverlayConfig, PreviewerConfig, RenderConfig, Split,
         TerminalConfig, WorkerConfig,
     }, event::{EventLoop, RenderSender}, message::{Event, Interrupt, RenderCommand}, nucleo::{
-        Indexed, Segmented, Worker,
+        Indexed, Worker,
         injector::{
-            AnsiInjector, Either, IndexedInjector, Injector, PreprocessOptions, SegmentedInjector,
-            SplitterFn, WorkerInjector,
+            Either, IndexedInjector, PreprocessOptions, WorkerInjector,
         },
     }, preview::{
         AppendOnly, Preview,
@@ -39,20 +38,19 @@ use crate::{
 /// 4. Register your handlers
 ///    4.5 Start and connect your previewer
 /// 5. Call mm.pick() or mm.pick_with_matcher(&mut matcher)
-pub struct Matchmaker<T: SSS, S: Selection = T> {
-    pub worker: Worker<T>,
+pub struct Matchmaker<T: SSS, D = (), S: Selection = T> {
+    pub worker: Worker<T, D>,
     pub render_config: RenderConfig,
     pub tui_config: TerminalConfig,
     pub exit_config: ExitConfig,
     pub selector: Selector<T, S>,
-    pub event_handlers: EventHandlers<T, S>,
-    pub interrupt_handlers: InterruptHandlers<T, S>,
+    pub event_handlers: EventHandlers<T, D, S>,
+    pub interrupt_handlers: InterruptHandlers<T, D, S>,
 }
 
 // ----------- MAIN -----------------------
 
 pub struct OddEnds {
-    pub splitter: SplitterFn<Either<Box<str>, Text<'static>>>,
     pub hidden_columns: Vec<bool>,
     pub has_error: bool,
 }
@@ -94,15 +92,9 @@ pub fn set_host_clipboard_universal(text: &str) -> io::Result<()> {
     Ok(())
 }
 
-pub type ConfigInjector = AnsiInjector<
-    SegmentedInjector<
-        Either<Box<str>, Text<'static>>,
-        IndexedInjector<Segmented<Either<Box<str>, Text<'static>>>, WorkerInjector<ConfigMMItem>>,
-    >,
->;
-pub type ConfigMatchmaker = Matchmaker<ConfigMMItem, Segmented<Either<Box<str>, Text<'static>>>>;
-pub type ConfigMMInnerItem = Segmented<Either<Box<str>, Text<'static>>>;
-pub type ConfigMMItem = Indexed<ConfigMMInnerItem>;
+pub type ConfigInjector = IndexedInjector<String, WorkerInjector<Indexed<String>, crate::nucleo::ConfigPreprocessedData>>;
+pub type ConfigMatchmaker = Matchmaker<ConfigMMItem, crate::nucleo::ConfigPreprocessedData, String>;
+pub type ConfigMMItem = Indexed<String>;
 
 impl ConfigMatchmaker {
     #[allow(unused)]
@@ -121,23 +113,37 @@ impl ConfigMatchmaker {
         let cc = columns_config;
         let hidden_columns = cc.names.iter().map(|x| x.hidden).collect();
         let offset = !cc.names_from_zero as usize;
-        let mut worker: Worker<ConfigMMItem> = match cc.split {
-            Split::Delimiter(_) | Split::Regexes(_) => {
-                let names: Vec<Arc<str>> = if cc.names.is_empty() {
-                    (offset..(cc.max_cols() + offset))
-                        .map(|n| Arc::from(n.to_string()))
-                        .collect()
-                } else {
-                    cc.names
-                        .iter()
-                        .take(cc.max_cols())
-                        .map(|s| Arc::from(s.name.as_str()))
-                        .collect()
-                };
-                Worker::new_indexable(names, cc.default.as_ref().map(|x| x.0.as_str()))
-            }
-            Split::None => Worker::new_indexable([""], None),
+        
+        // Build column names
+        let column_names: Vec<Arc<str>> = if cc.names.is_empty() {
+            (offset..(cc.max_cols() + offset))
+                .map(|n| Arc::from(n.to_string()))
+                .collect()
+        } else {
+            cc.names
+                .iter()
+                .take(cc.max_cols())
+                .map(|s| Arc::from(s.name.as_str()))
+                .collect()
         };
+        
+        // Handle Split::None case - use empty name
+        let (column_names, split) = match cc.split {
+            Split::None => (vec![Arc::from("")], Split::None),
+            _ => (column_names, cc.split),
+        };
+        
+        // Build columns using the new function
+        let (columns, raw_preprocessor, text_preprocessor, default_index) = 
+            crate::nucleo::build_columns_for_config(
+                preprocess_config,
+                split,
+                column_names,
+                cc.default.as_ref().map(|x| x.0.as_str()),
+            );
+        
+        let mut worker: Worker<ConfigMMItem, crate::nucleo::ConfigPreprocessedData> = 
+            Worker::new(columns, default_index, raw_preprocessor, text_preprocessor);
 
         #[cfg(feature = "experimental")]
         {
@@ -149,126 +155,7 @@ impl ConfigMatchmaker {
         }
 
         let injector = worker.injector();
-
-        // the computed number of columns, <= cc.max_columns = MAX_COLUMNS
-        let col_count = worker.columns.len();
-
-        // Arc over box due to capturing
-        let splitter: SplitterFn<Either<Box<str>, Text>> = match cc.split {
-            Split::Delimiter(ref rg) => {
-                let rg = rg.clone();
-                let names = cc.names.clone();
-                let col_count = worker.columns.len();
-                let mut has_named_group = false;
-
-                // Map named captures to column indices
-                let capture_to_idx: Vec<Option<usize>> = rg
-                    .capture_names()
-                    .enumerate()
-                    .map(|(i, name_opt)| {
-                        if i == 0 {
-                            None
-                        } else {
-                            name_opt.and_then(|name| {
-                                has_named_group = true;
-                                names.iter().position(|n| n.name.0 == name)
-                            })
-                        }
-                    })
-                    .collect();
-
-                // Determine the mode:
-                // 1. Named captures → capture_to_idx has at least one Some
-                // 2. All unnamed → capture_to_idx has at least one None beyond index 0
-                // 3. No capture groups → captures_len() == 1
-                let has_unnamed = rg.captures_len() > 1 && !has_named_group;
-
-                if has_named_group {
-                    log::debug!("Named regex: {rg} with {} groups", capture_to_idx.len());
-                    if capture_to_idx.iter().all(|x| x.is_none()) {
-                        ebog!("No capture group matches a column name");
-                        has_error = true;
-                    }
-
-                    // Named capture groups
-                    Arc::new(move |s| {
-                        let s = &s.to_cow();
-                        let mut ranges = vec![(0u32, 0u32); col_count].into_boxed_slice();
-
-                        if let Some(caps) = rg.captures(s) {
-                            for (group_idx, col_idx_opt) in
-                                capture_to_idx.iter().enumerate().skip(1)
-                            {
-                                if let Some(col_idx) = col_idx_opt
-                                    && let Some(m) = caps.get(group_idx) {
-                                        ranges[*col_idx] = (m.start() as u32, m.end() as u32);
-                                    }
-                            }
-                        }
-
-                        ranges
-                    })
-                } else if has_unnamed {
-                    log::debug!(
-                        "Unnamed regex: {rg} with {} groups",
-                        capture_to_idx.len() - 1
-                    );
-
-                    // All unnamed capture groups → map in order
-                    Arc::new(move |s| {
-                        let s = &s.to_cow();
-                        let mut ranges = vec![(0u32, 0u32); col_count].into_boxed_slice();
-                        if let Some(caps) = rg.captures(s) {
-                            for (i, group) in caps.iter().skip(1).enumerate().take(col_count) {
-                                if let Some(m) = group {
-                                    ranges[i] = (m.start() as u32, m.end() as u32);
-                                }
-                            }
-                        }
-
-                        ranges
-                    })
-                } else {
-                    log::debug!("Delimiter regex: {rg}");
-
-                    // No capture groups → normal delimiter split
-                    Arc::new(move |s| {
-                        let s = &s.to_cow();
-                        let mut ranges = Vec::with_capacity(col_count);
-                        let mut last_end = 0;
-
-                        for m in rg.find_iter(s).take(col_count - 1) {
-                            ranges.push((last_end as u32, m.start() as u32));
-                            last_end = m.end();
-                        }
-
-                        ranges.push((last_end as u32, s.len() as u32));
-                        ranges.into_boxed_slice()
-                    })
-                }
-            }
-            // not recommended but its supported ig
-            Split::Regexes(ref rgs) => {
-                let rgs = rgs.clone(); // or Arc
-                Arc::new(move |s| {
-                    let s = &s.to_cow();
-                    let mut ranges = Vec::with_capacity(col_count);
-
-                    for re in rgs.iter().take(col_count) {
-                        if let Some(m) = re.find(s) {
-                            ranges.push((m.start() as u32, m.end() as u32));
-                        } else {
-                            ranges.push((0, 0));
-                        }
-                    }
-                    ranges.into_boxed_slice()
-                })
-            }
-            Split::None => Arc::new(|s| vec![(0u32, s.to_cow().len() as u32)].into_boxed_slice()),
-        };
         let injector = IndexedInjector::new_globally_indexed(injector);
-        let injector = SegmentedInjector::new(injector, splitter.clone());
-        let injector = AnsiInjector::new(injector, preprocess_config);
 
         let selection_set = if render_config.results.multi {
             Selector::new(Indexed::identifier)
@@ -291,7 +178,6 @@ impl ConfigMatchmaker {
         new.prepare();
 
         let misc = OddEnds {
-            splitter,
             hidden_columns,
             has_error,
         };
@@ -300,8 +186,8 @@ impl ConfigMatchmaker {
     }
 }
 
-impl<T: SSS, S: Selection> Matchmaker<T, S> {
-    pub fn new(worker: Worker<T>, selector: Selector<T, S>) -> Self {
+impl<T: SSS, D: 'static, S: Selection> Matchmaker<T, D, S> {
+    pub fn new(worker: Worker<T, D>, selector: Selector<T, S>) -> Self {
         Matchmaker {
             worker,
             render_config: RenderConfig::default(),
@@ -331,7 +217,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
     /// Register a handler to listen on [`Event`]s
     pub fn register_event_handler<F>(&mut self, event: Event, handler: F)
     where
-        F: Fn(&mut MMState<'_, '_, T, S>, &Event) + 'static,
+        F: Fn(&mut MMState<'_, '_, T, D, S>, &Event) + 'static,
     {
         let boxed = Box::new(handler);
         self.register_boxed_event_handler(event, boxed);
@@ -340,14 +226,14 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
     pub fn register_boxed_event_handler(
         &mut self,
         event: Event,
-        handler: DynamicMethod<T, S, Event>,
+        handler: DynamicMethod<T, D, S, Event>,
     ) {
         self.event_handlers.set(event, handler);
     }
     /// Register a handler to listen on [`Interrupt`]s
     pub fn register_interrupt_handler<F>(&mut self, interrupt: Interrupt, handler: F)
     where
-        F: FnMut(&mut MMState<'_, '_, T, S>) + 'static,
+        F: FnMut(&mut MMState<'_, '_, T, D, S>) + 'static,
     {
         let boxed = Box::new(handler);
         self.register_boxed_interrupt_handler(interrupt, boxed);
@@ -356,7 +242,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
     pub fn register_boxed_interrupt_handler(
         &mut self,
         variant: Interrupt,
-        handler: BoxedHandler<T, S>,
+        handler: BoxedHandler<T, D, S>,
     ) {
         self.interrupt_handlers.set(variant, handler);
     }
@@ -366,7 +252,7 @@ impl<T: SSS, S: Selection> Matchmaker<T, S> {
     }
 
     /// The main method of the Matchmaker. It starts listening for events and renders the TUI with ratatui. It successfully returns with all the selected items selected when the Accept action is received.
-    pub async fn pick<A: ActionExt>(self, builder: PickOptions<'_, T, S, A>) -> Result<Vec<S>> {
+    pub async fn pick<A: ActionExt>(self, builder: PickOptions<'_, T, D, S, A>) -> Result<Vec<S>> {
         let PickOptions {
             previewer,
             ext_handler,
@@ -519,33 +405,33 @@ impl<T> Result<T> {
 // --------- BUILDER -------------
 
 /// Returns what should be pushed to input
-pub type PasteHandler<T, S> =
-    Box<dyn FnMut(String, &MMState<'_, '_, T, S>) -> String + Send + Sync + 'static>;
+pub type PasteHandler<T, D, S> =
+    Box<dyn FnMut(String, &MMState<'_, '_, T, D, S>) -> String + Send + Sync + 'static>;
 
-pub type ActionExtHandler<T, S, A> =
-    Box<dyn FnMut(A, &mut MMState<'_, '_, T, S>) + Send + Sync + 'static>;
+pub type ActionExtHandler<T, D, S, A> =
+    Box<dyn FnMut(A, &mut MMState<'_, '_, T, D, S>) + Send + Sync + 'static>;
 
-pub type ActionAliaser<T, S, A> =
-    Box<dyn FnMut(Action<A>, &mut MMState<'_, '_, T, S>) -> Actions<A> + Send + Sync + 'static>;
+pub type ActionAliaser<T, D, S, A> =
+    Box<dyn FnMut(Action<A>, &mut MMState<'_, '_, T, D, S>) -> Actions<A> + Send + Sync + 'static>;
 
-pub type AcceptHook<T, S> =
-    Box<dyn FnOnce(&mut MMState<'_, '_, T, S>) -> Vec<S> + Send + Sync + 'static>;
+pub type AcceptHook<T, D, S> =
+    Box<dyn FnOnce(&mut MMState<'_, '_, T, D, S>) -> Vec<S> + Send + Sync + 'static>;
 
-pub type Initializer<T, S> = Box<dyn FnOnce(&mut MMState<'_, '_, T, S>) + Send + Sync + 'static>;
+pub type Initializer<T, D, S> = Box<dyn FnOnce(&mut MMState<'_, '_, T, D, S>) + Send + Sync + 'static>;
 
 /// Used to configure [`Matchmaker::pick`] with additional options.
-pub struct PickOptions<'a, T: SSS, S: Selection, A: ActionExt = NullActionExt> {
+pub struct PickOptions<'a, T: SSS, D, S: Selection, A: ActionExt = NullActionExt> {
     matcher: Option<&'a mut nucleo::Matcher>,
     matcher_config: nucleo::Config,
 
     event_loop: Option<EventLoop<A>>,
     binds: Option<BindMap<A>>,
 
-    ext_handler: Option<ActionExtHandler<T, S, A>>,
-    ext_aliaser: Option<ActionAliaser<T, S, A>>,
+    ext_handler: Option<ActionExtHandler<T, D, S, A>>,
+    ext_aliaser: Option<ActionAliaser<T, D, S, A>>,
     #[cfg(feature = "bracketed-paste")]
-    paste_handler: Option<PasteHandler<T, S>>,
-    accept_hook: Option<AcceptHook<T,S>>,
+    paste_handler: Option<PasteHandler<T, D, S>>,
+    accept_hook: Option<AcceptHook<T, D, S>>,
 
     overlays: Vec<Box<dyn Overlay<A = A>>>,
     overlay_config: Option<OverlayConfig>,
@@ -554,14 +440,14 @@ pub struct PickOptions<'a, T: SSS, S: Selection, A: ActionExt = NullActionExt> {
     hidden_columns: Vec<bool>,
 
     // Initializing code, i.e. to setup state.
-    initializer: Option<Initializer<T, S>>,
+    initializer: Option<Initializer<T, D, S>>,
     pub channel: Option<(
         RenderSender<A>,
         tokio::sync::mpsc::UnboundedReceiver<crate::message::RenderCommand<A>>,
     )>,
 }
 
-impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
+impl<'a, T: SSS, D, S: Selection, A: ActionExt> PickOptions<'a, T, D, S, A> {
     pub const fn new() -> Self {
         Self {
             matcher: None,
@@ -631,7 +517,7 @@ impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
 
     pub fn ext_handler<F>(mut self, handler: F) -> Self
     where
-        F: FnMut(A, &mut MMState<'_, '_, T, S>) + Send + Sync + 'static,
+        F: FnMut(A, &mut MMState<'_, '_, T, D, S>) + Send + Sync + 'static,
     {
         self.ext_handler = Some(Box::new(handler));
         self
@@ -639,7 +525,7 @@ impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
 
     pub fn ext_aliaser<F>(mut self, aliaser: F) -> Self
     where
-        F: FnMut(Action<A>, &mut MMState<'_, '_, T, S>) -> Actions<A> + Send + Sync + 'static,
+        F: FnMut(Action<A>, &mut MMState<'_, '_, T, D, S>) -> Actions<A> + Send + Sync + 'static,
     {
         self.ext_aliaser = Some(Box::new(aliaser));
         self
@@ -647,7 +533,7 @@ impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
 
     pub fn initializer<F>(mut self, handler: F) -> Self
     where
-        F: FnOnce(&mut MMState<'_, '_, T, S>) + Send + Sync + 'static,
+        F: FnOnce(&mut MMState<'_, '_, T, D, S>) + Send + Sync + 'static,
     {
         self.initializer = Some(Box::new(handler));
         self
@@ -655,7 +541,7 @@ impl<'a, T: SSS, S: Selection, A: ActionExt> PickOptions<'a, T, S, A> {
 
     pub fn accept_hook<F>(mut self, handler: F) -> Self
     where
-        F: FnOnce(&mut MMState<'_, '_, T, S>) -> Vec<S> + Send + Sync + 'static,
+        F: FnOnce(&mut MMState<'_, '_, T, D, S>) -> Vec<S> + Send + Sync + 'static,
     {
         self.accept_hook = Some(Box::new(handler));
         self
@@ -703,15 +589,15 @@ impl<'a, T: SSS, S: Selection, A: ActionExt> Default for PickOptions<'a, T, S, A
 
 // ----------- ATTACHMENTS ------------------
 
-pub type AttachmentFormatter<T, S> = Either<
+pub type AttachmentFormatter<T, D, S> = Either<
     Arc<RenderFn<T>>,
-    for<'a, 'b, 'c> fn(&'a MMState<'b, 'c, T, S>, &'a str, Option<&dyn Fn(String)>) -> String,
+    for<'a, 'b, 'c> fn(&'a MMState<'b, 'c, T, D, S>, &'a str, Option<&dyn Fn(String)>) -> String,
 >;
 
 // we could check if template is empty here to avoid allocating but feels like it might be a footgun
-pub fn use_formatter<T: SSS, S: Selection>(
-    formatter: &AttachmentFormatter<T, S>,
-    state: &MMState<'_, '_, T, S>,
+pub fn use_formatter<T: SSS, D, S: Selection>(
+    formatter: &AttachmentFormatter<T, D, S>,
+    state: &MMState<'_, '_, T, D, S>,
     template: &str,
     repeat: Option<&dyn Fn(String)>,
 ) -> String {
@@ -731,14 +617,14 @@ pub fn use_formatter<T: SSS, S: Selection>(
 
 /// A set of methods for registering the "standard" functionality for various interrupts/events.
 /// These methods are prefixed with _ to indicate that library users will often prefer to override them.
-impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
+impl<T: SSS, D: 'static, S: Selection + 'static> Matchmaker<T, D, S> {
     // technically we don't need concurrency but the cost should be negligable
     /// Causes [`Action::Print`] to print to stdout.
     pub fn _register_print_handler(
         &mut self,
         print_handle: AppendOnly<String>,
         output_separator: String,
-        formatter: AttachmentFormatter<T, S>,
+        formatter: AttachmentFormatter<T, D, S>,
     ) {
         self.register_interrupt_handler(Interrupt::Print, move |state| {
             let template = state.payload().clone();
@@ -760,7 +646,7 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
     /// Note:
     /// - not intended for direct use.
     /// - Assumes preview and cmd formatter are the same.
-    pub fn _register_execute_handler(&mut self, formatter: AttachmentFormatter<T, S>) {
+    pub fn _register_execute_handler(&mut self, formatter: AttachmentFormatter<T, D, S>) {
         let formatter_1 = formatter.clone();
         self.register_interrupt_handler(Interrupt::Execute, move |state| {
             let template = state.payload();
@@ -832,7 +718,7 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
     }
 
     /// Causes [`Action::ExecuteAsync`] and [`Action::ExecuteThen`] to execute their payload without blocking, and for the remaining actions in the batch to depend on the execution result.
-    pub fn _register_execute_async_handler(&mut self, formatter: AttachmentFormatter<T, S>) {
+    pub fn _register_execute_async_handler(&mut self, formatter: AttachmentFormatter<T, D, S>) {
         self.register_interrupt_handler(Interrupt::ExecuteAsync, move |state| {
             if state.discriminant_payload.as_ref().is_some_and(|p| *p >= 2)
                 && let payload = state.discriminant_payload.take().unwrap()
@@ -895,7 +781,7 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
     /// - intended for direct use
     pub fn register_copy<A: ActionExt + Send + 'static>(
         &mut self,
-        formatter: AttachmentFormatter<T, S>,
+        formatter: AttachmentFormatter<T, D, S>,
         copy_trailing_newline: bool,
         render_tx: Option<RenderSender<A>>,
     ) {
@@ -1053,7 +939,7 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
     /// Note:
     /// - not intended for direct use.
     /// - Assumes preview and cmd formatter are the same.
-    pub fn _register_become_handler(&mut self, formatter: AttachmentFormatter<T, S>) {
+    pub fn _register_become_handler(&mut self, formatter: AttachmentFormatter<T, D, S>) {
         let formatter_2 = formatter.clone();
         self.register_interrupt_handler(Interrupt::Become, move |state| {
             let template = state.payload().clone();
@@ -1100,10 +986,10 @@ impl<T: SSS, S: Selection + 'static> Matchmaker<T, S> {
 
 /// Causes the program to display a preview of the active result.
 /// The Previewer can be connected to [`Matchmaker`] using [`PickOptions::previewer`]
-pub fn make_previewer<T: SSS, S: Selection + 'static>(
-    mm: &mut Matchmaker<T, S>,
+pub fn make_previewer<T: SSS, D: 'static, S: Selection + 'static>(
+    mm: &mut Matchmaker<T, D, S>,
     previewer_config: PreviewerConfig, // note: help_str is provided separately so help_colors is ignored
-    formatter: AttachmentFormatter<T, S>,
+    formatter: AttachmentFormatter<T, D, S>,
     help_factory: Box<
         dyn Fn(&crate::config::HelpDisplayConfig) -> Text<'static> + Send + Sync,
     >,

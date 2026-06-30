@@ -3,12 +3,12 @@ use cba::{bait::TransformExt, broc::EnvVars, env_vars, unwrap};
 use ratatui::text::Text;
 
 use crate::{
-    SSS, Selection, Selector,
     action::{ActionExt, Actions},
     event::{self, BindSender, EventSender},
     message::{BindDirective, Event, Interrupt},
-    nucleo::{Status, injector::WorkerInjector},
+    nucleo::{injector::WorkerInjector, Status},
     ui::{DisplayUI, OverlayUI, PickerUI, PreviewUI, Rect, UI},
+    Selection, Selector, SSS,
 };
 use ratatui::layout::Position;
 
@@ -254,9 +254,9 @@ impl State {
         changed
     }
 
-    pub(crate) fn update<'a, T: SSS, S: Selection, A: ActionExt>(
+    pub(crate) fn update<'a, T: SSS, D, S: Selection, A: ActionExt>(
         &'a mut self,
-        picker_ui: &'a mut PickerUI<T, S>,
+        picker_ui: &'a mut PickerUI<T, D, S>,
         overlay_ui: &'a Option<OverlayUI<A>>,
     ) {
         if self.iteration == 0 {
@@ -302,7 +302,7 @@ impl State {
         if changed {
             self.last_id = new_id;
             self.insert(Event::CursorChange);
-            
+
             if self.last_id.is_none() {
                 self.insert(Event::CursorLost);
             }
@@ -312,14 +312,14 @@ impl State {
 
     // ---------- flush -----------
     // public for tests only!
-    pub fn dispatcher<'a, 'b: 'a, T: SSS, S: Selection>(
+    pub fn dispatcher<'a, 'b: 'a, T: SSS, D, S: Selection>(
         &'a mut self,
         ui: &'a mut UI,
-        picker_ui: &'a mut PickerUI<'b, T, S>,
+        picker_ui: &'a mut PickerUI<'b, T, D, S>,
         footer_ui: &'a mut DisplayUI,
         preview_ui: &'a mut Option<PreviewUI>,
         event_controller: &'a EventSender,
-    ) -> MMState<'a, 'b, T, S> {
+    ) -> MMState<'a, 'b, T, D, S> {
         MMState {
             state: self,
             ui,
@@ -340,18 +340,18 @@ impl State {
 }
 
 // ----------------------------------------------------------------------
-pub struct MMState<'a, 'b: 'a, T: SSS, S: Selection> {
+pub struct MMState<'a, 'b: 'a, T: SSS, D, S: Selection> {
     // access through deref/mut
     pub(crate) state: &'a mut State,
 
     pub ui: &'a mut UI,
-    pub picker_ui: &'a mut PickerUI<'b, T, S>,
+    pub picker_ui: &'a mut PickerUI<'b, T, D, S>,
     pub footer_ui: &'a mut DisplayUI,
     pub preview_ui: &'a mut Option<PreviewUI>,
     pub event_controller: &'a EventSender,
 }
 
-impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
+impl<'a, 'b: 'a, T: SSS, D, S: Selection> MMState<'a, 'b, T, D, S> {
     pub fn previewer_area(&self) -> Option<Rect> {
         self.preview_ui.as_ref().map(|ui| {
             let mut ret = ui.area;
@@ -405,7 +405,7 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
     //     }
     // }
 
-    pub fn injector(&self) -> WorkerInjector<T> {
+    pub fn injector(&self) -> WorkerInjector<T, D> {
         self.picker_ui.worker.injector()
     }
 
@@ -487,13 +487,15 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
     }
 }
 
-pub(crate) fn get_current<T: SSS, S: Selection>(picker_ui: &PickerUI<T, S>) -> Option<(u32, S)> {
+pub(crate) fn get_current<T: SSS, D, S: Selection>(
+    picker_ui: &PickerUI<T, D, S>,
+) -> Option<(u32, S)> {
     let current_raw = picker_ui.worker.get_nth(picker_ui.results.index());
     current_raw.map(picker_ui.selector.identifier)
 }
 
 // ----- BOILERPLATE -----------
-impl<'a, 'b: 'a, T: SSS, S: Selection> std::ops::Deref for MMState<'a, 'b, T, S> {
+impl<'a, 'b: 'a, T: SSS, D, S: Selection> std::ops::Deref for MMState<'a, 'b, T, D, S> {
     type Target = State;
 
     fn deref(&self) -> &Self::Target {
@@ -501,7 +503,7 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> std::ops::Deref for MMState<'a, 'b, T, S>
     }
 }
 
-impl<'a, 'b: 'a, T: SSS, S: Selection> std::ops::DerefMut for MMState<'a, 'b, T, S> {
+impl<'a, 'b: 'a, T: SSS, D, S: Selection> std::ops::DerefMut for MMState<'a, 'b, T, D, S> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.state
     }

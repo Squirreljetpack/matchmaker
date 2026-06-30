@@ -50,6 +50,11 @@ pub struct ResultsUI {
     pub status: Status,
 
     row_cache: [Vec<(u32, Vec<Text<'static>>, Vec<u16>)>; 2],
+    /// Visual-order row metadata from the most recent successful build.
+    /// Each entry is `(item_idx, height)`; `u32::MAX` marks separator rows.
+    /// Kept around so click positions can be mapped back to absolute
+    /// indices after the table has been assembled.
+    row_data: Vec<(u32, u16)>,
     pub table: Table<'static>,
 }
 
@@ -78,6 +83,7 @@ impl ResultsUI {
             cursor_disabled: false,
             cursor_moved: None,
             row_cache: [Vec::new(), Vec::new()],
+            row_data: Vec::new(),
             table: ratatui::widgets::Table::default(),
         };
         ret.init(n_cols);
@@ -160,6 +166,25 @@ impl ResultsUI {
         } else {
             self.cursor as u32 + self.bottom
         }
+    }
+
+    /// Map a visual y-offset (in the rendered results table) back to the
+    /// absolute nucleo item index, or `None` if `y` falls outside the
+    /// populated range (e.g. in a padding/spacer row).
+    pub fn get_index_of_row(&self, y: u16) -> Option<u32> {
+        let target = if self.reverse() {
+            self.height.saturating_sub(y).saturating_sub(1)
+        } else {
+            y
+        };
+        let mut acc: u16 = 0;
+        for &(idx, h) in &self.row_data {
+            if idx != u32::MAX && acc <= target && target < acc + h {
+                return Some(idx);
+            }
+            acc += h;
+        }
+        None
     }
 
     fn set_cursor_changed(&mut self, jumped: bool) {
@@ -288,6 +313,8 @@ impl ResultsUI {
     }
 
     pub fn set_dirty(&mut self) {
+        #[cfg(debug_assertions)]
+        log::trace!("cache cleared");
         self.row_cache[0].clear();
         // self.row_cache[1].clear();
     }

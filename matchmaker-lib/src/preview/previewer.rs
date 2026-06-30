@@ -111,7 +111,7 @@ impl Previewer {
                     *cmd = cmd.trim().to_string();
                 }
 
-            log::trace!("Received: {m:?}");
+            log::trace!("Previewer received: {m:?}");
 
             if let PreviewMessage::Run(cmd, _) = &m {
                 if !self.config.always_trigger && &self.last == cmd {

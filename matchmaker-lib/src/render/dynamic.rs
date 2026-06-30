@@ -2,11 +2,12 @@ use std::fmt;
 
 use super::MMState;
 use crate::{
-    SSS,
     message::{Event, Interrupt},
+    SSS,
 };
 
-// note: beware that same handler could be called multiple times for the same event in one iteration
+// note: a handler whose mask intersects multiple set bits in the event is
+// only called once per propagation, not once per set bit.
 // We choose not to return a Option<Result<S, E>> to simplify defining handlers, but will rather expose some mechanisms on state later on if a use case arises
 pub type DynamicMethod<T, D, E> = Box<dyn Fn(&mut MMState<'_, '_, T, D>, &E)>;
 pub type BoxedHandler<T, D> = Box<dyn FnMut(&mut MMState<'_, '_, T, D>)>;
@@ -36,7 +37,10 @@ impl<T: SSS, D> EventHandlers<T, D> {
         self.handlers.push((event, handler));
     }
 
-    pub fn get(&self, event: Event) -> impl Iterator<Item = &DynamicMethod<T, D, Event>> {
+    /// Iterate all registered handlers whose mask intersects `event`.
+    /// Each handler is yielded at most once per call regardless of how
+    /// many bits its mask overlaps with the `event` bitflag.
+    pub fn try_all(&self, event: Event) -> impl Iterator<Item = &DynamicMethod<T, D, Event>> {
         self.handlers
             .iter()
             .filter(move |(mask, _)| mask.intersects(event))

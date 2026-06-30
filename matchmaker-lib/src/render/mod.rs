@@ -947,6 +947,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                     });
 
                     if did_resize {
+                        #[cfg(debug_assertions)]
+                        log::trace!("Resized results {results:?}");
                         picker_ui.results.update_dimensions(&results);
                         picker_ui.query.update_width(input.width);
                         footer_ui.update_width(
@@ -975,7 +977,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                         &picker_ui.results,
                         ui.area().width,
                     );
-                    render_results(frame, results, &mut picker_ui, &mut click, state.filtering);
+                    render_results(frame, results, &mut picker_ui, state.filtering);
                     render_display(frame, header, &mut picker_ui.header, &picker_ui.results);
                     render_display(frame, footer, &mut footer_ui, &picker_ui.results);
                     if let Some(preview_ui) = preview_ui.as_mut() {
@@ -1023,10 +1025,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
         // };
 
         // ping handlers with events
-        for e in events.iter() {
-            for h in dynamic_handlers.0.get(e) {
-                h(&mut dispatcher, &e)
-            }
+        for h in dynamic_handlers.0.try_all(events) {
+            h(&mut dispatcher, &events)
         }
         state.reset();
 
@@ -1054,7 +1054,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
             controller_tx.send(Event::Reloaded)._elog();
         }
 
-        click.process(&mut buffer, &bind_tx);
+        click.process(&mut picker_ui.results, &mut buffer, &bind_tx);
     }
 
     Err(MatchError::EventLoopClosed)
@@ -1065,19 +1065,21 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
 pub enum Click {
     None,
     ResultPos(u16),
-    ResultIdx(u32),
     Semantic(String),
 }
 
 impl Click {
     fn process<A: ActionExt>(
         &mut self,
-        buffer: &mut Vec<RenderCommand<A>>,
+        results: &mut ResultsUI,
+        _buffer: &mut Vec<RenderCommand<A>>,
         bind_tx: &BindSender<A>,
     ) {
         match self {
-            Click::ResultIdx(u) => {
-                buffer.push(RenderCommand::Action(Action::Pos(*u as i32)));
+            Click::ResultPos(y) => {
+                if let Some(idx) = results.get_index_of_row(*y) {
+                    results.cursor_jump(idx);
+                }
             }
             Click::Semantic(s) => {
                 bind_tx
@@ -1117,7 +1119,6 @@ fn render_results<T: SSS, D: 'static>(
     frame: &mut Frame,
     mut area: Rect,
     picker_ui: &mut PickerUI<T, D>,
-    click: &mut Click,
     filtering: bool,
 ) {
     let cap = matches!(
@@ -1137,7 +1138,6 @@ fn render_results<T: SSS, D: 'static>(
         &mut picker_ui.worker,
         &picker_ui.selector,
         picker_ui.matcher,
-        click,
     );
     let (table, width) = picker_ui.results.get_table();
 

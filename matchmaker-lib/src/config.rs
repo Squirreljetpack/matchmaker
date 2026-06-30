@@ -7,7 +7,7 @@ use matchmaker_partial_macros::partial;
 use ratatui::layout::Rect;
 
 pub use crate::config_types::*;
-pub use crate::utils::{Percentage, serde::StringOrVec};
+pub use crate::utils::{serde::StringOrVec, Percentage};
 
 use crate::{
     tui::IoStream,
@@ -437,6 +437,12 @@ pub struct ResultsConfig {
     pub separator_style: StyleSetting,
 
     pub width_overrides: Vec<u16>,
+
+    /// `[grow, shrink]` pixel deltas required before a column's preferred
+    /// width is recomputed. Smaller values make the table re-flow more
+    /// eagerly; larger values reduce flicker. Defaults to `[4, 4]`.
+    #[partial(alias = "rct")]
+    pub resize_col_thresholds: [u16; 2],
 }
 
 impl Default for ResultsConfig {
@@ -495,6 +501,7 @@ impl Default for ResultsConfig {
             vscroll_current_only: true,
 
             width_overrides: vec![],
+            resize_col_thresholds: [4, 4],
         }
     }
 }

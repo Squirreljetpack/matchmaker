@@ -106,6 +106,16 @@ impl<T: SSS, D: 'static> Worker<T, D> {
         let item = unsafe { snapshot.get_item_unchecked(idx) };
         Some((idx, item.data))
     }
+
+    pub(crate) fn get_nth_indexed_item(&self, n: u32) -> Option<(u32, nucleo::Item<'_, T>)> {
+        let snapshot = self.nucleo.snapshot();
+        let m = snapshot.matches().get(n as usize)?;
+        let idx = m.idx;
+        // SAFETY: `idx` is taken from a match in the snapshot we just took, so it
+        // points to an initialized item in that snapshot.
+        let item = unsafe { snapshot.get_item_unchecked(idx) };
+        Some((idx, item))
+    }
 }
 
 /// You must either impl as_str or as_text

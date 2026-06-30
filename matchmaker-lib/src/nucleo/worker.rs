@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     sync::{
-        Arc,
         atomic::{self, AtomicU32},
+        Arc,
     },
 };
 

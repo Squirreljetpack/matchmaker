@@ -40,8 +40,8 @@ prompt_style.fg = "Red"
 percentage = 100
 
 [results]
-# inactive_current_style.fg = "DarkGray"
-# inactive_current_style.bg = "Black"
+inactive_current_style.fg = "DarkGray"
+inactive_current_style.bg = "Black"
 scroll_wrap = true
 
 [binds]

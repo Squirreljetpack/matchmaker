@@ -233,6 +233,9 @@ pub fn map_reader<E: SSS + std::fmt::Display>(
                 }
             }
             Err(MapReaderError::ChunkError(_, _)) => {
+                if let Ok(mut g) = CHUNK_ERROR.lock() {
+                    *g = ret.as_ref().unwrap_err().to_string();
+                }
                 let _ = render_tx.send(matchmaker::message::RenderCommand::NoMatch);
             }
             _ => {}
@@ -244,6 +247,11 @@ pub fn map_reader<E: SSS + std::fmt::Display>(
 }
 
 pub static COMMAND_ARGS: Mutex<Vec<std::ffi::OsString>> = Mutex::new(Vec::new());
+
+/// Holds the most recent chunk-read error so the top-level handler in
+/// `main` can distinguish a chunk-error exit (400) from a plain
+/// no-match exit (404). Drained via `mem::take` on the consumer side.
+pub static CHUNK_ERROR: Mutex<String> = Mutex::new(String::new());
 
 pub fn process_envs(mut envs: HashMap<String, EnvValue>) -> HashMap<String, String> {
     let mut processed_envs = HashMap::new();

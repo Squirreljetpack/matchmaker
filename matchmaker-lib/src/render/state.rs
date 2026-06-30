@@ -3,11 +3,11 @@ use cba::{bait::TransformExt, broc::EnvVars, env_vars, unwrap};
 use ratatui::text::Text;
 
 use crate::{
-    SSS, Selector,
+    Selector, SSS,
     action::{ActionExt, Actions},
     event::{self, BindSender, EventSender},
     message::{BindDirective, Event, Interrupt},
-    nucleo::{Status, injector::WorkerInjector},
+    nucleo::{injector::WorkerInjector, Status},
     ui::{DisplayUI, OverlayUI, PickerUI, PreviewUI, Rect, UI},
 };
 use ratatui::layout::Position;
@@ -411,11 +411,10 @@ impl<'a, 'b: 'a, T: SSS, D: 'static> MMState<'a, 'b, T, D> {
     /// Delegates core work to [`MMState::map_selections_to_vec`].
     pub fn map_selected_to_vec<U>(&self, mut f: impl FnMut(u32, &T) -> U) -> Vec<U> {
         let mut out = self.map_selections_to_vec(&mut f);
-        if out.is_empty() {
-            if let Some((idx, item)) = self.picker_ui.current_indexed() {
+        if out.is_empty()
+            && let Some((idx, item)) = self.picker_ui.current_indexed() {
                 out.push(f(idx, item));
             }
-        }
         out
     }
 

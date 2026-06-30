@@ -232,14 +232,10 @@ impl ResultsUI {
     ///
     /// ### Returns:
     /// - `Some(height)` if rows were successfully pushed (height is the total height added)
+    /// OR if width_limits is empty
     /// - `None` if the item couldn't be rendered
     /// Render the n-th matched item.
-    ///
-    /// `idx` is the matched-item position (used to look up the item in the
-    /// nucleo snapshot's `matches` array). The cache key, however, is the
-    /// nucleo item index (`Match::idx`) — this is the stable identity that
-    /// flows through [`crate::Selector`] and survives filter/sort changes.
-    pub(super) fn get_row<T: SSS, D>(
+    pub(super) fn get_row<T: SSS, D: 'static>(
         &mut self,
         idx: u32,
         matcher: &mut nucleo::Matcher,
@@ -251,20 +247,12 @@ impl ResultsUI {
         max_height: Option<(u16, bool)>,
         // output
         rows: &mut Vec<Row<'static>>,
-        row_data: &mut Vec<(u32, u16)>,
+        row_data: Option<&mut Vec<(u32, u16)>>,
     ) -> Option<u16> {
         let vscroll_offset = self.vscroll_to_skip(is_current);
         let stacked = self.config.stacked_columns;
+        let (id, item) = worker.get_nth_indexed_item(idx)?;
 
-        let snapshot = worker.nucleo.snapshot();
-        let item = snapshot.get_matched_item(idx)?;
-        // The nucleo item index is the stable identity used for caching
-        // and selection. u32::MAX is reserved as the "no row" sentinel.
-        let id = if (idx as usize) < snapshot.matches().len() {
-            snapshot.matches()[idx as usize].idx
-        } else {
-            u32::MAX
-        };
         let mut row_widths = vec![0u16; self.v_cols()];
 
         // check cache
@@ -278,7 +266,9 @@ impl ResultsUI {
         };
 
         let texts = if let Some(cached) = cached {
-            self.row_cache[1].push(cached.clone());
+            if !self.row_cache[1].iter().any(|(x, _, _)| *x == id) {
+                self.row_cache[1].push(cached.clone());
+            }
 
             cached.1
         } else {
@@ -309,14 +299,17 @@ impl ResultsUI {
             if texts.is_empty() {
                 if self.config.show_skipped {
                     rows.push(Row::default().height(1));
-                    row_data.push((idx, 1));
+                    match row_data {
+                        Some(rd) => rd.push((idx, 1)),
+                        None => self.row_data.push((idx, 1)),
+                    }
                     return Some(1);
                 } else {
                     return None;
                 }
             }
 
-            if id != u32::MAX {
+            if id != u32::MAX && !self.row_cache[1].iter().any(|(x, _, _)| *x == id) {
                 self.row_cache[1].push((id, texts.clone(), row_widths));
             }
 
@@ -332,7 +325,18 @@ impl ResultsUI {
 
         let mut row_texts = vec![];
         if self.width_limits.is_empty() {
-            return Some(0); // wait for update
+            // wait for update. Compute a stand-in height so the caller can
+            // size the surrounding layout, but don't push any rows.
+            let height = if !stacked {
+                texts
+                    .iter()
+                    .map(|t| t.height() as u16)
+                    .max()
+                    .unwrap_or_default()
+            } else {
+                texts.iter().map(|t| t.height() as u16).sum()
+            };
+            return Some(height);
         } else {
             for (i, (col_idx, mut col)) in self
                 .hidden_columns
@@ -376,7 +380,7 @@ impl ResultsUI {
             (true, RowConnectionStyle::Capped) => self.config.inactive_current_style,
             _ => StyleSetting::DEFAULT,
         }
-        .into_style_no_submodifiers();
+        .into_style_no_submodifiers(); // submodifiers shouldn't matter anyway since table doesn't have modifiers
 
         if !stacked {
             // Non-stacked mode: single row with all cells
@@ -389,16 +393,24 @@ impl ResultsUI {
             debug_row(&row_texts);
 
             rows.push(Row::new(row_texts).height(height).style(row_style));
-            row_data.push((idx, height));
+            match row_data {
+                Some(rd) => rd.push((idx, height)),
+                None => self.row_data.push((idx, height)),
+            }
             Some(height)
         } else {
             // Stacked mode: split into multiple rows, one per cell
             let mut total_height = 0u16;
+            let mut entries: Vec<(u32, u16)> = Vec::with_capacity(row_texts.len());
             for cell in row_texts {
                 let h = cell.height() as u16;
                 rows.push(Row::new(vec![cell]).height(h).style(row_style));
-                row_data.push((idx, h));
+                entries.push((idx, h));
                 total_height += h;
+            }
+            match row_data {
+                Some(rd) => rd.extend(entries),
+                None => self.row_data.extend(entries),
             }
             Some(total_height)
         }
@@ -457,35 +469,26 @@ fn style_text<'a>(
     match config.row_connection {
         RowConnectionStyle::Disjoint => {
             if is_active_col {
-                t = t.patch_style(
-                    if is_current_row {
-                        config.current_style
-                    } else {
-                        config.style
-                    }
-                    .into_style_no_submodifiers(),
-                );
+                t = t.patch_style(if is_current_row {
+                    config.current_style
+                } else {
+                    config.style
+                });
             } else {
-                t = t.patch_style(
-                    if is_current_row {
-                        config.inactive_current_style
-                    } else {
-                        config.inactive_style
-                    }
-                    .into_style_no_submodifiers(),
-                );
+                t = t.patch_style(if is_current_row {
+                    config.inactive_current_style
+                } else {
+                    config.inactive_style
+                });
             }
         }
         RowConnectionStyle::Capped => {
             if is_active_col {
-                t = t.patch_style(
-                    if is_current_row {
-                        config.current_style
-                    } else {
-                        config.style
-                    }
-                    .into_style_no_submodifiers(),
-                );
+                t = t.patch_style(if is_current_row {
+                    config.current_style
+                } else {
+                    config.style
+                });
             }
         }
         RowConnectionStyle::Full => {}

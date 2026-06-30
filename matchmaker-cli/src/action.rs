@@ -16,13 +16,8 @@ use matchmaker::{
 };
 use matchmaker_partial::{Apply, Set};
 
-pub type MMState<'a, 'b> = matchmaker::render::MMState<
-    'a,
-    'b,
-    ConfigMMItem,
-    matchmaker::nucleo::ConfigPreprocessedData,
-    String,
->;
+pub type MMState<'a, 'b> =
+    matchmaker::render::MMState<'a, 'b, ConfigMMItem, matchmaker::nucleo::ConfigPreprocessedData>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MMAction {

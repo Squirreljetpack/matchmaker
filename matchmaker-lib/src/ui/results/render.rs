@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    SSS,
+    SSS, Selector,
     config::AutoscrollSettings,
     nucleo::{Style, Text, Worker, render_item::render_cell},
     ui::ResultsUI,
@@ -233,13 +233,19 @@ impl ResultsUI {
     /// ### Returns:
     /// - `Some(height)` if rows were successfully pushed (height is the total height added)
     /// - `None` if the item couldn't be rendered
+    /// Render the n-th matched item.
+    ///
+    /// `idx` is the matched-item position (used to look up the item in the
+    /// nucleo snapshot's `matches` array). The cache key, however, is the
+    /// nucleo item index (`Match::idx`) — this is the stable identity that
+    /// flows through [`crate::Selector`] and survives filter/sort changes.
     pub(super) fn get_row<T: SSS, D>(
         &mut self,
         idx: u32,
         matcher: &mut nucleo::Matcher,
         worker: &Worker<T, D>,
         // post_render styling options
-        selector: &mut Selector<T, impl Selection>,
+        selector: &Selector,
         is_current: bool,
         active_column: usize,
         max_height: Option<(u16, bool)>,
@@ -250,8 +256,15 @@ impl ResultsUI {
         let vscroll_offset = self.vscroll_to_skip(is_current);
         let stacked = self.config.stacked_columns;
 
-        let item = worker.nucleo.snapshot().get_matched_item(idx)?;
-        let id = selector.id(item.data);
+        let snapshot = worker.nucleo.snapshot();
+        let item = snapshot.get_matched_item(idx)?;
+        // The nucleo item index is the stable identity used for caching
+        // and selection. u32::MAX is reserved as the "no row" sentinel.
+        let id = if (idx as usize) < snapshot.matches().len() {
+            snapshot.matches()[idx as usize].idx
+        } else {
+            u32::MAX
+        };
         let mut row_widths = vec![0u16; self.v_cols()];
 
         // check cache
@@ -310,7 +323,7 @@ impl ResultsUI {
             texts
         };
 
-        let is_selected = selector.contains(item.data);
+        let is_selected = selector.contains(&id);
         let prefix = if is_selected {
             self.config.multi_prefix.clone()
         } else {

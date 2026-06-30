@@ -1,7 +1,6 @@
 use cba::bath::shell_quote_impl;
 use cba::unwrap;
 use matchmaker::ConfigMMItem;
-use matchmaker::nucleo::Indexed;
 use matchmaker::render::MMState;
 use std::borrow::Cow;
 
@@ -9,7 +8,7 @@ use std::borrow::Cow;
 const COLUMN_INDICES: bool = true;
 
 type ConfigMMState<'a, 'b> =
-    MMState<'a, 'b, ConfigMMItem, matchmaker::nucleo::ConfigPreprocessedData, String>;
+    MMState<'a, 'b, ConfigMMItem, matchmaker::nucleo::ConfigPreprocessedData>;
 
 fn is_valid_key(s: &str) -> bool {
     let body = s.strip_prefix(&['=', '-', '_', '+'][..]).unwrap_or(s);
@@ -252,8 +251,7 @@ fn process_key(
                 .join(" "),
         )
     } else {
-        let item =
-            unwrap!(item_override.or_else(|| state.current_raw().map(|x| (x.index, &x.inner))));
+        let item = unwrap!(item_override.or_else(|| state.picker_ui.current_indexed()));
         log::trace!("ITEM: {item:?}");
 
         let val = get_val(key, item, state)?;
@@ -275,12 +273,8 @@ fn get_val<'a>(
         let idx = state.picker_ui.active_column_index();
 
         if let Some(col) = state.picker_ui.worker.columns.get(idx) {
-            let indexed = Indexed {
-                index: 0,
-                inner: item.clone(),
-            };
-            let d = (state.picker_ui.worker.raw_preprocessor)(&indexed);
-            return Some(col.raw(&indexed, &d).to_string().into());
+            let d = (state.picker_ui.worker.raw_preprocessor)(item);
+            return Some(col.raw(item, &d).to_string().into());
         }
         None
     } else {
@@ -308,12 +302,8 @@ fn get_val<'a>(
             if let Some(idx) = idx
                 && let Some(col) = state.picker_ui.worker.columns.get(idx)
             {
-                let indexed = Indexed {
-                    index: 0,
-                    inner: item.clone(),
-                };
-                let d = (state.picker_ui.worker.raw_preprocessor)(&indexed);
-                return Some(col.raw(&indexed, &d).to_string().into());
+                let d = (state.picker_ui.worker.raw_preprocessor)(item);
+                return Some(col.raw(item, &d).to_string().into());
             }
 
             None
@@ -377,14 +367,10 @@ fn handle_range<'a, 'b>(
             state
                 .map_selected_to_vec(|_, item| {
                     let mut row_res = Vec::new();
-                    let indexed = Indexed {
-                        index: 0,
-                        inner: item.clone(),
-                    };
-                    let d = (state.picker_ui.worker.raw_preprocessor)(&indexed);
+                    let d = (state.picker_ui.worker.raw_preprocessor)(item);
                     for &col_idx in &columns_to_join {
                         let col = &state.picker_ui.worker.columns[col_idx];
-                        let val = col.raw(&indexed, &d).to_string();
+                        let val = col.raw(item, &d).to_string();
                         row_res.push(val);
                     }
                     let joined = row_res.join(" ");
@@ -399,14 +385,10 @@ fn handle_range<'a, 'b>(
     } else {
         if let Some(item) = item_override {
             let mut row_res = Vec::new();
-            let indexed = Indexed {
-                index: 0,
-                inner: item.clone(),
-            };
-            let d = (state.picker_ui.worker.raw_preprocessor)(&indexed);
+            let d = (state.picker_ui.worker.raw_preprocessor)(item);
             for &col_idx in &columns_to_join {
                 let col = &state.picker_ui.worker.columns[col_idx];
-                let val = col.raw(&indexed, &d).to_string();
+                let val = col.raw(item, &d).to_string();
                 row_res.push(val);
             }
             let joined = row_res.join(" ");
@@ -438,6 +420,7 @@ fn handle_range<'a, 'b>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use matchmaker::Selector;
     use matchmaker::config::{ColumnsConfig, TerminalConfig};
     use matchmaker::nucleo::injector::Injector;
     use matchmaker::nucleo::nucleo::{Config as NucleoConfig, Matcher};
@@ -504,7 +487,7 @@ mod tests {
             mm.render_config,
             &mut matcher,
             mm.worker,
-            mm.selector,
+            Selector::new(),
             None,
             &mut tui,
             hidden_columns,
@@ -553,7 +536,7 @@ mod tests {
             mm.render_config,
             &mut matcher,
             mm.worker,
-            mm.selector,
+            Selector::new(),
             None,
             &mut tui,
             hidden_columns,
@@ -596,17 +579,17 @@ mod tests {
             mm.render_config,
             &mut matcher,
             mm.worker,
-            mm.selector,
+            Selector::new(),
             None,
             &mut tui,
             hidden_columns,
         );
 
         // Select both items
-        let item1 = picker_ui.worker.get_nth(0).unwrap().clone();
-        let item2 = picker_ui.worker.get_nth(1).unwrap().clone();
-        picker_ui.selector.sel(&item1);
-        picker_ui.selector.sel(&item2);
+        let (idx1, _) = picker_ui.worker.get_nth_indexed(0).unwrap();
+        let (idx2, _) = picker_ui.worker.get_nth_indexed(1).unwrap();
+        picker_ui.selector.insert(idx1);
+        picker_ui.selector.insert(idx2);
 
         let (event_tx, _event_rx) = mpsc::unbounded_channel();
 
@@ -648,7 +631,7 @@ mod tests {
             mm.render_config,
             &mut matcher,
             mm.worker,
-            mm.selector,
+            Selector::new(),
             None,
             &mut tui,
             hidden_columns,
@@ -692,7 +675,7 @@ mod tests {
             mm.render_config,
             &mut matcher,
             mm.worker,
-            mm.selector,
+            Selector::new(),
             None,
             &mut tui,
             hidden_columns,

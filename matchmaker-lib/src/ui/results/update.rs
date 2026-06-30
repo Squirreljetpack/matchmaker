@@ -2,7 +2,7 @@ use crate::ui::ResultsUI;
 use ratatui::widgets::{Row, Table};
 
 use crate::{
-    SSS, Selection, Selector,
+    SSS, Selector,
     nucleo::{Worker, new_snapshot},
     render::Click,
 };
@@ -12,7 +12,7 @@ impl ResultsUI {
         &mut self,
         active_column: usize,
         worker: &mut Worker<T, D>,
-        selector: &mut Selector<T, impl Selection>,
+        selector: &Selector,
         matcher: &mut nucleo::Matcher,
         click: &mut Click,
     ) {

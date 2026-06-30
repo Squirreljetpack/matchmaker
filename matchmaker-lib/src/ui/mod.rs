@@ -19,7 +19,7 @@ pub use results::*;
 pub use status::*; // reexport for convenience
 
 use crate::{
-    SSS, Selection, Selector,
+    SSS, Selector,
     config::{
         DisplayConfig, QueryConfig, RenderConfig, ResultsConfig, StatusConfig,
         TerminalLayoutSettings, UiConfig,
@@ -37,15 +37,15 @@ pub struct UI {
 
 // requires columns > 1
 impl UI {
-    pub fn new<'a, T: SSS, D, S: Selection, W: std::io::Write>(
+    pub fn new<'a, T: SSS, D: 'static, W: std::io::Write>(
         mut config: RenderConfig,
         matcher: &'a mut nucleo::Matcher,
         worker: Worker<T, D>,
-        selection_set: Selector<T, S>,
+        selector: Selector,
         view: Option<Preview>,
         tui: &mut Tui<W>,
         hidden_columns: Vec<bool>,
-    ) -> (Self, PickerUI<'a, T, D, S>, DisplayUI, Option<PreviewUI>) {
+    ) -> (Self, PickerUI<'a, T, D>, DisplayUI, Option<PreviewUI>) {
         assert!(!worker.columns.is_empty());
 
         if config.results.reverse.is_none() {
@@ -81,7 +81,7 @@ impl UI {
             config.header,
             matcher,
             worker,
-            selection_set,
+            selector,
         );
         picker.results.set_hidden_columns(hidden_columns);
 
@@ -134,17 +134,23 @@ impl UI {
     }
 }
 
-pub struct PickerUI<'a, T: SSS, D, S: Selection> {
+pub struct PickerUI<'a, T: SSS, D> {
     pub results: ResultsUI,
     pub status: StatusUI,
     pub query: QueryUI,
     pub header: DisplayUI,
     pub matcher: &'a mut nucleo::Matcher,
-    pub selector: Selector<T, S>,
+    pub selector: Selector,
     pub worker: Worker<T, D>,
 }
 
-impl<'a, T: SSS, D, S: Selection> PickerUI<'a, T, D, S> {
+impl<'a, T: SSS, D: 'static> PickerUI<'a, T, D> {
+    /// The nucleo item index and a reference to the data of the item currently
+    /// under the cursor, if any.
+    pub fn current_indexed(&self) -> Option<(u32, &T)> {
+        self.worker.get_nth_indexed(self.results.index())
+    }
+
     pub fn new(
         results_config: ResultsConfig,
         status_config: StatusConfig,
@@ -152,7 +158,7 @@ impl<'a, T: SSS, D, S: Selection> PickerUI<'a, T, D, S> {
         header_config: DisplayConfig,
         matcher: &'a mut nucleo::Matcher,
         worker: Worker<T, D>,
-        selector: Selector<T, S>,
+        selector: Selector,
     ) -> Self {
         Self {
             results: ResultsUI::new(results_config, worker.columns.len()),
@@ -165,9 +171,11 @@ impl<'a, T: SSS, D, S: Selection> PickerUI<'a, T, D, S> {
         }
     }
 
-    pub(crate) fn restart(&mut self) {
+    /// Prefer [`crate::render::MMState::restart_worker`]
+    pub fn restart(&mut self) {
         self.worker.restart(false);
         self.results.set_dirty();
+        self.selector.clear();
     }
 
     pub fn active_column_index(&self) -> usize {
@@ -214,7 +222,7 @@ impl<'a, T: SSS, D, S: Selection> PickerUI<'a, T, D, S> {
     }
 }
 
-impl<'a, T: SSS, D, O: Selection> PickerUI<'a, T, D, O> {
+impl<'a, T: SSS, D> PickerUI<'a, T, D> {
     pub fn update(&mut self) {
         self.worker.find(&self.query.input);
     }

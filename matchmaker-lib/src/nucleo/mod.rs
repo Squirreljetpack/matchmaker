@@ -7,7 +7,6 @@ mod worker;
 use std::{
     borrow::Cow,
     fmt::{self, Display, Formatter},
-    hash::{Hash, Hasher},
     ops::Range,
 };
 
@@ -107,77 +106,8 @@ impl<T> std::ops::Deref for Segmented<T> {
 
 // ------------------------------------------------
 
-#[derive(Debug, Clone)]
-pub struct Indexed<T> {
-    pub index: u32,
-    pub inner: T,
-}
-
-impl<T: Clone> Indexed<T> {
-    /// Matchmaker requires a way to identify and store selected items from their references in the nucleo matcher. This method simply identifies them by their insertion index and stores the clones of the items.
-    pub fn identifier(&self) -> (u32, T) {
-        (self.index, self.inner.clone())
-    }
-}
-
-impl<T> Indexed<T> {
-    /// Matchmaker requires a way to identify and store selected items from their references in the nucleo matcher. This method simply identifies them by their insertion index and is intended when the output type is not needed (i.e. externally managed).
-    /// Additionally, note that Matchmaker relies on the id output for caching row displays. If you don't wrap your item in Indexed, your identifier should identify items with u32::MAX.
-    pub fn dummy_identifier(&self) -> (u32, ()) {
-        (self.index, ())
-    }
-}
-
-impl<T: ColumnIndexable> ColumnIndexable for Indexed<T> {
-    fn get_str(&self, index: usize) -> Cow<'_, str> {
-        self.inner.get_str(index)
-    }
-
-    fn get_text(&self, i: usize) -> Text<'_> {
-        self.inner.get_text(i)
-    }
-}
-
-impl<T: Render> Render for Indexed<T> {
-    fn as_str(&self) -> Cow<'_, str> {
-        self.inner.as_str()
-    }
-    fn as_text(&self) -> Text<'_> {
-        self.inner.as_text()
-    }
-}
-
-impl<T> std::ops::Deref for Indexed<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
-// ------------------------------------------
 impl<T: Display + SegmentableItem> Display for Segmented<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.inner)
-    }
-}
-
-impl<T: Display> Display for Indexed<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.inner)
-    }
-}
-
-impl<T> PartialEq for Indexed<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.index == other.index
-    }
-}
-
-impl<T> Eq for Indexed<T> {}
-
-impl<T> Hash for Indexed<T> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.index.hash(state)
     }
 }

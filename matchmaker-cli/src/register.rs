@@ -6,16 +6,16 @@ use cba::{
 };
 use log::info;
 use matchmaker::{
-    AttachmentFormatter, Matchmaker, SSS, Selection, message::Interrupt, use_formatter,
+    AttachmentFormatter, Matchmaker, SSS, message::Interrupt, use_formatter,
 };
 
 #[easy_ext::ext(MMExt)]
-impl<T: SSS, D: 'static, S: Selection + 'static> Matchmaker<T, D, S> {
+impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
     /// Causes [`Action::Execute`] to cause the program to execute the program specified by its payload.
     /// Note:
     /// - not intended for direct use.
     /// - Assumes preview and cmd formatter are the same.
-    pub fn register_execute_handler(&mut self, formatter: AttachmentFormatter<T, D, S>) {
+    pub fn register_execute_handler(&mut self, formatter: AttachmentFormatter<T, D>) {
         let formatter_ = formatter.clone();
         self.register_interrupt_handler(Interrupt::Execute, move |state| {
             let discriminant = state.discriminant_payload.take();

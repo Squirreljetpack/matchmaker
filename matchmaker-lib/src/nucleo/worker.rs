@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     sync::{
-        atomic::{self, AtomicU32},
         Arc,
+        atomic::{self, AtomicU32},
     },
 };
 
@@ -39,12 +39,7 @@ impl<T, D> Column<T, D> {
     where
         F: for<'a> Fn(&'a T, &'a D) -> Text<'a> + SSS,
     {
-        Self {
-            name: name.into(),
-            format: Box::new(f),
-            filter: true,
-            raw: None,
-        }
+        Self::new_boxed(name, Box::new(f))
     }
 
     pub fn with_raw<F>(mut self, f: F) -> Self
@@ -238,9 +233,14 @@ where
             .map(|item| item.data)
     }
 
-    pub fn raw_results(&self) -> impl ExactSizeIterator<Item = &T> + DoubleEndedIterator + '_ {
+    pub fn matched_results(&self) -> impl ExactSizeIterator<Item = &T> + DoubleEndedIterator + '_ {
         let snapshot = self.nucleo.snapshot();
         snapshot.matched_items(..).map(|item| item.data)
+    }
+
+    pub fn matched_indices(&self) -> impl ExactSizeIterator<Item = u32> + DoubleEndedIterator + '_ {
+        let snapshot = self.nucleo.snapshot();
+        snapshot.matches().iter().map(|m| m.idx)
     }
 
     /// matched item count, total item count
@@ -259,7 +259,7 @@ where
         self.nucleo.get_stability()
     }
 
-    /// Note: call set_dirty on ResultsUI afterward
+    /// Prefer [`crate::ui::PickerUI::restart`]
     pub fn restart(&mut self, clear_snapshot: bool) {
         self.nucleo.restart(clear_snapshot);
     }

@@ -2,7 +2,6 @@
 // Modified by Squirreljetpack, 2025
 
 use std::{
-    marker::PhantomData,
     sync::{
         atomic::{AtomicU32, Ordering},
         Arc,
@@ -10,7 +9,7 @@ use std::{
 };
 
 use super::worker::{Column, Worker, WorkerError};
-use super::{Indexed, Segmented};
+use super::Segmented;
 use crate::{nucleo::SegmentableItem, SSS};
 
 pub trait Injector {
@@ -118,7 +117,7 @@ impl<T: SSS, D> Injector for WorkerInjector<T, D> {
     }
 }
 
-pub(super) fn push_impl<T, D>(
+pub(crate) fn push_impl<T, D>(
     injector: &nucleo::Injector<T>,
     columns: &[Column<T, D>],
     item: T,
@@ -144,59 +143,6 @@ pub(super) fn extend_impl<T, D, I>(
             *text = column.raw(&item, &d).into()
         }
     });
-}
-
-// ----- Injectors
-
-/// Wraps the injected item with an atomic index which is incremented on push.
-#[derive(Clone)]
-pub struct IndexedInjector<T, I: Injector<InputItem = Indexed<T>>> {
-    injector: I,
-    counter: &'static AtomicU32,
-    input_type: PhantomData<T>,
-}
-
-// note that invalidation can be handled
-impl<T, I: Injector<InputItem = Indexed<T>>> Injector for IndexedInjector<T, I> {
-    type InputItem = T;
-    type Inner = I;
-    type Context = &'static AtomicU32;
-
-    fn new(injector: Self::Inner, counter: Self::Context) -> Self {
-        Self {
-            injector,
-            counter,
-            input_type: PhantomData,
-        }
-    }
-
-    fn wrap(
-        &self,
-        item: Self::InputItem,
-    ) -> Result<<Self::Inner as Injector>::InputItem, WorkerError> {
-        let index = self.counter.fetch_add(1, Ordering::SeqCst);
-        Ok(Indexed { index, inner: item })
-    }
-
-    fn inner(&self) -> &Self::Inner {
-        &self.injector
-    }
-}
-
-static GLOBAL_COUNTER: AtomicU32 = AtomicU32::new(0);
-
-impl<T, I> IndexedInjector<T, I>
-where
-    I: Injector<InputItem = Indexed<T>>,
-{
-    pub fn new_globally_indexed(injector: <Self as Injector>::Inner) -> Self {
-        Self::global_reset();
-        Self::new(injector, &GLOBAL_COUNTER)
-    }
-
-    pub fn global_reset() {
-        GLOBAL_COUNTER.store(0, Ordering::SeqCst);
-    }
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -305,42 +251,6 @@ mod ansi {
     }
 }
 pub use ansi::*;
-
-// pub type SeenMap<T> = Arc<std::sync::Mutex<collections::HashSet<T>>>;
-// #[derive(Clone)]
-// pub struct UniqueInjector<T, I: Injector<InputItem = T>> {
-//     injector: I,
-//     seen: SeenMap<T>,
-// }
-// impl<T, I> Injector for UniqueInjector<T, I>
-// where
-//     T: Eq + std::hash::Hash + Clone,
-//     I: Injector<InputItem = T>,
-// {
-//     type InputItem = T;
-//     type Inner = I;
-//     type Context = SeenMap<T>;
-
-//     fn new(injector: Self::Inner, _ctx: Self::Context) -> Self {
-//         Self {
-//             injector,
-//             seen: _ctx,
-//         }
-//     }
-
-//     fn wrap(&self, item: Self::InputItem) -> Result<<Self::Inner as Injector>::InputItem, WorkerError> {
-//         let mut seen = self.seen.lock().unwrap();
-//         if seen.insert(item.clone()) {
-//             Ok(item)
-//         } else {
-//             Err(WorkerError::Custom("Duplicate"))
-//         }
-//     }
-
-//     fn inner(&self) -> &Self::Inner {
-//         &self.injector
-//     }
-// }
 
 // ----------- CLONE ----------------------------
 impl<T, D> Clone for WorkerInjector<T, D> {

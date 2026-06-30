@@ -22,12 +22,12 @@ use crate::event::{BindSender, EventSender};
 use crate::message::{BindDirective, Event, Interrupt, RenderCommand};
 use crate::tui::Tui;
 use crate::ui::{DisplayUI, OverlayUI, PickerUI, PreviewUI, QueryUI, ResultsUI, StatusUI, UI};
-use crate::{AcceptHook, ActionAliaser, ActionExtHandler, Initializer, MatchError, SSS, Selection};
+use crate::{AcceptHook, ActionAliaser, ActionExtHandler, Initializer, MatchError, SSS};
 
-fn apply_aliases<T: SSS, D, S: Selection, A: ActionExt>(
+fn apply_aliases<T: SSS, D, A: ActionExt>(
     buffer: &mut Vec<RenderCommand<A>>,
-    aliaser: &mut ActionAliaser<T, D, S, A>,
-    dispatcher: &mut MMState<'_, '_, T, D, S>,
+    aliaser: &mut ActionAliaser<T, D, A>,
+    dispatcher: &mut MMState<'_, '_, T, D>,
 ) {
     let mut out = Vec::new();
 
@@ -46,9 +46,9 @@ fn apply_aliases<T: SSS, D, S: Selection, A: ActionExt>(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) async fn render_loop<'a, W: Write, T: SSS, D, S: Selection, A: ActionExt>(
+pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionExt>(
     mut ui: UI,
-    mut picker_ui: PickerUI<'a, T, D, S>,
+    mut picker_ui: PickerUI<'a, T, D>,
     mut footer_ui: DisplayUI,
     mut preview_ui: Option<PreviewUI>,
     mut tui: Tui<W>,
@@ -60,13 +60,13 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D, S: Selection, A: Action
     controller_tx: EventSender,
     bind_tx: BindSender<A>,
 
-    mut dynamic_handlers: DynamicHandlers<T, D, S>,
-    mut ext_handler: Option<ActionExtHandler<T, D, S, A>>,
-    mut ext_aliaser: Option<ActionAliaser<T, D, S, A>>,
-    initializer: Option<Initializer<T, D, S>>,
-    accept_hook: Option<AcceptHook<T, D, S>>,
+    output: AcceptHook<T, D, S>,
+    mut dynamic_handlers: DynamicHandlers<T, D>,
+    mut ext_handler: Option<ActionExtHandler<T, D, A>>,
+    mut ext_aliaser: Option<ActionAliaser<T, D, A>>,
+    initializer: Option<Initializer<T, D>>,
     #[cfg(feature = "bracketed-paste")] //
-    mut paste_handler: Option<PasteHandler<T, S>>,
+    mut paste_handler: Option<PasteHandler<T, D>>,
 ) -> Result<Vec<S>, MatchError> {
     let mut state = State::new();
 
@@ -96,27 +96,22 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D, S: Selection, A: Action
         }
 
         // process (per-batch) exit conditions
-        if exit_config.first
-            && picker_ui.results.status.matched_count == 1
-            && let Some(item) = picker_ui.worker.get_nth(picker_ui.results.index())
-        {
+        // exit_config.first — use get_current to seed selector with current idx, then accept.
+        if exit_config.first && picker_ui.results.status.matched_count == 1 {
             picker_ui.selector.clear();
-            picker_ui.selector.sel(item);
+            picker_ui.results.cursor_jump(0);
             log::trace!("Exiting due to exit.first on iteration {}", state.iteration);
 
-            let ret = if let Some(a) = accept_hook {
-                tui.exit(None);
-                let mut dispatcher = state.dispatcher(
-                    &mut ui,
-                    &mut picker_ui,
-                    &mut footer_ui,
-                    &mut preview_ui,
-                    &controller_tx,
-                );
-                a(&mut dispatcher)
-            } else {
-                vec![picker_ui.selector.eval(item)]
-            };
+            tui.exit(None);
+            let mut dispatcher = state.dispatcher(
+                &mut ui,
+                &mut picker_ui,
+                &mut footer_ui,
+                &mut preview_ui,
+                &controller_tx,
+            );
+            let ret = output(&mut dispatcher);
+
             return Ok(ret);
         }
 
@@ -148,13 +143,16 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D, S: Selection, A: Action
             state.clear_interrupt();
             if state.should_quit {
                 log::debug!("Exiting due to should_quit");
-                return if picker_ui.selector.is_disabled()
-                    && let Some((_, item)) = get_current(&picker_ui)
-                {
-                    Ok(vec![item])
-                } else {
-                    Ok(picker_ui.selector.output().collect())
-                };
+                tui.exit(None);
+                let mut dispatcher = state.dispatcher(
+                    &mut ui,
+                    &mut picker_ui,
+                    &mut footer_ui,
+                    &mut preview_ui,
+                    &controller_tx,
+                );
+                let ret = output(&mut dispatcher);
+                return Ok(ret);
             } else if state.should_quit_nomatch {
                 log::debug!("Exiting due to should_quit_nomatch");
                 return Err(MatchError::NoMatch);
@@ -428,56 +426,50 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D, S: Selection, A: Action
                     } = &mut picker_ui;
                     match action {
                         Action::Select => {
-                            if let Some(item) = worker.get_nth(results.index()) {
-                                selections.sel(item);
+                            if let Some((idx, _)) = worker.get_nth_indexed(results.index()) {
+                                selections.insert(idx);
                             }
                         }
                         Action::Deselect => {
-                            if let Some(item) = worker.get_nth(results.index()) {
-                                selections.desel(item);
+                            if let Some((idx, _)) = worker.get_nth_indexed(results.index()) {
+                                selections.shift_remove(&idx);
                             }
                         }
                         Action::ToggleSelection => {
-                            if let Some(item) = worker.get_nth(results.index()) {
-                                selections.toggle(item);
+                            if let Some((idx, _)) = worker.get_nth_indexed(results.index()) {
+                                if selections.contains(&idx) {
+                                    selections.shift_remove(&idx);
+                                } else {
+                                    selections.insert(idx);
+                                }
                             }
                         }
                         Action::CycleSelections => {
-                            selections.cycle_all_bg(worker.raw_results());
+                            // TODO: implement cycle_all
+                            // Original semantics: iterate all items; if all selected deselect all, else select all.
+                            // Old code (commented out):
+                            selections.cycle_all_bg(worker.matched_indices());
+                            todo!()
                         }
                         Action::ClearSelections => {
                             selections.clear();
                         }
                         Action::Accept => {
-                            // lowpri: maybe accept_hook should return Result, allowing continuations
                             if selections.is_empty()
                                 && worker.get_nth(results.index()).is_none()
                                 && !exit_config.allow_empty
                             {
                                 continue;
                             };
-
-                            let ret = if let Some(a) = accept_hook {
-                                tui.exit(None);
-                                let mut dispatcher = state.dispatcher(
-                                    &mut ui,
-                                    &mut picker_ui,
-                                    &mut footer_ui,
-                                    &mut preview_ui,
-                                    &controller_tx,
-                                );
-                                a(&mut dispatcher)
-                            } else if selections.is_empty() {
-                                if let Some(item) = get_current(&picker_ui) {
-                                    vec![item.1]
-                                } else if exit_config.allow_empty {
-                                    vec![]
-                                } else {
-                                    continue;
-                                }
-                            } else {
-                                selections.output().collect::<Vec<S>>()
-                            };
+                            tui.exit(None);
+                            let mut dispatcher = state.dispatcher(
+                                &mut ui,
+                                &mut picker_ui,
+                                &mut footer_ui,
+                                &mut preview_ui,
+                                &controller_tx,
+                            );
+                            let ret = output(&mut dispatcher);
                             return Ok(ret);
                         }
                         Action::Quit(code) => {
@@ -1121,10 +1113,10 @@ fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {
     frame.render_widget(widget, area);
 }
 
-fn render_results<T: SSS, D, S: Selection>(
+fn render_results<T: SSS, D: 'static>(
     frame: &mut Frame,
     mut area: Rect,
-    picker_ui: &mut PickerUI<T, D, S>,
+    picker_ui: &mut PickerUI<T, D>,
     click: &mut Click,
     filtering: bool,
 ) {
@@ -1143,7 +1135,7 @@ fn render_results<T: SSS, D, S: Selection>(
     picker_ui.results.update_table(
         active_column,
         &mut picker_ui.worker,
-        &mut picker_ui.selector,
+        &picker_ui.selector,
         picker_ui.matcher,
         click,
     );
@@ -1240,6 +1232,23 @@ fn split(rect: &mut Rect, height: u16, cut_top: bool) -> Rect {
 }
 
 // -----------------------------------------------------------------------------------
+
+/// Collects selected items in match order. Scans `snapshot.get_matched_item(n)`
+/// for each n and yields (nucleo_idx, &T) for matches present in the selector.
+pub fn get_selected<'a, T: SSS, D>(picker_ui: &'a PickerUI<'_, T, D>) -> Vec<(u32, &'a T)> {
+    let snapshot = picker_ui.worker.nucleo.snapshot();
+    let mc = snapshot.matched_item_count();
+    (0..mc)
+        .filter_map(|n| {
+            let item = snapshot.get_matched_item(n)?;
+            let idx = snapshot.matches().get(n as usize)?.idx;
+            picker_ui
+                .selector
+                .contains(&idx)
+                .then_some((idx, item.data))
+        })
+        .collect()
+}
 
 #[cfg(test)]
 mod test {}

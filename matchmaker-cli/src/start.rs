@@ -4,7 +4,7 @@ use std::{
     io::Read,
     path::Path,
     process::{Command, Stdio, exit},
-    sync::Mutex,
+    sync::{Arc, Mutex},
 };
 
 use crate::{
@@ -36,7 +36,10 @@ use matchmaker::{
     event::{EventLoop, RenderSender},
     make_previewer,
     message::Interrupt,
-    nucleo::injector::{Either, IndexedInjector, Injector},
+    nucleo::{
+        Column, ConfigPreprocessedData, Line, Span, Text,
+        injector::{Either, Injector},
+    },
     preview::AppendOnly,
     render::MMState,
     use_formatter,
@@ -460,7 +463,6 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                     'c,
                     matchmaker::ConfigMMItem,
                     matchmaker::nucleo::ConfigPreprocessedData,
-                    String,
                 >,
                 &'a str,
                 Option<&dyn Fn(String)>,
@@ -489,7 +491,13 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         });
 
     let render_tx = options.render_tx();
-    let push_fn = inject_line(header_lines, render_tx.clone(), injector);
+    let push_fn = inject_line(
+        header_lines,
+        render_tx.clone(),
+        injector,
+        mm.worker.columns.clone(),
+        mm.worker.text_preprocessor.clone(),
+    );
 
     // ----------- read -----------------------
     let mut last_child = None;
@@ -545,15 +553,18 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     // reload handler
     let reload_formatter = cli_formatter.clone();
     let reload_render_tx = render_tx.clone();
+    let reload_columns = mm.worker.columns.clone();
+    let reload_text_preprocessor = mm.worker.text_preprocessor.clone();
     let mut cmd = initial_cmd;
     mm.register_interrupt_handler(Interrupt::Reload, move |state| {
         let injector = state.injector();
-        let injector = IndexedInjector::new_globally_indexed(injector);
 
         let push_fn = inject_line(
             state.picker_ui.header.config.header_lines,
             reload_render_tx.clone(),
             injector,
+            reload_columns.clone(),
+            reload_text_preprocessor.clone(),
         );
 
         if !state.payload().is_empty() {
@@ -605,36 +616,38 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let _output_separator = output_separator.clone();
     let _print_handle = print_handle.clone();
 
-    options = options
-        .ext_handler(move |x, y| action_handler(x, y, &mut action_context))
-        .accept_hook(move |state| {
-            if !on_accept.is_empty() {
-                let cmd = format_cli(state, &on_accept, None);
-                if cmd.is_empty() {
-                    ebog!("Invalid command template");
-                    return vec![];
-                } else {
-                    let vars = state.make_env_vars();
-                    Command::from_script(&cmd).envs(vars)._exec()
-                }
-            }
+    options = options.ext_handler(move |x, y| action_handler(x, y, &mut action_context));
 
-            let repeat = |s: String| {
-                if atty::is(atty::Stream::Stdout) {
-                    _print_handle.push(s);
-                } else {
-                    print!("{}{}", s, _output_separator);
-                }
-            };
-
-            if let Some(template) = &output_template {
-                format_cli(state, template, Some(&repeat));
+    // TODO: accept logic is in render/mod.rs is todo!() - this closure is
+    // currently unreachable until the accept pipeline is restored.
+    mm.output = Box::new(move |state: &mut MMState<'_, '_, String, ConfigPreprocessedData>| {
+        if !on_accept.is_empty() {
+            let cmd = format_cli(state, &on_accept, None);
+            if cmd.is_empty() {
+                ebog!("Invalid command template");
+                return vec![];
             } else {
-                state.map_selected_to_vec(|_, x| repeat(x.as_str().to_string()));
-            };
+                let vars = state.make_env_vars();
+                Command::from_script(&cmd).envs(vars)._exec()
+            }
+        }
 
-            vec![]
-        });
+        let repeat = |s: String| {
+            if atty::is(atty::Stream::Stdout) {
+                _print_handle.push(s);
+            } else {
+                print!("{}{}", s, _output_separator);
+            }
+        };
+
+        if let Some(template) = &output_template {
+            format_cli(state, template, Some(&repeat));
+        } else {
+            state.map_selected_to_vec(|_, x| repeat(x.as_str().to_string()));
+        };
+
+        vec![]
+    });
 
     if sync {
         handle.await._wbog(); // warn the mapreader error (?)
@@ -653,33 +666,61 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     ret.map(|_| {})
 }
 
-use matchmaker::nucleo::Line;
+/// Convert the first line of a `Text<'_>` to an owned `Line<'static>`.
+/// Mirrors `matchmaker_lib::utils::text::to_static` for a single line, but only for the
+/// first row. We can't reuse the lib helper because `utils` is a private module.
+fn first_line_to_static(text: &Text<'_>) -> Line<'static> {
+    if let Some(line) = text.lines.first() {
+        Line::from(
+            line.spans
+                .iter()
+                .map(|s| Span::styled(s.content.clone().into_owned(), s.style))
+                .collect::<Vec<_>>(),
+        )
+    } else {
+        Line::default()
+    }
+}
+
+/// Remove trailing empty `Line`s from a row (lines whose spans are all empty).
+/// This collapses columns that the user did not fill in the source row.
+fn trim_trailing_empty(mut row: Vec<Line<'static>>) -> Vec<Line<'static>> {
+    while matches!(row.last(), Some(line) if line.iter().all(|x| x.content.is_empty())) {
+        row.pop();
+    }
+    row
+}
 
 fn inject_line(
     header_lines: usize,
     render_tx: RenderSender<MMAction>,
     injector: ConfigInjector,
+    columns: Arc<[Column<String, ConfigPreprocessedData>]>,
+    text_preprocessor: Arc<dyn Fn(&String) -> ConfigPreprocessedData + Send + Sync>,
 ) -> impl FnMut(String) -> Result<(), matchmaker::nucleo::WorkerError> + Send {
-    let mut header_buf = Vec::with_capacity(header_lines);
+    let mut header_buf: Vec<String> = Vec::with_capacity(header_lines);
     let mut remaining = header_lines;
     let injector = injector;
 
-    // For each row, take the first line of each segmented column, building a Vec<Vec<Line>>
+    // For each header row, reuse the worker's column preprocessor + column formatters to
+    // segment the line into columns, then take the first line of each column's Text.
+    // Result shape: one Vec<Line<'static>> per row (one Line per column).
     move |line: String| {
         if remaining > 0 {
-            let item = injector.wrap(line).unwrap();
-            header_buf.push(item);
+            header_buf.push(line);
             remaining -= 1;
 
             if remaining == 0 {
-                let rows: Vec<Vec<Line>> = header_buf
+                let rows: Vec<Vec<Line<'static>>> = header_buf
                     .drain(..)
-                    .map(|_item| {
-                        // With the new architecture, items are Indexed<String>.
-                        // The splitting into columns is handled by the column preprocessor.
-                        // For the header, we just use the string as a single line.
-                        let s = _item.inner.clone();
-                        vec![Line::from(s)]
+                    .map(|item| {
+                        let d = text_preprocessor(&item);
+                        trim_trailing_empty(
+                            columns
+                                .iter()
+                                .map(|col| first_line_to_static(&col.format(&item, &d)))
+                                .collect(),
+                        )
                     })
                     .collect();
 
@@ -692,25 +733,3 @@ fn inject_line(
         }
     }
 }
-
-// fn trim_trailing_empty(mut row: Vec<Line>) -> Vec<Line> {
-//     while matches!(row.last(), Some(line) if line.iter().all(|x| x.content.is_empty())) {
-//         row.pop();
-//     }
-
-//     row
-// }
-
-// fn to_static(line: Line<'_>) -> Line<'static> {
-//     Line::from(
-//         line.spans
-//             .into_iter()
-//             .map(|span| {
-//                 Span::styled(
-//                     span.content.into_owned(), // force ownership
-//                     span.style,
-//                 )
-//             })
-//             .collect::<Vec<_>>(),
-//     )
-// }

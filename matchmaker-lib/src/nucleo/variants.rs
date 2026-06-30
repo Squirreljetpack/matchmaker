@@ -1,12 +1,11 @@
 use std::{borrow::Cow, sync::Arc};
 
-use crate::{nucleo::Indexed, RenderFn, SSS};
+use crate::{RenderFn, SSS};
 use ansi_to_tui::IntoText;
 
 use super::{
-    injector::{self},
+    Text, injector,
     worker::{Column, Worker},
-    Text,
 };
 
 impl<T: SSS, D: 'static> Worker<T, D> {
@@ -78,22 +77,34 @@ impl<T: SSS, D: 'static> Worker<T, D> {
             result
         })
     }
-}
 
-impl<T: SSS, D> Worker<Indexed<T>, D> {
-    /// A convenience method to initialize data. Items are indexed starting from the current nucleo item count.
-    /// # Notes
-    /// -  Not concurrent.
-    /// - Subsequent use of IndexedInjector should start from the returned count.
+    /// Push items into the matcher.
+    ///
+    /// The item type `T` is the worker's element type. No `Indexed` wrapping is required;
+    /// nucleo assigns each pushed item a unique internal `u32` index which can later be
+    /// retrieved via [`Self::get_nth_indexed`].
     pub fn append(&self, items: impl IntoIterator<Item = T>) -> u32 {
-        let mut index = self.nucleo.snapshot().item_count();
-        for inner in items {
-            let item = Indexed { index, inner };
+        let mut count = 0;
+        for item in items {
             let d = (self.raw_preprocessor)(&item);
             injector::push_impl(&self.nucleo.injector(), &self.columns, item, &d);
-            index += 1;
+            count += 1;
         }
-        index
+        count
+    }
+
+    /// Return the nucleo index and a reference to the data of the n-th matched item, if any.
+    ///
+    /// The returned `u32` is the stable nucleo item index (see [`nucleo::Match::idx`]).
+    /// Callers can use this as a key into [`crate::Selector`] or as a row-cache key.
+    pub fn get_nth_indexed(&self, n: u32) -> Option<(u32, &T)> {
+        let snapshot = self.nucleo.snapshot();
+        let m = snapshot.matches().get(n as usize)?;
+        let idx = m.idx;
+        // SAFETY: `idx` is taken from a match in the snapshot we just took, so it
+        // points to an initialized item in that snapshot.
+        let item = unsafe { snapshot.get_item_unchecked(idx) };
+        Some((idx, item.data))
     }
 }
 
@@ -154,7 +165,7 @@ where
     /// };
     ///
     /// use matchmaker::{Matchmaker, Selector};
-    /// use matchmaker::nucleo::{Indexed, Worker, ColumnIndexable};
+    /// use matchmaker::nucleo::{Worker, ColumnIndexable};
     ///
     /// impl ColumnIndexable for RunAction {
     ///     fn get_str(&self, i: usize) -> std::borrow::Cow<'_, str> {
@@ -170,11 +181,10 @@ where
     ///
     /// pub fn make_mm(
     ///     items: impl Iterator<Item = RunAction>,
-    /// ) -> Matchmaker<Indexed<RunAction>, (), RunAction> {
+    /// ) -> Matchmaker<RunAction, RunAction> {
     ///     let worker = Worker::new_indexable(["name", "alias", "desc"], Some("name"));
     ///     worker.append(items);
-    ///     let selector = Selector::new(Indexed::identifier);
-    ///     Matchmaker::new(worker, selector)
+    ///     Matchmaker::new_on_cloneable(worker)
     /// }
     /// ```
     pub fn new_indexable<I, S>(column_names: I, default_column: Option<&str>) -> Self
@@ -216,9 +226,9 @@ pub fn build_columns_for_config(
     column_names: Vec<Arc<str>>,
     default_column: Option<&str>,
 ) -> (
-    Vec<Column<Indexed<String>, ConfigPreprocessedData>>,
-    Arc<dyn Fn(&Indexed<String>) -> ConfigPreprocessedData + Send + Sync>,
-    Arc<dyn Fn(&Indexed<String>) -> ConfigPreprocessedData + Send + Sync>,
+    Vec<Column<String, ConfigPreprocessedData>>,
+    Arc<dyn Fn(&String) -> ConfigPreprocessedData + Send + Sync>,
+    Arc<dyn Fn(&String) -> ConfigPreprocessedData + Send + Sync>,
     usize,
 ) {
     use crate::config::Split;
@@ -231,7 +241,10 @@ pub fn build_columns_for_config(
         column_names
             .iter()
             .position(|name| name.as_ref() == default_column)
-            .unwrap_or(0)
+            .unwrap_or_else(|| {
+                cba::wbog!("Default column '{default_column}' not found, defaulting to first.");
+                0
+            })
     } else {
         0
     };
@@ -272,14 +285,14 @@ pub fn build_columns_for_config(
     };
 
     // Build raw preprocessor (returns string representation)
-    let raw_preprocessor: Arc<dyn Fn(&Indexed<String>) -> ConfigPreprocessedData + Send + Sync> = {
+    let raw_preprocessor: Arc<dyn Fn(&String) -> ConfigPreprocessedData + Send + Sync> = {
         let split_fn = split_fn.clone();
         let (_parse_ansi, trim) = preprocess;
-        Arc::new(move |item: &Indexed<String>| {
+        Arc::new(move |item: &String| {
             let s = if trim {
-                item.inner.trim().to_string()
+                item.trim().to_string()
             } else {
-                item.inner.clone()
+                item.clone()
             };
 
             let ranges = split_fn(&s);
@@ -288,14 +301,14 @@ pub fn build_columns_for_config(
     };
 
     // Build text preprocessor (returns parsed text if ANSI enabled)
-    let text_preprocessor: Arc<dyn Fn(&Indexed<String>) -> ConfigPreprocessedData + Send + Sync> = {
+    let text_preprocessor: Arc<dyn Fn(&String) -> ConfigPreprocessedData + Send + Sync> = {
         let split_fn = split_fn.clone();
         let (parse_ansi, trim) = preprocess;
-        Arc::new(move |item: &Indexed<String>| {
+        Arc::new(move |item: &String| {
             let s = if trim {
-                item.inner.trim().to_string()
+                item.trim().to_string()
             } else {
-                item.inner.clone()
+                item.clone()
             };
 
             let text_result = if parse_ansi {
@@ -313,13 +326,13 @@ pub fn build_columns_for_config(
     };
 
     // Build columns
-    let columns: Vec<Column<Indexed<String>, ConfigPreprocessedData>> = column_names
+    let columns: Vec<Column<String, ConfigPreprocessedData>> = column_names
         .iter()
         .enumerate()
         .map(|(i, name)| {
             Column::new(
                 name.clone(),
-                move |_item: &Indexed<String>, d: &ConfigPreprocessedData| {
+                move |_item: &String, d: &ConfigPreprocessedData| {
                     let (text_result, ranges) = d;
                     let range = ranges.get(i).copied().unwrap_or((0, 0));
 
@@ -328,44 +341,19 @@ pub fn build_columns_for_config(
                             text,
                             range.0 as usize..range.1 as usize,
                         ),
-                        Err(s) => {
-                            let slice = if range.0 == 0 && range.1 == 0 {
-                                ""
-                            } else {
-                                &s[range.0 as usize..range.1 as usize]
-                            };
-                            Text::from(slice)
-                        }
+                        Err(s) => Text::from(&s[range.0 as usize..range.1 as usize]),
                     }
                 },
             )
-            .with_raw(move |_item: &Indexed<String>, d: &ConfigPreprocessedData| {
+            .with_raw(move |_item: &String, d: &ConfigPreprocessedData| {
                 let (_text_result, ranges) = d;
                 let range = ranges.get(i).copied().unwrap_or((0, 0));
 
-                // For raw, we need the string representation
-                // If text_result is Err, we have the string directly
-                // If text_result is Ok, we need to extract from the original string
-                // We'll reconstruct from ranges - but we need the original string
-                // This is a bit tricky - let's store the string in the data
                 match _text_result {
-                    Err(s) => {
-                        let slice = if range.0 == 0 && range.1 == 0 {
-                            ""
-                        } else {
-                            &s[range.0 as usize..range.1 as usize]
-                        };
-                        Cow::Borrowed(slice)
-                    }
+                    Err(s) => Cow::Borrowed(&s[range.0 as usize..range.1 as usize]),
                     Ok(text) => {
-                        // Convert text back to string and slice
                         let s = text.to_string();
-                        let slice = if range.0 == 0 && range.1 == 0 {
-                            String::new()
-                        } else {
-                            s[range.0 as usize..range.1 as usize].to_string()
-                        };
-                        Cow::Owned(slice)
+                        Cow::Owned(s[range.0 as usize..range.1 as usize].to_string())
                     }
                 }
             })

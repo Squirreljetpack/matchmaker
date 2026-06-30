@@ -5,10 +5,6 @@ impl ResultsUI {
         if self.config.stacked_columns {
             return;
         }
-
-        self.row_cache.swap(0, 1);
-        self.row_cache[1].clear();
-
         if self.row_cache[0].is_empty() {
             return;
         }
@@ -76,6 +72,12 @@ impl ResultsUI {
             );
         }
         if self.width_limits != self.widths_buffer {
+            #[cfg(debug_assertions)]
+            log::trace!(
+                "limits changed: {:?} -> {:?}",
+                self.width_limits,
+                self.widths_buffer
+            );
             self.set_dirty();
             self.width_limits = std::mem::take(&mut self.widths_buffer);
         }

@@ -1,7 +1,11 @@
 use crate::ui::ResultsUI;
 use ratatui::widgets::{Row, Table};
 
-use crate::{SSS, Selection, Selector, nucleo::{Worker, new_snapshot}, render::Click};
+use crate::{
+    SSS, Selection, Selector,
+    nucleo::{Worker, new_snapshot},
+    render::Click,
+};
 
 impl ResultsUI {
     pub fn update_table<T: SSS, D>(
@@ -189,20 +193,21 @@ impl ResultsUI {
                 .iter()
                 .filter_map(|(i, _)| (*i != u32::MAX).then_some(*i))
                 .next()
-                && lowest_idx > self.bottom {
-                    let delta = lowest_idx - self.bottom;
-                    if delta < self.height as u32 {
-                        self.bottom += delta;
-                        self.cursor -= delta as u16;
-                    } else {
-                        log::error!(
-                            "Unexpected large delta: bottom={} cursor={} lowest={}",
-                            self.bottom,
-                            self.cursor,
-                            lowest_idx
-                        );
-                    }
+                && lowest_idx > self.bottom
+            {
+                let delta = lowest_idx - self.bottom;
+                if delta < self.height as u32 {
+                    self.bottom += delta;
+                    self.cursor -= delta as u16;
+                } else {
+                    log::error!(
+                        "Unexpected large delta: bottom={} cursor={} lowest={}",
+                        self.bottom,
+                        self.cursor,
+                        lowest_idx
+                    );
                 }
+            }
 
             // Append after_rows
             rows.extend(after_rows);
@@ -290,6 +295,9 @@ impl ResultsUI {
         log::debug!("RENDER: FILLED AFTER ROWS to {} TOTAL", rows.len());
 
         // Section 5.5: Compute preferred widths for next pass from collected data
+        self.row_cache.swap(0, 1);
+        self.row_cache[1].clear();
+
         if self.cursor_moved.is_some() || mc != old_mc || self.width_limits.is_empty() {
             self.update_preferred_widths();
         }

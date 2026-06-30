@@ -250,7 +250,7 @@ impl ResultsUI {
         let vscroll_offset = self.vscroll_to_skip(is_current);
         let stacked = self.config.stacked_columns;
 
-        let item = worker.nucleo.snapshot().get_item(idx)?;
+        let item = worker.nucleo.snapshot().get_matched_item(idx)?;
         let id = selector.id(item.data);
         let mut row_widths = vec![0u16; self.v_cols()];
 

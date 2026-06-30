@@ -1,14 +1,15 @@
 use cba::bath::shell_quote_impl;
 use cba::unwrap;
+use matchmaker::ConfigMMItem;
 use matchmaker::nucleo::Indexed;
 use matchmaker::render::MMState;
-use matchmaker::ConfigMMItem;
 use std::borrow::Cow;
 
 // support {1} -> first column
 const COLUMN_INDICES: bool = true;
 
-type ConfigMMState<'a, 'b> = MMState<'a, 'b, ConfigMMItem, matchmaker::nucleo::ConfigPreprocessedData, String>;
+type ConfigMMState<'a, 'b> =
+    MMState<'a, 'b, ConfigMMItem, matchmaker::nucleo::ConfigPreprocessedData, String>;
 
 fn is_valid_key(s: &str) -> bool {
     let body = s.strip_prefix(&['=', '-', '_', '+'][..]).unwrap_or(s);
@@ -253,6 +254,8 @@ fn process_key(
     } else {
         let item =
             unwrap!(item_override.or_else(|| state.current_raw().map(|x| (x.index, &x.inner))));
+        log::trace!("ITEM: {item:?}");
+
         let val = get_val(key, item, state)?;
         if quote {
             Some(shell_quote_impl(&val))

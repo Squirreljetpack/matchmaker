@@ -3,12 +3,12 @@ use cba::{bait::TransformExt, broc::EnvVars, env_vars, unwrap};
 use ratatui::text::Text;
 
 use crate::{
+    SSS, Selection, Selector,
     action::{ActionExt, Actions},
     event::{self, BindSender, EventSender},
     message::{BindDirective, Event, Interrupt},
-    nucleo::{injector::WorkerInjector, Status},
+    nucleo::{Status, injector::WorkerInjector},
     ui::{DisplayUI, OverlayUI, PickerUI, PreviewUI, Rect, UI},
-    Selection, Selector, SSS,
 };
 use ratatui::layout::Position;
 
@@ -380,6 +380,7 @@ impl<'a, 'b: 'a, T: SSS, D, S: Selection> MMState<'a, 'b, T, D, S> {
 
     /// Same as current_item, but without applying the identifier.
     pub fn current_raw(&self) -> Option<&T> {
+        log::trace!("{}", self.picker_ui.results.index());
         self.picker_ui
             .worker
             .get_nth(self.picker_ui.results.index())

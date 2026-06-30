@@ -13,6 +13,7 @@ use crate::{
     config::PartialConfig,
     formatter::format_cli,
     paths::{last_key_path, presets_path},
+    register::MMExt,
     utils::{expand_tilde, guess_clip_cmd, guess_editor_cmd, guess_pager_cmd},
 };
 use crate::{config::Config, paths::default_config_path};
@@ -454,7 +455,13 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let cli_formatter = Either::Right(
         crate::formatter::format_cli
             as for<'a, 'b, 'c> fn(
-                &'a MMState<'b, 'c, matchmaker::ConfigMMItem, matchmaker::nucleo::ConfigPreprocessedData, String>,
+                &'a MMState<
+                    'b,
+                    'c,
+                    matchmaker::ConfigMMItem,
+                    matchmaker::nucleo::ConfigPreprocessedData,
+                    String,
+                >,
                 &'a str,
                 Option<&dyn Fn(String)>,
             ) -> String,
@@ -526,7 +533,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     );
 
     // execute handlers
-    mm._register_execute_handler(cli_formatter.clone());
+    mm.register_execute_handler(cli_formatter.clone());
     mm._register_execute_async_handler(cli_formatter.clone());
     mm.register_copy(
         cli_formatter.clone(),
@@ -646,7 +653,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     ret.map(|_| {})
 }
 
-use matchmaker::nucleo::{Line, Span};
+use matchmaker::nucleo::Line;
 
 fn inject_line(
     header_lines: usize,
@@ -686,24 +693,24 @@ fn inject_line(
     }
 }
 
-fn trim_trailing_empty(mut row: Vec<Line>) -> Vec<Line> {
-    while matches!(row.last(), Some(line) if line.iter().all(|x| x.content.is_empty())) {
-        row.pop();
-    }
+// fn trim_trailing_empty(mut row: Vec<Line>) -> Vec<Line> {
+//     while matches!(row.last(), Some(line) if line.iter().all(|x| x.content.is_empty())) {
+//         row.pop();
+//     }
 
-    row
-}
+//     row
+// }
 
-fn to_static(line: Line<'_>) -> Line<'static> {
-    Line::from(
-        line.spans
-            .into_iter()
-            .map(|span| {
-                Span::styled(
-                    span.content.into_owned(), // force ownership
-                    span.style,
-                )
-            })
-            .collect::<Vec<_>>(),
-    )
-}
+// fn to_static(line: Line<'_>) -> Line<'static> {
+//     Line::from(
+//         line.spans
+//             .into_iter()
+//             .map(|span| {
+//                 Span::styled(
+//                     span.content.into_owned(), // force ownership
+//                     span.style,
+//                 )
+//             })
+//             .collect::<Vec<_>>(),
+//     )
+// }

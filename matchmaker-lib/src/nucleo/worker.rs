@@ -213,6 +213,7 @@ where
             if pattern == old_pattern {
                 continue;
             }
+
             let is_append = pattern.starts_with(old_pattern);
 
             self.nucleo.pattern.reparse(

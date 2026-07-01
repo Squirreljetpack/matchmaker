@@ -6,7 +6,7 @@ use crate::{
     },
     nucleo::{Column, Worker, injector::WorkerInjector},
     render::{EventHandlers, InterruptHandlers, MMState},
-    utils::text,
+    utils::text::{self, sanitize_string},
 };
 
 use ansi_to_tui::IntoText;
@@ -135,7 +135,12 @@ pub type ConfigInjector = WorkerInjector<String, ConfigPreprocessedData>;
 /// Build columns for config-based matchmaker with preprocessing support.
 /// Returns (columns, raw_preprocessor, text_preprocessor, default_column_index)
 pub fn build_columns(
-    preprocess: PreprocessConfig, // (parse_ansi, trim, skip_empty)
+    PreprocessConfig {
+        ansi,
+        trim,
+        sanitize,
+        require_column,
+    }: PreprocessConfig, // (parse_ansi, trim, skip_empty)
     split: crate::config::Split,
     column_names: Vec<Arc<str>>,
 ) -> (
@@ -233,7 +238,7 @@ pub fn build_columns(
                 })
             }
         }
-        // to be deprecated
+        // allows nontrivial overlaps but rarely useful
         Split::Regexes(ref rgs) => {
             let rgs: Vec<Regex> = rgs.clone();
             Arc::new(move |s: &str| {
@@ -261,9 +266,6 @@ pub fn build_columns(
     // Build raw preprocessor (returns string representation)
     let raw_preprocessor: Arc<dyn Fn(&String) -> Option<ConfigPreprocessedData> + Send + Sync> = {
         let split_fn = split_fn.clone();
-        let parse_ansi = preprocess.ansi;
-        let trim = preprocess.trim;
-        let required_col = preprocess.require_column;
         let split_clone = split.clone();
         Arc::new(move |item: &String| {
             let s = if trim {
@@ -272,7 +274,7 @@ pub fn build_columns(
                 item.clone()
             };
 
-            let (plain, ranges) = if parse_ansi {
+            let (plain, ranges) = if ansi {
                 let plain = s.as_bytes().into_text().ok()?.to_string();
                 let ranges = split_fn(&plain);
                 (plain, ranges)
@@ -281,13 +283,9 @@ pub fn build_columns(
                 (s, ranges)
             };
 
-            if let Some(c) = required_col {
+            if let Some(c) = require_column {
                 let is_no_match = match &split_clone {
-                    Split::Delimiter(rg) => {
-                        rg.captures(&plain).and_then(|caps| caps.get(c)).is_none()
-                    }
-
-                    Split::Regexes(_) => ranges
+                    Split::Delimiter(_) | Split::Regexes(_) => ranges
                         .get(c)
                         .is_none_or(|&(start, end)| start == 0 && end == 0),
 
@@ -305,40 +303,27 @@ pub fn build_columns(
 
     // Build text preprocessor (returns parsed text if ANSI enabled)
     let text_preprocessor: Arc<dyn Fn(&String) -> ConfigPreprocessedData + Send + Sync> = {
-        let split_fn = split_fn.clone();
-        let parse_ansi = preprocess.ansi;
-        let trim = preprocess.trim;
-        let sanitize = preprocess.sanitize;
         Arc::new(move |item: &String| {
-            let mut s = if trim {
+            let s = if trim {
                 item.trim().to_string()
             } else {
                 item.clone()
             };
 
-            if parse_ansi {
+            if ansi {
                 match s.as_bytes().into_text() {
                     Ok(mut text) => {
                         text::scrub_text_styles(&mut text);
-                        if sanitize {
-                            text::apply_to_lines(&mut text, text::sanitize_line);
-                        }
                         let plain = text.to_string();
                         let ranges = split_fn(&plain);
                         (Ok(text), ranges)
                     }
                     Err(_) => {
-                        if sanitize {
-                            s = text::sanitize_string(&s);
-                        }
                         let ranges = split_fn(&s);
                         (Err(s), ranges)
                     }
                 }
             } else {
-                if sanitize {
-                    s = text::sanitize_string(&s);
-                }
                 let ranges = split_fn(&s);
                 (Err(s), ranges)
             }
@@ -358,9 +343,21 @@ pub fn build_columns(
 
                     match text_result {
                         Ok(text) => {
-                            text::slice_ratatui_text(text, range.0 as usize..range.1 as usize)
+                            let mut t =
+                                text::slice_ratatui_text(text, range.0 as usize..range.1 as usize);
+                            if sanitize {
+                                text::apply_to_lines(&mut t, text::sanitize_line);
+                            };
+                            t
                         }
-                        Err(s) => Text::from(&s[range.0 as usize..range.1 as usize]),
+                        Err(s) => {
+                            let s = &s[range.0 as usize..range.1 as usize];
+                            if sanitize {
+                                Text::from(sanitize_string(s))
+                            } else {
+                                Text::from(s)
+                            }
+                        }
                     }
                 },
             )
@@ -423,17 +420,16 @@ mod tests {
             _ => panic!("Expected Err(String)"),
         }
 
-        // 2. Check text_preprocessor (should sanitize)
+        // 2. Check text_preprocessor (should sanitize in cell format, but preprocessor returns parsed tui text)
         let text_res = text_preprocessor(&input);
         match &text_res.0 {
             Ok(text) => {
                 let plain = text.to_string();
-                // Tab should be expanded to 4 spaces, carriage return was already stripped by into_text()
-                assert_eq!(plain, "hello    world");
+                // Carriage return was already stripped by into_text(), tab is preserved
+                assert_eq!(plain, "hello\tworld");
             }
             Err(s) => {
-                // If it fails to parse ansi, it falls back to Err(String).
-                assert_eq!(s, "hello    world ");
+                panic!("Expected Ok(Text), got Err({})", s);
             }
         }
 
@@ -449,7 +445,7 @@ mod tests {
         let text_res_no_ansi = text_preprocessor_no_ansi(&input);
         match &text_res_no_ansi.0 {
             Err(s) => {
-                assert_eq!(s, "hello    world ");
+                assert_eq!(s, &input);
             }
             _ => panic!("Expected Err(String) for non-ansi path"),
         }

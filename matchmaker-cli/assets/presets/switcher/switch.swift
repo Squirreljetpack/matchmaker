@@ -67,6 +67,27 @@ func makeKeyWindow(psn: inout ProcessSerialNumber, wid: CGWindowID) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// MARK: - Accessibility Trust Check
+// ─────────────────────────────────────────────────────────────────────────────
+
+func checkAccessibilityTrust() {
+    let selfPath = Bundle.main.executablePath ?? CommandLine.arguments[0]
+    let promptOption = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+    let trusted = AXIsProcessTrustedWithOptions([promptOption: true] as CFDictionary)
+
+    if !trusted {
+        fputs("Binary path : \(selfPath)\n", stderr)
+        fputs("""
+        ERROR: This binary is not authorized for Accessibility.
+               All AXUIElement calls will fail with kAXErrorAPIDisabled (-25211).
+               Fix: System Settings → Privacy & Security → Accessibility
+               → add it. Failing that, the binary is missing key permission requests, try a different Terminal.""", stderr)
+    } else {
+        fputs("----------------------------------\n", stderr)
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MARK: - AX helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -278,6 +299,13 @@ guard let pid = targetPID else {
     fputs("Usage: switch --pid <pid> [--title <title>] [--bounds <x,y,w,h>]\n", stderr)
     exit(1)
 }
+
+guard let pid = targetPID else {
+    fputs("Usage: switch --pid <pid> [--title <title>] [--bounds <x,y,w,h>]\n", stderr)
+    exit(1)
+}
+
+checkAccessibilityTrust()
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MARK: - Window selection & Diagnostics

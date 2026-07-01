@@ -416,7 +416,6 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let print_handle = AppendOnly::new();
     let output_separator = output_separator.clone().unwrap_or("\n".into());
 
-
     if exit.last_key_path.is_none() {
         exit.last_key_path = Some(last_key_path().into())
     }

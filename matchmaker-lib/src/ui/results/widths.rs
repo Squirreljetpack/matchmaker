@@ -38,6 +38,13 @@ impl ResultsUI {
         }
 
         // 2. Adjust the values in place based on config.min_width and v_max_widths
+        for w in &mut self.widths_buffer {
+            if *w != 0 {
+                *w = (*w).max(self.config.min_width);
+            }
+        }
+
+        // 3.
         if self.preferred_widths.is_empty()
             || self.widths_buffer.iter().filter(|x| **x > 0).count() == 1
         {
@@ -83,6 +90,9 @@ impl ResultsUI {
                 .collect();
         } else {
             self.update_width_limits_into_width_buffer();
+            if !self.widths_buffer.is_empty() {
+                self.expand_width_limits_in_buffer();
+            }
             log::debug!(
                 "[update_table] preferred={:?}, limits={:?}",
                 self.preferred_widths,
@@ -132,7 +142,7 @@ impl ResultsUI {
             return;
         }
 
-        let v_cols = self.v_cols();
+        let v_cols = self.preferred_widths.len(); // self.v_cols()
         let mut max_widths = vec![0u16; v_cols];
         for (_, _, row_widths) in &self.row_cache[0] {
             for (i, &w) in row_widths.iter().enumerate() {
@@ -158,7 +168,7 @@ impl ResultsUI {
         // Prepare width buffers
         let overrides = &mut self.config.width_overrides;
         overrides.resize(v_cols, 0); // it should already be
-        self.widths_buffer.resize(self.preferred_widths.len(), 0);
+        self.widths_buffer.resize(v_cols, 0);
 
         // Step 2: Validate width overrides fit within available space
         // Constraint: sum(overrides) + count(unoverridden) * min_width <= available_width
@@ -269,24 +279,6 @@ impl ResultsUI {
             }
         }
 
-        let expand_width_limits_impl = |this: &mut Self| {
-            let n_cols = this.hidden_columns.len();
-
-            let mut new_limits = Vec::with_capacity(n_cols);
-            let mut i = 0;
-            for &hidden in &this.hidden_columns {
-                if hidden {
-                    new_limits.push(0);
-                } else {
-                    new_limits.push(this.widths_buffer[i]);
-                    i += 1;
-                }
-            }
-            this.widths_buffer = new_limits;
-        };
-
-        expand_width_limits_impl(self);
-
         let final_sum: u16 = self.widths_buffer.iter().sum();
         debug_assert!(
             final_sum <= available_width,
@@ -294,6 +286,22 @@ impl ResultsUI {
             final_sum,
             available_width
         );
+    }
+
+    fn expand_width_limits_in_buffer(&mut self) {
+        let n_cols = self.hidden_columns.len();
+
+        let mut new_limits = Vec::with_capacity(n_cols);
+        let mut i = 0;
+        for &hidden in &self.hidden_columns {
+            if hidden {
+                new_limits.push(0);
+            } else {
+                new_limits.push(self.widths_buffer[i]);
+                i += 1;
+            }
+        }
+        self.widths_buffer = new_limits;
     }
 
     /// Adjust the user-set width override for the `col`-th non-hidden column by

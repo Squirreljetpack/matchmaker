@@ -1,3 +1,47 @@
+## [0.1.0] - 2026-07-01
+
+### 🚀 Features
+
+- Change MM_OVERRIDE to specify first override instead of last, support patches for presets
+- Refactor overlay api
+- Improved kill scripts
+- Update docs
+- Improved download method
+- Option to sort fn last in help display
+- Improve default keybind compat
+- Cargo-rx preset
+- Prefs preset
+- Rename CyclePreview to NextPreview/PrevPreview
+- Positive min/max constraints on preview layout apply to content area
+- Undocumented change to active column determination
+- Improve help display sorting
+- Reorganize exit codes/Become action
+- Bind aliases
+- Preset changes
+- Tag based mode
+- Update pi
+- Full refactor
+
+### 🐛 Bug Fixes
+
+- Typos/ordering
+- Various
+- Various
+- Various
+- Various
+- Various
+- Disable column binds when not filtering
+- Trace wrapping in binds resolution
+- Use -- for shell safety
+
+### 🚜 Refactor
+
+- Split StatusUI apart from ResultsUI
+
+### 🎨 Styling
+
+- Formatter
+
 ## [0.0.42] - 2026-05-29
 
 ### 🚀 Features

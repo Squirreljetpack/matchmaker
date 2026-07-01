@@ -60,7 +60,7 @@
 - crossterm (can fail to) detect modifiers on mouse events
 
 ### Low priority
-
+- ColumnChange event, set previewer to listen
 - refactor to better fit components into specific ratatui roles so the ui can be embedded?
 - partial should be under #[cfg] but that breaks field level attributes, i don't think there is a solution as we cannot use derive macro (not planned)
 - case insensitive bitflags deserialization (probably requires ratatui pr)

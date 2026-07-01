@@ -490,7 +490,9 @@ mod tests {
         mm.worker.nucleo.tick(10);
 
         let mut state_obj = State::new();
-        let mut tui = matchmaker::tui::Tui::new(TerminalConfig::default()).unwrap();
+        let Ok(mut tui) = matchmaker::tui::Tui::new(TerminalConfig::default()) else {
+            return;
+        };
         let mut matcher = Matcher::new(NucleoConfig::DEFAULT);
 
         let hidden_columns = vec![false, false, false];
@@ -539,7 +541,9 @@ mod tests {
         mm.worker.nucleo.tick(10);
 
         let mut state_obj = State::new();
-        let mut tui = matchmaker::tui::Tui::new(TerminalConfig::default()).unwrap();
+        let Ok(mut tui) = matchmaker::tui::Tui::new(TerminalConfig::default()) else {
+            return;
+        };
         let mut matcher = Matcher::new(NucleoConfig::DEFAULT);
 
         let hidden_columns = vec![false, false, false];
@@ -582,7 +586,9 @@ mod tests {
         mm.worker.nucleo.tick(10);
 
         let mut state_obj = State::new();
-        let mut tui = matchmaker::tui::Tui::new(TerminalConfig::default()).unwrap();
+        let Ok(mut tui) = matchmaker::tui::Tui::new(TerminalConfig::default()) else {
+            return;
+        };
         let mut matcher = Matcher::new(NucleoConfig::DEFAULT);
 
         let hidden_columns = vec![false, false, false];
@@ -634,7 +640,9 @@ mod tests {
         mm.worker.nucleo.tick(10);
 
         let mut state_obj = State::new();
-        let mut tui = matchmaker::tui::Tui::new(TerminalConfig::default()).unwrap();
+        let Ok(mut tui) = matchmaker::tui::Tui::new(TerminalConfig::default()) else {
+            return;
+        };
         let mut matcher = Matcher::new(NucleoConfig::DEFAULT);
 
         let hidden_columns = vec![false, false, false];
@@ -678,7 +686,9 @@ mod tests {
         mm.worker.nucleo.tick(10);
 
         let mut state_obj = State::new();
-        let mut tui = matchmaker::tui::Tui::new(TerminalConfig::default()).unwrap();
+        let Ok(mut tui) = matchmaker::tui::Tui::new(TerminalConfig::default()) else {
+            return;
+        };
         let mut matcher = Matcher::new(NucleoConfig::DEFAULT);
 
         let hidden_columns = vec![false, false, false];

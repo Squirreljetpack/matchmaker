@@ -10,6 +10,9 @@ names = ["file", "pos", ""]
 split = '^(.*?):(\d+:\d+):(.*)$'
 default = "file"
 
+[exit]
+abort_empty = false
+
 # --- Preview ---
 [preview]
 show = true
@@ -84,7 +87,6 @@ scroll_wrap = true
 
     echo "SetQuery($MM_STORE)"
     echo "Store($MM_QUERY)"
-    echo "SwitchColumn(1)"
 )
 ''',
     "Bind(@reload = @enter_rg)",

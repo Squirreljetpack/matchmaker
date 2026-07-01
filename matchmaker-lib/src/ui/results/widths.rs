@@ -244,9 +244,13 @@ impl ResultsUI {
         if current_sum < available_width {
             let mut gaps: Vec<(usize, u16)> = (0..v_cols)
                 .filter_map(|i| {
-                    let max_w = max_widths.get(i).copied().unwrap_or(0);
-                    let gap = max_w.saturating_sub(self.widths_buffer[i]);
-                    (gap > 0).then_some((i, gap))
+                    if overrides[i] > 0 {
+                        None
+                    } else {
+                        let max_w = max_widths.get(i).copied().unwrap_or(0);
+                        let gap = max_w.saturating_sub(self.widths_buffer[i]);
+                        (gap > 0).then_some((i, gap))
+                    }
                 })
                 .collect();
 
@@ -290,5 +294,148 @@ impl ResultsUI {
             final_sum,
             available_width
         );
+    }
+
+    /// Adjust the user-set width override for the `col`-th non-hidden column by
+    /// `expand` (positive = widen, negative = narrow). No-op if the resulting
+    /// width would fall below `config.min_width`, or if `col` is out of range.
+    ///
+    /// `col` indexes into `self.config.width_overrides`, which is sized to
+    /// the number of non-hidden columns (i.e. [`Self::v_cols`]).
+    pub fn expand(&mut self, expand: i16, col: usize) {
+        if self.width_limits.len() <= col {
+            log::warn!("Could not resize due to uninitialized width_limits, please retry");
+            return;
+        }
+
+        let expanded_idx = self.expand_idx(col).unwrap();
+
+        let current = self.width_limits[expanded_idx];
+        let new = if expand > 0 {
+            current
+                .saturating_add(expand.unsigned_abs())
+                .max(self.config.min_width)
+        } else {
+            current.saturating_sub(expand.unsigned_abs())
+        };
+        log::trace!(
+            "Resizing {col} -> {expanded_idx}, current overrides: {:?}, new: {new:?}",
+            self.config.width_overrides
+        );
+
+        self.config.width_overrides[col] = new as u16;
+        self.width_limits.clear();
+    }
+
+    /// Width_overrides and other arrays only index into the visible cols of self.hidden_cols, while self.width_limits maps to the all the columns. This converts the first to the second.
+    pub fn expand_idx(&self, idx: usize) -> Option<usize> {
+        self.hidden_columns
+            .iter()
+            .enumerate()
+            .filter(|(_, h)| !**h)
+            .map(|(i, _)| i)
+            .nth(idx)
+    }
+    pub fn shrink_idx(&self, idx: usize) -> Option<usize> {
+        self.hidden_columns
+            .get(idx)
+            .is_some_and(|x| !*x)
+            .then(|| self.hidden_columns[..idx].iter().filter(|&&h| !h).count())
+    }
+
+    pub fn get_dragged_column_gutter(&self, x: u16) -> Option<usize> {
+        let mut pos = 0;
+        if self.config.column_spacing.0 == 0 {
+            return None;
+        }
+
+        for (i, &width) in self.width_limits.iter().enumerate() {
+            pos += width;
+
+            if width > 0 {
+                if (pos..pos + self.config.column_spacing.0).contains(&x) {
+                    return Some(i);
+                }
+
+                pos += self.config.column_spacing.0;
+            }
+        }
+
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::ResultsConfig;
+
+    #[test]
+    fn test_get_dragged_column_gutter() {
+        let mut config = ResultsConfig::default();
+        config.column_spacing.0 = 2; // gutter spacing of 2
+
+        let mut results = ResultsUI::new(config, 3);
+        results.width_limits = vec![10, 20, 30];
+
+        // Column 0 ends at 10. Gutter 0 is 10..12.
+        // Column 1 ends at 10 + 2 + 20 = 32. Gutter 1 is 32..34.
+        // Column 2 ends at 32 + 2 + 30 = 64. Gutter 2 is 64..66.
+
+        assert_eq!(results.get_dragged_column_gutter(9), None);
+        assert_eq!(results.get_dragged_column_gutter(10), Some(0));
+        assert_eq!(results.get_dragged_column_gutter(11), Some(0));
+        assert_eq!(results.get_dragged_column_gutter(12), None);
+
+        assert_eq!(results.get_dragged_column_gutter(31), None);
+        assert_eq!(results.get_dragged_column_gutter(32), Some(1));
+        assert_eq!(results.get_dragged_column_gutter(33), Some(1));
+        assert_eq!(results.get_dragged_column_gutter(34), None);
+
+        assert_eq!(results.get_dragged_column_gutter(63), None);
+        assert_eq!(results.get_dragged_column_gutter(64), Some(2));
+        assert_eq!(results.get_dragged_column_gutter(65), Some(2));
+        assert_eq!(results.get_dragged_column_gutter(66), None);
+    }
+
+    #[test]
+    fn test_shrink_idx() {
+        let config = ResultsConfig::default();
+        let mut results = ResultsUI::new(config, 4);
+        results.hidden_columns = vec![false, true, false, false];
+
+        // Columns:
+        // 0: visible (shrink_idx should map it to 0)
+        // 1: hidden (shrink_idx should return None)
+        // 2: visible (shrink_idx should map it to 1, because 0 is visible and 1 is hidden)
+        // 3: visible (shrink_idx should map it to 2, because 0 and 2 are visible, 1 is hidden)
+
+        assert_eq!(results.shrink_idx(0), Some(0));
+        assert_eq!(results.shrink_idx(1), None);
+        assert_eq!(results.shrink_idx(2), Some(1));
+        assert_eq!(results.shrink_idx(3), Some(2));
+        assert_eq!(results.shrink_idx(4), None);
+    }
+
+    #[test]
+    fn test_overrides_not_expanded() {
+        let mut config = ResultsConfig::default();
+        config.width_overrides = vec![10, 0, 5]; // Column 0 override 10, Column 2 override 5
+        config.min_width = 2;
+
+        let mut results = ResultsUI::new(config, 3);
+        results.width = 100;
+        results.preferred_widths = vec![8, 12, 6];
+        results.row_cache[0] = vec![(0, vec![], vec![8, 12, 6])];
+
+        results.update_width_limits();
+
+        // The overridden columns should NOT expand in the final step.
+        // Column 0 = 10
+        // Column 1 = 12 (expanded to max)
+        // Column 2 = 5
+        assert_eq!(results.width_limits[0], 10);
+        assert_eq!(results.width_limits[1], 12);
+        assert_eq!(results.width_limits[2], 5);
     }
 }

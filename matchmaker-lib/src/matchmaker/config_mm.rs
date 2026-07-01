@@ -57,9 +57,28 @@ impl ConfigMatchmaker {
             _ => (column_names, cc.split),
         };
 
+        // Find default column index
+        let default_index = match cc.default {
+            StringOrInt::String(ref s) => column_names
+                .iter()
+                .position(|name| name.as_ref() == s.as_str())
+                .unwrap_or_else(|| {
+                    cba::wbog!("Default column '{s}' not found, defaulting to first.");
+                    0
+                }),
+            StringOrInt::Int(i) => {
+                if i < column_names.len() {
+                    i.saturating_sub(offset) as usize
+                } else {
+                    cba::wbog!("Default column index {i} out of bounds, defaulting to first.");
+                    0
+                }
+            }
+        };
+
         // Build columns using the new function
-        let (columns, raw_preprocessor, text_preprocessor, default_index) =
-            build_columns(preprocess_config, split, column_names, cc.default.clone());
+        let (columns, raw_preprocessor, text_preprocessor) =
+            build_columns(preprocess_config, split, column_names);
 
         let mut worker = Worker::new(columns, default_index, raw_preprocessor, text_preprocessor);
 
@@ -118,36 +137,15 @@ pub fn build_columns(
     preprocess: PreprocessConfig, // (parse_ansi, trim, skip_empty)
     split: crate::config::Split,
     column_names: Vec<Arc<str>>,
-    default_column: StringOrInt,
 ) -> (
     Vec<Column<String, ConfigPreprocessedData>>,
     Arc<dyn Fn(&String) -> Option<ConfigPreprocessedData> + Send + Sync>,
     Arc<dyn Fn(&String) -> ConfigPreprocessedData + Send + Sync>,
-    usize,
 ) {
     use crate::config::Split;
     use regex::Regex;
 
     let col_count = column_names.len();
-
-    // Find default column index
-    let default_index = match default_column {
-        StringOrInt::String(ref s) => column_names
-            .iter()
-            .position(|name| name.as_ref() == s.as_str())
-            .unwrap_or_else(|| {
-                cba::wbog!("Default column '{s}' not found, defaulting to first.");
-                0
-            }),
-        StringOrInt::Int(i) => {
-            if i >= 0 && (i as usize) < column_names.len() {
-                i as usize
-            } else {
-                cba::wbog!("Default column index {i} out of bounds, defaulting to first.");
-                0
-            }
-        }
-    };
 
     // Build split function based on config
     let split_fn: Arc<dyn Fn(&str) -> Vec<(u32, u32)> + Send + Sync> = match split {
@@ -380,14 +378,13 @@ pub fn build_columns(
         })
         .collect();
 
-    (columns, raw_preprocessor, text_preprocessor, default_index)
+    (columns, raw_preprocessor, text_preprocessor)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::Split;
-    use crate::config::StringOrInt;
 
     #[test]
     fn test_sanitize_preprocessors() {
@@ -397,12 +394,8 @@ mod tests {
             require_column: None,
             sanitize: true,
         };
-        let (_columns, raw_preprocessor, text_preprocessor, _) = build_columns(
-            options,
-            Split::None,
-            vec![Arc::from("col")],
-            StringOrInt::Int(0),
-        );
+        let (_columns, raw_preprocessor, text_preprocessor) =
+            build_columns(options, Split::None, vec![Arc::from("col")]);
 
         // Input with a tab character, carriage return, and normal characters
         let input = "hello\tworld\r".to_string();
@@ -421,12 +414,8 @@ mod tests {
             require_column: None,
             sanitize: true,
         };
-        let (_, raw_preprocessor_no_ansi, _, _) = build_columns(
-            options_no_ansi_raw,
-            Split::None,
-            vec![Arc::from("col")],
-            StringOrInt::Int(0),
-        );
+        let (_, raw_preprocessor_no_ansi, _) =
+            build_columns(options_no_ansi_raw, Split::None, vec![Arc::from("col")]);
         let raw_res_no_ansi = raw_preprocessor_no_ansi(&input).unwrap();
         match &raw_res_no_ansi.0 {
             Err(s) => assert_eq!(s, &input),
@@ -454,12 +443,8 @@ mod tests {
             require_column: None,
             sanitize: true,
         };
-        let (_, _, text_preprocessor_no_ansi, _) = build_columns(
-            options_no_ansi,
-            Split::None,
-            vec![Arc::from("col")],
-            StringOrInt::Int(0),
-        );
+        let (_, _, text_preprocessor_no_ansi) =
+            build_columns(options_no_ansi, Split::None, vec![Arc::from("col")]);
         let text_res_no_ansi = text_preprocessor_no_ansi(&input);
         match &text_res_no_ansi.0 {
             Err(s) => {

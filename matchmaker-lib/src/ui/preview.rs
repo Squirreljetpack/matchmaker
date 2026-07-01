@@ -342,7 +342,8 @@ impl PreviewUI {
             self.target_to_offset(index, &results)
         };
 
-        log::error!("Preview initial offset: {}, index: {}", self.offset, index);
+        #[cfg(debug_assertions)]
+        log::debug!("Preview initial offset: {}, index: {}", self.offset, index);
     }
 
     pub fn jump(&mut self) {

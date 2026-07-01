@@ -172,7 +172,10 @@ where
     ///     Matchmaker::new_on_cloneable(worker)
     /// }
     /// ```
-    pub fn new_indexable<I, S>(column_names: I, default_column: Option<crate::config_types::StringOrInt>) -> Self
+    pub fn new_indexable<I, S>(
+        column_names: I,
+        default_column: Option<crate::config_types::StringOrInt>,
+    ) -> Self
     where
         I: IntoIterator<Item = S>,
         S: Into<Arc<str>>,
@@ -184,16 +187,13 @@ where
                 .with_raw(move |item: &T, _: &()| item.get_str(i))
         });
 
-        // Find the index of the default column
         let default_index = match default_column {
-            Some(crate::config_types::StringOrInt::String(ref s)) => {
-                columns_vec
-                    .iter()
-                    .position(|name| name.as_ref() == s)
-                    .unwrap_or(0)
-            }
+            Some(crate::config_types::StringOrInt::String(ref s)) => columns_vec
+                .iter()
+                .position(|name| name.as_ref() == s)
+                .unwrap_or(0),
             Some(crate::config_types::StringOrInt::Int(i)) => {
-                if i >= 0 && (i as usize) < columns_vec.len() {
+                if i < columns_vec.len() {
                     i as usize
                 } else {
                     0

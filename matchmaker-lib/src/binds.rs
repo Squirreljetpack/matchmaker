@@ -1015,7 +1015,7 @@ mod test {
     }
 
     #[test]
-    fn test_resolve_semantics() {
+    fn test_resolve_semantics_basic_chains() {
         use crate::action::NullActionExt;
         use crate::bindmap;
 
@@ -1031,31 +1031,42 @@ mod test {
                 mode: PrefixFilter::default()
             } => Action::Accept,
         );
+
         let resolved = bind_map.resolve_semantics(&mode_vec(""));
-        // key(a) should resolve directly to Accept (with traces)
-        let actions = resolved.get(&TriggerKind::Key(key!(a))).unwrap();
-        // It will be [Trace("@@s1"), Trace("@@s2"), Accept, Trace(""), Trace("")]
-        // Actually, wait:
-        // resolve_actions([@s1])
-        //   resolve_alias(s1) -> [@s2]
-        //   has_nested = true
-        //   flat = resolve_actions([@s2])
-        //     resolve_alias(s2) -> [Accept]
-        //     has_nested = false
-        //     flat = [Accept]
-        //     already_traced = false
-        //     returns [Trace("@@s2"), Accept, Trace("")]
-        //   already_traced = true
-        //   returns [Trace("@@s2"), Accept, Trace("")]
-        assert_eq!(actions.len(), 3);
-        assert_eq!(actions.0[0], Action::Trace("@@s2".into()));
-        assert_eq!(actions.0[1], Action::Accept);
-        assert_eq!(actions.0[2], Action::Trace(String::new()));
 
-        // @s1 should ALSO be in the bindmap (aliases are not skipped)
-        assert!(resolved.contains_key(&TriggerKind::Semantic("s1".into())));
+        // key(a) resolves directly to Accept (wrapped in Trace for the innermost alias)
+        let actions_a = resolved.get(&TriggerKind::Key(key!(a))).unwrap();
+        assert_eq!(
+            actions_a.0,
+            vec![
+                Action::Trace("@@s2".into()),
+                Action::Accept,
+                Action::Trace(String::new())
+            ]
+        );
 
-        // Unbound: key(b) -> @s3 -> @s4 -> unbound
+        // The intermediate alias @s1 also exists in the resolved map and resolves to Accept
+        let actions_s1 = resolved.get(&TriggerKind::Semantic("s1".into())).unwrap();
+        assert_eq!(
+            actions_s1.0,
+            vec![
+                Action::Trace("@@s2".into()),
+                Action::Accept,
+                Action::Trace(String::new())
+            ]
+        );
+
+        // The final alias @s2 also exists in the resolved map and resolves to Accept
+        let actions_s2 = resolved.get(&TriggerKind::Semantic("s2".into())).unwrap();
+        assert_eq!(actions_s2.0, vec![Action::Accept]);
+    }
+
+    #[test]
+    fn test_resolve_semantics_unbound_and_partial() {
+        use crate::action::NullActionExt;
+        use crate::bindmap;
+
+        // Entirely unbound: key(b) -> @s3 -> @s4 -> unbound
         let bind_map_unbound: BindMap<NullActionExt> = bindmap!(
             key!(b) => Action::Semantic("s3".into()),
             Trigger {
@@ -1064,8 +1075,24 @@ mod test {
             } => Action::Semantic("s4".into()),
         );
         let resolved_unbound = bind_map_unbound.resolve_semantics(&mode_vec(""));
-        // key(b) should be GONE because @s3 -> @s4 doesn't resolve
         assert!(!resolved_unbound.contains_key(&TriggerKind::Key(key!(b))));
+
+        // Partially unbound multi-action: key(c) -> [@s5, Accept], where @s5 resolves but @s6 does not
+        let bind_map_partial: BindMap<NullActionExt> = bindmap!(
+            key!(c) => [Action::Semantic("s5".into()), Action::Accept],
+            Trigger {
+                kind: TriggerKind::Semantic("s5".into()),
+                mode: PrefixFilter::default()
+            } => Action::Semantic("s6".into()),
+        );
+        let resolved_partial = bind_map_partial.resolve_semantics(&mode_vec(""));
+        assert!(!resolved_partial.contains_key(&TriggerKind::Key(key!(c))));
+    }
+
+    #[test]
+    fn test_resolve_semantics_multi_action_chain() {
+        use crate::action::NullActionExt;
+        use crate::bindmap;
 
         // Multi-action chain: key(c) -> @s5 -> [@s6, Accept]
         let bind_map_multi: BindMap<NullActionExt> = bindmap!(
@@ -1081,17 +1108,15 @@ mod test {
         );
         let resolved_multi = bind_map_multi.resolve_semantics(&mode_vec(""));
         let actions = resolved_multi.get(&TriggerKind::Key(key!(c))).unwrap();
-        // @s5 is not traced because it has nested aliases?
-        // Wait, resolve_actions([@s5]):
-        //   alias_actions = [@s6, Accept]
-        //   has_nested = true
-        //   flat = resolve_actions([@s6, Accept])
-        //     resolve_actions([@s6]) -> [Trace("@@s6"), Cancel, Trace("")]
-        //     resolve_actions([Accept]) -> [Accept]
-        //     returns [Trace("@@s6"), Cancel, Trace(""), Accept]
-        //   already_traced = true
-        //   returns [Trace("@@s6"), Cancel, Trace(""), Accept]
-        assert_eq!(actions.len(), 4);
+        assert_eq!(
+            actions.0,
+            vec![
+                Action::Trace("@@s6".into()),
+                Action::ClearQuery,
+                Action::Trace(String::new()),
+                Action::Accept
+            ]
+        );
     }
 
     #[test]
@@ -1113,11 +1138,12 @@ mod test {
         );
         let resolved = bind_map.resolve_semantics(&mode_vec(""));
 
-        // key(a) should resolve directly to [Trace("desc"), Accept]
+        // key(a) should resolve directly to [Trace("desc"), Accept] without any extra @@s2 trace wrapped around it
         let actions = resolved.get(&TriggerKind::Key(key!(a))).unwrap();
-        assert_eq!(actions.len(), 2);
-        assert_eq!(actions.0[0], Action::Trace("desc".into()));
-        assert_eq!(actions.0[1], Action::Accept);
+        assert_eq!(
+            actions.0,
+            vec![Action::Trace("desc".into()), Action::Accept]
+        );
     }
 
     #[test]
@@ -1127,7 +1153,7 @@ mod test {
 
         // key(a) -> @s1
         // @s1 is Accept in default mode
-        // @s1 is Cancel in "mode1"
+        // @s1 is ClearQuery in "mode1"
         let bind_map: BindMap<NullActionExt> = bindmap!(
             key!(a) => Action::Semantic("s1".into()),
             Trigger {
@@ -1143,12 +1169,71 @@ mod test {
         // Resolve for default mode
         let default_resolved = bind_map.resolve_semantics(&mode_vec(""));
         let a_default = default_resolved.get(&TriggerKind::Key(key!(a))).unwrap();
-        assert!(a_default.iter().any(|a| matches!(a, Action::Accept)));
+        assert_eq!(
+            a_default.0,
+            vec![
+                Action::Trace("@@s1".into()),
+                Action::Accept,
+                Action::Trace(String::new())
+            ]
+        );
 
         // Resolve for mode1
         let mode1_resolved = bind_map.resolve_semantics(&mode_vec("mode1"));
         let a_mode1 = mode1_resolved.get(&TriggerKind::Key(key!(a))).unwrap();
-        assert!(a_mode1.iter().any(|a| matches!(a, Action::ClearQuery)));
+        assert_eq!(
+            a_mode1.0,
+            vec![
+                Action::Trace("@@s1".into()),
+                Action::ClearQuery,
+                Action::Trace(String::new())
+            ]
+        );
+
+        // Resolve for mode2 (falls back to default Accept)
+        let mode2_resolved = bind_map.resolve_semantics(&mode_vec("mode2"));
+        let a_mode2 = mode2_resolved.get(&TriggerKind::Key(key!(a))).unwrap();
+        assert_eq!(
+            a_mode2.0,
+            vec![
+                Action::Trace("@@s1".into()),
+                Action::Accept,
+                Action::Trace(String::new())
+            ]
+        );
+    }
+
+    #[test]
+    fn test_resolve_semantics_key_modes() {
+        use crate::action::NullActionExt;
+        use crate::bindmap;
+
+        let bind_map: BindMap<NullActionExt> = bindmap!(
+            Trigger {
+                kind: TriggerKind::Key(key!(a)),
+                mode: PrefixFilter::from_str("mode1").unwrap()
+            } => Action::Accept,
+            Trigger {
+                kind: TriggerKind::Key(key!(b)),
+                mode: PrefixFilter::default()
+            } => Action::Accept,
+        );
+
+        // In default mode, key(a) is filtered out because it is mode1-specific,
+        // but key(b) is included because its mode matches default.
+        let default_resolved = bind_map.resolve_semantics(&mode_vec(""));
+        assert!(!default_resolved.contains_key(&TriggerKind::Key(key!(a))));
+        assert!(default_resolved.contains_key(&TriggerKind::Key(key!(b))));
+
+        // In mode1, both key(a) and key(b) match.
+        let mode1_resolved = bind_map.resolve_semantics(&mode_vec("mode1"));
+        assert!(mode1_resolved.contains_key(&TriggerKind::Key(key!(a))));
+        assert!(mode1_resolved.contains_key(&TriggerKind::Key(key!(b))));
+
+        // In mode2, key(a) is filtered out, key(b) is included.
+        let mode2_resolved = bind_map.resolve_semantics(&mode_vec("mode2"));
+        assert!(!mode2_resolved.contains_key(&TriggerKind::Key(key!(a))));
+        assert!(mode2_resolved.contains_key(&TriggerKind::Key(key!(b))));
     }
 
     #[test]
@@ -1156,65 +1241,45 @@ mod test {
         use crate::action::NullActionExt;
         use crate::bindmap;
 
-        // key(a) -> [@s1, @s2]
-        // @s1 defined in default, m1, m2
-        // @s2 defined in default, m1, m3
-        // For default mode: both s1 and s2 resolve (intersection includes default)
-        // For m1: both s1 and s2 resolve
-        // For m2: only s1 resolves (s2 has no m2 definition, falls back to default which matches m2)
-        //   Wait - s2 in default mode has mode=empty filter which matches m2, so s2 resolves in m2 too
-        // For m3: only s2 resolves
         let bind_map: BindMap<NullActionExt> = bindmap!(
             key!(a) => [Action::Semantic("s1".into()), Action::Semantic("s2".into())],
             Trigger {
                 kind: TriggerKind::Semantic("s1".into()),
                 mode: PrefixFilter::default()
-            } => Action::Select,
+            } => Action::Print("s1_default".into()),
             Trigger {
                 kind: TriggerKind::Semantic("s1".into()),
                 mode: PrefixFilter::from_str("m1").unwrap()
-            } => Action::Select,
-            Trigger {
-                kind: TriggerKind::Semantic("s1".into()),
-                mode: PrefixFilter::from_str("m2").unwrap()
-            } => Action::Select,
+            } => Action::Print("s1_m1".into()),
 
             Trigger {
                 kind: TriggerKind::Semantic("s2".into()),
                 mode: PrefixFilter::default()
-            } => Action::Deselect,
+            } => Action::Print("s2_default".into()),
             Trigger {
                 kind: TriggerKind::Semantic("s2".into()),
                 mode: PrefixFilter::from_str("m1").unwrap()
-            } => Action::Deselect,
-            Trigger {
-                kind: TriggerKind::Semantic("s2".into()),
-                mode: PrefixFilter::from_str("m3").unwrap()
-            } => Action::Deselect,
+            } => Action::Print("s2_m1".into()),
         );
 
-        // Resolve for default mode - both s1 and s2 resolve via empty filter
+        // Resolve for default mode: both fall back to default
         let default_resolved = bind_map.resolve_semantics(&mode_vec(""));
-        assert!(default_resolved.contains_key(&TriggerKind::Key(key!(a))));
+        let actions = default_resolved.get(&TriggerKind::Key(key!(a))).unwrap();
+        assert_eq!(actions.0.len(), 6);
+        assert_eq!(actions.0[1], Action::Print("s1_default".into()));
+        assert_eq!(actions.0[4], Action::Print("s2_default".into()));
 
-        // Resolve for m1 - both s1 and s2 have m1 definitions
+        // Resolve for m1: both use m1 definition
         let m1_resolved = bind_map.resolve_semantics(&mode_vec("m1"));
-        assert!(m1_resolved.contains_key(&TriggerKind::Key(key!(a))));
+        let actions_m1 = m1_resolved.get(&TriggerKind::Key(key!(a))).unwrap();
+        assert_eq!(actions_m1.0[1], Action::Print("s1_m1".into()));
+        assert_eq!(actions_m1.0[4], Action::Print("s2_m1".into()));
 
-        // Resolve for m2 - s1 has m2 definition, s2 falls back to empty filter
+        // Resolve for m2: s1 falls back to default, s2 falls back to default
         let m2_resolved = bind_map.resolve_semantics(&mode_vec("m2"));
-        assert!(m2_resolved.contains_key(&TriggerKind::Key(key!(a))));
-
-        // Resolve for m3 - s1 falls back to empty filter, s2 has m3 definition
-        let m3_resolved = bind_map.resolve_semantics(&mode_vec("m3"));
-        assert!(m3_resolved.contains_key(&TriggerKind::Key(key!(a))));
-
-        // Resolve for a mode where neither s1 nor s2 has a matching definition
-        // s1 has empty, m1, m2; s2 has empty, m1, m3
-        // "m4" is not in any, but empty filter matches everything
-        // So both should resolve via empty filter
-        let m4_resolved = bind_map.resolve_semantics(&mode_vec("m4"));
-        assert!(m4_resolved.contains_key(&TriggerKind::Key(key!(a))));
+        let actions_m2 = m2_resolved.get(&TriggerKind::Key(key!(a))).unwrap();
+        assert_eq!(actions_m2.0[1], Action::Print("s1_default".into()));
+        assert_eq!(actions_m2.0[4], Action::Print("s2_default".into()));
     }
 
     #[test]
@@ -1260,15 +1325,6 @@ mod test {
         let help_str = help.to_string();
 
         let lines: Vec<_> = help_str.lines().filter(|l| !l.is_empty()).collect();
-        // Sorting is by action first, then is_f_key?
-        // No, my code:
-        /*
-        if config.sort_fn_last && a.2 != b.2 {
-        return a.2.cmp(&b.2);
-        }
-        */
-        // so non-F (a.2=false) < F (a.2=true).
-        // Then by action.
         assert!(lines[0].contains("a = Print(a)"));
         assert!(lines[1].contains("b = Print(b)"));
         assert!(lines[2].contains("F1 = Print(f1)"));

@@ -275,6 +275,16 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                             }
 
                             if layout.results.contains(pos) {
+                                let relative_x = pos.x
+                                    .saturating_sub(layout.results.x)
+                                    .saturating_sub(picker_ui.results.indentation() as u16);
+                                if let Some(gutter_idx) = picker_ui.results.get_dragged_column_gutter(relative_x)
+                                    && let Some(stored_column) = picker_ui.results.shrink_idx(gutter_idx)
+                                {
+                                    state.dragging_column = Some((pos, stored_column));
+                                    continue;
+                                }
+
                                 let y = mouse.row - layout.results.top();
                                 debug!("Results clicked at: {y}");
                                 click = Click::ResultPos(y);
@@ -395,9 +405,19 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                                 }
                                 state.dragging = Some(pos);
                             }
+
+                            if let Some((start_pos, stored_column)) = state.dragging_column {
+                                if pos.x > start_pos.x {
+                                    picker_ui.results.expand((pos.x - start_pos.x) as i16, stored_column);
+                                } else if pos.x < start_pos.x {
+                                    picker_ui.results.expand(-((start_pos.x - pos.x) as i16), stored_column);
+                                }
+                                state.dragging_column = Some((pos, stored_column));
+                            }
                         }
                         MouseEventKind::Up(MouseButton::Left) => {
                             state.dragging = None;
+                            state.dragging_column = None;
                         }
                         _ => {}
                     }
@@ -421,37 +441,37 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                         query,
                         results,
                         worker,
-                        selector: selections,
+                        selector,
                         ..
                     } = &mut picker_ui;
                     match action {
                         Action::Select => {
                             if let Some((idx, _)) = worker.get_nth_indexed(results.index()) {
-                                selections.insert(idx);
+                                selector.insert(idx);
                             }
                         }
                         Action::Deselect => {
                             if let Some((idx, _)) = worker.get_nth_indexed(results.index()) {
-                                selections.shift_remove(&idx);
+                                selector.shift_remove(&idx);
                             }
                         }
                         Action::ToggleSelection => {
                             if let Some((idx, _)) = worker.get_nth_indexed(results.index()) {
-                                if selections.contains(&idx) {
-                                    selections.shift_remove(&idx);
+                                if selector.contains(&idx) {
+                                    selector.shift_remove(&idx);
                                 } else {
-                                    selections.insert(idx);
+                                    selector.insert(idx);
                                 }
                             }
                         }
                         Action::CycleSelections => {
-                            selections.cycle_all_bg(worker.matched_indices());
+                            selector.cycle_all_bg(worker.matched_indices());
                         }
                         Action::ClearSelections => {
-                            selections.clear();
+                            selector.clear();
                         }
                         Action::Accept => {
-                            if selections.is_empty()
+                            if selector.is_empty()
                                 && worker.get_nth(results.index()).is_none()
                                 && !exit_config.allow_empty
                             {
@@ -757,6 +777,41 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                                 for val in results.hidden_columns.iter_mut() {
                                     *val = false;
                                 }
+                            }
+                        }
+                        Action::ExpandColumn(ref col_idx) | Action::ShrinkColumn(ref col_idx) => {
+                            let delta: i16 = if matches!(action, Action::ExpandColumn(_)) {
+                                1
+                            } else {
+                                -1
+                            };
+
+                            // `col_idx` is already in the non-hidden columns
+                            // space and applies directly. None means "act on
+                            // the active column", which requires a lookup in
+                            // the all-columns space and then translation.
+                            let v_idx = if let Some(idx) = col_idx {
+                                Some(*idx)
+                            } else {
+                                // picker_ui.active_column_index
+                                let active_idx = if !state.filtering {
+                                    worker.query.empty_column_index()
+                                } else {
+                                    let cursor_byte = query.byte_index(query.cursor() as usize);
+                                    worker
+                                        .query
+                                        .current_column(cursor_byte)
+                                        .and_then(|name| {
+                                            worker.columns.iter().position(|c| &c.name == name)
+                                        })
+                                        .unwrap_or(worker.query.primary_column_index())
+                                };
+
+                                results.shrink_idx(active_idx)
+                            };
+
+                            if let Some(v) = v_idx {
+                                results.expand(delta, v);
                             }
                         }
 

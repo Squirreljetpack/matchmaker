@@ -40,7 +40,6 @@ impl PrefixFilter {
     pub fn matches(&self, mode: &[Box<str>]) -> bool {
         for prefix in &self.positive_prefixes {
             if !mode.iter().any(|tag| tag.as_ref().starts_with(prefix)) {
-                log::trace!("{self:?}, {mode:?}");
                 return false;
             }
         }

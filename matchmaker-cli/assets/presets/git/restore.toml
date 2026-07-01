@@ -145,7 +145,7 @@ esac
 "alt-m" = ["@edit_msg", "Reload"]
 "ctrl-e" = ["@rebase", "Reload"]
 "@next" = "BecomeSilent(mm -o git/switch)"
-"@prev" = "BecomeSilent(mm -o git/status)"
+"@prev" = "BecomeSilent(mm -o git/status -F)"
 "@help" = '''RunPreview(
   echo 'Restoring:';
   for f in {$0}; do echo "$f"; done

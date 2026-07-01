@@ -43,6 +43,9 @@ where
 
         let (width, height) = Self::full_size().unwrap_or_default();
         let area = if let Some(ref layout) = config.layout {
+            #[cfg(debug_assertions)]
+            log::debug!("tui: {layout:?}");
+
             let request = layout
                 .percentage
                 .compute_clamped(height, layout.min, layout.max);
@@ -69,7 +72,7 @@ where
             let available_height = height.saturating_sub(cursor_y);
 
             debug!(
-                "TUI quantities: min: {}, initial_available: {initial_height}, requested: {request}, available: {available_height}, requested scroll: {scroll}",
+                "TUI quantities: min: {}, initial_available: {initial_height}, requested_height: {request}, available_after_scroll: {available_height}, requested_scroll: {scroll}",
                 layout.min
             );
 

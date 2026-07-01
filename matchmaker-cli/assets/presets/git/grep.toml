@@ -77,7 +77,7 @@ prompt = "grep> "
 if [ -z "$(git status --porcelain)" ]; then
     mm -o git/restore
 else
-    mm -o git/status
+    mm -o git/status -F
 fi)'''
 "@prev" = "BecomeSilent(mm -o git/switch)"
 

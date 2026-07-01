@@ -251,7 +251,6 @@ fn process_key(
         )
     } else {
         let item = unwrap!(item_override.or_else(|| state.picker_ui.current_indexed()));
-        log::trace!("ITEM: {item:?}");
 
         let val = get_val(key, item, state)?;
         if quote {

@@ -37,6 +37,7 @@ pub struct State {
     pub(crate) preview_visible: bool,
     pub(crate) layout: Layout,
     pub(crate) dragging: Option<Position>,
+    pub(crate) dragging_column: Option<(Position, usize)>,
     pub(crate) overlay_index: Option<usize>,
     pub(crate) synced: [bool; 2], // ran, synced
 
@@ -111,6 +112,7 @@ impl State {
             stashed_preview_visibility: None,
             layout: Layout::default(),
             dragging: None,
+            dragging_column: None,
             overlay_index: None,
 
             input: String::new(),

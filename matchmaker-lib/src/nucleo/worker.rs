@@ -13,7 +13,7 @@ use std::{
 };
 
 use super::{injector::WorkerInjector, query::PickerQuery};
-use crate::SSS;
+use crate::{SSS, config::StringOrInt};
 
 type ColumnFormatFn<T, D> = Box<dyn for<'a> Fn(&'a T, &'a D) -> Text<'a> + Send + Sync>;
 type ColumnRawFn<T, D> = Box<dyn for<'a> Fn(&'a T, &'a D) -> Cow<'a, str> + Send + Sync>;
@@ -321,19 +321,10 @@ where
 
     // ----------- COLUMN ACCESSORS --------------
 
-    pub fn format_with<'a>(&'a self, item: &'a T, col: &crate::config_types::StringOrInt) -> Option<Cow<'a, str>> {
+    pub fn format_with<'a>(&'a self, item: &'a T, col: &StringOrInt) -> Option<Cow<'a, str>> {
         let col_val = match col {
-            crate::config_types::StringOrInt::String(s) => {
-                self.columns.iter().find(|c| &*c.name == s.as_str())?
-            }
-            crate::config_types::StringOrInt::Int(idx) => {
-                let idx = *idx;
-                if idx >= 0 {
-                    self.columns.get(idx as usize)?
-                } else {
-                    return None;
-                }
-            }
+            StringOrInt::String(s) => self.columns.iter().find(|c| &*c.name == s.as_str())?,
+            StringOrInt::Int(idx) => self.columns.get(*idx)?,
         };
         let d = (self.raw_preprocessor)(item)?;
         Some(col_val.raw(item, &d).into_owned().into())

@@ -137,7 +137,10 @@ border.padding = [2, 0]
 
 "alt-shift-=" = "ExpandPreview"
 "alt-+" = "ExpandPreview" # A terminal might only transmit alt-shift-=
-"alt-hyphen" = "ShrinkPreview"
+"alt-shift-hyphen" = "ShrinkPreview"
+
+"alt-=" = "ExpandColumn"
+"alt-hyphen" = "ShrinkColumn"
 
 # Reserved
 "F1" = "@help"

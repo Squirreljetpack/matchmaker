@@ -296,8 +296,8 @@ impl ResultsUI {
                 width_callback,
             );
 
-            #[cfg(debug_assertions)]
-            log::debug!("cursor: {texts:?}");
+            // #[cfg(debug_assertions)]
+            // log::debug!("cursor: {texts:?}");
 
             if texts.is_empty() {
                 if self.config.show_skipped {

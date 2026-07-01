@@ -105,6 +105,14 @@ pub enum Action<A: ActionExt = NullActionExt> {
     ToggleColumn(Option<String>),
     /// Unhide a column, or all columns if None
     ShowColumn(Option<String>),
+    /// Widen a column by 1.
+    /// The index is 0-based into the non-hidden columns.
+    /// None acts on the active column.
+    ExpandColumn(Option<usize>),
+    /// Narrow a column by 1.
+    /// The index is 0-based into the non-hidden columns.
+    /// None acts on the active column.
+    ShrinkColumn(Option<usize>),
 
     // Programmable
     /// Execute command and continue
@@ -379,7 +387,7 @@ enum_from_str_display!(
     (Up, 1), (Down, 1), (PreviewUp, 1), (PreviewDown, 1), (Quit, 1), (Overlay, 0), (Print, String::new()), (Help, String::new()), (Reload, String::new()), (PreviewScroll, 1), (PreviewHScroll, 1), (HScroll, 0), (VScroll, 0), (ExpandPreview, 1), (ShrinkPreview, 1);
 
     options:
-    SwitchPreview, SetPreview, ToggleColumn, ShowColumn, ToggleExitFirst
+    SwitchPreview, SetPreview, ToggleColumn, ShowColumn, ToggleExitFirst, ExpandColumn, ShrinkColumn
 );
 
 macro_rules! enum_from_str_display {

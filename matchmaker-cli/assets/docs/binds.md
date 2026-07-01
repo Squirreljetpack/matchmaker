@@ -208,13 +208,15 @@ Actions are the operations performed when a trigger is activated.
 
 ### Columns
 
-| Action              | Description                                |
-| ------------------- | ------------------------------------------ |
-| `NextColumn`        | Move focus to the next column.             |
-| `PrevColumn`        | Move focus to the previous column.         |
-| `SwitchColumn(col)` | Focus column specified by name or index.   |
-| `ToggleColumn(col)` | Toggle visibility of the specified column. |
-| `ShowColumn(col)`   | Ensure the specified column is visible.    |
+| Action              | Description                                                               |
+| ------------------- | ------------------------------------------------------------------------- |
+| `NextColumn`        | Move focus to the next column.                                            |
+| `PrevColumn`        | Move focus to the previous column.                                        |
+| `SwitchColumn(col)` | Focus column specified by name or index.                                  |
+| `ToggleColumn(col)` | Toggle visibility of the specified column.                                |
+| `ShowColumn(col)`   | Ensure the specified column is visible.                                   |
+| `ExpandColumn(n)`   | Widen the n-th non-hidden column by 1; `None` widens the active column.   |
+| `ShrinkColumn(n)`   | Narrow the n-th non-hidden column by 1; `None` narrows the active column. |
 
 ### Input & Search
 

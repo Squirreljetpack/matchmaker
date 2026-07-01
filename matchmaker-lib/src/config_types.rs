@@ -633,7 +633,7 @@ where
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StringOrInt {
     String(String),
-    Int(i64),
+    Int(usize),
 }
 impl Default for StringOrInt {
     fn default() -> Self {
@@ -648,7 +648,7 @@ impl Serialize for StringOrInt {
     {
         match self {
             StringOrInt::String(s) => serializer.serialize_str(s),
-            StringOrInt::Int(i) => serializer.serialize_i64(*i),
+            StringOrInt::Int(i) => serializer.serialize_u64(*i as u64),
         }
     }
 }
@@ -675,12 +675,19 @@ impl<'de> Deserialize<'de> for StringOrInt {
                 Ok(StringOrInt::String(v))
             }
 
-            fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E> {
-                Ok(StringOrInt::Int(v))
+            fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                if v < 0 {
+                    return Err(E::custom("expected non-negative integer"));
+                }
+
+                Ok(StringOrInt::Int(v as usize))
             }
 
             fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E> {
-                Ok(StringOrInt::Int(v as i64))
+                Ok(StringOrInt::Int(v as usize))
             }
         }
 

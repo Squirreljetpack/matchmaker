@@ -1,6 +1,7 @@
 use crate::ui::ResultsUI;
 impl ResultsUI {
     /// Update self.preferred_widths from collected raw_widths and max_widths, then clear them. Additionally, swap the read/write row caches.
+    /// Every nonempty column is assigned a nonzero width.
     /// Noop if row_cache is empty or stacked_columns
     pub(super) fn update_preferred_widths(&mut self) -> bool {
         if self.row_cache[0].is_empty() || self.config.stacked_columns {
@@ -38,14 +39,12 @@ impl ResultsUI {
         }
 
         // 2. Adjust the values in place based on config.min_width and v_max_widths
-        for w in &mut self.widths_buffer {
-            if *w != 0 {
-                *w = (*w).max(self.config.min_width);
-            }
+        for (i, w) in self.preferred_widths.iter_mut().enumerate() {
+            *w = (*w).max(max_widths[i].min(self.config.min_width))
         }
 
         // 3.
-        if self.preferred_widths.is_empty()
+        let ret = if self.preferred_widths.is_empty()
             || self.widths_buffer.iter().filter(|x| **x > 0).count() == 1
         {
             self.preferred_widths = std::mem::take(&mut self.widths_buffer);
@@ -59,18 +58,26 @@ impl ResultsUI {
                 .iter_mut()
                 .zip(self.widths_buffer.iter())
             {
-                if new > *old {
+                if *old == 0 && new > 0 {
+                    *old = new;
+
+                    changed = true;
+                } else if new > *old {
                     if new - *old >= grow_threshold {
                         *old = new;
+
                         changed = true;
                     }
                 } else if *old > new && *old - new >= shrink_threshold {
                     *old = new;
+
                     changed = true;
                 }
             }
             changed
-        }
+        };
+
+        ret
     }
 
     /// Set self.width_limits using self.preferred_widths.

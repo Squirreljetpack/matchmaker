@@ -265,12 +265,12 @@ impl ResultsUI {
                 .cloned()
         };
 
-        let texts = if let Some(cached) = cached {
+        let (id, texts) = if let Some(cached) = cached {
             if !self.row_cache[1].iter().any(|(x, _, _)| *x == id) {
                 self.row_cache[1].push(cached.clone());
             }
 
-            cached.1
+            (cached.0, cached.1)
         } else {
             let mut non_hidden_idx = 0;
             let width_callback = |_: usize, w: usize| {
@@ -316,14 +316,14 @@ impl ResultsUI {
                 self.row_cache[1].push((id, texts.clone(), row_widths));
             }
 
-            texts
+            (id, texts)
         };
 
         let is_selected = selector.contains(&id);
         let prefix = if is_selected {
             self.config.multi_prefix.clone()
         } else {
-            self.default_prefix((idx - self.bottom) as usize)
+            self.default_prefix((idx - self.bottom) as usize, id)
         };
 
         let mut row_texts = vec![];
@@ -424,12 +424,13 @@ impl ResultsUI {
 
 // helpers
 impl ResultsUI {
-    pub(super) fn default_prefix(&self, i: usize) -> String {
+    pub(super) fn default_prefix(&self, i: usize, id: u32) -> String {
         let substituted = substitute_escaped(
             &self.config.default_prefix,
             &[
                 ('d', &(i + 1).to_string()),                        // cursor index
-                ('r', &(i + 1 + self.bottom as usize).to_string()), // absolute index
+                ('i', &(i + 1 + self.bottom as usize).to_string()), // table index
+                ('r', &id.to_string()),                             // absolute index
             ],
         );
 

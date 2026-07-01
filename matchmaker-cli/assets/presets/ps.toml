@@ -19,16 +19,11 @@ split = ' +'
 max = 9
 default = 9
 
-[matcher]
 # --- Preview ---
-
 [preview]
 # show = false
 wrap = false
 trim_ends = true
-
-[results]
-min_width = 4
 
 [[preview.layout]]
 # Tree view

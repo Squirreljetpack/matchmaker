@@ -126,9 +126,13 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
             if o.source.is_some() {
                 _wbog!("Ignoring 'source' field in nested override.");
             }
+            #[cfg(not(debug_assertions))]
+            log::trace!("source: {o:?}");
             config.apply(o);
         }
 
+        #[cfg(not(debug_assertions))]
+        log::trace!("override: {o:?}");
         config.apply(o);
     }
 

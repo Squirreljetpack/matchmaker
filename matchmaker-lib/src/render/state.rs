@@ -3,11 +3,11 @@ use cba::{bait::TransformExt, broc::EnvVars, env_vars, unwrap};
 use ratatui::text::Text;
 
 use crate::{
-    Selector, SSS,
+    SSS, Selector,
     action::{ActionExt, Actions},
     event::{self, BindSender, EventSender},
     message::{BindDirective, Event, Interrupt},
-    nucleo::{injector::WorkerInjector, Status},
+    nucleo::{Status, injector::WorkerInjector},
     ui::{DisplayUI, OverlayUI, PickerUI, PreviewUI, Rect, UI},
 };
 use ratatui::layout::Position;
@@ -383,7 +383,8 @@ impl<'a, 'b: 'a, T: SSS, D: 'static> MMState<'a, 'b, T, D> {
 
     /// Same as `current_index`, but returns a reference to the underlying item.
     pub fn current_raw(&self) -> Option<&T> {
-        log::trace!("{}", self.picker_ui.results.index());
+        #[cfg(debug_assertions)]
+        log::trace!("got: {}", self.picker_ui.results.index());
         self.picker_ui
             .worker
             .get_nth(self.picker_ui.results.index())
@@ -414,9 +415,10 @@ impl<'a, 'b: 'a, T: SSS, D: 'static> MMState<'a, 'b, T, D> {
     pub fn map_selected_to_vec<U>(&self, mut f: impl FnMut(u32, &T) -> U) -> Vec<U> {
         let mut out = self.map_selections_to_vec(&mut f);
         if out.is_empty()
-            && let Some((idx, item)) = self.picker_ui.current_indexed() {
-                out.push(f(idx, item));
-            }
+            && let Some((idx, item)) = self.picker_ui.current_indexed()
+        {
+            out.push(f(idx, item));
+        }
         out
     }
 

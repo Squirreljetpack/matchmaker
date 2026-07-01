@@ -85,7 +85,6 @@ separator = "\\0"
 
 [start]
 ansi = false # don't set to true here
-sanitize = false # applies sanitize fns to the text/string returned from text_preprocessor
 skip_invalid_lines = true # set false to error on encountering invalid utf-8
 
 [exit]

@@ -1,4 +1,4 @@
-use crate::ui::ResultsUI;
+use crate::{config::RowConnectionStyle, ui::ResultsUI};
 use ratatui::widgets::{Row, Table};
 
 use crate::{
@@ -359,6 +359,10 @@ impl ResultsUI {
             .column_spacing(self.config.column_spacing.0);
 
         table = table.block(self.config.border.as_static_block());
+
+        if matches!(self.config.row_connection, RowConnectionStyle::Full) {
+            table = table.style(self.config.style)
+        }
         self.table = table;
     }
 }

@@ -14,6 +14,8 @@ directory = { value = "git rev-parse --show-toplevel", exec = true }
 [results]
 inactive.fg = "DarkGray"
 # inactive.modifier = "DIM"
+inactive.bg = "Black"
+
 style.fg = "White"
 # inactive_current.modifier = "DIM"
 

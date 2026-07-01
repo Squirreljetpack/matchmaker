@@ -379,11 +379,13 @@ impl ResultsUI {
 
         // Determine row-level styling based on connection style and current row state
         let row_style = match (is_current, self.config.row_connection) {
-            (true, RowConnectionStyle::Full) => self.config.current_style,
-            (true, RowConnectionStyle::Capped) => self.config.inactive_current_style,
-            _ => StyleSetting::DEFAULT,
-        }
-        .into_style_no_submodifiers();
+            (true, RowConnectionStyle::Capped) => self
+                .config
+                .inactive_current_style
+                .into_style_no_submodifiers(),
+            (true, RowConnectionStyle::Full) => self.config.current_style.into(),
+            _ => Style::default(),
+        };
 
         if !stacked {
             // Non-stacked mode: single row with all cells

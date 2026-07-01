@@ -56,8 +56,9 @@ pub struct WorkerConfig {
 }
 
 /// (client-app responsibility). Configures how input is fed to to the worker(s).
+/// Unfortunately, we cannot use deny_unknown_fields if we want to flatten PreprocessConfig
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(default)]
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct StartConfig {
     #[serde(deserialize_with = "escaped_opt_char")]
@@ -87,12 +88,10 @@ pub struct StartConfig {
     pub directory: EnvValue,
 
     pub sync: bool,
-    /// Whether to parse ansi sequences from input
-    #[partial(alias = "a")]
-    pub ansi: bool,
-    /// Trim the input
-    #[partial(alias = "t")]
-    pub trim: bool,
+
+    #[serde(flatten)]
+    #[partial(recurse)]
+    pub preprocess: PreprocessConfig,
 
     /// Override the default mode
     pub mode: Option<String>,
@@ -101,6 +100,24 @@ pub struct StartConfig {
     pub save_orphans: bool,
     /// If false, aborts program when encountering an invalid utf-8 input line
     pub skip_invalid_lines: bool,
+}
+
+/// Configures how columns/text are preprocessed.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
+pub struct PreprocessConfig {
+    /// Whether to parse ansi sequences from input
+    #[partial(alias = "a")]
+    pub ansi: bool,
+    /// Trim the input
+    #[partial(alias = "t")]
+    pub trim: bool,
+    /// Sanitize the input text/string
+    #[partial(alias = "s")]
+    pub sanitize: bool,
+    /// Skip lines that are empty in a specific column
+    pub require_column: Option<usize>,
 }
 
 /// Exit conditions of the render loop.
@@ -435,6 +452,14 @@ pub struct ResultsConfig {
 
     #[partial(recurse)]
     pub separator_style: StyleSetting,
+
+    pub width_overrides: Vec<u16>,
+
+    /// `[grow, shrink]` pixel deltas required before a column's preferred
+    /// width is recomputed. Smaller values make the table re-flow more
+    /// eagerly; larger values reduce flicker. Defaults to `[4, 4]`.
+    #[partial(alias = "rct")]
+    pub resize_col_thresholds: [u16; 2],
 }
 
 impl Default for ResultsConfig {
@@ -491,6 +516,9 @@ impl Default for ResultsConfig {
             separator_style: Default::default(),
             show_skipped: true,
             vscroll_current_only: true,
+
+            width_overrides: vec![],
+            resize_col_thresholds: [4, 4],
         }
     }
 }
@@ -679,7 +707,7 @@ impl Default for PreviewConfig {
 pub struct PreviewInitialSetting {
     /// Extract the initial display index `n` of the preview window from this column.
     /// `n` lines are skipped after the header lines are consumed.
-    pub index: Option<StringValue>,
+    pub index: Option<StringOrInt>,
     /// For adjusting the initial scroll index. This defaults to -1 when indexing for compatibility with tools like rg with 1-indexed lines.
     #[partial(alias = "o")]
     pub offset: Option<isize>,
@@ -1035,7 +1063,7 @@ pub struct ColumnsConfig {
     #[serde(alias = "max")]
     max_columns: usize,
     #[partial(alias = "i")]
-    pub default: Option<StringValue>,
+    pub default: StringOrInt,
     /// When autogenerating column names, start from 0 instead of 1.
     pub names_from_zero: bool,
 }
@@ -1052,7 +1080,7 @@ impl Default for ColumnsConfig {
             split: Default::default(),
             names: Default::default(),
             max_columns: 6,
-            default: None,
+            default: StringOrInt::Int(0),
             names_from_zero: false,
         }
     }

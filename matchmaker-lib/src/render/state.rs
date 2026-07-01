@@ -3,11 +3,11 @@ use cba::{bait::TransformExt, broc::EnvVars, env_vars, unwrap};
 use ratatui::text::Text;
 
 use crate::{
-    SSS, Selection, Selector,
+    Selector, SSS,
     action::{ActionExt, Actions},
     event::{self, BindSender, EventSender},
     message::{BindDirective, Event, Interrupt},
-    nucleo::{Status, injector::WorkerInjector},
+    nucleo::{injector::WorkerInjector, Status},
     ui::{DisplayUI, OverlayUI, PickerUI, PreviewUI, Rect, UI},
 };
 use ratatui::layout::Position;
@@ -254,16 +254,18 @@ impl State {
         changed
     }
 
-    pub(crate) fn update<'a, T: SSS, S: Selection, A: ActionExt>(
+    pub(crate) fn update<'a, T: SSS, D: 'static, A: ActionExt>(
         &'a mut self,
-        picker_ui: &'a PickerUI<T, S>,
+        picker_ui: &'a mut PickerUI<T, D>,
         overlay_ui: &'a Option<OverlayUI<A>>,
     ) {
         if self.iteration == 0 {
             self.insert(Event::Start);
             self.input = picker_ui.query.input.clone();
         } else {
-            self.update_input(&picker_ui.query.input);
+            if self.update_input(&picker_ui.query.input) {
+                picker_ui.results.set_dirty();
+            }
         }
         self.iteration += 1;
 
@@ -295,11 +297,12 @@ impl State {
             self.overlay_index = o.index()
         }
 
-        let new_id = get_current(picker_ui).map(|x| x.0);
-        let changed = self.last_id != get_current(picker_ui).map(|x| x.0);
+        let new_id = picker_ui.current_indexed().map(|x| x.0);
+        let changed = self.last_id != picker_ui.current_indexed().map(|x| x.0);
         if changed {
             self.last_id = new_id;
             self.insert(Event::CursorChange);
+
             if self.last_id.is_none() {
                 self.insert(Event::CursorLost);
             }
@@ -309,14 +312,14 @@ impl State {
 
     // ---------- flush -----------
     // public for tests only!
-    pub fn dispatcher<'a, 'b: 'a, T: SSS, S: Selection>(
+    pub fn dispatcher<'a, 'b: 'a, T: SSS, D>(
         &'a mut self,
         ui: &'a mut UI,
-        picker_ui: &'a mut PickerUI<'b, T, S>,
+        picker_ui: &'a mut PickerUI<'b, T, D>,
         footer_ui: &'a mut DisplayUI,
         preview_ui: &'a mut Option<PreviewUI>,
         event_controller: &'a EventSender,
-    ) -> MMState<'a, 'b, T, S> {
+    ) -> MMState<'a, 'b, T, D> {
         MMState {
             state: self,
             ui,
@@ -337,18 +340,18 @@ impl State {
 }
 
 // ----------------------------------------------------------------------
-pub struct MMState<'a, 'b: 'a, T: SSS, S: Selection> {
+pub struct MMState<'a, 'b: 'a, T: SSS, D> {
     // access through deref/mut
     pub(crate) state: &'a mut State,
 
     pub ui: &'a mut UI,
-    pub picker_ui: &'a mut PickerUI<'b, T, S>,
+    pub picker_ui: &'a mut PickerUI<'b, T, D>,
     pub footer_ui: &'a mut DisplayUI,
     pub preview_ui: &'a mut Option<PreviewUI>,
     pub event_controller: &'a EventSender,
 }
 
-impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
+impl<'a, 'b: 'a, T: SSS, D: 'static> MMState<'a, 'b, T, D> {
     pub fn previewer_area(&self) -> Option<Rect> {
         self.preview_ui.as_ref().map(|ui| {
             let mut ret = ui.area;
@@ -371,38 +374,51 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
         [q.width, q.height]
     }
 
-    pub fn current_item(&self) -> Option<S> {
-        get_current(self.picker_ui).map(|s| s.1)
+    /// Returns the nucleo index of the currently highlighted item, if any.
+    pub fn current_index(&self) -> Option<u32> {
+        self.picker_ui.current_indexed().map(|x| x.0)
     }
 
-    /// Same as current_item, but without applying the identifier.
+    /// Same as `current_index`, but returns a reference to the underlying item.
     pub fn current_raw(&self) -> Option<&T> {
+        log::trace!("{}", self.picker_ui.results.index());
         self.picker_ui
             .worker
             .get_nth(self.picker_ui.results.index())
     }
-    /// Runs f on selections if nonempty, otherwise, the current item
-    // Note: Although the index is almost never useful, inlining should mean this has no performance impact
-    pub fn map_selected_to_vec<U>(&self, mut f: impl FnMut(u32, &S) -> U) -> Vec<U> {
-        if !self.picker_ui.selector.is_empty() {
-            self.picker_ui.selector.map_to_vec(f)
-        } else {
-            get_current(self.picker_ui)
-                .iter()
-                .map(|s| f(s.0, &s.1))
-                .collect()
-        }
+
+    /// Maps all selected indices into a vector.
+    ///
+    /// Pure selection only:
+    /// - No fallback
+    /// - Uses `worker.get_by_idx`
+    /// - Order follows `selector.iter()`
+    pub fn map_selections_to_vec<U>(&self, mut f: impl FnMut(u32, &T) -> U) -> Vec<U> {
+        self.picker_ui
+            .selector
+            .iter()
+            .filter_map(|&idx| {
+                self.picker_ui
+                    .worker
+                    .get_by_idx(idx)
+                    .map(|item| f(idx, item))
+            })
+            .collect()
     }
 
-    // pub fn selected_indices<U>(&self) -> Vec<u32> {
-    //     if !self.picker_ui.selector.is_empty() {
-    //         self.picker_ui.selector.indices()
-    //     } else {
-    //         get_current(self.picker_ui).iter().map(|s| s.0).collect()
-    //     }
-    // }
+    /// Maps selected items, falling back to current item if selection is empty.
+    ///
+    /// Delegates core work to [`MMState::map_selections_to_vec`].
+    pub fn map_selected_to_vec<U>(&self, mut f: impl FnMut(u32, &T) -> U) -> Vec<U> {
+        let mut out = self.map_selections_to_vec(&mut f);
+        if out.is_empty()
+            && let Some((idx, item)) = self.picker_ui.current_indexed() {
+                out.push(f(idx, item));
+            }
+        out
+    }
 
-    pub fn injector(&self) -> WorkerInjector<T> {
+    pub fn injector(&self) -> WorkerInjector<T, D> {
         self.picker_ui.worker.injector()
     }
 
@@ -417,7 +433,7 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
         &self.picker_ui.results.status
     }
 
-    pub fn selections(&self) -> &Selector<T, S> {
+    pub fn selections(&self) -> &Selector {
         &self.picker_ui.selector
     }
 
@@ -433,7 +449,7 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
     }
 
     pub fn restart_worker(&mut self) {
-        self.picker_ui.worker.restart(false);
+        self.picker_ui.restart();
         self.state.synced = [false; 2];
     }
 
@@ -444,7 +460,7 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
             "FZF_TOTAL_COUNT" => self.status().item_count.to_string(),
             "FZF_MATCH_COUNT" => self.status().matched_count.to_string(),
             "FZF_SELECT_COUNT" => self.selections().len().to_string(),
-            "FZF_POS" => get_current(self.picker_ui).map_or("".to_string(), |x| format!("{}", x.0)),
+            "FZF_POS" => self.picker_ui.current_indexed().map_or("".to_string(), |x| format!("{}", x.0)),
             "FZF_QUERY" => self.input.clone(),
             "FZF_MODE" => event::MODE
                 .lock()
@@ -456,7 +472,7 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
             "MM_TOTAL_COUNT" => self.status().item_count.to_string(),
             "MM_MATCH_COUNT" => self.status().matched_count.to_string(),
             "MM_SELECT_COUNT" => self.selections().len().to_string(),
-            "MM_POS" => get_current(self.picker_ui).map_or("".to_string(), |x| format!("{}", x.0)),
+            "MM_POS" => self.picker_ui.current_indexed().map_or("".to_string(), |x| format!("{}", x.0)),
             "MM_QUERY" => self.input.clone(),
             "MM_MODE" => event::MODE
                 .lock()
@@ -484,13 +500,8 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> MMState<'a, 'b, T, S> {
     }
 }
 
-pub(crate) fn get_current<T: SSS, S: Selection>(picker_ui: &PickerUI<T, S>) -> Option<(u32, S)> {
-    let current_raw = picker_ui.worker.get_nth(picker_ui.results.index());
-    current_raw.map(picker_ui.selector.identifier)
-}
-
 // ----- BOILERPLATE -----------
-impl<'a, 'b: 'a, T: SSS, S: Selection> std::ops::Deref for MMState<'a, 'b, T, S> {
+impl<'a, 'b: 'a, T: SSS, D> std::ops::Deref for MMState<'a, 'b, T, D> {
     type Target = State;
 
     fn deref(&self) -> &Self::Target {
@@ -498,7 +509,7 @@ impl<'a, 'b: 'a, T: SSS, S: Selection> std::ops::Deref for MMState<'a, 'b, T, S>
     }
 }
 
-impl<'a, 'b: 'a, T: SSS, S: Selection> std::ops::DerefMut for MMState<'a, 'b, T, S> {
+impl<'a, 'b: 'a, T: SSS, D> std::ops::DerefMut for MMState<'a, 'b, T, D> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.state
     }

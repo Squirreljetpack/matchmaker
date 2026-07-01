@@ -6,9 +6,10 @@ use cba::{
 };
 use log::{debug, error};
 use matchmaker::{
-    Action, Actions, ConfigMMInnerItem, ConfigMMItem,
+    Action, Actions,
     binds::Trigger,
     config::PartialRenderConfig,
+    config_mm::ConfigPreprocessedData,
     event::BindSender,
     message::{BindDirective, Interrupt, RenderCommand},
     nucleo::Line,
@@ -16,7 +17,7 @@ use matchmaker::{
 };
 use matchmaker_partial::{Apply, Set};
 
-pub type MMState<'a, 'b> = matchmaker::render::MMState<'a, 'b, ConfigMMItem, ConfigMMInnerItem>;
+pub type MMState<'a, 'b> = matchmaker::render::MMState<'a, 'b, String, ConfigPreprocessedData>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MMAction {

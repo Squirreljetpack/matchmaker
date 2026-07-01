@@ -8,13 +8,13 @@ ansi = true
 max = 3
 names = ["file", "pos", ""]
 split = '^(.*?):(\d+:\d+):(.*)$'
-default = 3
+default = "file"
 
 # --- Preview ---
 [preview]
 show = true
 scroll.percentage = 70
-scroll.index = 2
+scroll.index = "pos"
 
 [[preview.layout]]
 command = '''
@@ -40,8 +40,8 @@ prompt_style.fg = "Red"
 percentage = 100
 
 [results]
-# inactive_current_style.fg = "DarkGray"
-# inactive_current_style.bg = "Black"
+inactive_current_style.fg = "DarkGray"
+inactive_current_style.bg = "Black"
 scroll_wrap = true
 
 [binds]

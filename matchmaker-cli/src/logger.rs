@@ -21,7 +21,19 @@ pub fn init_logger([q, v]: [u8; 2], log_path: &Path) {
                 .filter(Some(LIBRARY_FULL), log::LevelFilter::Trace)
                 .filter(Some("cba"), log::LevelFilter::Trace)
                 .filter(Some(BINARY_SHORT), log::LevelFilter::Trace)
-                .format_timestamp_micros();
+                .format(|buf, record| {
+                    use std::io::Write;
+
+                    writeln!(
+                        buf,
+                        "{} {}:{} [{}] {}",
+                        buf.timestamp_micros(),
+                        record.file().unwrap_or("<unknown>"),
+                        record.line().unwrap_or(0),
+                        record.level(),
+                        record.args()
+                    )
+                });
         }
         #[cfg(not(debug_assertions))]
         {

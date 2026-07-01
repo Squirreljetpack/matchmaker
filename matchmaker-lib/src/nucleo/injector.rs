@@ -1,16 +1,13 @@
 // Original code from https://github.com/helix-editor/helix (MPL 2.0)
 // Modified by Squirreljetpack, 2025
 
-use std::{
-    marker::PhantomData,
-    sync::{
-        Arc,
-        atomic::{AtomicU32, Ordering},
-    },
+use std::sync::{
+    Arc,
+    atomic::{AtomicU32, Ordering},
 };
 
+use super::Segmented;
 use super::worker::{Column, Worker, WorkerError};
-use super::{Indexed, Segmented};
 use crate::{SSS, nucleo::SegmentableItem};
 
 pub trait Injector {
@@ -60,17 +57,18 @@ impl Injector for () {
     type InputItem = ();
 }
 
-pub struct WorkerInjector<T> {
+pub struct WorkerInjector<T, D = ()> {
     pub(super) inner: nucleo::Injector<T>,
-    pub(super) columns: Arc<[Column<T>]>,
+    pub(super) columns: Arc<[Column<T, D>]>,
+    pub(super) raw_preprocessor: Arc<dyn Fn(&T) -> Option<D> + Send + Sync>,
     pub(super) version: u32,
     pub(super) picker_version: Arc<AtomicU32>,
 }
 
-impl<T: SSS> Injector for WorkerInjector<T> {
+impl<T: SSS, D> Injector for WorkerInjector<T, D> {
     type InputItem = T;
     type Inner = ();
-    type Context = Worker<T>;
+    type Context = Worker<T, D>;
 
     fn new(_: Self::Inner, data: Self::Context) -> Self {
         data.injector()
@@ -91,7 +89,9 @@ impl<T: SSS> Injector for WorkerInjector<T> {
         if self.version != self.picker_version.load(Ordering::Relaxed) {
             return Err(WorkerError::InjectorShutdown);
         }
-        push_impl(&self.inner, &self.columns, item);
+        if let Some(d) = (self.raw_preprocessor)(&item) {
+            push_impl(&self.inner, &self.columns, item, &d);
+        }
         Ok(())
     }
 
@@ -103,82 +103,44 @@ impl<T: SSS> Injector for WorkerInjector<T> {
         if self.version != self.picker_version.load(Ordering::Relaxed) {
             return Err(WorkerError::InjectorShutdown);
         }
-        extend_impl(&self.inner, &self.columns, items);
+        let items: Vec<T> = items
+            .into_iter()
+            .filter(|item| (self.raw_preprocessor)(item).is_some())
+            .collect();
+        extend_impl(&self.inner, &self.columns, &self.raw_preprocessor, items.into_iter());
         Ok(())
     }
 }
 
-pub(super) fn push_impl<T>(injector: &nucleo::Injector<T>, columns: &[Column<T>], item: T) {
+pub(crate) fn push_impl<T, D>(
+    injector: &nucleo::Injector<T>,
+    columns: &[Column<T, D>],
+    item: T,
+    d: &D,
+) {
     injector.push(item, |item, dst| {
         for (column, text) in columns.iter().filter(|column| column.filter).zip(dst) {
-            *text = column.raw(item).into()
+            *text = column.raw(item, d).into()
         }
     });
 }
 
 #[cfg(feature = "experimental")]
-pub(super) fn extend_impl<T, I>(injector: &nucleo::Injector<T>, columns: &[Column<T>], items: I)
-where
+pub(super) fn extend_impl<T, D, I>(
+    injector: &nucleo::Injector<T>,
+    columns: &[Column<T, D>],
+    raw_preprocessor: &Arc<dyn Fn(&T) -> Option<D> + Send + Sync>,
+    items: I,
+) where
     I: IntoIterator<Item = T> + ExactSizeIterator,
 {
     injector.extend(items, |item, dst| {
-        for (column, text) in columns.iter().filter(|column| column.filter).zip(dst) {
-            *text = column.raw(item).into()
+        if let Some(d) = raw_preprocessor(item) {
+            for (column, text) in columns.iter().filter(|column| column.filter).zip(dst) {
+                *text = column.raw(item, &d).into()
+            }
         }
     });
-}
-
-// ----- Injectors
-
-/// Wraps the injected item with an atomic index which is incremented on push.
-#[derive(Clone)]
-pub struct IndexedInjector<T, I: Injector<InputItem = Indexed<T>>> {
-    injector: I,
-    counter: &'static AtomicU32,
-    input_type: PhantomData<T>,
-}
-
-// note that invalidation can be handled
-impl<T, I: Injector<InputItem = Indexed<T>>> Injector for IndexedInjector<T, I> {
-    type InputItem = T;
-    type Inner = I;
-    type Context = &'static AtomicU32;
-
-    fn new(injector: Self::Inner, counter: Self::Context) -> Self {
-        Self {
-            injector,
-            counter,
-            input_type: PhantomData,
-        }
-    }
-
-    fn wrap(
-        &self,
-        item: Self::InputItem,
-    ) -> Result<<Self::Inner as Injector>::InputItem, WorkerError> {
-        let index = self.counter.fetch_add(1, Ordering::SeqCst);
-        Ok(Indexed { index, inner: item })
-    }
-
-    fn inner(&self) -> &Self::Inner {
-        &self.injector
-    }
-}
-
-static GLOBAL_COUNTER: AtomicU32 = AtomicU32::new(0);
-
-impl<T, I> IndexedInjector<T, I>
-where
-    I: Injector<InputItem = Indexed<T>>,
-{
-    pub fn new_globally_indexed(injector: <Self as Injector>::Inner) -> Self {
-        Self::global_reset();
-        Self::new(injector, &GLOBAL_COUNTER)
-    }
-
-    pub fn global_reset() {
-        GLOBAL_COUNTER.store(0, Ordering::SeqCst);
-    }
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -216,119 +178,13 @@ impl<T: SegmentableItem, I: Injector<InputItem = Segmented<T>>> Injector
     }
 }
 
-mod ansi {
-    use std::{borrow::Cow, ops::Range};
-
-    use crate::{
-        nucleo::Text,
-        utils::text::{scrub_text_styles, slice_ratatui_text},
-    };
-    use ansi_to_tui::IntoText;
-
-    pub type PreprocessOptions = (bool, bool);
-
-    pub use super::*;
-    pub use crate::utils::Either;
-    pub struct AnsiInjector<I> {
-        pub injector: I,
-        parse: bool,
-        trim: bool,
-    }
-
-    impl<I: Injector<InputItem = Either<Box<str>, Text<'static>>>> Injector for AnsiInjector<I> {
-        type InputItem = String;
-        type Inner = I;
-        type Context = PreprocessOptions;
-
-        fn new(injector: Self::Inner, (parse, trim): Self::Context) -> Self {
-            Self {
-                injector,
-                parse,
-                trim,
-            }
-        }
-
-        fn wrap(
-            &self,
-            mut item: Self::InputItem,
-        ) -> Result<<Self::Inner as Injector>::InputItem, WorkerError> {
-            if self.trim {
-                item = item.trim().to_string();
-            }
-            let ret = if !self.parse {
-                Either::Left(item.into_boxed_str())
-            } else {
-                let mut parsed = item.as_bytes().into_text().unwrap_or(Text::from(item));
-                scrub_text_styles(&mut parsed);
-                Either::Right(parsed)
-            };
-            Ok(ret)
-        }
-
-        fn inner(&self) -> &Self::Inner {
-            &self.injector
-        }
-    }
-
-    impl SegmentableItem for Either<Box<str>, Text<'static>> {
-        fn slice(&self, range: Range<usize>) -> Text<'_> {
-            match self {
-                Either::Left(s) => ratatui::text::Text::from(&s[range]),
-                Either::Right(text) => slice_ratatui_text(text, range),
-            }
-        }
-        fn slice_str(&self, range: Range<usize>) -> Cow<'_, str> {
-            match self {
-                Either::Left(s) => (&s[range]).into(),
-                Either::Right(text) => text.to_string()[range].to_string().into(),
-            }
-        }
-    }
-}
-pub use ansi::*;
-
-// pub type SeenMap<T> = Arc<std::sync::Mutex<collections::HashSet<T>>>;
-// #[derive(Clone)]
-// pub struct UniqueInjector<T, I: Injector<InputItem = T>> {
-//     injector: I,
-//     seen: SeenMap<T>,
-// }
-// impl<T, I> Injector for UniqueInjector<T, I>
-// where
-//     T: Eq + std::hash::Hash + Clone,
-//     I: Injector<InputItem = T>,
-// {
-//     type InputItem = T;
-//     type Inner = I;
-//     type Context = SeenMap<T>;
-
-//     fn new(injector: Self::Inner, _ctx: Self::Context) -> Self {
-//         Self {
-//             injector,
-//             seen: _ctx,
-//         }
-//     }
-
-//     fn wrap(&self, item: Self::InputItem) -> Result<<Self::Inner as Injector>::InputItem, WorkerError> {
-//         let mut seen = self.seen.lock().unwrap();
-//         if seen.insert(item.clone()) {
-//             Ok(item)
-//         } else {
-//             Err(WorkerError::Custom("Duplicate"))
-//         }
-//     }
-
-//     fn inner(&self) -> &Self::Inner {
-//         &self.injector
-//     }
-// }
-
 // ----------- CLONE ----------------------------
-impl<T> Clone for WorkerInjector<T> {
+impl<T, D> Clone for WorkerInjector<T, D> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
             columns: Arc::clone(&self.columns),
+            raw_preprocessor: Arc::clone(&self.raw_preprocessor),
             version: self.version,
             picker_version: Arc::clone(&self.picker_version),
         }

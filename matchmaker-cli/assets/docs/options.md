@@ -107,6 +107,8 @@ All colors and modifiers come from ratatui:
   - Absolute alias: `t`.
 - `ansi`: (bool) Parse ansi codes from input.
   - Absolute alias: `a`.
+- `sanitize`: (bool) Sanitize the input text/string from text_preprocessor.
+  - Absolute alias: `s`.
 - `ax`, `additional_commands`: ([String]) Additional commands that can be cycled through using the ReloadNext action.
 - `mode`: (string) The initial mode of the application. Default values (`tty`, `t0`, `piped`, `t1`) depend on whether stdin and stdout are connected to /dev/tty.
 - `directory`: (string) Change directory context.

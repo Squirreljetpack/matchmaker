@@ -1,11 +1,13 @@
-use matchmaker::nucleo::{Indexed, Render, Worker};
-use matchmaker::{MatchResultExt, Matchmaker, Result, SSS, Selector};
+use matchmaker::nucleo::{Render, Worker};
+use matchmaker::{MatchResultExt, Matchmaker, Result, SSS};
 
 pub async fn mm_get<T: SSS + Render + Clone>(items: impl IntoIterator<Item = T>) -> Result<T> {
     let worker = Worker::new_single_column();
     worker.append(items);
-    let selector = Selector::new(Indexed::identifier).disabled();
-    let mm = Matchmaker::new(worker, selector);
+    let mm = Matchmaker::new(worker, |_state| {
+        // TODO: extract Vec<T> from state.picker_ui.selector
+        vec![]
+    });
 
     mm.pick_default().await.first()
 }

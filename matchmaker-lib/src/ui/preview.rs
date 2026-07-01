@@ -196,8 +196,7 @@ impl PreviewUI {
     }
 
     pub fn is_vertical(&self) -> bool {
-        self.setting()
-            .is_some_and(|s| s.layout.side.is_vertical())
+        self.setting().is_some_and(|s| s.layout.side.is_vertical())
     }
 
     // -------- Layout -----------
@@ -309,6 +308,9 @@ impl PreviewUI {
     }
 
     pub fn set_target(&mut self, target: Option<isize>) {
+        #[cfg(debug_assertions)]
+        log::debug!("PreviewUI.set_target {target:?}");
+
         if self.initial().tail {
             return;
         }
@@ -340,7 +342,7 @@ impl PreviewUI {
             self.target_to_offset(index, &results)
         };
 
-        log::trace!("Preview initial offset: {}, index: {}", self.offset, index);
+        log::error!("Preview initial offset: {}, index: {}", self.offset, index);
     }
 
     pub fn jump(&mut self) {

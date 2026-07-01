@@ -71,8 +71,14 @@ async fn main() {
                 ebog!("TUI"; "{e}")
             }
             MatchError::NoMatch => {
-                ebog!("NoMatch");
-                exit(404);
+                let e = std::mem::take(&mut *CHUNK_ERROR.lock().unwrap());
+                if e.is_empty() {
+                    ebog!("NoMatch");
+                    exit(404);
+                } else {
+                    ebog!("ChunkError"; "{e}");
+                    exit(400);
+                }
             }
             _ => unreachable!(),
         },

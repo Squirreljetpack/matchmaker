@@ -1,20 +1,18 @@
-use std::{borrow::Cow, sync::Arc};
-
-use crate::{RenderFn, SSS, nucleo::Indexed};
-
 use super::{
-    Text,
-    injector::{self},
+    Text, injector,
     worker::{Column, Worker},
 };
+use crate::{RenderFn, SSS};
+use std::{borrow::Cow, sync::Arc};
 
-impl<T: SSS> Worker<T> {
+impl<T: SSS, D: 'static> Worker<T, D> {
     /// Returns a function which templates a string given an item using the column functions
     pub fn default_format_fn<const QUOTE: bool>(
         &self,
         blank_format: impl Fn(&T) -> Cow<'_, str> + SSS,
     ) -> RenderFn<T> {
         let columns = self.columns.clone();
+        let raw_preprocessor = self.raw_preprocessor.clone();
 
         Box::new(move |item: &T, template: &str| {
             let mut result = String::with_capacity(template.len());
@@ -46,7 +44,10 @@ impl<T: SSS> Worker<T> {
                                 _ => columns
                                     .iter()
                                     .find(|col| &*col.name == key.as_str())
-                                    .map(|col| col.raw(item))
+                                    .and_then(|col| {
+                                        let d = raw_preprocessor(item)?;
+                                        Some(col.raw(item, &d).into_owned().into())
+                                    })
                                     .unwrap_or_else(|| Cow::Borrowed("")),
                             };
 
@@ -73,24 +74,21 @@ impl<T: SSS> Worker<T> {
             result
         })
     }
-}
 
-impl<T: SSS> Worker<Indexed<T>> {
-    /// A convenience method to initialize data. Items are indexed starting from the current nucleo item count.
-    /// # Notes
-    /// -  Not concurrent.
-    /// - Subsequent use of IndexedInjector should start from the returned count.
+    /// Push items into the matcher.
+    ///
+    /// The item type `T` is the worker's element type. No `Indexed` wrapping is required;
+    /// nucleo assigns each pushed item a unique internal `u32` index which can later be
+    /// retrieved via [`Self::get_nth_indexed`].
     pub fn append(&self, items: impl IntoIterator<Item = T>) -> u32 {
-        let mut index = self.nucleo.snapshot().item_count();
-        for inner in items {
-            injector::push_impl(
-                &self.nucleo.injector(),
-                &self.columns,
-                Indexed { index, inner },
-            );
-            index += 1;
+        let mut count = 0;
+        for item in items {
+            if let Some(d) = (self.raw_preprocessor)(&item) {
+                injector::push_impl(&self.nucleo.injector(), &self.columns, item, &d);
+                count += 1;
+            }
         }
-        index
+        count
     }
 }
 
@@ -109,12 +107,19 @@ impl<T: AsRef<str>> Render for T {
     }
 }
 
-impl<T: Render + SSS> Worker<T> {
+impl<T: Render + SSS> Worker<T, ()> {
     /// Create a new worker over items which are displayed in the picker as exactly their as_str representation.
     pub fn new_single_column() -> Self {
+        let raw_preprocessor = Arc::new(|_: &T| Some(()));
+        let text_preprocessor = Arc::new(|_: &T| ());
         Self::new(
-            [Column::new("_", |item: &T| item.as_text()).with_raw(|item: &T| item.as_str())],
+            [
+                Column::new_boxed("_", Box::new(|item: &T, _: &()| item.as_text()))
+                    .with_raw(|item: &T, _: &()| item.as_str()),
+            ],
             0,
+            raw_preprocessor,
+            text_preprocessor,
         )
     }
 }
@@ -130,7 +135,7 @@ pub trait ColumnIndexable {
     }
 }
 
-impl<T> Worker<T>
+impl<T> Worker<T, ()>
 where
     T: ColumnIndexable + SSS,
 {
@@ -145,7 +150,7 @@ where
     /// };
     ///
     /// use matchmaker::{Matchmaker, Selector};
-    /// use matchmaker::nucleo::{Indexed, Worker, ColumnIndexable};
+    /// use matchmaker::nucleo::{Worker, ColumnIndexable};
     ///
     /// impl ColumnIndexable for RunAction {
     ///     fn get_str(&self, i: usize) -> std::borrow::Cow<'_, str> {
@@ -161,14 +166,13 @@ where
     ///
     /// pub fn make_mm(
     ///     items: impl Iterator<Item = RunAction>,
-    /// ) -> Matchmaker<Indexed<RunAction>, RunAction> {
-    ///     let worker = Worker::new_indexable(["name", "alias", "desc"], Some("name"));
+    /// ) -> Matchmaker<RunAction, RunAction> {
+    ///     let worker = Worker::new_indexable(["name", "alias", "desc"], Some(matchmaker::config::StringOrInt::String("name".to_string())));
     ///     worker.append(items);
-    ///     let selector = Selector::new(Indexed::identifier);
-    ///     Matchmaker::new(worker, selector)
+    ///     Matchmaker::new_on_cloneable(worker)
     /// }
     /// ```
-    pub fn new_indexable<I, S>(column_names: I, default_column: Option<&str>) -> Self
+    pub fn new_indexable<I, S>(column_names: I, default_column: Option<crate::config_types::StringOrInt>) -> Self
     where
         I: IntoIterator<Item = S>,
         S: Into<Arc<str>>,
@@ -176,20 +180,30 @@ where
         let columns_vec: Vec<Arc<str>> = column_names.into_iter().map(Into::into).collect();
 
         let columns = columns_vec.iter().enumerate().map(|(i, name)| {
-            Column::new(name.clone(), move |item: &T| item.get_text(i))
-                .with_raw(move |item: &T| item.get_str(i))
+            Column::new(name.clone(), move |item: &T, _: &()| item.get_text(i))
+                .with_raw(move |item: &T, _: &()| item.get_str(i))
         });
 
         // Find the index of the default column
-        let default_index = if let Some(default_column) = default_column {
-            columns_vec
-                .iter()
-                .position(|name| name.as_ref() == default_column)
-                .unwrap_or(0) // fallback to 0 if not found
-        } else {
-            0
+        let default_index = match default_column {
+            Some(crate::config_types::StringOrInt::String(ref s)) => {
+                columns_vec
+                    .iter()
+                    .position(|name| name.as_ref() == s)
+                    .unwrap_or(0)
+            }
+            Some(crate::config_types::StringOrInt::Int(i)) => {
+                if i >= 0 && (i as usize) < columns_vec.len() {
+                    i as usize
+                } else {
+                    0
+                }
+            }
+            None => 0,
         };
 
-        Self::new(columns, default_index)
+        let raw_preprocessor = Arc::new(|_: &T| Some(()));
+        let text_preprocessor = Arc::new(|_: &T| ());
+        Self::new(columns, default_index, raw_preprocessor, text_preprocessor)
     }
 }

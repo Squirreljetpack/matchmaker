@@ -66,6 +66,15 @@ impl StyleSetting {
 
         style
     }
+
+    pub fn into_style_no_submodifiers(self) -> Style {
+        Style {
+            fg: self.fg,
+            bg: self.bg,
+            add_modifier: self.modifier,
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -92,7 +101,7 @@ impl HorizontalSeparator {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum RowConnectionStyle {
     #[default]
     Disjoint,
@@ -621,13 +630,30 @@ where
 }
 
 // ----------------------------------------------------------------------------
-define_transparent_wrapper!(
-    #[derive(Clone, Eq, Serialize)]
-    StringValue: String
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StringOrInt {
+    String(String),
+    Int(i64),
+}
+impl Default for StringOrInt {
+    fn default() -> Self {
+        Self::Int(0)
+    }
+}
 
-);
+impl Serialize for StringOrInt {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            StringOrInt::String(s) => serializer.serialize_str(s),
+            StringOrInt::Int(i) => serializer.serialize_i64(*i),
+        }
+    }
+}
 
-impl<'de> Deserialize<'de> for StringValue {
+impl<'de> Deserialize<'de> for StringOrInt {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -635,34 +661,26 @@ impl<'de> Deserialize<'de> for StringValue {
         struct Visitor;
 
         impl<'de> de::Visitor<'de> for Visitor {
-            type Value = StringValue;
+            type Value = StringOrInt;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a string, number, or bool")
+                formatter.write_str("a string or integer")
             }
 
             fn visit_str<E>(self, v: &str) -> Result<Self::Value, E> {
-                Ok(StringValue(v.to_owned()))
+                Ok(StringOrInt::String(v.to_owned()))
             }
 
             fn visit_string<E>(self, v: String) -> Result<Self::Value, E> {
-                Ok(StringValue(v))
+                Ok(StringOrInt::String(v))
             }
 
             fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E> {
-                Ok(StringValue(v.to_string()))
+                Ok(StringOrInt::Int(v))
             }
 
             fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E> {
-                Ok(StringValue(v.to_string()))
-            }
-
-            fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E> {
-                Ok(StringValue(v.to_string()))
-            }
-
-            fn visit_bool<E>(self, v: bool) -> Result<Self::Value, E> {
-                Ok(StringValue(v.to_string()))
+                Ok(StringOrInt::Int(v as i64))
             }
         }
 
@@ -697,6 +715,22 @@ mod tests {
 
         let res: Result<TestName, _> = toml::from_str("name = \"col_1\"");
         assert!(res.is_err());
+    }
+
+    #[derive(Deserialize, Serialize, PartialEq, Debug)]
+    struct TestConfig {
+        val: StringOrInt,
+    }
+
+    #[test]
+    fn test_string_or_int() {
+        let c: TestConfig = toml::from_str("val = \"hello\"").unwrap();
+        assert_eq!(c.val, StringOrInt::String("hello".to_string()));
+        assert_eq!(toml::to_string(&c).unwrap().trim(), "val = \"hello\"");
+
+        let c: TestConfig = toml::from_str("val = 42").unwrap();
+        assert_eq!(c.val, StringOrInt::Int(42));
+        assert_eq!(toml::to_string(&c).unwrap().trim(), "val = 42");
     }
 }
 

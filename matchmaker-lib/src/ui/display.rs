@@ -127,9 +127,6 @@ impl DisplayUI {
                 let mut padding = self.config.border.padding;
 
                 padding.left = result_indentation.saturating_sub(self.config.border.left());
-                if !widths.is_empty() {
-                    widths[0] -= result_indentation;
-                }
                 b.padding(padding.0)
             } else {
                 b
@@ -157,14 +154,17 @@ impl DisplayUI {
                 .iter()
                 .cloned()
                 .zip(widths.iter().copied())
-                .map(|(text, width)| {
+                .filter_map(|(text, width)| {
+                    if width == 0 {
+                        return None;
+                    }
                     let ret = wrap_text(text, if self.config.wrap { width } else { 0 }).0;
                     height = height.max(ret.height() as u16);
 
-                    Cell::from(ret.transform_if(
+                    Some(Cell::from(ret.transform_if(
                         matches!(self.config.row_connection, RowConnectionStyle::Disjoint),
                         |t| t.style(self.config.style),
-                    ))
+                    )))
                 })
                 .collect();
 
@@ -183,8 +183,11 @@ impl DisplayUI {
                     .iter()
                     .cloned()
                     .enumerate()
-                    .map(|(i, l)| {
-                        wrap_line(
+                    .filter_map(|(i, l)| {
+                        if widths.get(i).is_none_or(|x| *x == 0) {
+                            return None;
+                        }
+                        Some(wrap_line(
                             l,
                             self.config
                                 .wrap
@@ -192,7 +195,7 @@ impl DisplayUI {
                                 .flatten()
                                 .unwrap_or_default(),
                             &wrapping_indicator(),
-                        )
+                        ))
                     })
                     .map(Cell::from)
                     .collect();
@@ -210,6 +213,7 @@ impl DisplayUI {
         let widths = if self.is_single_column() && self.lines.iter().all(|x| x.len() == 1) {
             vec![Constraint::Percentage(100)]
         } else {
+            // safety to not overflow
             let surplus = widths.iter().sum::<u16>().saturating_sub(self.width);
             if let Some(s) = widths.last_mut() {
                 *s = s.saturating_sub(surplus);

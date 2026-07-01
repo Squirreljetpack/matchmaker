@@ -1,40 +1,32 @@
 // Original code from https://github.com/helix-editor/helix (MPL 2.0)
 // Modified by Squirreljetpack, 2025
 
-use super::{Line, Span, Style, Text};
+use super::Text;
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
-    mem::take,
     sync::{
         Arc,
         atomic::{self, AtomicU32},
     },
 };
-use unicode_segmentation::UnicodeSegmentation;
-use unicode_width::UnicodeWidthStr;
 
 use super::{injector::WorkerInjector, query::PickerQuery};
-use crate::{
-    SSS,
-    config::AutoscrollSettings,
-    nucleo::Render,
-    utils::text::{hscroll_indicator, truncation_indicator, wrap_text, wrapping_indicator},
-};
+use crate::SSS;
 
-type ColumnFormatFn<T> = Box<dyn for<'a> Fn(&'a T) -> Text<'a> + Send + Sync>;
-type ColumnRawFn<T> = Box<dyn for<'a> Fn(&'a T) -> Cow<'a, str> + Send + Sync>;
-pub struct Column<T> {
+type ColumnFormatFn<T, D> = Box<dyn for<'a> Fn(&'a T, &'a D) -> Text<'a> + Send + Sync>;
+type ColumnRawFn<T, D> = Box<dyn for<'a> Fn(&'a T, &'a D) -> Cow<'a, str> + Send + Sync>;
+pub struct Column<T, D = ()> {
     pub name: Arc<str>,
-    pub(super) format: ColumnFormatFn<T>,
-    pub(super) raw: Option<ColumnRawFn<T>>,
+    pub(super) format: ColumnFormatFn<T, D>,
+    pub(super) raw: Option<ColumnRawFn<T, D>>,
     /// Whether the column should be passed to nucleo for matching and filtering.
     pub(super) filter: bool,
 }
 
-impl<T> Column<T> {
-    pub fn new_boxed(name: impl Into<Arc<str>>, format: ColumnFormatFn<T>) -> Self {
+impl<T, D> Column<T, D> {
+    pub fn new_boxed(name: impl Into<Arc<str>>, format: ColumnFormatFn<T, D>) -> Self {
         Self {
             name: name.into(),
             format,
@@ -45,19 +37,14 @@ impl<T> Column<T> {
 
     pub fn new<F>(name: impl Into<Arc<str>>, f: F) -> Self
     where
-        F: for<'a> Fn(&'a T) -> Text<'a> + SSS,
+        F: for<'a> Fn(&'a T, &'a D) -> Text<'a> + SSS,
     {
-        Self {
-            name: name.into(),
-            format: Box::new(f),
-            filter: true,
-            raw: None,
-        }
+        Self::new_boxed(name, Box::new(f))
     }
 
     pub fn with_raw<F>(mut self, f: F) -> Self
     where
-        F: for<'a> Fn(&'a T) -> Cow<'a, str> + SSS,
+        F: for<'a> Fn(&'a T, &'a D) -> Cow<'a, str> + SSS,
     {
         self.raw = Some(Box::new(f));
         self
@@ -69,16 +56,20 @@ impl<T> Column<T> {
         self
     }
 
-    pub fn format<'a>(&self, item: &'a T) -> Text<'a> {
-        (self.format)(item)
+    pub fn filter(&self) -> bool {
+        self.filter
+    }
+
+    pub fn format<'a>(&self, item: &'a T, d: &'a D) -> Text<'a> {
+        (self.format)(item, d)
     }
 
     // Note: the characters should match the output of [`Self::format`]
-    pub fn raw<'a>(&self, item: &'a T) -> Cow<'a, str> {
+    pub fn raw<'a>(&self, item: &'a T, d: &'a D) -> Cow<'a, str> {
         if let Some(r) = &self.raw {
-            (r)(item)
+            (r)(item, d)
         } else {
-            Cow::Owned((self.format)(item).to_string())
+            Cow::Owned((self.format)(item, d).to_string())
         }
     }
 }
@@ -86,7 +77,7 @@ impl<T> Column<T> {
 /// Worker: can instantiate, push, and get results. A view into computation.
 ///
 /// Additionally, the worker can affect the computation via find and restart.
-pub struct Worker<T>
+pub struct Worker<T, D = ()>
 where
     T: SSS,
 {
@@ -97,7 +88,11 @@ where
     /// A pre-allocated buffer used to collect match indices when fetching the results
     /// from the matcher. This avoids having to re-allocate on each pass.
     pub col_indices_buffer: Vec<u32>,
-    pub columns: Arc<[Column<T>]>,
+    pub columns: Arc<[Column<T, D>]>,
+    /// Preprocessor for raw column functions (used during injection)
+    pub raw_preprocessor: Arc<dyn Fn(&T) -> Option<D> + Send + Sync>,
+    /// Preprocessor for text column functions (used during rendering)
+    pub text_preprocessor: Arc<dyn Fn(&T) -> D + Send + Sync>,
 
     // Background tasks which push to the injector check their version matches this or exit
     pub(super) version: Arc<AtomicU32>,
@@ -118,12 +113,17 @@ bitflags! {
     }
 }
 
-impl<T> Worker<T>
+impl<T, D> Worker<T, D>
 where
     T: SSS,
 {
     /// Column names must be distinct!
-    pub fn new(columns: impl IntoIterator<Item = Column<T>>, default_column: usize) -> Self {
+    pub fn new(
+        columns: impl IntoIterator<Item = Column<T, D>>,
+        default_column: usize,
+        raw_preprocessor: Arc<dyn Fn(&T) -> Option<D> + Send + Sync>,
+        text_preprocessor: Arc<dyn Fn(&T) -> D + Send + Sync>,
+    ) -> Self {
         let columns: Arc<[_]> = columns.into_iter().collect();
         let matcher_columns = columns.iter().filter(|col| col.filter).count() as u32;
 
@@ -140,6 +140,8 @@ where
             query: PickerQuery::new(columns.iter().map(|col| &col.name).cloned(), default_column),
             column_options: vec![ColumnOptions::default(); columns.len()],
             columns,
+            raw_preprocessor,
+            text_preprocessor,
             version: Arc::new(AtomicU32::new(0)),
         }
     }
@@ -160,10 +162,11 @@ where
         self.nucleo.reverse_items(reverse_items);
     }
 
-    pub fn injector(&self) -> WorkerInjector<T> {
+    pub fn injector(&self) -> WorkerInjector<T, D> {
         WorkerInjector {
             inner: self.nucleo.injector(),
             columns: self.columns.clone(),
+            raw_preprocessor: self.raw_preprocessor.clone(),
             version: self.version.load(atomic::Ordering::Relaxed),
             picker_version: self.version.clone(),
         }
@@ -223,33 +226,6 @@ where
     }
 
     // --------- UTILS
-    pub fn get_nth(&self, n: u32) -> Option<&T> {
-        self.nucleo
-            .snapshot()
-            .get_matched_item(n)
-            .map(|item| item.data)
-    }
-
-    // not a method due for lifetime flexibility
-    pub fn new_snapshot(nucleo: &mut nucleo::Nucleo<T>) -> (&nucleo::Snapshot<T>, Status) {
-        let nucleo::Status { changed, running } = nucleo.tick(10);
-        let snapshot = nucleo.snapshot();
-        (
-            snapshot,
-            Status {
-                item_count: snapshot.item_count(),
-                matched_count: snapshot.matched_item_count(),
-                running,
-                changed,
-            },
-        )
-    }
-
-    pub fn raw_results(&self) -> impl ExactSizeIterator<Item = &T> + DoubleEndedIterator + '_ {
-        let snapshot = self.nucleo.snapshot();
-        snapshot.matched_items(..).map(|item| item.data)
-    }
-
     /// matched item count, total item count
     pub fn counts(&self) -> (u32, u32) {
         let snapshot = self.nucleo.snapshot();
@@ -266,186 +242,55 @@ where
         self.nucleo.get_stability()
     }
 
+    /// Prefer [`crate::ui::PickerUI::restart`]
     pub fn restart(&mut self, clear_snapshot: bool) {
         self.nucleo.restart(clear_snapshot);
     }
-}
 
-#[derive(Debug, Default, Clone)]
-pub struct Status {
-    pub item_count: u32,
-    pub matched_count: u32,
-    pub running: bool,
-    pub changed: bool,
-}
+    // ------------------------- GETTERS ---------------------
+    pub fn get_nth(&self, n: u32) -> Option<&T> {
+        self.nucleo
+            .snapshot()
+            .get_matched_item(n)
+            .map(|item| item.data)
+    }
 
-#[derive(Debug, thiserror::Error)]
-pub enum WorkerError {
-    #[error("the matcher injector has been shut down")]
-    InjectorShutdown,
-    #[error("{0}")]
-    Custom(&'static str),
-}
+    pub fn get_by_idx(&self, idx: u32) -> Option<&T> {
+        self.nucleo.snapshot().get_item(idx).map(|item| item.data)
+    }
 
-/// A vec of ItemResult, each ItemResult being the Column Texts of the Item, and Item
-pub type WorkerResults<'a, T> = Vec<(Vec<Text<'a>>, &'a T)>;
+    pub fn matched_results(&self) -> impl ExactSizeIterator<Item = &T> + DoubleEndedIterator + '_ {
+        let snapshot = self.nucleo.snapshot();
+        snapshot.matched_items(..).map(|item| item.data)
+    }
 
-impl<T: SSS> Worker<T> {
-    /// Returns:
-    /// 1. Table of (Row, item, height)
-    /// 2. Final column widths
-    /// 3. Status
+    pub fn matched_indices(&self) -> impl ExactSizeIterator<Item = u32> + DoubleEndedIterator + '_ {
+        let snapshot = self.nucleo.snapshot();
+        snapshot.matches().iter().map(|m| m.idx)
+    }
+
+    /// Return the nucleo index and a reference to the data of the n-th matched item, if any.
     ///
-    /// # Notes
-    /// - Final column width is at least header width
-    pub fn results(
-        &mut self,
-        start: u32,
-        end: u32,
-        width_limits: &[u16],
-        wrap: bool,
-        max_height: usize,
-        highlight_style: Style,
-        matcher: &mut nucleo::Matcher,
-        autoscroll: AutoscrollSettings,
-        hscroll_offset: i8,
-        vscroll: (u8, bool),
-        show_skipped: bool,
-    ) -> (WorkerResults<'_, T>, Vec<u16>, Vec<u16>, Status) {
-        let (snapshot, status) = Self::new_snapshot(&mut self.nucleo);
+    /// The returned `u32` is the stable nucleo item index (see [`nucleo::Match::idx`]).
+    /// Callers can use this as a key into [`crate::Selector`] or as a row-cache key.
+    pub fn get_nth_indexed(&self, n: u32) -> Option<(u32, &T)> {
+        let snapshot = self.nucleo.snapshot();
+        let m = snapshot.matches().get(n as usize)?;
+        let idx = m.idx;
+        // SAFETY: `idx` is taken from a match in the snapshot we just took, so it
+        // points to an initialized item in that snapshot.
+        let item = unsafe { snapshot.get_item_unchecked(idx) };
+        Some((idx, item.data))
+    }
 
-        let mut widths = vec![0u16; self.columns.len()];
-        let mut raw_widths = vec![vec![]; self.columns.len()];
-        let total_width_limit: u16 = width_limits.iter().sum();
-        let last_nonzero_idx = width_limits.iter().rposition(|&w| w != 0); // lowpri: not sure if this should be per row
-
-        let iter =
-            snapshot.matched_items(start.min(status.matched_count)..end.min(status.matched_count));
-
-        let (vscroll_offset, stacked) = vscroll;
-
-        let table = iter
-            .filter_map(|item| {
-                let mut row = vec![];
-
-                let mut to_skip = vscroll_offset as usize;
-                let mut skip = !show_skipped;
-                for (i, c) in self.columns.iter().enumerate() {
-                    let mut t = c.format(item.data);
-                    if stacked {
-                        if to_skip >= t.height() {
-                            to_skip -= t.height();
-                            t.lines.clear();
-                        } else {
-                            skip = false;
-                            t.lines.drain(..to_skip);
-                            to_skip = 0;
-                            if max_height > 0 && t.height() > max_height {
-                                t.lines.truncate(max_height);
-                                if let Some(last_line) = t.lines.last_mut() {
-                                    last_line.spans.push(truncation_indicator());
-                                }
-                            }
-                        }
-                    } else {
-                        if t.height() > to_skip {
-                            skip = false;
-                        }
-                        t.lines.drain(..to_skip);
-                        if max_height > 0 && t.height() > max_height {
-                            t.lines.truncate(max_height);
-                            if let Some(last_line) = t.lines.last_mut() {
-                                last_line.spans.push(truncation_indicator());
-                            }
-                        }
-
-                        if width_limits.get(i).cloned() != Some(0) && !skip {
-                            raw_widths[i].push(t.width() as u16);
-                        }
-                    }
-                    row.push(t);
-                }
-                if skip {
-                    return None;
-                }
-
-                let row: Vec<Text> = row
-                    .into_iter()
-                    .enumerate()
-                    .zip(width_limits.iter().chain(std::iter::repeat(&u16::MAX)))
-                    .map(|((col_idx, cell), &width_limit)| {
-                        let column = &self.columns[col_idx];
-
-                        let effective_limit = if Some(col_idx) == last_nonzero_idx {
-                            total_width_limit
-                                .saturating_sub(width_limits.iter().take(col_idx).sum())
-                        } else {
-                            width_limit
-                        };
-
-                        let (cell, computed_width) = if effective_limit == 0 {
-                            (Default::default(), 0)
-                        } else if column.filter {
-                            render_cell(
-                                cell,
-                                col_idx,
-                                snapshot,
-                                &item,
-                                matcher,
-                                highlight_style,
-                                wrap,
-                                effective_limit,
-                                &mut self.col_indices_buffer,
-                                autoscroll,
-                                hscroll_offset,
-                            )
-                        } else if wrap {
-                            let (cell, wrapped) = wrap_text(cell, effective_limit);
-
-                            let width = if wrapped {
-                                effective_limit as usize
-                            } else {
-                                cell.width()
-                            };
-                            (cell, width)
-                        } else {
-                            let width = cell.width();
-                            (cell, width)
-                        };
-
-                        if col_idx < widths.len() {
-                            widths[col_idx] = widths[col_idx].max(computed_width as u16)
-                        }
-
-                        cell
-                    })
-                    .collect();
-
-                Some((row, item.data))
-            })
-            .collect();
-
-        // Nonempty columns should have width at least their header
-        for (w, c) in widths.iter_mut().zip(self.columns.iter()) {
-            let name_width = c.name.width() as u16;
-            if *w != 0 {
-                *w = (*w).max(name_width);
-            }
-        }
-
-        let medians = raw_widths
-            .into_iter()
-            .map(|mut v| {
-                if v.is_empty() {
-                    0
-                } else {
-                    v.sort_unstable();
-                    v[v.len() / 2]
-                }
-            })
-            .collect();
-
-        (table, widths, medians, status)
+    pub(crate) fn get_nth_indexed_item(&self, n: u32) -> Option<(u32, nucleo::Item<'_, T>)> {
+        let snapshot = self.nucleo.snapshot();
+        let m = snapshot.matches().get(n as usize)?;
+        let idx = m.idx;
+        // SAFETY: `idx` is taken from a match in the snapshot we just took, so it
+        // points to an initialized item in that snapshot.
+        let item = unsafe { snapshot.get_item_unchecked(idx) };
+        Some((idx, item))
     }
 
     pub fn exact_column_match(&mut self, column: &str) -> Option<&T> {
@@ -464,8 +309,9 @@ impl<T: SSS> Worker<T> {
 
         let snapshot = self.nucleo.snapshot();
         snapshot.matched_items(..).find_map(|item| {
-            let content = col.raw(item.data);
-            if content.as_str() == query {
+            let d = (self.raw_preprocessor)(item.data)?;
+            let content = col.raw(item.data, &d);
+            if content == query {
                 Some(item.data)
             } else {
                 None
@@ -473,614 +319,56 @@ impl<T: SSS> Worker<T> {
         })
     }
 
-    pub fn format_with<'a>(&'a self, item: &'a T, col: &str) -> Option<Cow<'a, str>> {
-        self.columns
-            .iter()
-            .find(|c| &*c.name == col)
-            .map(|c| c.raw(item))
+    // ----------- COLUMN ACCESSORS --------------
+
+    pub fn format_with<'a>(&'a self, item: &'a T, col: &crate::config_types::StringOrInt) -> Option<Cow<'a, str>> {
+        let col_val = match col {
+            crate::config_types::StringOrInt::String(s) => {
+                self.columns.iter().find(|c| &*c.name == s.as_str())?
+            }
+            crate::config_types::StringOrInt::Int(idx) => {
+                let idx = *idx;
+                if idx >= 0 {
+                    self.columns.get(idx as usize)?
+                } else {
+                    return None;
+                }
+            }
+        };
+        let d = (self.raw_preprocessor)(item)?;
+        Some(col_val.raw(item, &d).into_owned().into())
     }
 }
 
-fn render_cell<T: SSS>(
-    cell: Text<'_>,
-    col_idx: usize,
-    snapshot: &nucleo::Snapshot<T>,
-    item: &nucleo::Item<T>,
-    matcher: &mut nucleo::Matcher,
-    highlight_style: Style,
-    wrap: bool,
-    width_limit: u16,
-    col_indices_buffer: &mut Vec<u32>,
-    mut autoscroll: AutoscrollSettings,
-    hscroll_offset: i8,
-) -> (Text<'static>, usize) {
-    if !autoscroll.always {
-        autoscroll.enabled &= !wrap;
-    }
+#[derive(Debug, Default, Clone)]
+pub struct Status {
+    pub item_count: u32,
+    pub matched_count: u32,
+    pub running: bool,
+    pub changed: bool,
+}
 
-    let mut cell_width = 0;
-    let mut wrapped = false;
-
-    // get indices
-    let indices_buffer = col_indices_buffer;
-    indices_buffer.clear();
-    snapshot.pattern().column_pattern(col_idx).indices(
-        item.matcher_columns[col_idx].slice(..),
-        matcher,
-        indices_buffer,
-    );
-    indices_buffer.sort_unstable();
-    indices_buffer.dedup();
-    let mut indices = indices_buffer.drain(..);
-
-    let mut lines = vec![];
-    let mut next_highlight_idx = indices.next().unwrap_or(u32::MAX);
-    let mut grapheme_idx = 0u32;
-
-    let mut line_graphemes = Vec::new();
-
-    for line in &cell {
-        // 1: Collect graphemes, compute styles, and find the relevant match on this line.
-        line_graphemes.clear();
-        let mut match_idx = None;
-
-        for span in line {
-            // this looks like a bug on first glance, we are iterating
-            // graphemes but treating them as char indices. The reason that
-            // this is correct is that nucleo will only ever consider the first char
-            // of a grapheme (and discard the rest of the grapheme) so the indices
-            // returned by nucleo are essentially grapheme indecies
-            for grapheme in span.content.graphemes(true) {
-                let is_match = grapheme_idx == next_highlight_idx;
-
-                let style = if is_match {
-                    next_highlight_idx = indices.next().unwrap_or(u32::MAX);
-                    span.style.patch(highlight_style)
-                } else {
-                    span.style
-                };
-
-                if is_match && (autoscroll.end || match_idx.is_none()) {
-                    match_idx = Some(line_graphemes.len());
-                }
-
-                line_graphemes.push((grapheme, style));
-                grapheme_idx += 1;
-            }
-        }
-
-        // 2: Calculate where to start rendering this line
-        let mut i; // start_idx
-
-        if autoscroll.enabled && autoscroll.end {
-            i = match_idx.unwrap_or(line_graphemes.len().saturating_sub(1));
-
-            let preserved_width = line_graphemes
-                [..autoscroll.initial_preserved.min(line_graphemes.len())]
-                .iter()
-                .map(|(g, _)| g.width())
-                .sum::<usize>();
-
-            let target_width = if let Some(x) = match_idx {
-                (width_limit as usize)
-                    .saturating_sub(autoscroll.context.min(line_graphemes.len() - x - 1))
-            } else {
-                width_limit as usize
-            }
-            .saturating_sub(preserved_width);
-
-            let mut current_width = 0;
-
-            while i > autoscroll.initial_preserved {
-                let w = line_graphemes[i].0.width();
-                let indicator_width = if i - 1 > autoscroll.initial_preserved {
-                    1
-                } else {
-                    0
-                };
-
-                if current_width + w + indicator_width < target_width {
-                    i -= 1;
-                    current_width += w;
-                } else {
-                    break;
-                }
-            }
-
-            i = i.saturating_add_signed(hscroll_offset as isize);
-
-            if i <= autoscroll.initial_preserved {
-                i = 0;
-            }
-        } else if autoscroll.enabled
-            && let Some(m_idx) = match_idx
-        {
-            i = (m_idx as i32 - autoscroll.context as i32).max(0) as usize;
-
-            let mut tail_width: usize = line_graphemes[i..].iter().map(|(g, _)| g.width()).sum();
-
-            let preserved_width = line_graphemes
-                [..autoscroll.initial_preserved.min(line_graphemes.len())]
-                .iter()
-                .map(|(g, _)| g.width())
-                .sum::<usize>();
-
-            // Expand leftwards as long as the total rendered width <= width_limit
-            while i > autoscroll.initial_preserved {
-                let prev_width = line_graphemes[i - 1].0.width();
-                // Only reserve space for "..." if we aren't reaching the very start
-                let indicator_width = if i - 1 > autoscroll.initial_preserved {
-                    1
-                } else {
-                    0
-                };
-
-                if tail_width + preserved_width + indicator_width + prev_width
-                    <= width_limit as usize
-                {
-                    i -= 1;
-                    tail_width += prev_width;
-                } else {
-                    break;
-                }
-            }
-
-            i = i.saturating_add_signed(hscroll_offset as isize);
-
-            if i <= autoscroll.initial_preserved {
-                i = 0;
-            }
-        } else {
-            i = hscroll_offset.max(0) as usize;
-        };
-
-        // 3: Apply the standard wrapping and Span generation logic to the visible slice
-        let mut current_spans = Vec::new();
-        let mut current_span = String::new();
-        let mut current_style = Style::default();
-        let mut current_width = 0;
-
-        // Add preserved prefix and ellipsis if needed
-        if i > 0 && autoscroll.enabled {
-            for (g, s) in
-                line_graphemes.drain(..autoscroll.initial_preserved.min(line_graphemes.len()))
-            {
-                if s != current_style {
-                    if !current_span.is_empty() {
-                        current_spans.push(Span::styled(current_span, current_style));
-                    }
-                    current_span = String::new();
-                    current_style = s;
-                }
-                current_span.push_str(g);
-            }
-            if !current_span.is_empty() {
-                current_spans.push(Span::styled(current_span, current_style));
-            }
-            i -= autoscroll.initial_preserved;
-
-            current_width += current_spans.iter().map(|x| x.width()).sum::<usize>();
-            current_spans.push(hscroll_indicator());
-            current_width += 1;
-
-            current_span = String::new();
-            current_style = Style::default();
-        }
-
-        // prevent stuck invisible columns
-        if !line_graphemes.is_empty() {
-            cell_width = cell_width.max(1);
-            i = i.min(line_graphemes.len())
-        }
-
-        let mut graphemes = line_graphemes.drain(i..);
-
-        while let Some((mut grapheme, mut style)) = graphemes.next() {
-            if current_width + grapheme.width() > width_limit as usize {
-                if !current_span.is_empty() {
-                    current_spans.push(Span::styled(current_span, current_style));
-                    current_span = String::new();
-                }
-                if wrap {
-                    current_spans.push(wrapping_indicator());
-                    lines.push(Line::from(take(&mut current_spans)));
-
-                    current_width = 0;
-                    wrapped = true;
-                } else {
-                    break;
-                }
-            } else if current_width + grapheme.width() == width_limit as usize {
-                if wrap {
-                    let mut new = grapheme.to_string();
-                    if current_style != style {
-                        current_spans.push(Span::styled(take(&mut current_span), current_style));
-                        current_style = style;
-                    };
-                    for (grapheme2, style2) in graphemes.by_ref() {
-                        if grapheme2.width() == 0 {
-                            new.push_str(grapheme2);
-                        } else {
-                            if !current_span.is_empty() {
-                                current_spans.push(Span::styled(current_span, current_style));
-                            }
-                            current_spans.push(wrapping_indicator());
-                            lines.push(Line::from(take(&mut current_spans)));
-
-                            // new line starts from last char
-                            current_span = new.clone(); // rust can't tell that clone is unnecessary here
-                            current_width = grapheme.width();
-                            wrapped = true;
-
-                            grapheme = grapheme2;
-                            style = style2;
-                            break; // continue normal processing
-                        }
-                    }
-                    if !wrapped {
-                        current_span.push_str(&new);
-                        // we reached the end of the line exactly, end line
-                        current_spans.push(Span::styled(take(&mut current_span), style));
-                        current_style = style;
-                        current_width += grapheme.width();
-                        break;
-                    }
-                } else {
-                    if style != current_style {
-                        if !current_span.is_empty() {
-                            current_spans.push(Span::styled(current_span, current_style));
-                        }
-                        current_span = String::new();
-                        current_style = style;
-                    }
-                    current_span.push_str(grapheme);
-                    current_width += grapheme.width();
-                    break;
-                }
-            }
-
-            // normal processing
-            if style != current_style {
-                if !current_span.is_empty() {
-                    current_spans.push(Span::styled(current_span, current_style))
-                }
-                current_span = String::new();
-                current_style = style;
-            }
-            current_span.push_str(grapheme);
-            current_width += grapheme.width();
-        }
-
-        current_spans.push(Span::styled(current_span, current_style));
-        lines.push(Line::from(current_spans));
-        cell_width = cell_width.max(current_width);
-
-        grapheme_idx += 1; // newline
-    }
-
+/// Standalone function to create a snapshot from nucleo without requiring D type parameter
+pub fn new_snapshot<T: Sync + Send + 'static>(
+    nucleo: &mut nucleo::Nucleo<T>,
+) -> (&nucleo::Snapshot<T>, Status) {
+    let nucleo::Status { changed, running } = nucleo.tick(10);
+    let snapshot = nucleo.snapshot();
     (
-        Text::from(lines),
-        if wrapped {
-            width_limit as usize
-        } else {
-            cell_width
+        snapshot,
+        Status {
+            item_count: snapshot.item_count(),
+            matched_count: snapshot.matched_item_count(),
+            running,
+            changed,
         },
     )
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use nucleo::{Matcher, Nucleo};
-    use ratatui::style::{Color, Style};
-    use ratatui::text::Text;
-    use std::sync::Arc;
-
-    /// Sets up the necessary Nucleo state to trigger a match
-    fn setup_nucleo_mocks(
-        search_query: &str,
-        item_text: &str,
-    ) -> (Nucleo<String>, Matcher, Vec<u32>) {
-        let mut nucleo = Nucleo::<String>::new(nucleo::Config::DEFAULT, Arc::new(|| {}), None, 1);
-
-        let injector = nucleo.injector();
-        injector.push(item_text.to_string(), |item, columns| {
-            columns[0] = item.clone().into();
-        });
-
-        nucleo.pattern.reparse(
-            0,
-            search_query,
-            nucleo::pattern::CaseMatching::Ignore,
-            nucleo::pattern::Normalization::Smart,
-            false,
-        );
-
-        nucleo.tick(10); // Process the item
-
-        let matcher = Matcher::default();
-        let buffer = Vec::new();
-
-        (nucleo, matcher, buffer)
-    }
-
-    #[test]
-    fn test_no_scroll_context_renders_normally() {
-        let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "hello match world");
-        let snapshot = nucleo.snapshot();
-        let item = snapshot.get_item(0).unwrap();
-
-        let cell = Text::from("hello match world");
-        let highlight = Style::default().fg(Color::Red);
-
-        let (result_text, width) = render_cell(
-            cell,
-            0,
-            &snapshot,
-            &item,
-            &mut matcher,
-            highlight,
-            false,
-            u16::MAX,
-            &mut buffer,
-            AutoscrollSettings {
-                enabled: false,
-                ..Default::default()
-            },
-            0,
-        );
-
-        let output_str = result_text.to_string();
-        assert_eq!(output_str, "hello match world");
-        assert_eq!(width, 17);
-    }
-
-    #[test]
-    fn test_scroll_context_cuts_prefix_correctly() {
-        let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "hello match world");
-        let snapshot = nucleo.snapshot();
-        let item = snapshot.get_item(0).unwrap();
-
-        let cell = Text::from("hello match world");
-        let highlight = Style::default().fg(Color::Red);
-
-        let (result_text, _) = render_cell(
-            cell,
-            0,
-            &snapshot,
-            &item,
-            &mut matcher,
-            highlight,
-            false,
-            u16::MAX,
-            &mut buffer,
-            AutoscrollSettings {
-                initial_preserved: 0,
-                context: 2,
-                ..Default::default()
-            },
-            0,
-        );
-
-        let output_str = result_text.to_string();
-        assert_eq!(output_str, "hello match world");
-    }
-
-    #[test]
-    fn test_scroll_context_backfills_to_fill_width_limit() {
-        // Query "match". Starts at index 10.
-        // "abcdefghijmatch"
-        // autoscroll = Some((preserved=0, context=1))
-        // initial_start_idx = 10 + 0 - 1 = 9 ("jmatch").
-        // width_limit = 10.
-        // tail_width ("jmatch") = 6.
-        // Try to decrease start_idx.
-        // start_idx=8 ("ijmatch"), tail_width=7.
-        // start_idx=7 ("hijmatch"), tail_width=8.
-        // start_idx=6 ("ghijmatch"), tail_width=9.
-        // start_idx=5 ("fghijmatch"), tail_width=10.
-        // start_idx=4 ("efghijmatch"), tail_width=11 > 10 (STOP).
-        // Result start_idx = 5. Output: "fghijmatch"
-
-        let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "abcdefghijmatch");
-        let snapshot = nucleo.snapshot();
-        let item = snapshot.get_item(0).unwrap();
-
-        let cell = Text::from("abcdefghijmatch");
-        let highlight = Style::default().fg(Color::Red);
-
-        let (result_text, width) = render_cell(
-            cell,
-            0,
-            &snapshot,
-            &item,
-            &mut matcher,
-            highlight,
-            false,
-            10,
-            &mut buffer,
-            AutoscrollSettings {
-                initial_preserved: 0,
-                context: 1,
-                ..Default::default()
-            },
-            0,
-        );
-
-        let output_str = result_text.to_string();
-        assert_eq!(output_str, "…ghijmatch");
-        assert_eq!(width, 10);
-    }
-
-    #[test]
-    fn test_preserved_prefix_and_ellipsis() {
-        // Query "match". Starts at index 10.
-        // "abcdefghijmatch"
-        // autoscroll = Some((preserved=3, context=1))
-        // initial_start_idx = 10 + 0 - 1 = 9.
-        // start_idx = 9.
-        // width_limit = 10.
-        // preserved_width ("abc") = 3.
-        // gap_indicator_width ("…") = 1.
-        // tail_width ("jmatch") = 6.
-        // total = 3 + 1 + 6 = 10.
-        // start_idx=9, preserved=3. 9 > 3 + 1 (9 > 4) -> preserved_prefix = "abc", output: "abc…jmatch"
-
-        let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "abcdefghijmatch");
-        let snapshot = nucleo.snapshot();
-        let item = snapshot.get_item(0).unwrap();
-
-        let cell = Text::from("abcdefghijmatch");
-        let highlight = Style::default().fg(Color::Red);
-
-        let (result_text, width) = render_cell(
-            cell,
-            0,
-            &snapshot,
-            &item,
-            &mut matcher,
-            highlight,
-            false,
-            10,
-            &mut buffer,
-            AutoscrollSettings {
-                initial_preserved: 3,
-                context: 1,
-                ..Default::default()
-            },
-            0,
-        );
-
-        let output_str = result_text.to_string();
-        assert_eq!(output_str, "abc…jmatch");
-        assert_eq!(width, 10);
-    }
-
-    #[test]
-    fn test_wrap() {
-        let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "abcdefmatch");
-        let snapshot = nucleo.snapshot();
-        let item = snapshot.get_item(0).unwrap();
-
-        let cell = Text::from("abcdefmatch");
-        let highlight = Style::default().fg(Color::Red);
-
-        let (result_text, width) = render_cell(
-            cell,
-            0,
-            &snapshot,
-            &item,
-            &mut matcher,
-            highlight,
-            true,
-            10,
-            &mut buffer,
-            AutoscrollSettings {
-                initial_preserved: 3,
-                context: 1,
-                ..Default::default()
-            },
-            -2,
-        );
-
-        let output_str = result_text.to_string();
-        assert_eq!(output_str, "abcdefmat↵\nch");
-        assert_eq!(width, 10);
-    }
-
-    #[test]
-    fn test_wrap_edge_case_6_chars_width_5() {
-        let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("", "123456");
-        let snapshot = nucleo.snapshot();
-        let item = snapshot.get_item(0).unwrap();
-
-        let cell = Text::from("123456");
-        let highlight = Style::default().fg(Color::Red);
-
-        let (result_text, width) = render_cell(
-            cell,
-            0,
-            &snapshot,
-            &item,
-            &mut matcher,
-            highlight,
-            true,
-            5,
-            &mut buffer,
-            AutoscrollSettings {
-                enabled: false,
-                ..Default::default()
-            },
-            0,
-        );
-
-        let output_str = result_text.to_string();
-        // Expecting "1234↵" and "56"
-        assert_eq!(output_str, "1234↵\n56");
-        assert_eq!(width, 5);
-    }
-
-    #[test]
-    fn test_autoscroll_end() {
-        let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "abcdefghijmatch");
-        let snapshot = nucleo.snapshot();
-        let item = snapshot.get_item(0).unwrap();
-
-        let cell = Text::from("abcdefghijmatch");
-        let highlight = Style::default().fg(Color::Red);
-
-        let (result_text, width) = render_cell(
-            cell,
-            0,
-            &snapshot,
-            &item,
-            &mut matcher,
-            highlight,
-            false,
-            10,
-            &mut buffer,
-            AutoscrollSettings {
-                end: true,
-                context: 4,
-                ..Default::default()
-            },
-            0,
-        );
-
-        let output_str = result_text.to_string();
-        assert_eq!(output_str, "…ghijmatch");
-        assert_eq!(width, 10);
-    }
-
-    #[test]
-    fn test_autoscroll_end_context() {
-        let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("ma", "abcdefghijmatch");
-        let snapshot = nucleo.snapshot();
-        let item = snapshot.get_item(0).unwrap();
-
-        let cell = Text::from("abcdefghijmatch");
-        let highlight = Style::default().fg(Color::Red);
-
-        let (result_text, width) = render_cell(
-            cell,
-            0,
-            &snapshot,
-            &item,
-            &mut matcher,
-            highlight,
-            false,
-            10,
-            &mut buffer,
-            AutoscrollSettings {
-                end: true,
-                context: 2,
-                ..Default::default()
-            },
-            0,
-        );
-
-        let output_str = result_text.to_string();
-        assert_eq!(output_str, "…fghijmatc");
-        assert_eq!(width, 10);
-    }
+#[derive(Debug, thiserror::Error)]
+pub enum WorkerError {
+    #[error("the matcher injector has been shut down")]
+    InjectorShutdown,
+    #[error("{0}")]
+    Custom(&'static str),
 }

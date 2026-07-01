@@ -1,5 +1,5 @@
-use matchmaker::nucleo::{Indexed, Worker};
-use matchmaker::{MatchError, Matchmaker, Result, Selector};
+use matchmaker::nucleo::Worker;
+use matchmaker::{MatchError, Matchmaker, Result};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -7,12 +7,16 @@ async fn main() -> Result<()> {
 
     let worker = Worker::new_single_column();
     worker.append(items);
-    let selector = Selector::new(Indexed::identifier);
-    let mm = Matchmaker::new(worker, selector);
+    let mm: Matchmaker<&str, String> = Matchmaker::new(worker, |_state| {
+        // TODO: extract Vec<String> from state.picker_ui.selector
+        vec![]
+    });
 
     match mm.pick_default().await {
         Ok(v) => {
-            println!("{}", v[0]);
+            if let Some(first) = v.into_iter().next() {
+                println!("{first}");
+            }
         }
         Err(err) => match err {
             MatchError::Abort(1) => {

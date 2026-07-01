@@ -86,13 +86,10 @@ pub fn prefix_span<'a, 'b: 'a>(
 }
 
 /// Clip text to a given number of lines.
-/// reverse: take from the end
-pub fn clip_text_lines<'a, 'b: 'a>(original: &'a mut Text<'b>, max_lines: u16, from_end: bool) {
-    // log::trace!("Clipping: {original:?}, {max_lines}, {from_end}");
+/// from_end: take from the end
+pub fn take_lines<'a, 'b: 'a>(original: &'a mut Text<'b>, max_lines: u16, from_end: bool) {
     let max = max_lines as usize;
-
     let new_lines: Vec<Line> = if from_end {
-        // take the last `max` lines
         original
             .lines
             .iter()
@@ -104,11 +101,29 @@ pub fn clip_text_lines<'a, 'b: 'a>(original: &'a mut Text<'b>, max_lines: u16, f
             .cloned()
             .collect()
     } else {
-        // take the first `max` lines
         original.lines.iter().take(max).cloned().collect()
     };
-
+    let style = original.style;
     *original = Text::from(new_lines);
+    original.style = style;
+}
+
+pub fn debug_row(row: &[Text<'_>]) {
+    let cols = row.iter().map(|text| {
+        text.lines
+            .iter()
+            .map(|line| {
+                line.spans
+                    .iter()
+                    .map(|span| span.content.as_ref())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("")
+    });
+
+    #[cfg(debug_assertions)]
+    log::debug!("{}", cols.collect::<Vec<_>>().join(" │ "));
 }
 
 pub fn wrapped_line_height(line: &Line<'_>, width: u16) -> u16 {
@@ -202,6 +217,27 @@ pub fn wrap_line<'a>(line: Line<'a>, max_width: u16, indicator: &Span<'a>) -> Ve
 /// Convenience wrapper around line wrapper
 pub fn wrap_text<'a>(text: Text<'a>, max_width: u16) -> (Text<'a>, bool) {
     let wrapping_span = wrapping_indicator();
+
+    if max_width == 0 {
+        return (text, false);
+    }
+
+    let mut new_lines = Vec::new();
+    let mut did_wrap_any = false;
+
+    for line in text.lines {
+        let new = wrap_line(line, max_width, &wrapping_span);
+        did_wrap_any |= new.len() > 1;
+        new_lines.extend(new);
+    }
+
+    (Text::from(new_lines), did_wrap_any)
+}
+
+/// Convenience wrapper around line wrapper
+pub fn wrap_text_static<'a>(text: &Text<'a>, max_width: u16) -> (Text<'static>, bool) {
+    let wrapping_span = wrapping_indicator();
+    let text = to_static(text);
 
     if max_width == 0 {
         return (text, false);
@@ -430,12 +466,80 @@ pub fn expand_indents<'a>(
     Line::from(new_spans)
 }
 
-// pub fn apply_to_lines(text: &mut Text<'_>, transform: impl Fn(Line<'_>) -> Line<'_>) {
-//     for line in text.lines.iter_mut() {
-//         let owned_line = std::mem::take(line);
-//         *line = transform(owned_line);
-//     }
-// }
+// Convert to static lifetime for storage
+pub fn to_static(t: &ratatui::text::Text<'_>) -> ratatui::text::Text<'static> {
+    ratatui::text::Text {
+        lines: t
+            .iter()
+            .map(|l| ratatui::text::Line {
+                spans: l
+                    .spans
+                    .iter()
+                    .map(|s| ratatui::text::Span {
+                        content: std::borrow::Cow::Owned(s.content.clone().into_owned()),
+                        style: s.style,
+                    })
+                    .collect(),
+                style: l.style,
+                alignment: l.alignment,
+            })
+            .collect(),
+        style: t.style,
+        alignment: t.alignment,
+    }
+}
+
+pub fn sanitize_string(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+
+    for c in s.chars() {
+        match c {
+            '\t' => result.push_str("    "),
+            '\r' => result.push(' '),
+
+            c if c.is_control() && c != '\n' && c != '\x1b' => {
+                // drop
+            }
+
+            _ => result.push(c),
+        }
+    }
+
+    result
+}
+pub fn sanitize_line(line: Line) -> Line {
+    let mut out = Vec::new();
+
+    for span in line.spans {
+        let mut buf = String::with_capacity(span.content.len());
+
+        for c in span.content.chars() {
+            match c {
+                '\t' => buf.push_str("    "),
+                '\r' => buf.push(' '),
+
+                c if c.is_control() && c != '\n' && c != '\x1b' => {
+                    // drop
+                }
+
+                _ => buf.push(c),
+            }
+        }
+
+        if !buf.is_empty() {
+            out.push(Span::styled(buf, span.style));
+        }
+    }
+
+    Line::from(out)
+}
+
+pub fn apply_to_lines(text: &mut Text<'_>, transform: impl Fn(Line<'_>) -> Line<'_>) {
+    for line in text.lines.iter_mut() {
+        let owned_line = std::mem::take(line);
+        *line = transform(owned_line);
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -625,5 +729,21 @@ mod tests {
         let text = sample_text();
         let sliced = slice_ratatui_text(&text, 5..5);
         assert_eq!(sliced, Text::default());
+    }
+
+    #[test]
+    fn test_ansi_spaces() {
+        use ansi_to_tui::IntoText;
+        let s = "no\x1b[31mtes\x1b[0m";
+        let text = s.as_bytes().into_text().unwrap();
+        let plain = text.to_string();
+        assert_eq!(plain, "notes");
+
+        // slice 0..5
+        let sliced = slice_ratatui_text(&text, 0..5);
+        assert_eq!(sliced.to_string(), "notes");
+        assert_eq!(sliced.lines[0].spans.len(), 2);
+        assert_eq!(sliced.lines[0].spans[0].content, "no");
+        assert_eq!(sliced.lines[0].spans[1].content, "tes");
     }
 }

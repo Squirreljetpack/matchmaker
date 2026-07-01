@@ -76,7 +76,7 @@
 - support hijack rendering loop?
 - more compatible keybinds: tagset for modes, provide alternates for key sequences which might not be available i.e. ? vs shift-?
 
-# Rework column sizing and row rendering:
+# Rework column sizing and row rendering
 
 while remaining > 0, render row.
 

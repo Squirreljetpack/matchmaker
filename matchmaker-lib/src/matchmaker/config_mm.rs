@@ -67,8 +67,9 @@ impl ConfigMatchmaker {
                     0
                 }),
             StringOrInt::Int(i) => {
+                let i = i.saturating_sub(offset) as usize;
                 if i < column_names.len() {
-                    i.saturating_sub(offset) as usize
+                    i
                 } else {
                     cba::wbog!("Default column index {i} out of bounds, defaulting to first.");
                     0

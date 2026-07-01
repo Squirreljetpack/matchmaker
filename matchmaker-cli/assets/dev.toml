@@ -213,6 +213,9 @@ max = 8
 
 [start]
 skip_invalid_lines = true # set false to error on encountering invalid utf-8
+sanitize = true
+require_column = 3
+
 [start.command]
 cmd = '''
 if command -v fd >/dev/null 2>&1; then

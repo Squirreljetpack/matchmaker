@@ -6,7 +6,7 @@ use ratatui::{
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
-    config::{HorizontalSeparator, ResultsConfig, RowConnectionStyle, StyleSetting},
+    config::{HorizontalSeparator, ResultsConfig, RowConnectionStyle},
     nucleo::Status,
     utils::{
         string::{fit_width, substitute_escaped},

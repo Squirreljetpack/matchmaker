@@ -1,3 +1,10 @@
+## [0.1.1] - 2026-07-01
+
+### 🚀 Features
+
+- Expand widths
+- Draggable columns
+
 ## [0.1.0] - 2026-07-01
 
 ### 🚀 Features

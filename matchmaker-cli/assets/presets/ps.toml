@@ -3,7 +3,7 @@
 [start]
 command = "ps -eo pgid,pid,user,%cpu,vsz,rss,etime,stat,command"
 additional_commands = [
-    "ps -eo pgid,pid,user,%cpu,vsz,rss,etime,stat,command",
+    "",
     "lsof -nP -i",
 ]
 ansi = false

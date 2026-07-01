@@ -3,6 +3,7 @@
 [start]
 command = '''rg --column --line-number --no-heading --color=always --smart-case "$FZF_QUERY"'''
 ansi = true
+require_column = 1
 
 [columns]
 max = 3

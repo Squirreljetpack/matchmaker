@@ -209,8 +209,8 @@ pub fn render_row<T: SSS, D>(
                 to_static(&cell)
             };
             #[cfg(debug_assertions)]
-            if col_idx == 0 {
-                log::trace!("new row col 1: {:?}, limit: {}", &cell, width_limit);
+            if col_idx == 1 {
+                log::trace!("new row col: {:?}, limit: {}", &cell, width_limit);
             }
 
             cell
@@ -319,14 +319,6 @@ impl ResultsUI {
             (id, texts)
         };
 
-        let is_selected = selector.contains(&id);
-        let prefix = if is_selected {
-            self.config.multi_prefix.clone()
-        } else {
-            self.default_prefix((idx - self.bottom) as usize, id)
-        };
-
-        let mut row_texts = vec![];
         if self.width_limits.is_empty() {
             // wait for update. Compute a stand-in height so the caller can
             // size the surrounding layout, but don't push any rows.
@@ -340,30 +332,38 @@ impl ResultsUI {
                 texts.iter().map(|t| t.height() as u16).sum()
             };
             return Some(height);
-        } else {
-            for (i, (col_idx, mut col)) in self
-                .hidden_columns
-                .iter()
-                .cloned()
-                .enumerate()
-                .filter(|h| !h.1)
-                .map(|h| h.0)
-                .zip(texts)
-                .enumerate()
-            {
-                if i == 0 || stacked {
-                    prefix_span(
-                        &mut col,
-                        prefix.clone(),
-                        self.config.prefix_style,
-                        self.config.prefix_inactive_style,
-                        is_current,
-                    );
-                }
+        }
 
-                let col = style_text(col, active_column == col_idx, is_current, &self.config);
-                row_texts.push(col);
+        let is_selected = selector.contains(&id);
+        let prefix = if is_selected {
+            self.config.multi_prefix.clone()
+        } else {
+            self.default_prefix((idx - self.bottom) as usize, id)
+        };
+        let mut row_texts = vec![];
+
+        for (i, (col_idx, mut col)) in self
+            .hidden_columns
+            .iter()
+            .cloned()
+            .enumerate()
+            .filter(|h| !h.1)
+            .map(|h| h.0)
+            .zip(texts)
+            .enumerate()
+        {
+            if i == 0 || stacked {
+                prefix_span(
+                    &mut col,
+                    prefix.clone(),
+                    self.config.prefix_style,
+                    self.config.prefix_inactive_style,
+                    is_current,
+                );
             }
+
+            let col = style_text(col, active_column == col_idx, is_current, &self.config);
+            row_texts.push(col);
         }
 
         if !stacked && self.config.right_align_last && row_texts.len() > 1 {
@@ -383,6 +383,9 @@ impl ResultsUI {
                 .config
                 .inactive_current_style
                 .into_style_no_submodifiers(),
+            (false, RowConnectionStyle::Capped) => {
+                self.config.inactive_style.into_style_no_submodifiers()
+            }
             (true, RowConnectionStyle::Full) => self.config.current_style.into(),
             _ => Style::default(),
         };
@@ -437,7 +440,8 @@ impl ResultsUI {
         fit_width(&substituted, self.indentation())
     }
 
-    pub(super) fn hr_cells(&self) -> Option<Vec<ratatui::text::Text<'static>>> {
+    // todo: multicolumn needs to overlay onto empty row instead of inject row
+    pub(super) fn hr(&self) -> Option<Vec<ratatui::text::Text<'static>>> {
         let sep = self.config.separator;
 
         if matches!(sep, HorizontalSeparator::None) {

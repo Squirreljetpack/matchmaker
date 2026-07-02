@@ -7,7 +7,7 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::{
     config::{HorizontalSeparator, ResultsConfig, RowConnectionStyle},
-    nucleo::Status,
+    nucleo::{Column, Status},
     utils::{
         string::{fit_width, substitute_escaped},
         text::{debug_row, prefix_span},
@@ -36,6 +36,7 @@ pub struct ResultsUI {
     widths: Vec<u16>,
     width_limits: Vec<u16>,
     pub(crate) hidden_columns: Vec<bool>,
+    column_name_widths: Vec<u16>,
 
     // used to compute width_limits
     // valid after calling update_preferred_widths
@@ -59,7 +60,7 @@ pub struct ResultsUI {
 }
 
 impl ResultsUI {
-    pub fn new(config: ResultsConfig, n_cols: usize) -> Self {
+    pub fn new<T, D>(config: ResultsConfig, cols: &[Column<T, D>]) -> Self {
         let mut ret = Self {
             cursor: 0,
             bottom: 0,
@@ -70,6 +71,7 @@ impl ResultsUI {
             width: 0,
             widths: Vec::new(),
             hidden_columns: Default::default(),
+            column_name_widths: Default::default(),
 
             width_limits: Vec::new(),
             preferred_widths: Vec::new(),
@@ -86,14 +88,25 @@ impl ResultsUI {
             row_data: Vec::new(),
             table: ratatui::widgets::Table::default(),
         };
-        ret.init(n_cols);
+        ret.init(cols);
         ret
     }
 
-    pub fn init(&mut self, n_cols: usize) {
+    pub fn init<T, D>(&mut self, cols: &[Column<T, D>]) {
         // self.preferred_widths.resize(n_cols, 0);
         // self.width_limits.resize(n_cols, 0);
-        self.hidden_columns.resize(n_cols, false);
+        self.hidden_columns.resize(cols.len(), false);
+        self.column_name_widths = cols
+            .into_iter()
+            .zip(&self.hidden_columns)
+            .filter_map(|(col, flag)| {
+                if !flag {
+                    Some(col.name.len() as u16)
+                } else {
+                    None
+                }
+            })
+            .collect();
     }
 
     pub fn hidden_cols(&self) -> &Vec<bool> {
@@ -124,7 +137,7 @@ impl ResultsUI {
             self.height = new_height;
             log::debug!("Updated results dimensions: {}x{}", self.width, self.height);
         }
-        self.width_limits.clear();
+        self.recompute_widths();
     }
 
     pub fn height(&self) -> u16 {

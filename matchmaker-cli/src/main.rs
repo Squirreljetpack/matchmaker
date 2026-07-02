@@ -42,7 +42,11 @@ async fn main() {
     log::debug!("{cli:?}, {config_args:?}");
 
     display_doc(&cli);
-    handle_download(&cli);
+    if let Some(download) = &cli.download {
+        // Empty string here means "download all"; a non-empty value is a
+        // folder name or a file preset (with or without `.toml`).
+        handle_download(download);
+    }
 
     // get config overrides
     let partial = if config_args.is_empty() {

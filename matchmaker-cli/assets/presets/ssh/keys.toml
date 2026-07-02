@@ -7,6 +7,16 @@ command = "ls *.pub 2>/dev/null"
 directory = "~/.ssh"
 
 # --- Preview ---
+[preview]
+show = true
+
+[[preview.layout]]
+command = '''
+bat --color=always -pp {1}
+echo
+ssh-keygen -lf {1} -E sha256
+'''
+
 # --- UI ---
 [query]
 prompt = "keys> "

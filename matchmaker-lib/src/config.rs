@@ -419,6 +419,7 @@ pub struct ResultsConfig {
     #[partial(alias = "w")]
     pub wrap: bool,
     pub min_width: u16,
+    pub min_width_from_cols: bool,
 
     // autoscroll
     #[partial(recurse, alias = "a")]
@@ -503,6 +504,7 @@ impl Default for ResultsConfig {
 
             wrap: false,
             min_width: 2,
+            min_width_from_cols: true,
             active_column_min_percentage_hint: None,
             max_height: 0,
 

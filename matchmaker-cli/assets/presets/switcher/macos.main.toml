@@ -1,7 +1,7 @@
 # macOS window switcher
 
 [envs]
-IMAGEcmd = { value = "command -v chafa", exec = true }
+IMAGEcmd = { value = 'chafa --size="$((COLUMNS))x$((10))"' }
 RESOLVE_APP = '''
 exe_path=$(ps -p "$pid" -o comm= 2>/dev/null)
 app_path=""
@@ -11,7 +11,7 @@ while [[ -n "$probe" && "$probe" != "/" ]]; do
         app_path="$probe"
         break
     fi
-    probe=$(dirname -- "$probe")
+    probe=$(dirname -- "$probe") >/dev/null
 done
 
 [[ -z "$app_path" ]] && app_path=$(mdfind "kMDItemContentType == 'com.apple.application-bundle' && kMDItemDisplayName == '$app.app'" | head -n 1)
@@ -49,7 +49,7 @@ echo "Name:   "{app}
 echo "Title:  "{title}
 echo "PID:    "{pid}
 printf "%${COLUMNS}s\n" | tr ' ' '-'
-echo
+# echo
 
 [[ -z "$IMAGEcmd" ]] && exit
 
@@ -75,7 +75,7 @@ fi
 side = "right"
 percentage = 40
 min = 30
-max = 120
+max = 20
 
 [binds]
 "enter" = "@accept"

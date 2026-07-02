@@ -103,8 +103,10 @@ pub enum Action<A: ActionExt = NullActionExt> {
     SwitchColumn(String),
     /// Toggle visibility of a column
     ToggleColumn(Option<String>),
-    /// Unhide a column, or all columns if None
-    ShowColumn(Option<String>),
+    /// Push the active column onto the hidden-columns set.
+    HideColumn,
+    /// Pop the most recently hidden column back to visible.
+    UnhideColumn,
     /// Widen a column by 1.
     /// The index is 0-based into the non-hidden columns.
     /// None acts on the active column.
@@ -376,7 +378,7 @@ enum_from_str_display!(
 
     PreviewHalfPageUp, PreviewHalfPageDown,
 
-    ForwardChar,BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord, DeleteLineStart, DeleteLineEnd, ClearQuery = Cancel, Redraw, NextColumn, PrevColumn, PrintKey;
+    ForwardChar,BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord, DeleteLineStart, DeleteLineEnd, ClearQuery = Cancel, Redraw, NextColumn, PrevColumn, HideColumn, UnhideColumn, PrintKey;
 
     tuples:
     Execute, ExecuteAsync, ExecuteThen, ExecuteSilent, Become, BecomeSilent, Preview,
@@ -387,7 +389,7 @@ enum_from_str_display!(
     (Up, 1), (Down, 1), (PreviewUp, 1), (PreviewDown, 1), (Quit, 1), (Overlay, 0), (Print, String::new()), (Help, String::new()), (Reload, String::new()), (PreviewScroll, 1), (PreviewHScroll, 1), (HScroll, 0), (VScroll, 0), (ExpandPreview, 1), (ShrinkPreview, 1);
 
     options:
-    SwitchPreview, SetPreview, ToggleColumn, ShowColumn, ToggleExitFirst, ExpandColumn, ShrinkColumn
+    SwitchPreview, SetPreview, ToggleColumn, ToggleExitFirst, ExpandColumn, ShrinkColumn
 );
 
 macro_rules! enum_from_str_display {

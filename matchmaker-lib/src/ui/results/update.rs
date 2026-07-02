@@ -17,16 +17,11 @@ impl ResultsUI {
         // Step 0: Refresh the nucleo snapshot and status before rendering
         let (_snapshot, status) = new_snapshot(&mut worker.nucleo);
 
-        // Resync best widths: clear
-        if status.changed && !status.running {
-            self.recompute_widths();
-        }
+        log::trace!("{}", self.matched_count);
 
         let mc = status.matched_count;
         // safely covers all invalidation events. We still keep some savings when matcher is running by caching rows.
-        let dirty = (self.matched_count != mc || status.changed)
-            || self.row_cache[0].is_empty()
-            || self.width_limits.is_empty(); // this last one is cleared in update_dimensions as that doesn't change rows, querychange is more likely to change
+        let dirty = self.row_cache[0].is_empty() || self.width_limits.is_empty(); // this last one is cleared in update_dimensions as that doesn't change rows, querychange is more likely to change
         self.matched_count = mc;
         self.status = status;
 
@@ -108,9 +103,9 @@ impl ResultsUI {
         let mut after_rows: Vec<Row<'static>> = Vec::new();
         let mut after_row_data: Vec<(u32, u16)> = Vec::new();
         let mut after_height = 0u16;
+        let mut after_idx = idx + 1;
 
         if scroll_padding > 0 {
-            let mut idx = idx + 1;
             while after_height < scroll_padding && idx + self.bottom < mc {
                 // Add separator if needed
                 if let Some(cells) = self.hr() {
@@ -121,7 +116,7 @@ impl ResultsUI {
 
                 // Add item
                 if let Some(h) = self.get_row(
-                    self.bottom + idx,
+                    self.bottom + after_idx,
                     matcher,
                     worker,
                     selector,
@@ -136,7 +131,7 @@ impl ResultsUI {
                     break;
                 }
 
-                idx += 1;
+                after_idx += 1;
             }
         }
 
@@ -218,13 +213,20 @@ impl ResultsUI {
             if after_height == scroll_padding && scroll_padding > 0 && !self.width_limits.is_empty()
             {
                 let last_item_idx = after_row_data.last().unwrap().0;
+                let mut removed = false;
+
                 while after_row_data
                     .last()
                     .is_some_and(|(i, _)| *i == last_item_idx)
                 {
+                    removed = true;
                     after_rows.pop();
                     let popped_height = after_row_data.pop().unwrap().1;
                     remaining_height += popped_height;
+                }
+
+                if removed {
+                    after_idx -= 1;
                 }
             } else {
                 // ensure after_row_data ends with maybe_separator
@@ -234,13 +236,8 @@ impl ResultsUI {
                 }
             }
 
-            // Compute after_idx
-            idx = after_row_data
-                .iter()
-                .rev()
-                .find(|(idx, _)| *idx != u32::MAX)
-                .map(|(idx, _)| idx + 1 - self.bottom)
-                .unwrap_or(self.cursor as u32 + 1);
+            // Find the next idx after after_row_data
+            idx = after_idx;
 
             #[cfg(debug_assertions)]
             log::debug!(
@@ -310,18 +307,19 @@ impl ResultsUI {
         if cursor_moved.is_some()
             || self.preferred_widths.is_empty()
             || self.width_limits.is_empty()
+            || self.status.changed
         {
             if self.update_preferred_widths() {
+                #[cfg(debug_assertions)]
+                log::debug!(
+                    "[update_table]: recomputed preferred={:?}, old width_limits={:?} hidden={:?}",
+                    self.preferred_widths,
+                    self.width_limits,
+                    self.hidden_columns
+                );
                 self.width_limits.clear();
             }
         };
-
-        #[cfg(debug_assertions)]
-        log::debug!(
-            "[update_table]: recomputed preferred={:?}, current width_limits={:?}",
-            self.preferred_widths,
-            self.width_limits
-        );
 
         if rows.is_empty() {
             // update rendered table next pass using preferred widths gathered this pass

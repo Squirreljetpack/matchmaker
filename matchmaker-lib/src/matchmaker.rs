@@ -305,7 +305,7 @@ pub struct PickOptions<'a, T: SSS, D, A: ActionExt = NullActionExt> {
     overlay_config: Option<OverlayConfig>,
     previewer: Option<Either<Preview, Previewer>>,
 
-    hidden_columns: Vec<bool>,
+    hidden_columns: Vec<usize>,
 
     // Initializing code, i.e. to setup state.
     initializer: Option<Initializer<T, D>>,
@@ -316,7 +316,7 @@ pub struct PickOptions<'a, T: SSS, D, A: ActionExt = NullActionExt> {
 }
 
 impl<'a, T: SSS, D, A: ActionExt> PickOptions<'a, T, D, A> {
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             matcher: None,
             event_loop: None,
@@ -330,7 +330,7 @@ impl<'a, T: SSS, D, A: ActionExt> PickOptions<'a, T, D, A> {
             overlay_config: None,
             overlays: Vec::new(),
             channel: None,
-            hidden_columns: Vec::new(),
+            hidden_columns: vec![],
             initializer: None,
         }
     }
@@ -377,7 +377,7 @@ impl<'a, T: SSS, D, A: ActionExt> PickOptions<'a, T, D, A> {
         self
     }
 
-    pub fn hidden_columns(mut self, hidden_columns: Vec<bool>) -> Self {
+    pub fn hidden_columns(mut self, hidden_columns: Vec<usize>) -> Self {
         self.hidden_columns = hidden_columns;
         self
     }

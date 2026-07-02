@@ -13,10 +13,10 @@ pub mod message;
 pub mod render;
 pub mod ui;
 // picker
+pub mod collections;
 pub mod nucleo;
 pub mod preview;
-mod selector;
-pub use selector::Selector;
+pub use collections::Selector;
 mod matchmaker;
 pub use matchmaker::*;
 pub mod tui;

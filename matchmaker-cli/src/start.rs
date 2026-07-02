@@ -451,6 +451,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         OddEnds {
             hidden_columns,
             has_error,
+            ranges_fn,
         },
     ) = Matchmaker::new_from_config(render, tui, worker, columns, exit, preprocess);
 
@@ -606,6 +607,8 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         bind_tx,
         render_tx: render_tx.clone(),
         additional_commands: (additional_commands, initial_index),
+        ranges_fn,
+        sort_discriminant: None,
         // output_template,
         // print_handle: print_handle.clone(),
         // output_separator: output_separator.clone(),

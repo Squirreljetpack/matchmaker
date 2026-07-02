@@ -1,6 +1,7 @@
 use super::*;
 use crate::{
     SSS, Selector,
+    collections::HiddenColumns,
     config::AutoscrollSettings,
     nucleo::{Style, Text, Worker, render_item::render_cell},
     ui::ResultsUI,
@@ -73,7 +74,7 @@ pub fn render_row<T: SSS, D>(
     worker: &Worker<T, D>,
 
     width_limits: &[u16],
-    hidden_cols: &[bool],
+    hidden_cols: &HiddenColumns,
     stacked: bool,
     max_height: usize,
 
@@ -102,7 +103,7 @@ pub fn render_row<T: SSS, D>(
     let d = (worker.text_preprocessor)(item.data);
 
     for (i, c) in columns.iter().enumerate() {
-        if hidden_cols.get(i).is_some_and(|x| *x) {
+        if hidden_cols.contains(i) {
             continue;
         }
 
@@ -209,7 +210,7 @@ pub fn render_row<T: SSS, D>(
                 to_static(&cell)
             };
             #[cfg(debug_assertions)]
-            if col_idx == 1 {
+            if col_idx == 0 {
                 log::trace!("new row col: {:?}, limit: {}", &cell, width_limit);
             }
 
@@ -253,7 +254,7 @@ impl ResultsUI {
         let stacked = self.config.stacked_columns;
         let (id, item) = worker.get_nth_indexed_item(idx)?;
 
-        let mut row_widths = vec![0u16; self.v_cols()];
+        let mut row_widths = vec![0u16; self.hidden_columns.visible_count()];
 
         // check cache
         let cached = if id == u32::MAX {
@@ -345,10 +346,7 @@ impl ResultsUI {
         for (i, (col_idx, mut col)) in self
             .hidden_columns
             .iter()
-            .cloned()
-            .enumerate()
-            .filter(|h| !h.1)
-            .map(|h| h.0)
+            .filter_map(|(i, h)| (!h).then_some(i))
             .zip(texts)
             .enumerate()
         {

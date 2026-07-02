@@ -281,12 +281,16 @@ impl State {
                     if picker_ui.results.status.item_count > 0 {
                         self.insert(Event::Synced);
                         self.synced[0] = true;
+                        picker_ui.results.set_dirty();
+                        picker_ui.results.recompute_widths();
                     }
                 } else {
                     // this should be emitted every time input filter changes
                     // note that this will never emit on empty input
                     log::trace!("resynced on iteration {}", self.iteration);
                     self.insert(Event::Resynced);
+                    picker_ui.results.set_dirty();
+                    picker_ui.results.recompute_widths();
                 }
             }
         }

@@ -6,6 +6,7 @@ use ratatui::{
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
+    collections::HiddenColumns,
     config::{HorizontalSeparator, ResultsConfig, RowConnectionStyle},
     nucleo::{Column, Status},
     utils::{
@@ -35,7 +36,7 @@ pub struct ResultsUI {
     // Note that the first width include the indentation.
     widths: Vec<u16>,
     width_limits: Vec<u16>,
-    pub(crate) hidden_columns: Vec<bool>,
+    pub(crate) hidden_columns: HiddenColumns,
     column_name_widths: Vec<u16>,
 
     // used to compute width_limits
@@ -95,11 +96,11 @@ impl ResultsUI {
     pub fn init<T, D>(&mut self, cols: &[Column<T, D>]) {
         // self.preferred_widths.resize(n_cols, 0);
         // self.width_limits.resize(n_cols, 0);
-        self.hidden_columns.resize(cols.len(), false);
+        self.hidden_columns = HiddenColumns::new_with_size(cols.len());
         self.column_name_widths = cols
             .into_iter()
-            .zip(&self.hidden_columns)
-            .filter_map(|(col, flag)| {
+            .zip(self.hidden_columns.mask())
+            .filter_map(|(col, &flag)| {
                 if !flag {
                     Some(col.name.len() as u16)
                 } else {
@@ -109,21 +110,13 @@ impl ResultsUI {
             .collect();
     }
 
-    pub fn hidden_cols(&self) -> &Vec<bool> {
+    pub fn hidden_cols(&self) -> &HiddenColumns {
         &self.hidden_columns
     }
-    pub fn n_cols(&self) -> usize {
-        self.hidden_columns.len()
-    }
-    pub fn v_cols(&self) -> usize {
-        self.hidden_columns.iter().filter(|x| !**x).count()
-    }
 
-    pub fn set_hidden_columns(&mut self, hidden_columns: Vec<bool>) {
-        let len = self.hidden_columns.len().min(hidden_columns.len());
-        if self.hidden_columns[..len] != hidden_columns[..len] {
-            self.hidden_columns[..len].copy_from_slice(&hidden_columns[..len]);
-            self.set_dirty();
+    pub fn set_hidden_columns(&mut self, hidden_columns: impl IntoIterator<Item = usize>) {
+        for i in hidden_columns {
+            self.hidden_columns.push(i);
         }
     }
 

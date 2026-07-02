@@ -44,7 +44,7 @@ impl UI {
         selector: Selector,
         view: Option<Preview>,
         tui: &mut Tui<W>,
-        hidden_columns: Vec<bool>,
+        hidden_columns: impl IntoIterator<Item = usize>,
     ) -> (Self, PickerUI<'a, T, D>, DisplayUI, Option<PreviewUI>) {
         assert!(!worker.columns.is_empty());
 

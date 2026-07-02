@@ -39,14 +39,44 @@ impl ResultsUI {
         }
 
         // 2. Adjust the values in place based on config.min_width and v_max_widths
-        for (i, w) in self.preferred_widths.iter_mut().enumerate() {
-            *w = (*w).max(max_widths[i].min(self.config.min_width))
+        let mut vi = 0;
+
+        for (i, name_w) in self.column_name_widths.iter().enumerate() {
+            if self.hidden_columns[i] {
+                continue;
+            }
+
+            let w = self.preferred_widths[vi];
+
+            self.preferred_widths[vi] = w.max(max_widths[i].min(self.config.min_width).max(
+                if self.config.min_width_from_cols {
+                    *name_w
+                } else {
+                    0
+                },
+            ));
+
+            vi += 1;
         }
 
+        let grew = self
+            .preferred_widths
+            .iter()
+            .zip(&self.widths_buffer)
+            .any(|(old, new)| new > old);
+
+        let shrank = self
+            .preferred_widths
+            .iter()
+            .zip(&self.widths_buffer)
+            .any(|(old, new)| new < old);
+
+        let sum: u16 = self.preferred_widths.iter().sum();
+
+        let condition = sum <= self.width && !(grew && shrank);
+
         // 3.
-        let ret = if self.preferred_widths.is_empty()
-            || self.widths_buffer.iter().filter(|x| **x > 0).count() == 1
-        {
+        if self.preferred_widths.is_empty() || condition {
             self.preferred_widths = std::mem::take(&mut self.widths_buffer);
             true
         } else {
@@ -75,12 +105,11 @@ impl ResultsUI {
                 }
             }
             changed
-        };
-
-        ret
+        }
     }
 
     /// Set self.width_limits using self.preferred_widths.
+    /// Also sets self.widths: the rendered table column widths
     /// no-op: if row_cache[0] or preferred_widths are not populated
     pub(super) fn update_width_limits(&mut self) {
         if self.config.stacked_columns {
@@ -106,6 +135,7 @@ impl ResultsUI {
                 self.width_limits,
             );
         }
+
         if self.width_limits != self.widths_buffer {
             #[cfg(debug_assertions)]
             log::trace!(
@@ -115,6 +145,21 @@ impl ResultsUI {
             );
             self.set_dirty();
             self.width_limits = std::mem::take(&mut self.widths_buffer);
+
+            if self.config.stacked_columns {
+                self.widths = vec![self.width];
+            } else {
+                self.widths = self
+                    .width_limits
+                    .iter()
+                    .cloned()
+                    .filter(|x| *x != 0)
+                    .collect();
+
+                if !self.widths.is_empty() {
+                    self.widths[0] += self.indentation() as u16;
+                }
+            }
         }
     }
 
@@ -142,7 +187,7 @@ impl ResultsUI {
         if self.row_cache[0].is_empty() || self.preferred_widths.is_empty() {
             #[cfg(debug_assertions)]
             log::debug!(
-                "skipped width update: preferred={:?} row_cache=...",
+                "skipped width_limits update: either row cache or preferred={:?} empty",
                 self.preferred_widths
             );
             self.widths_buffer.clear();
@@ -358,6 +403,12 @@ impl ResultsUI {
             .then(|| self.hidden_columns[..idx].iter().filter(|&&h| !h).count())
     }
 
+    pub fn recompute_widths(&mut self) {
+        if self.update_preferred_widths() {
+            self.width_limits.clear();
+        }
+    }
+
     pub fn get_dragged_column_gutter(&self, x: u16) -> Option<usize> {
         let mut pos = 0;
         if self.config.column_spacing.0 == 0 {
@@ -383,14 +434,25 @@ impl ResultsUI {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::ResultsConfig;
+    use crate::{config::ResultsConfig, nucleo::Column};
+
+    fn make_cols(n: usize) -> Vec<Column<(), ()>> {
+        (0..n)
+            .map(|i| {
+                Column::new_boxed(
+                    format!("col{i}"),
+                    Box::new(|_t, _d| ratatui::text::Text::default()),
+                )
+            })
+            .collect()
+    }
 
     #[test]
     fn test_get_dragged_column_gutter() {
         let mut config = ResultsConfig::default();
         config.column_spacing.0 = 2; // gutter spacing of 2
 
-        let mut results = ResultsUI::new(config, 3);
+        let mut results = ResultsUI::new(config, &make_cols(3));
         results.width_limits = vec![10, 20, 30];
 
         // Column 0 ends at 10. Gutter 0 is 10..12.
@@ -416,7 +478,7 @@ mod tests {
     #[test]
     fn test_shrink_idx() {
         let config = ResultsConfig::default();
-        let mut results = ResultsUI::new(config, 4);
+        let mut results = ResultsUI::new(config, &make_cols(4));
         results.hidden_columns = vec![false, true, false, false];
 
         // Columns:
@@ -438,7 +500,7 @@ mod tests {
         config.width_overrides = vec![10, 0, 5]; // Column 0 override 10, Column 2 override 5
         config.min_width = 2;
 
-        let mut results = ResultsUI::new(config, 3);
+        let mut results = ResultsUI::new(config, &make_cols(3));
         results.width = 100;
         results.preferred_widths = vec![8, 12, 6];
         results.row_cache[0] = vec![(0, vec![], vec![8, 12, 6])];

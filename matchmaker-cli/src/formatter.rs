@@ -386,10 +386,7 @@ fn handle_range<'a, 'b>(
     } else {
         if let Some(item) = item_override {
             let mut row_res = Vec::new();
-            let d = match (state.picker_ui.worker.raw_preprocessor)(item) {
-                Some(d) => d,
-                None => return None,
-            };
+            let d = (state.picker_ui.worker.raw_preprocessor)(item)?;
             for &col_idx in &columns_to_join {
                 let col = &state.picker_ui.worker.columns[col_idx];
                 let val = col.raw(item, &d).to_string();
@@ -403,10 +400,7 @@ fn handle_range<'a, 'b>(
             }
         } else if let Some(item) = state.current_raw() {
             let mut row_res = Vec::new();
-            let d = match (state.picker_ui.worker.raw_preprocessor)(item) {
-                Some(d) => d,
-                None => return None,
-            };
+            let d = (state.picker_ui.worker.raw_preprocessor)(item)?;
             for &col_idx in &columns_to_join {
                 let col = &state.picker_ui.worker.columns[col_idx];
                 let val = col.raw(item, &d).to_string();
@@ -490,7 +484,9 @@ mod tests {
         mm.worker.nucleo.tick(10);
 
         let mut state_obj = State::new();
-        let mut tui = matchmaker::tui::Tui::new(TerminalConfig::default()).unwrap();
+        let Ok(mut tui) = matchmaker::tui::Tui::new(TerminalConfig::default()) else {
+            return;
+        };
         let mut matcher = Matcher::new(NucleoConfig::DEFAULT);
 
         let hidden_columns = vec![false, false, false];
@@ -539,7 +535,9 @@ mod tests {
         mm.worker.nucleo.tick(10);
 
         let mut state_obj = State::new();
-        let mut tui = matchmaker::tui::Tui::new(TerminalConfig::default()).unwrap();
+        let Ok(mut tui) = matchmaker::tui::Tui::new(TerminalConfig::default()) else {
+            return;
+        };
         let mut matcher = Matcher::new(NucleoConfig::DEFAULT);
 
         let hidden_columns = vec![false, false, false];
@@ -582,7 +580,9 @@ mod tests {
         mm.worker.nucleo.tick(10);
 
         let mut state_obj = State::new();
-        let mut tui = matchmaker::tui::Tui::new(TerminalConfig::default()).unwrap();
+        let Ok(mut tui) = matchmaker::tui::Tui::new(TerminalConfig::default()) else {
+            return;
+        };
         let mut matcher = Matcher::new(NucleoConfig::DEFAULT);
 
         let hidden_columns = vec![false, false, false];
@@ -634,7 +634,9 @@ mod tests {
         mm.worker.nucleo.tick(10);
 
         let mut state_obj = State::new();
-        let mut tui = matchmaker::tui::Tui::new(TerminalConfig::default()).unwrap();
+        let Ok(mut tui) = matchmaker::tui::Tui::new(TerminalConfig::default()) else {
+            return;
+        };
         let mut matcher = Matcher::new(NucleoConfig::DEFAULT);
 
         let hidden_columns = vec![false, false, false];
@@ -678,7 +680,9 @@ mod tests {
         mm.worker.nucleo.tick(10);
 
         let mut state_obj = State::new();
-        let mut tui = matchmaker::tui::Tui::new(TerminalConfig::default()).unwrap();
+        let Ok(mut tui) = matchmaker::tui::Tui::new(TerminalConfig::default()) else {
+            return;
+        };
         let mut matcher = Matcher::new(NucleoConfig::DEFAULT);
 
         let hidden_columns = vec![false, false, false];

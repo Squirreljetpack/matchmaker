@@ -1,4 +1,9 @@
-use cba::{_ibog, ebog, ibog};
+use cba::{
+    _ibog,
+    bog::{BogOkExt, BogUnwrapExt},
+    broc::CommandExt,
+    ebog, ibog,
+};
 use serde::Deserialize;
 use std::{
     path::{Path, PathBuf},
@@ -9,6 +14,19 @@ const REPO: &str = "Squirreljetpack/matchmaker";
 const BASE_PATH: &str = "matchmaker-cli/assets/presets";
 const BRANCH: &str = "main";
 
+// todo: for base path, recurse into top-level directories
+
+/// Build the GitHub `contents` API URL for a given path within the presets directory.
+/// When `target` is empty, returns the URL for the presets root (no trailing slash),
+/// since `…/presets/?ref=…` returns a 302 and yields an empty body that fails to parse.
+fn build_api_url(target: &str) -> String {
+    if target.is_empty() {
+        format!("https://api.github.com/repos/{REPO}/contents/{BASE_PATH}?ref={BRANCH}")
+    } else {
+        format!("https://api.github.com/repos/{REPO}/contents/{BASE_PATH}/{target}?ref={BRANCH}")
+    }
+}
+
 #[derive(Deserialize, Debug)]
 pub struct GitHubFile {
     pub name: String,
@@ -18,19 +36,27 @@ pub struct GitHubFile {
     pub download_url: Option<String>,
 }
 
+#[derive(Deserialize, Debug)]
+pub struct GitHubError {
+    pub message: String,
+    pub status: String,
+}
+
 #[derive(Deserialize)]
 #[serde(untagged)]
 pub enum GitHubResponse {
     Directory(Vec<GitHubFile>),
     File(GitHubFile),
-    #[allow(unused)]
-    Error(String),
+    Error(GitHubError),
 }
 
-pub fn handle_download(cli: &crate::clap::Cli) {
-    let Some(subfolder) = &cli.download else {
-        return;
-    };
+/// Handle `--download [FOLDER]`. `download` is the value of the flag: an
+/// empty string downloads every preset, a folder path downloads that folder,
+/// and a `.toml` file path downloads (and re-runs with `-o`) a file preset.
+/// This function always exits — it either fetches what the user asked for
+/// or errors out, and never returns to the caller.
+pub fn handle_download(download: &String) -> ! {
+    let subfolder = download;
     let presets_dir = crate::paths::presets_path();
 
     let is_unix = cfg!(target_os = "macos") || cfg!(target_os = "linux");
@@ -71,10 +97,7 @@ pub fn handle_download(cli: &crate::clap::Cli) {
     let mut found = false;
 
     for target in candidates {
-        let api_url = format!(
-            "https://api.github.com/repos/{}/contents/{}/{}?ref={}",
-            REPO, BASE_PATH, target, BRANCH
-        );
+        let api_url = build_api_url(&target);
 
         _ibog!("Checking GitHub for '{}'...", target);
 
@@ -100,7 +123,11 @@ pub fn handle_download(cli: &crate::clap::Cli) {
                 found = true;
                 break;
             }
-            GitHubResponse::Error(_) => continue,
+            GitHubResponse::Error(err) if err.status == "404" => continue,
+            GitHubResponse::Error(err) => {
+                ebog!("GitHub API error: {} ({})", err.message, err.status);
+                exit(1);
+            }
         }
     }
 
@@ -164,9 +191,10 @@ pub fn handle_download(cli: &crate::clap::Cli) {
             };
 
             if let Some(parent) = dest_path.parent()
-                && !cba::bs::create_dir(parent) {
-                    std::process::exit(1)
-                }
+                && !cba::bs::create_dir(parent)
+            {
+                std::process::exit(1)
+            }
 
             ibog!(
                 "Downloading {}...",
@@ -186,12 +214,42 @@ pub fn handle_download(cli: &crate::clap::Cli) {
         }
     }
 
-    if download_count > 0 {
-        ibog!("Successfully downloaded {} file(s).", download_count);
-    } else {
+    if download_count == 0 {
         ebog!("No compatible files found for your platform.");
         exit(1);
     }
+
+    ibog!("Successfully downloaded {} file(s).", download_count);
+
+    // `--download <file.toml>` follows up with mm -o.
+    if subfolder.is_empty() || !subfolder.ends_with(".toml") {
+        exit(0);
+    } else {
+        let file_name = Path::new(subfolder)
+            .file_name()
+            ._ebog("Unexpected: no filename")
+            .to_string_lossy()
+            .into_owned();
+        let local_name = strip_platform_prefix(&file_name).unwrap_or(file_name);
+        let exe = std::env::current_exe().__ebog();
+        Command::new(exe)
+            .with_arg("-o")
+            .with_arg(local_name)
+            ._exec();
+    }
+}
+
+/// Strip a leading platform prefix (`win.`, `macos.`, `linux.`, `unix.`) from
+/// `name`. Returns `None` if the prefix belongs to a different OS family
+/// (e.g. `win.` on linux).
+fn strip_platform_prefix(name: &str) -> Option<String> {
+    const ALL_PREFIXES: &[&str] = &["win.", "macos.", "linux.", "unix."];
+    for p in ALL_PREFIXES {
+        if let Some(rest) = name.strip_prefix(p) {
+            return Some(rest.to_string());
+        }
+    }
+    Some(name.to_string())
 }
 
 pub fn expand_tilde(path: PathBuf) -> PathBuf {
@@ -212,6 +270,7 @@ pub fn expand_tilde(path: PathBuf) -> PathBuf {
     path
 }
 
+#[allow(unused)]
 pub fn guess_clip_cmd() -> Option<(String, String)> {
     #[cfg(target_os = "macos")]
     {
@@ -277,5 +336,40 @@ pub fn guess_editor_cmd() -> &'static str {
     #[cfg(windows)]
     {
         "notepad"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_api_url_empty_target_omits_trailing_slash() {
+        // Regression: `mm --download` (no arg) used to produce
+        // `…/presets/?ref=main`, which the GitHub API answers with a 302 and an
+        // empty body, causing serde_json::from_slice to fail with the generic
+        // "Failed to parse GitHub response." error.
+        let url = build_api_url("");
+        assert!(url.ends_with("?ref=main"), "url was {url}");
+        assert!(
+            !url.contains("/presets/?"),
+            "url must not have an empty path segment: {url}"
+        );
+        assert!(url.contains("/presets?"), "url was {url}");
+    }
+
+    #[test]
+    fn build_api_url_nonempty_target_keeps_slash() {
+        let url = build_api_url("git");
+        assert!(url.ends_with("/presets/git?ref=main"), "url was {url}");
+    }
+
+    #[test]
+    fn build_api_url_nested_target_keeps_slash() {
+        let url = build_api_url("git/grep.toml");
+        assert!(
+            url.ends_with("/presets/git/grep.toml?ref=main"),
+            "url was {url}"
+        );
     }
 }

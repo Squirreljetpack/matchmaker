@@ -57,7 +57,7 @@ names = ["host", "address", "user", "port", { name = "file", hidden = true }]
 
 # --- Preview ---
 [preview]
-show = true
+show = false
 
 [[preview.layout]]
 command = "echo '### Configuration ###\n'; ssh -G {host}"

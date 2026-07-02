@@ -16,14 +16,9 @@ git --paginate log --graph --decorate=short --date=short \
 "--pretty=format:%C(yellow)%h%C(reset) %C(blue)%ad%C(reset) %C(green)%an%C(reset) %s %C(red)%d%C(reset)"
 )'''
 
-
 [results]
 inactive.fg = "DarkGray"
-# inactive.modifier = "DIM"
-inactive.bg = "Black"
-
-style.fg = "White"
-# inactive_current.modifier = "DIM"
+inactive_current.fg = "DarkGray"
 
 [envs]
 DFT_COLOR = "always"

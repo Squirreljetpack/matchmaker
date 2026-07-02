@@ -84,8 +84,8 @@ Two of the collections: `preview.layout` and `columns.names`, are consumed addit
 
 All colors and modifiers come from ratatui:
 
-- https://ratatui.rs/examples/style/colors/
-- https://docs.rs/ratatui/latest/ratatui/style/struct.Modifier.html
+- <https://ratatui.rs/examples/style/colors/>
+- <https://docs.rs/ratatui/latest/ratatui/style/struct.Modifier.html>
 
 ## Available Options
 
@@ -141,13 +141,14 @@ All colors and modifiers come from ratatui:
 
 ### Columns (`columns.`, `c`)
 
-- `s`, `split`: Defines how the input line is divided into columns. This can be `None`, a single `Delimiter` regex, or a list of `Regexes`.
+- `s`, `split`: Defines how the input line is divided into columns. This can be `None`, a single `Delimiter` regex, a list of `Regexes`, or a CSV/TSV token.
   - **No Splitting** (`null`): The entire line is treated as a single column.
   - **Single Regex** (`"regex"`):
     - **No Capture Groups**: The regex is treated as a delimiter. Columns are the segments *between* matches.
     - **Unnamed Capture Groups**: If the regex contains capture groups (e.g., `(\d+) (\w+)`), each group's match becomes a column in order.
     - **Named Capture Groups**: If the regex contains named groups (e.g., `(?P<size>\d+) (?P<name>\w+)`), matches are mapped to columns with matching names defined in `columns.names`.
   - **Multiple Regexes** (`"[re1] [re2].."`): Each regex is searched independently; the match becoming the corresponding column.
+  - **CSV/TSV** (`"csv"` / `"tsv"`): Splits comma/tab separated values following RFC 4180 rules
 - `names`, `n`: List of column names/settings.
   - `name`: (string) Name of the column.
     - Must be alphanumeric.
@@ -293,7 +294,7 @@ Several UI components have a `style` block (or similar, like `prompt_style`):
 
 Most UI components have a `border` block:
 
-- `type`: See https://docs.rs/matetui/latest/matetui/ratatui/widgets/enum.BorderType.html.
+- `type`: See <https://docs.rs/matetui/latest/matetui/ratatui/widgets/enum.BorderType.html>.
 - `color`: CSS-style colors or named colors (e.g., `blue`, `red`, `#ff0000`).
 - `bg`: Background color of the bordered area.
 - `sides`: Which sides to show (e.g., `TOP | BOTTOM | LEFT | RIGHT`). Empty string for none.

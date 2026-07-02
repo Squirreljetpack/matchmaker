@@ -1,0 +1,18 @@
+[start]
+command = '''
+set -- *.csv
+[ -e "$1" ] || set -- *.tsv
+
+[ -e "$1" ] && cat -- "$1"
+'''
+
+[columns]
+split = "csv"
+
+[header]
+header_lines = 1
+
+[[preview.layout]]
+command = '''
+printf '%s\n' {!}
+'''

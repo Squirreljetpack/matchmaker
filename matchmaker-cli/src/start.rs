@@ -14,7 +14,7 @@ use crate::{
     formatter::format_cli,
     paths::{last_key_path, presets_path},
     register::MMExt,
-    utils::{expand_tilde, guess_clip_cmd, guess_editor_cmd, guess_pager_cmd},
+    utils::{expand_tilde, guess_editor_cmd, guess_pager_cmd},
 };
 use crate::{config::Config, paths::default_config_path};
 use cba::{
@@ -258,23 +258,23 @@ pub fn process_envs(mut envs: HashMap<String, EnvValue>) -> HashMap<String, Stri
     let mut processed_envs = HashMap::new();
 
     // todo: lowpri: should we provision this what is the cost of setting more env vars
-    if envs.get("CLIPcmd").is_none() {
-        if let Some(v) = std::env::var("CLIPcmd").ok()
-            && !v.is_empty()
-        {
-            envs.insert("CLIPcmd".to_string(), EnvValue::new(v));
-        } else {
-            if let Some((clip, paste)) = guess_clip_cmd() {
-                envs.insert("CLIPcmd".to_string(), EnvValue::new(clip));
+    // if envs.get("CLIPcmd").is_none() {
+    //     if let Some(v) = std::env::var("CLIPcmd").ok()
+    //         && !v.is_empty()
+    //     {
+    //         envs.insert("CLIPcmd".to_string(), EnvValue::new(v));
+    //     } else {
+    //         if let Some((clip, paste)) = guess_clip_cmd() {
+    //             envs.insert("CLIPcmd".to_string(), EnvValue::new(clip));
 
-                if envs.get("PASTEcmd").is_none()
-                    && std::env::var("PASTEcmd").ok().is_none_or(|x| x.is_empty())
-                {
-                    envs.insert("PASTEcmd".to_string(), EnvValue::new(paste));
-                }
-            }
-        }
-    }
+    //             if envs.get("PASTEcmd").is_none()
+    //                 && std::env::var("PASTEcmd").ok().is_none_or(|x| x.is_empty())
+    //             {
+    //                 envs.insert("PASTEcmd".to_string(), EnvValue::new(paste));
+    //             }
+    //         }
+    //     }
+    // }
 
     if envs.get("PAGER").is_none() && std::env::var("PAGER").ok().is_none_or(|x| x.is_empty()) {
         let ev = EnvValue::new(guess_pager_cmd());

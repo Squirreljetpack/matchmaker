@@ -23,10 +23,10 @@ use serde::{
 )]
 pub struct StyleSetting {
     #[serde(default)]
-    // #[serde(deserialize_with = "cba::serde::transform::camelcase_normalized")]
+    #[serde(with = "cba::serde::empty_string_as_none")]
     pub fg: Option<Color>,
     #[serde(default)]
-    // #[serde(deserialize_with = "cba::serde::transform::camelcase_normalized")]
+    #[serde(with = "cba::serde::empty_string_as_none")]
     pub bg: Option<Color>,
     pub modifier: Modifier,
 }
@@ -350,6 +350,17 @@ pub enum Split {
     Delimiter(Regex),
     /// A sequence of regexes.
     Regexes(Vec<Regex>),
+    /// Split following RFC 4180 CSV/TSV rules. The argument is `tab`: `true`
+    /// for tab-separated (TSV), `false` for comma-separated (CSV).
+    ///
+    /// Fields may be enclosed in double quotes; delimiters and newlines inside
+    /// a quoted field are treated as literal content, and `""` inside a quoted
+    /// field is an escaped `"`. A `"` that is not at the start of a field is
+    /// treated as a literal character (strict RFC 4180).
+    ///
+    /// The emitted column ranges point to the unquoted field content, i.e.
+    /// surrounding quotes are excluded and `""` is decoded to `"`.
+    CSV(bool),
     /// No splitting.
     #[default]
     None,
@@ -367,6 +378,7 @@ impl PartialEq for Split {
                     .zip(v2.iter())
                     .all(|(r1, r2)| r1.as_str() == r2.as_str())
             }
+            (Split::CSV(b1), Split::CSV(b2)) => b1 == b2,
             (Split::None, Split::None) => true,
             _ => false,
         }
@@ -389,6 +401,8 @@ impl serde::Serialize for Split {
                 }
                 seq.end()
             }
+            Split::CSV(true) => serializer.serialize_str("tsv"),
+            Split::CSV(false) => serializer.serialize_str("csv"),
             Split::None => serializer.serialize_none(),
         }
     }
@@ -412,6 +426,13 @@ impl<'de> Deserialize<'de> for Split {
             where
                 E: de::Error,
             {
+                // Reserved tokens for structured splits. Intercepted before the
+                // regex fallback so they are never compiled as patterns.
+                match value {
+                    "csv" => return Ok(Split::CSV(false)),
+                    "tsv" => return Ok(Split::CSV(true)),
+                    _ => {}
+                }
                 // Try to compile single regex
                 Regex::new(value)
                     .map(Split::Delimiter)

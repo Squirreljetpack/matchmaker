@@ -15,9 +15,10 @@ It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and
 - Most of the familiar actions from [fzf](https://github.com/junegunn/fzf), as well as several new ones[^12].
 - Mouse (location aware) scrolling! Drag to resize! Horizontal scrolling!
 - Grapheme-width correct input wrapping!
-- Nice text wrapping and width sizing.
+- Really good, the best text wrapping and width sizing.
 - Split input lines into multiple columns, that you can individually filter on (`%col query`[^17]), hide, and highlight.[^14]
 - Split input lines by *regex capture groups*.
+- Split input lines by following CSV/TSV rules[^16].
 - Define `Execute/Preview/Print/Accept` actions with [templates](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md) which *safely* inject the current item(s) (yes, columns are supported here too).
 - All the dynamic UI support you could hope for: preview offsets, styled status lines, responsive header tables, wrapped footers, active and inactive column colors, stacked columns, programmable status and header bars, multiple preview layouts[^15]... even overlays! (in the library).
 - Bind keys to multiple actions, bind actions to mouse triggers, bind actions to event triggers, bind keys to rebind keys, bind keys to modify the configuration, bind keys to run a shell script and use its output to execute actions and bind more keys, bind keys to set the header, footer, status, input, bind semantic triggers to actions, bind keys to semantic triggers, bind keys to -- wait nope thats about it.
@@ -40,7 +41,9 @@ On the way:
 
 [^15]: I like this so much i had to mention it twice
 
-[^17]: https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/other.md
+[^16]: See [presets](#presets), run with `mm -o csv`, multi-line values not supported.
+
+[^17]: <https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/other.md>
 
 ## Installation
 
@@ -269,7 +272,7 @@ b.Shift-BackTab=Up b.BackTab=Up b.Tab=Down
 
 Matchmaker aims to achieve feature-parity with fzf (though not necessarily by the same means). If there's any specific feature that you'd like to see, open an issue!
 
-[^51]: More on comparisons: https://github.com/Squirreljetpack/matchmaker/issues/1
+[^51]: More on comparisons: <https://github.com/Squirreljetpack/matchmaker/issues/1>
 
 ## Library
 

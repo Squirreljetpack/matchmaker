@@ -161,7 +161,7 @@ impl<'a, T: SSS, D: 'static> PickerUI<'a, T, D> {
         selector: Selector,
     ) -> Self {
         Self {
-            results: ResultsUI::new(results_config, worker.columns.len()),
+            results: ResultsUI::new(results_config, &worker.columns),
             status: StatusUI::new(status_config),
             query: QueryUI::new(input_config),
             header: DisplayUI::new(header_config),

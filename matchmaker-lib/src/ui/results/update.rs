@@ -16,6 +16,12 @@ impl ResultsUI {
     ) {
         // Step 0: Refresh the nucleo snapshot and status before rendering
         let (_snapshot, status) = new_snapshot(&mut worker.nucleo);
+
+        // Resync best widths: clear
+        if status.changed && !status.running {
+            self.recompute_widths();
+        }
+
         let mc = status.matched_count;
         // safely covers all invalidation events. We still keep some savings when matcher is running by caching rows.
         let dirty = (self.matched_count != mc || status.changed)
@@ -107,7 +113,7 @@ impl ResultsUI {
             let mut idx = idx + 1;
             while after_height < scroll_padding && idx + self.bottom < mc {
                 // Add separator if needed
-                if let Some(cells) = self.hr_cells() {
+                if let Some(cells) = self.hr() {
                     after_rows.push(Row::new(cells).height(1));
                     after_row_data.push((u32::MAX, 1));
                     after_height += 1;
@@ -156,7 +162,7 @@ impl ResultsUI {
                 (remaining_height <= scroll_padding).then_some((remaining_height, !self.reverse()));
 
             // Add separator if needed
-            if let Some(cells) = self.hr_cells() {
+            if let Some(cells) = self.hr() {
                 rows.push(Row::new(cells));
                 self.row_data.push((u32::MAX, 1));
                 before_height += 1;
@@ -222,7 +228,7 @@ impl ResultsUI {
                 }
             } else {
                 // ensure after_row_data ends with maybe_separator
-                if let Some(cells) = self.hr_cells() {
+                if let Some(cells) = self.hr() {
                     rows.push(Row::new(cells).height(1));
                     self.row_data.push((u32::MAX, 1));
                 }
@@ -276,7 +282,7 @@ impl ResultsUI {
                 // Add separator if needed and we have more items
                 if remaining_height > 0
                     && idx + 1 < mc
-                    && let Some(cells) = self.hr_cells()
+                    && let Some(cells) = self.hr()
                 {
                     rows.push(Row::new(cells).height(1));
                     self.row_data.push((u32::MAX, 1));
@@ -301,13 +307,13 @@ impl ResultsUI {
         // width limits yet (first pass after a resize). Returns `true` if
         // the new preferred widths differ from the current ones, in which
         // case the width limits need to be recomputed.
-        let preferred_widths_changed = if cursor_moved.is_some()
+        if cursor_moved.is_some()
             || self.preferred_widths.is_empty()
             || self.width_limits.is_empty()
         {
-            self.update_preferred_widths()
-        } else {
-            false
+            if self.update_preferred_widths() {
+                self.width_limits.clear();
+            }
         };
 
         #[cfg(debug_assertions)]
@@ -335,26 +341,6 @@ impl ResultsUI {
         }
 
         // Section 8: Final Table layout construction.
-        // Update self.widths to new_width_limits, incrementing the first nonzero column
-        // with the indentation, and build the `Table` widget.
-        if !self.config.stacked_columns {
-            self.widths = self
-                .width_limits
-                .iter()
-                .cloned()
-                .filter(|x| *x != 0)
-                .collect();
-            if !self.widths.is_empty() {
-                self.widths[0] += self.indentation() as u16;
-            }
-        } else {
-            self.widths = vec![self.width];
-        }
-
-        if preferred_widths_changed {
-            self.width_limits.clear();
-        }
-
         let mut table = Table::new(final_rows, self.widths.clone())
             .column_spacing(self.config.column_spacing.0);
 

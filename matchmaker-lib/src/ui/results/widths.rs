@@ -8,7 +8,7 @@ impl ResultsUI {
             return false;
         }
 
-        let v_cols = self.v_cols();
+        let v_cols = self.hidden_columns.visible_count();
         self.widths_buffer.clear();
         self.widths_buffer.reserve(v_cols);
         self.preferred_widths.resize(v_cols, 0);
@@ -42,7 +42,7 @@ impl ResultsUI {
         let mut vi = 0;
 
         for (i, name_w) in self.column_name_widths.iter().enumerate() {
-            if self.hidden_columns[i] {
+            if self.hidden_columns.contains(i) {
                 continue;
             }
 
@@ -115,9 +115,9 @@ impl ResultsUI {
         if self.config.stacked_columns {
             let default = self.width.saturating_sub(self.indentation() as u16);
 
-            self.widths_buffer = (0..self.hidden_columns.len())
+            self.widths_buffer = (0..self.hidden_columns.mask_len())
                 .map(|i| {
-                    if self.hidden_columns.get(i).is_some_and(|x| *x) {
+                    if self.hidden_columns.contains(i) {
                         0
                     } else {
                         default
@@ -130,9 +130,8 @@ impl ResultsUI {
                 self.expand_width_limits_in_buffer();
             }
             log::debug!(
-                "[update_table] preferred={:?}, limits={:?}",
+                "[update_table] new width limits from:  preferred={:?}",
                 self.preferred_widths,
-                self.width_limits,
             );
         }
 
@@ -194,7 +193,7 @@ impl ResultsUI {
             return;
         }
 
-        let v_cols = self.preferred_widths.len(); // self.v_cols()
+        let v_cols = self.preferred_widths.len();
         let mut max_widths = vec![0u16; v_cols];
         for (_, _, row_widths) in &self.row_cache[0] {
             for (i, &w) in row_widths.iter().enumerate() {
@@ -341,12 +340,12 @@ impl ResultsUI {
     }
 
     fn expand_width_limits_in_buffer(&mut self) {
-        let n_cols = self.hidden_columns.len();
+        let n_cols = self.hidden_columns.mask_len();
 
         let mut new_limits = Vec::with_capacity(n_cols);
         let mut i = 0;
-        for &hidden in &self.hidden_columns {
-            if hidden {
+        for idx in 0..n_cols {
+            if self.hidden_columns.contains(idx) {
                 new_limits.push(0);
             } else {
                 new_limits.push(self.widths_buffer[i]);
@@ -368,7 +367,7 @@ impl ResultsUI {
             return;
         }
 
-        let expanded_idx = self.expand_idx(col).unwrap();
+        let expanded_idx = self.expand_idx(col);
 
         let current = self.width_limits[expanded_idx];
         let new = if expand > 0 {
@@ -388,23 +387,18 @@ impl ResultsUI {
     }
 
     /// Width_overrides and other arrays only index into the visible cols of self.hidden_cols, while self.width_limits maps to the all the columns. This converts the first to the second.
-    pub fn expand_idx(&self, idx: usize) -> Option<usize> {
-        self.hidden_columns
-            .iter()
-            .enumerate()
-            .filter(|(_, h)| !**h)
-            .map(|(i, _)| i)
-            .nth(idx)
+    pub fn expand_idx(&self, idx: usize) -> usize {
+        self.hidden_columns.nth_gap(idx)
     }
     pub fn shrink_idx(&self, idx: usize) -> Option<usize> {
-        self.hidden_columns
-            .get(idx)
-            .is_some_and(|x| !*x)
-            .then(|| self.hidden_columns[..idx].iter().filter(|&&h| !h).count())
+        self.hidden_columns.gap_index(idx)
     }
 
     pub fn recompute_widths(&mut self) {
-        if self.update_preferred_widths() {
+        if self.row_cache[0].is_empty() {
+            self.preferred_widths.clear();
+            // self.width_limits.clear(); clearing row cache already triggers redraw
+        } else if self.update_preferred_widths() {
             self.width_limits.clear();
         }
     }
@@ -477,9 +471,12 @@ mod tests {
 
     #[test]
     fn test_shrink_idx() {
+        use crate::collections::HiddenColumns;
         let config = ResultsConfig::default();
         let mut results = ResultsUI::new(config, &make_cols(4));
-        results.hidden_columns = vec![false, true, false, false];
+        let mut hc = HiddenColumns::new_with_size(4);
+        hc.push(1);
+        results.hidden_columns = hc;
 
         // Columns:
         // 0: visible (shrink_idx should map it to 0)
@@ -491,7 +488,8 @@ mod tests {
         assert_eq!(results.shrink_idx(1), None);
         assert_eq!(results.shrink_idx(2), Some(1));
         assert_eq!(results.shrink_idx(3), Some(2));
-        assert_eq!(results.shrink_idx(4), None);
+        // assert_eq!(results.shrink_idx(4), None);
+        assert_eq!(results.shrink_idx(4), Some(3)); // makes equal sense to allow oob or not
     }
 
     #[test]

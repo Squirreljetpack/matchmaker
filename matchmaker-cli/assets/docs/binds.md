@@ -214,9 +214,21 @@ Actions are the operations performed when a trigger is activated.
 | `PrevColumn`        | Move focus to the previous column.                                        |
 | `SwitchColumn(col)` | Focus column specified by name or index.                                  |
 | `ToggleColumn(col)` | Toggle visibility of the specified column.                                |
-| `ShowColumn(col)`   | Ensure the specified column is visible.                                   |
+| `HideColumn(col)`   | Hide the specified column (or the active column if `None`).               |
+| `UnhideColumn`      | Unhide the most recently hidden column.                                   |
 | `ExpandColumn(n)`   | Widen the n-th non-hidden column by 1; `None` widens the active column.   |
 | `ShrinkColumn(n)`   | Narrow the n-th non-hidden column by 1; `None` narrows the active column. |
+
+### Sorting
+
+Sort the results by one of the columns in the active row.
+
+| Action                   | Description                                                                                                                                  |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SortAscending(n)`       | Sort ascending by the active or given column.                       |
+| `SortDescending(n)`      | Same as `SortAscending` but in descending order.                    |
+| `SortNumericAscending(n)`| Same as `SortAscending` but parses column as a number.              |
+| `SortNumericDescending(n)` | Same as `SortNumericAscending` but in descending order.           |
 
 ### Input & Search
 

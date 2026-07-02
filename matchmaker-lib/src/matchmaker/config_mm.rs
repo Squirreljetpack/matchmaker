@@ -1,12 +1,12 @@
 use crate::{
+    AcceptHook, Matchmaker,
     config::{
         ColumnsConfig, ExitConfig, PreprocessConfig, RenderConfig, StringOrInt, TerminalConfig,
         WorkerConfig,
     },
-    nucleo::{injector::WorkerInjector, Column, Worker},
+    nucleo::{Column, Worker, injector::WorkerInjector},
     render::{EventHandlers, InterruptHandlers, MMState},
     utils::text::{self, sanitize_string},
-    AcceptHook, Matchmaker,
 };
 
 use ansi_to_tui::IntoText;
@@ -14,9 +14,27 @@ use ratatui::text::Text;
 use std::{borrow::Cow, sync::Arc};
 
 pub struct OddEnds {
-    pub hidden_columns: Vec<bool>,
+    pub hidden_columns: Vec<usize>,
     pub has_error: bool,
+    /// Factory producing per-column range lookups. Given a column index `n`,
+    /// returns a closure that maps an input `&String` to the `(start, end)`
+    /// byte range of its `n`-th segment. The factory mirrors the trim/ansi
+    /// handling of [`build_columns`]'s preprocessors, so the returned ranges
+    /// align with the bytes a column would render.
+    pub ranges_fn: RangesFactory<String>,
 }
+
+/// A closure that, given an input string, returns the extracted substring
+/// for one of its column segments. Returns `Cow::Borrowed` when the segment
+/// can be obtained directly from the input (no ANSI stripping required) and
+/// `Cow::Owned` when the preprocessor had to materialize a plain copy
+/// (e.g. after stripping ANSI escapes).
+pub type RangesFn<T> = Arc<dyn for<'a> Fn(&'a T) -> Cow<'a, str> + Send + Sync>;
+
+/// A factory: given a column index `n`, returns a [`RangesFn`] for that
+/// column. Cloning the `Arc` is cheap; calling with a new `n` produces a
+/// fresh per-column lookup closure.
+pub type RangesFactory<T> = Arc<dyn Fn(usize) -> RangesFn<T> + Send + Sync>;
 
 pub type ConfigMatchmaker = Matchmaker<String, String, ConfigPreprocessedData>;
 
@@ -35,10 +53,16 @@ impl ConfigMatchmaker {
         let mut has_error = false;
 
         let cc = columns_config;
-        let hidden_columns = cc.names.iter().map(|x| x.hidden).collect();
+        let hidden_columns = cc
+            .names
+            .iter()
+            .enumerate()
+            .filter_map(|(i, x)| x.hidden.then_some(i))
+            .collect();
 
         // Build columns (also builds and truncates column_names internally).
-        let (columns, raw_preprocessor, text_preprocessor) = build_columns(&cc, preprocess_config);
+        let (columns, raw_preprocessor, text_preprocessor, ranges_fn) =
+            build_columns(&cc, preprocess_config);
 
         // Resolve default column from the names attached to the built columns.
         let default_index = default_column(&cc, &columns);
@@ -83,6 +107,7 @@ impl ConfigMatchmaker {
         let misc = OddEnds {
             hidden_columns,
             has_error,
+            ranges_fn,
         };
 
         (new, injector, misc)
@@ -101,9 +126,11 @@ pub type ConfigInjector = WorkerInjector<String, ConfigPreprocessedData>;
 /// unnamed capture groups, and for `Split::Regexes`, the built names are
 /// truncated to the number of capture groups / regexes respectively.
 ///
-/// Returns `(columns, raw_preprocessor, text_preprocessor)`. The default column
-/// is *not* resolved here — call [`default_column`] afterwards with the
-/// returned columns.
+/// Returns `(columns, raw_preprocessor, text_preprocessor, ranges_fn)`. The
+/// default column is *not* resolved here — call [`default_column`] afterwards
+/// with the returned columns. `ranges_fn` is a factory producing per-column
+/// range lookups (see [`RangesFactory`]) and mirrors the `trim`/`ansi`
+/// behavior of the other preprocessors.
 pub fn build_columns(
     cc: &ColumnsConfig,
     PreprocessConfig {
@@ -116,6 +143,7 @@ pub fn build_columns(
     Vec<Column<String, ConfigPreprocessedData>>,
     Arc<dyn Fn(&String) -> Option<ConfigPreprocessedData> + Send + Sync>,
     Arc<dyn Fn(&String) -> ConfigPreprocessedData + Send + Sync>,
+    RangesFactory<String>,
 ) {
     use crate::config::Split;
     use regex::Regex;
@@ -378,6 +406,7 @@ pub fn build_columns(
 
     // Build text preprocessor (returns parsed text if ANSI enabled)
     let text_preprocessor: Arc<dyn Fn(&String) -> ConfigPreprocessedData + Send + Sync> = {
+        let split_fn = split_fn.clone();
         Arc::new(move |item: &String| {
             let s = if trim {
                 item.trim().to_string()
@@ -402,6 +431,53 @@ pub fn build_columns(
                 let ranges = split_fn(&s);
                 (Err(s), ranges)
             }
+        })
+    };
+
+    // Build the per-column range-lookup factory. Given a column index `n`,
+    // returns a closure that maps an input `&String` to the extracted
+    // substring of its `n`-th segment. The trim/ansi handling mirrors
+    // `text_preprocessor` so the returned substring matches what a column
+    // would render. We return the substring directly (as `Cow<'_, str>`)
+    // rather than byte ranges, because when ANSI is enabled the ranges
+    // index into a plain post-strip string and would not be usable to
+    // slice the original `&String`.
+    //
+    // The inner closure is built via a helper function so the HRTB lifetime
+    // (`for<'a> Fn(&'a String) -> Cow<'a, str>`) is propagated to the cast.
+    fn make_lookup(
+        split_fn: Arc<dyn Fn(&str) -> Vec<(u32, u32)> + Send + Sync>,
+        n: usize,
+        ansi: bool,
+        trim: bool,
+    ) -> impl for<'a> Fn(&'a String) -> Cow<'a, str> + Send + Sync + 'static {
+        move |item: &String| {
+            let s: &str = if trim { item.trim() } else { item.as_str() };
+            if ansi {
+                let plain = s
+                    .as_bytes()
+                    .into_text()
+                    .map(|text| text.to_string())
+                    .unwrap_or_else(|_| s.to_string());
+                let ranges = split_fn(&plain);
+                let (start, end) = ranges.get(n).copied().unwrap_or((0, 0));
+                let start = start.min(plain.len() as u32) as usize;
+                let end = end.min(plain.len() as u32) as usize;
+                Cow::Owned(plain[start..end].to_string())
+            } else {
+                let ranges = split_fn(s);
+                let (start, end) = ranges.get(n).copied().unwrap_or((0, 0));
+                let start = start.min(s.len() as u32) as usize;
+                let end = end.min(s.len() as u32) as usize;
+                Cow::Borrowed(&s[start..end])
+            }
+        }
+    }
+
+    let ranges_fn: RangesFactory<String> = {
+        let split_fn = split_fn.clone();
+        Arc::new(move |n: usize| -> RangesFn<String> {
+            Arc::new(make_lookup(split_fn.clone(), n, ansi, trim))
         })
     };
 
@@ -451,7 +527,7 @@ pub fn build_columns(
         })
         .collect();
 
-    (columns, raw_preprocessor, text_preprocessor)
+    (columns, raw_preprocessor, text_preprocessor, ranges_fn)
 }
 
 /// Resolve the default column index from `cc.default`, looking up the name in
@@ -506,7 +582,7 @@ mod tests {
             require_column: None,
             sanitize: true,
         };
-        let (_columns, raw_preprocessor, text_preprocessor) = build_columns(&test_cc(), options);
+        let (_columns, raw_preprocessor, text_preprocessor, _) = build_columns(&test_cc(), options);
 
         // Input with a tab character, carriage return, and normal characters
         let input = "hello\tworld\r".to_string();
@@ -525,7 +601,7 @@ mod tests {
             require_column: None,
             sanitize: true,
         };
-        let (_, raw_preprocessor_no_ansi, _) = build_columns(&test_cc(), options_no_ansi_raw);
+        let (_, raw_preprocessor_no_ansi, _, _) = build_columns(&test_cc(), options_no_ansi_raw);
         let raw_res_no_ansi = raw_preprocessor_no_ansi(&input).unwrap();
         match &raw_res_no_ansi.0 {
             Err(s) => assert_eq!(s, &input),
@@ -552,7 +628,7 @@ mod tests {
             require_column: None,
             sanitize: true,
         };
-        let (_, _, text_preprocessor_no_ansi) = build_columns(&test_cc(), options_no_ansi);
+        let (_, _, text_preprocessor_no_ansi, _) = build_columns(&test_cc(), options_no_ansi);
         let text_res_no_ansi = text_preprocessor_no_ansi(&input);
         match &text_res_no_ansi.0 {
             Err(s) => {
@@ -585,7 +661,7 @@ mod tests {
             require_column: None,
             sanitize: false,
         };
-        let (_columns, _raw_pp, text_pp) = build_columns(&csv_cc(tab), options);
+        let (_columns, _raw_pp, text_pp, _) = build_columns(&csv_cc(tab), options);
         let (text_res, ranges) = text_pp(&input.to_string());
         let plain = match text_res {
             Err(s) => s,
@@ -704,7 +780,7 @@ mod tests {
                 options: Default::default(),
             },
         ];
-        let (_columns, _raw_pp, text_pp) = build_columns(&cc, options);
+        let (_columns, _raw_pp, text_pp, _) = build_columns(&cc, options);
 
         let (text_res, ranges) = text_pp(&"1,2,3,4,5".to_string());
         let s = match text_res {
@@ -741,5 +817,89 @@ mod tests {
             let parsed: Wrap = toml::from_str(&serialized).unwrap();
             assert_eq!(parsed.split, original);
         }
+    }
+
+    // ---- ranges_fn tests --------------------------------------------------
+
+    /// Build a `ColumnsConfig` with a CSV split and three named columns.
+    fn three_col_csv_cc() -> ColumnsConfig {
+        use crate::config::ColumnSetting;
+        let mut cc = ColumnsConfig::default();
+        cc.split = Split::CSV(false);
+        cc.names = vec![
+            ColumnSetting {
+                name: "a".to_string().into(),
+                ignore: false,
+                hidden: false,
+                options: Default::default(),
+            },
+            ColumnSetting {
+                name: "b".to_string().into(),
+                ignore: false,
+                hidden: false,
+                options: Default::default(),
+            },
+            ColumnSetting {
+                name: "c".to_string().into(),
+                ignore: false,
+                hidden: false,
+                options: Default::default(),
+            },
+        ];
+        cc
+    }
+
+    fn build_ranges(tab: bool, ansi: bool) -> RangesFactory<String> {
+        let options = PreprocessConfig {
+            ansi,
+            trim: false,
+            require_column: None,
+            sanitize: false,
+        };
+        let mut cc = three_col_csv_cc();
+        if tab {
+            cc.split = Split::CSV(true);
+        }
+        let (_, _, _, ranges_fn) = build_columns(&cc, options);
+        ranges_fn
+    }
+
+    #[test]
+    fn test_ranges_fn_csv_basic() {
+        let ranges_fn = build_ranges(false, false);
+        let input = "alpha,beta,gamma".to_string();
+
+        assert_eq!(ranges_fn(0)(&input), "alpha");
+        assert_eq!(ranges_fn(1)(&input), "beta");
+        assert_eq!(ranges_fn(2)(&input), "gamma");
+    }
+
+    #[test]
+    fn test_ranges_fn_out_of_bounds() {
+        let ranges_fn = build_ranges(false, false);
+        let input = "alpha,beta".to_string();
+        // Only 3 columns in this config (a, b, c), but the 3rd field here is
+        // empty. An index past col_count returns an empty substring.
+        assert_eq!(ranges_fn(99)(&input), "");
+    }
+
+    #[test]
+    fn test_ranges_fn_ansi_strips_before_splitting() {
+        // ANSI prefix must be stripped so the returned substring is the plain
+        // text, not the raw escape-encoded bytes.
+        let ranges_fn = build_ranges(false, true);
+        // "alpha" coloured red, then ",", then "beta", then ",", then "gamma".
+        let input = "\x1b[31malpha\x1b[0m,beta,gamma".to_string();
+
+        assert_eq!(ranges_fn(0)(&input), "alpha");
+        assert_eq!(ranges_fn(1)(&input), "beta");
+        assert_eq!(ranges_fn(2)(&input), "gamma");
+    }
+
+    #[test]
+    fn test_ranges_fn_tsv() {
+        let ranges_fn = build_ranges(true, false);
+        let input = "alpha\tbeta\tgamma".to_string();
+        assert_eq!(ranges_fn(1)(&input), "beta");
     }
 }

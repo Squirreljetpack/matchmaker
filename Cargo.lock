@@ -1214,6 +1214,7 @@ dependencies = [
  "ansi-to-tui",
  "anyhow",
  "arc-swap",
+ "atoi",
  "atty",
  "clap",
  "clap_complete",

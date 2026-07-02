@@ -275,11 +275,14 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                             }
 
                             if layout.results.contains(pos) {
-                                let relative_x = pos.x
+                                let relative_x = pos
+                                    .x
                                     .saturating_sub(layout.results.x)
                                     .saturating_sub(picker_ui.results.indentation() as u16);
-                                if let Some(gutter_idx) = picker_ui.results.get_dragged_column_gutter(relative_x)
-                                    && let Some(stored_column) = picker_ui.results.shrink_idx(gutter_idx)
+                                if let Some(gutter_idx) =
+                                    picker_ui.results.get_dragged_column_gutter(relative_x)
+                                    && let Some(stored_column) =
+                                        picker_ui.results.shrink_idx(gutter_idx)
                                 {
                                     state.dragging_column = Some((pos, stored_column));
                                     continue;
@@ -408,9 +411,13 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
 
                             if let Some((start_pos, stored_column)) = state.dragging_column {
                                 if pos.x > start_pos.x {
-                                    picker_ui.results.expand((pos.x - start_pos.x) as i16, stored_column);
+                                    picker_ui
+                                        .results
+                                        .expand((pos.x - start_pos.x) as i16, stored_column);
                                 } else if pos.x < start_pos.x {
-                                    picker_ui.results.expand(-((start_pos.x - pos.x) as i16), stored_column);
+                                    picker_ui
+                                        .results
+                                        .expand(-((start_pos.x - pos.x) as i16), stored_column);
                                 }
                                 state.dragging_column = Some((pos, stored_column));
                             }
@@ -726,23 +733,16 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                             if num_columns > 0 {
                                 query.prepare_column_change();
 
-                                let mut next_idx = match action {
-                                    Action::NextColumn => active_idx + 1,
-                                    Action::PrevColumn => {
-                                        active_idx + num_columns - 1 % num_columns
+                                let next_idx = match action {
+                                    Action::NextColumn => {
+                                        results.hidden_columns.next_gap_wrapping(active_idx + 1)
                                     }
+                                    Action::PrevColumn => results
+                                        .hidden_columns
+                                        .prev_gap_wrapping(active_idx)
+                                        .unwrap_or(active_idx),
                                     _ => unreachable!(),
-                                } % num_columns;
-
-                                while next_idx < results.hidden_columns.len()
-                                    && results.hidden_columns[next_idx]
-                                {
-                                    next_idx = if matches!(action, Action::NextColumn) {
-                                        (next_idx + 1) % num_columns
-                                    } else {
-                                        (next_idx + num_columns - 1) % num_columns
-                                    }
-                                }
+                                };
 
                                 let col_name = &worker.columns[next_idx].name;
                                 query.push_str(&format!("%{} ", col_name));
@@ -758,26 +758,19 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                             };
 
                             if let Some(idx) = index {
-                                if idx >= results.hidden_columns.len() {
-                                    results.hidden_columns.resize(idx + 1, false);
-                                }
-                                results.hidden_columns[idx] = !results.hidden_columns[idx];
+                                let was_hidden = results.hidden_columns.contains(idx);
+                                results.hidden_columns.set(idx, !was_hidden);
                             }
                         }
 
-                        Action::ShowColumn(col_name) => {
-                            if let Some(name) = col_name {
-                                if let Some(idx) =
-                                    worker.columns.iter().position(|c| *c.name == name)
-                                    && idx < results.hidden_columns.len()
-                                {
-                                    results.hidden_columns[idx] = false;
-                                }
-                            } else {
-                                for val in results.hidden_columns.iter_mut() {
-                                    *val = false;
-                                }
-                            }
+                        Action::HideColumn => {
+                            let cursor_byte = query.byte_index(query.cursor() as usize);
+                            let idx = worker.query.active_column_index(cursor_byte);
+                            results.hidden_columns.push(idx);
+                        }
+
+                        Action::UnhideColumn => {
+                            results.hidden_columns.pop();
                         }
                         Action::ExpandColumn(ref col_idx) | Action::ShrinkColumn(ref col_idx) => {
                             let delta: i16 = if matches!(action, Action::ExpandColumn(_)) {

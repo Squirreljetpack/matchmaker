@@ -354,10 +354,7 @@ fn handle_range<'a, 'b>(
     }
 
     let columns_to_join: Vec<usize> = (start_idx..end_idx)
-        .filter(|&i| {
-            i >= state.picker_ui.results.hidden_cols().len()
-                || !state.picker_ui.results.hidden_cols()[i]
-        })
+        .filter(|&i| state.picker_ui.results.hidden_cols().contains(i))
         .collect();
 
     if multi {
@@ -489,7 +486,6 @@ mod tests {
         };
         let mut matcher = Matcher::new(NucleoConfig::DEFAULT);
 
-        let hidden_columns = vec![false, false, false];
         let (mut ui, mut picker_ui, mut footer_ui, mut preview_ui) = UI::new(
             mm.render_config,
             &mut matcher,
@@ -497,7 +493,7 @@ mod tests {
             Selector::new(),
             None,
             &mut tui,
-            hidden_columns,
+            vec![],
         );
 
         let (event_tx, _event_rx) = mpsc::unbounded_channel();
@@ -540,7 +536,6 @@ mod tests {
         };
         let mut matcher = Matcher::new(NucleoConfig::DEFAULT);
 
-        let hidden_columns = vec![false, false, false];
         let (mut ui, mut picker_ui, mut footer_ui, mut preview_ui) = UI::new(
             mm.render_config,
             &mut matcher,
@@ -548,7 +543,7 @@ mod tests {
             Selector::new(),
             None,
             &mut tui,
-            hidden_columns,
+            vec![],
         );
 
         let (event_tx, _event_rx) = mpsc::unbounded_channel();
@@ -585,7 +580,6 @@ mod tests {
         };
         let mut matcher = Matcher::new(NucleoConfig::DEFAULT);
 
-        let hidden_columns = vec![false, false, false];
         let (mut ui, mut picker_ui, mut footer_ui, mut preview_ui) = UI::new(
             mm.render_config,
             &mut matcher,
@@ -593,7 +587,7 @@ mod tests {
             Selector::new(),
             None,
             &mut tui,
-            hidden_columns,
+            vec![],
         );
 
         // Select both items
@@ -639,7 +633,6 @@ mod tests {
         };
         let mut matcher = Matcher::new(NucleoConfig::DEFAULT);
 
-        let hidden_columns = vec![false, false, false];
         let (mut ui, mut picker_ui, mut footer_ui, mut preview_ui) = UI::new(
             mm.render_config,
             &mut matcher,
@@ -647,7 +640,7 @@ mod tests {
             Selector::new(),
             None,
             &mut tui,
-            hidden_columns,
+            vec![],
         );
 
         let (event_tx, _event_rx) = mpsc::unbounded_channel();
@@ -685,7 +678,6 @@ mod tests {
         };
         let mut matcher = Matcher::new(NucleoConfig::DEFAULT);
 
-        let hidden_columns = vec![false, false, false];
         let (mut ui, mut picker_ui, mut footer_ui, mut preview_ui) = UI::new(
             mm.render_config,
             &mut matcher,
@@ -693,7 +685,7 @@ mod tests {
             Selector::new(),
             None,
             &mut tui,
-            hidden_columns,
+            vec![],
         );
 
         let (event_tx, _event_rx) = mpsc::unbounded_channel();

@@ -39,11 +39,10 @@ pub struct Cli {
     #[clap(short, conflicts_with("quiet"), action = ArgAction::Count)]
     pub verbose: u8,
 
-    /// Download ALL presets from GitHub. Optionally, downloads a subfolder.
+    /// Download all presets from GitHub. Use `--download=<FOLDER>` to download only a subfolder.
     #[arg(long, value_name = "FOLDER", num_args = 0..=1, default_missing_value = "")]
     pub download: Option<String>,
 
-    // docs
     /// Display documentation
     #[arg(long, short, value_enum)]
     pub doc: Option<Doc>,
@@ -74,7 +73,7 @@ impl Cli {
                 break;
             }
 
-            // Special handling for download since it has an optional value
+            // Special handling for download since it has an optional value that must be joined to it
             if s == "--download" || s.starts_with("--download=") {
                 clap_args.push(arg.clone());
                 continue;

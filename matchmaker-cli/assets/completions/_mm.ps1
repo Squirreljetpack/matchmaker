@@ -24,7 +24,7 @@ Register-ArgumentCompleter -Native -CommandName 'mm' -ScriptBlock {
             [CompletionResult]::new('--config', '--config', [CompletionResultType]::ParameterName, 'config')
             [CompletionResult]::new('-o', '-o', [CompletionResultType]::ParameterName, 'Paths without a toml extension refer to a preset')
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'Paths without a toml extension refer to a preset')
-            [CompletionResult]::new('--download', '--download', [CompletionResultType]::ParameterName, 'Download ALL presets from GitHub. Optionally, downloads a subfolder')
+            [CompletionResult]::new('--download', '--download', [CompletionResultType]::ParameterName, 'Download all presets from GitHub. Use `--download=<FOLDER>` to download only a subfolder')
             [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Display documentation')
             [CompletionResult]::new('--doc', '--doc', [CompletionResultType]::ParameterName, 'Display documentation')
             [CompletionResult]::new('--dump-config', '--dump-config', [CompletionResultType]::ParameterName, 'Write the default configuration to the default location. If piped, writes the current configuration to stdout')

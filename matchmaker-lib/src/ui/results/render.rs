@@ -110,6 +110,9 @@ pub fn render_row<T: SSS, D>(
         let mut t = c.format(item.data, &d);
         let w = t.width();
         width_callback(i, w);
+        if width_limits.get(i) == Some(&0) {
+            continue;
+        }
 
         if stacked {
             // In stacked mode, columns are rendered vertically one after another.
@@ -297,6 +300,8 @@ impl ResultsUI {
                 width_callback,
             );
 
+            debug_row(&texts);
+
             // #[cfg(debug_assertions)]
             // log::debug!("cursor: {texts:?}");
 
@@ -346,7 +351,7 @@ impl ResultsUI {
         for (i, (col_idx, mut col)) in self
             .hidden_columns
             .iter()
-            .filter_map(|(i, h)| (!h).then_some(i))
+            .filter_map(|(i, h)| (!h && self.width_limits[i] > 0).then_some(i))
             .zip(texts)
             .enumerate()
         {

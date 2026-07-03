@@ -18,7 +18,7 @@ prompt = ">"
 content = "test"
 # header_lines = 2
 interactions = [[[0, "test"]], [[1, "test"], [3, "open"], [4, ""]]]
-
+wrap = true
 [results]
 scroll_padding = 2
 

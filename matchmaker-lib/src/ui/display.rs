@@ -13,6 +13,8 @@ use crate::{
     },
 };
 pub type HeaderTable = Vec<Vec<Line<'static>>>;
+pub type ResultWidths = (u16, u16, Vec<u16>);
+
 #[derive(Debug, Default)]
 pub struct DisplayUI {
     width: u16,
@@ -21,6 +23,9 @@ pub struct DisplayUI {
     lines: HeaderTable, // lines from input
     pub show: bool,
     pub config: DisplayConfig,
+    dirty: bool,
+    table: Table<'static>,
+    cached_result_widths: ResultWidths,
 }
 
 impl DisplayUI {
@@ -57,12 +62,24 @@ impl DisplayUI {
         self.text = text;
         self.height = height;
         self.show = self.config.content.is_some() || self.config.header_lines > 0;
+        self.dirty = true;
     }
 
     pub fn update_width(&mut self, width: u16) {
         let border_w = self.config.border.width();
         let new_w = width.saturating_sub(border_w);
         self.width = new_w;
+        self.dirty = true;
+    }
+
+    pub fn wrap(&mut self, wrap: bool) {
+        if self.config.wrap != wrap {
+            self.config.wrap = wrap;
+            self.dirty = true;
+        }
+    }
+    pub fn is_wrap(&self) -> bool {
+        self.config.wrap
     }
 
     pub fn height(&self) -> u16 {
@@ -80,6 +97,7 @@ impl DisplayUI {
         self.text = vec![text.into()];
 
         self.show = true;
+        self.dirty = true;
     }
 
     /// Add a column and show.
@@ -87,6 +105,7 @@ impl DisplayUI {
         self.text.push(text.into());
 
         self.show = true;
+        self.dirty = true;
     }
 
     pub fn clear(&mut self, keep_header: bool) {
@@ -98,6 +117,7 @@ impl DisplayUI {
         }
 
         self.text.clear();
+        self.dirty = true;
     }
 
     /// Whether this is table has just one column
@@ -108,21 +128,26 @@ impl DisplayUI {
     pub fn header_table(&mut self, table: HeaderTable) {
         self.lines = table;
         self.show = true;
+        self.dirty = true;
     }
 
-    // lowpri: how much to be gained by caching texts to not have to always rewrap?
-    pub fn make_display(
-        &mut self,
-        result_indentation: u16,
-        mut widths: Vec<u16>,
-        col_spacing: u16,
-    ) -> Table<'_> {
+    pub fn make_display(&mut self, result_widths: ResultWidths) -> &Table<'static> {
+        if !self.dirty && (self.cached_result_widths == result_widths || result_widths.2.is_empty())
+        {
+            return &self.table;
+        }
+
+        let (result_indentation, col_spacing, widths) = result_widths;
+
+        self.dirty = false;
+
         if self.text.is_empty() && self.lines.is_empty() || widths.is_empty() {
-            return Table::default();
+            self.table = Table::default();
+            return &self.table;
         }
 
         let block = {
-            let b = self.config.border.as_block();
+            let b = self.config.border.as_static_block();
             if self.config.match_indent {
                 let mut padding = self.config.border.padding;
 
@@ -177,8 +202,11 @@ impl DisplayUI {
 
         // add header_line cells
         if !self.lines.is_empty() {
-            // todo: support wrapping on header lines
+            let mut header_height = 0;
+
             rows.extend(self.lines.iter().map(|row| {
+                let mut row_height = 1;
+
                 let cells: Vec<Cell> = row
                     .iter()
                     .cloned()
@@ -187,47 +215,58 @@ impl DisplayUI {
                         if widths.get(i).is_none_or(|x| *x == 0) {
                             return None;
                         }
-                        Some(wrap_line(
+
+                        let wrapped = wrap_line(
                             l,
                             self.config
                                 .wrap
-                                .then_some(widths.get(i).cloned())
+                                .then_some(widths.get(i).copied())
                                 .flatten()
                                 .unwrap_or_default(),
                             &wrapping_indicator(),
-                        ))
+                        );
+
+                        row_height = row_height.max(wrapped.len() as u16);
+
+                        Some(Cell::from(wrapped))
                     })
-                    .map(Cell::from)
                     .collect();
 
-                let mut ret = Row::new(cells);
+                header_height += row_height;
+
+                let mut ret = Row::new(cells).height(row_height);
+
                 if matches!(self.config.row_connection, RowConnectionStyle::Disjoint) {
-                    ret = ret.style(self.config.style)
-                };
+                    ret = ret.style(self.config.style);
+                }
                 ret
             }));
 
-            self.height += self.lines.len() as u16;
+            self.height += header_height;
         }
 
         let widths = if self.is_single_column() && self.lines.iter().all(|x| x.len() == 1) {
             vec![Constraint::Percentage(100)]
         } else {
             // safety to not overflow
-            let surplus = widths.iter().sum::<u16>().saturating_sub(self.width);
-            if let Some(s) = widths.last_mut() {
-                *s = s.saturating_sub(surplus);
-            }
-            widths.into_iter().map(Constraint::Length).collect()
+            // let surplus = widths.iter().sum::<u16>().saturating_sub(self.width);
+            // if let Some(s) = widths.last_mut() {
+            //     *s = s.saturating_sub(surplus);
+            // }
+            widths
+                .into_iter()
+                .filter_map(|x| (x > 0).then_some(Constraint::Length(x)))
+                .collect()
         };
 
-        Table::new(rows, widths)
+        self.table = Table::new(rows, widths)
             .block(block)
             .column_spacing(col_spacing)
             .transform_if(
                 !matches!(self.config.row_connection, RowConnectionStyle::Disjoint),
                 |t| t.style(self.config.style),
-            )
+            );
+        &self.table
     }
 
     /// Draw in the same area as display when self.single() to produce a full width row over the table area

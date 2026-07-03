@@ -142,6 +142,7 @@ abort_empty = true
 # "ctrl-]" = "TogglePreviewWrap",  # requires keyboard enhancement
 # "alt-{" = "ToggleWrap",
 # "alt-}" = "TogglePreviewWrap",
+"ctrl-[" = ["ToggleWrap", "ToggleHeaderWrap"] # requires keyboard enhancement
 
 # Columns
 "ctrl-." = "NextColumn" # requires keyboard enhancement

@@ -6,7 +6,7 @@ use std::{
 use serde::{Deserialize, Serialize, Serializer};
 
 use crate::utils::string::allowed_semantic_char;
-use crate::{utils::serde::StringOrVec, SSS};
+use crate::{SSS, utils::serde::StringOrVec};
 
 /// Bindable actions
 /// # Additional
@@ -31,6 +31,7 @@ pub enum Action<A: ActionExt = NullActionExt> {
     // Results
     /// Toggle wrap
     ToggleWrap,
+    ToggleHeaderWrap,
 
     // Results Navigation
     /// Move selection index up
@@ -374,7 +375,7 @@ enum_from_str_display!(
 
     HalfPageDown, HalfPageUp,
 
-    ToggleWrap, TogglePreviewWrap, NextPreview, PrevPreview, PreviewJump,
+    ToggleWrap, TogglePreviewWrap, ToggleHeaderWrap, NextPreview, PrevPreview, PreviewJump,
 
     PreviewHalfPageUp, PreviewHalfPageDown,
 

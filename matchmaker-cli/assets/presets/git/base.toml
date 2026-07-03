@@ -19,6 +19,7 @@ git --paginate log --graph --decorate=short --date=short \
 [results]
 inactive.fg = "DarkGray"
 inactive_current.fg = "DarkGray"
+style.fg = "Reset"
 
 [envs]
 DFT_COLOR = "always"

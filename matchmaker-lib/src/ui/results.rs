@@ -35,6 +35,8 @@ pub struct ResultsUI {
     // actual column widths.
     // Note that the first width include the indentation.
     widths: Vec<u16>,
+
+    // either empty or same len as hidden_columns
     width_limits: Vec<u16>,
     pub(crate) hidden_columns: HiddenColumns,
     column_name_widths: Vec<u16>,
@@ -305,8 +307,7 @@ impl ResultsUI {
     }
 
     pub fn column_spacing_width(&self) -> u16 {
-        let pos = self.widths.iter().rposition(|&x| x != 0);
-        self.config.column_spacing.0 * (pos.unwrap_or_default() as u16)
+        self.config.column_spacing.0 * (self.widths.len().saturating_sub(1) as u16)
     }
 
     pub fn table_width(&self) -> u16 {

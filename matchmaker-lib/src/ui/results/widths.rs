@@ -46,12 +46,15 @@ impl ResultsUI {
                 continue;
             }
 
-            let min_candidate = if self.config.min_width_from_cols && max_widths[i] > 0 {
-                *name_w
-            } else {
-                0
-            };
-            let lower = max_widths[i].clamp(min_candidate, self.config.min_width);
+            let mut lower = max_widths[i];
+            if lower > 0 {
+                lower = lower.max(if self.config.min_width_from_cols {
+                    *name_w
+                } else {
+                    self.config.min_width
+                })
+            }
+
             self.preferred_widths[vi] = self.preferred_widths[vi].max(lower);
 
             vi += 1;
@@ -128,14 +131,14 @@ impl ResultsUI {
                 return;
             }
             self.expand_width_limits_in_buffer();
-            log::debug!(
+
+            log::trace!(
                 "[update_table] new width limits from:  preferred={:?}",
                 self.preferred_widths,
             );
         }
 
         if self.width_limits != self.widths_buffer {
-            #[cfg(debug_assertions)]
             log::trace!(
                 "limits changed: {:?} -> {:?}",
                 self.width_limits,
@@ -201,14 +204,20 @@ impl ResultsUI {
                 }
             }
         }
+
         #[cfg(debug_assertions)]
         log::debug!(
             "max_widths={max_widths:?}, preferred={:?}",
             self.preferred_widths
         );
 
-        // statistics are available iff max_widths is populated
-        if max_widths.iter().all(|x| *x == 0) {
+        // Identify only the columns that have a preferred width > 0
+        let active_cols: Vec<usize> = (0..v_cols)
+            .filter(|&i| self.preferred_widths[i] > 0)
+            .collect();
+
+        // statistics are available iff max_widths is populated (which mirrors active_cols)
+        if active_cols.is_empty() {
             self.widths_buffer.clear();
             return;
         }
@@ -218,16 +227,21 @@ impl ResultsUI {
         // Prepare width buffers
         let overrides = &mut self.config.width_overrides;
         overrides.resize(v_cols, 0); // it should already be
+
+        // We clear and resize to ensure any inactive columns are initialized to 0
+        self.widths_buffer.clear();
         self.widths_buffer.resize(v_cols, 0);
 
         // Step 2: Validate width overrides fit within available space
         // Constraint: sum(overrides) + count(unoverridden) * min_width <= available_width
         // If violated, drop overrides from right-to-left until satisfied
-        let mut current_override_sum: u16 = overrides.iter().sum();
-        let mut unoverridden_count = overrides.iter().filter(|&&w| w == 0).count() as u16;
+        let mut current_override_sum: u16 = active_cols.iter().map(|&i| overrides[i]).sum();
+        let mut unoverridden_count =
+            active_cols.iter().filter(|&&i| overrides[i] == 0).count() as u16;
 
         while current_override_sum + unoverridden_count * self.config.min_width > available_width {
-            let Some(i) = overrides.iter().rposition(|&w| w > 0) else {
+            // Find the rightmost active column with an override
+            let Some(&i) = active_cols.iter().rev().find(|&&i| overrides[i] > 0) else {
                 break;
             };
 
@@ -237,22 +251,25 @@ impl ResultsUI {
         }
 
         // Step 3: Fallback to even distribution if overrides still infeasible
-        // This happens when even minimum widths can't fit for all columns
         if current_override_sum + unoverridden_count * self.config.min_width > available_width {
-            let avg = available_width / v_cols as u16;
-            let rem = available_width % v_cols as u16;
+            let avg = available_width / active_cols.len() as u16;
+            let rem = available_width % active_cols.len() as u16;
 
-            self.widths_buffer.fill(avg);
-            self.widths_buffer[v_cols - 1] += rem;
+            for &i in &active_cols {
+                self.widths_buffer[i] = avg;
+            }
+
+            if let Some(&last_i) = active_cols.last() {
+                self.widths_buffer[last_i] += rem;
+            }
 
             return;
         }
 
         // Step 4: Lock in validated overrides
-        // Apply overrides to their columns and track remaining unassigned width
         let mut remaining_width = available_width;
         let mut unassigned_cols = vec![];
-        for i in 0..v_cols {
+        for &i in &active_cols {
             if overrides[i] > 0 {
                 self.widths_buffer[i] = overrides[i];
                 remaining_width = remaining_width.saturating_sub(overrides[i]);
@@ -262,8 +279,6 @@ impl ResultsUI {
         }
 
         // Step 5: Iterative preferred-width allocation
-        // Greedily assign preferred widths to columns that fit within the average.
-        // Columns that fit get their ideal width, freeing space for others.
         while !unassigned_cols.is_empty() {
             let avg = remaining_width / unassigned_cols.len() as u16;
             let mut newly_assigned = false;
@@ -286,12 +301,11 @@ impl ResultsUI {
         }
 
         // Step 6: Equal distribution for oversized columns
-        // Columns that wanted more than average are constrained. Divide remaining
-        // space equally among them, with remainder going to the last column.
         if !unassigned_cols.is_empty() {
             let avg = remaining_width / unassigned_cols.len() as u16;
             let rem = remaining_width % unassigned_cols.len() as u16;
             let last_unassigned = *unassigned_cols.last().unwrap();
+
             for &i in &unassigned_cols {
                 self.widths_buffer[i] = avg;
             }
@@ -299,11 +313,11 @@ impl ResultsUI {
         }
 
         // Step 7: Final expansion pass
-        // If we have leftover space, expand columns toward their max_width.
         let current_sum: u16 = self.widths_buffer.iter().sum();
         if current_sum < available_width {
-            let mut gaps: Vec<(usize, u16)> = (0..v_cols)
-                .filter_map(|i| {
+            let mut gaps: Vec<(usize, u16)> = active_cols
+                .iter()
+                .filter_map(|&i| {
                     if overrides[i] > 0 {
                         None
                     } else {
@@ -360,15 +374,15 @@ impl ResultsUI {
     ///
     /// `col` indexes into `self.config.width_overrides`, which is sized to
     /// the number of non-hidden columns (i.e. [`Self::v_cols`]).
-    pub fn expand(&mut self, expand: i16, col: usize) {
-        if self.width_limits.len() <= col {
+    pub fn resize_col(&mut self, expand: i16, col: usize) {
+        let v_idx = self.shrink_idx(col);
+        if self.width_limits.len() <= col || v_idx.is_none() {
             log::warn!("Could not resize due to uninitialized width_limits, please retry");
             return;
         }
+        let v_idx = v_idx.unwrap();
 
-        let expanded_idx = self.expand_idx(col);
-
-        let current = self.width_limits[expanded_idx];
+        let current = self.width_limits[col];
         let new = if expand > 0 {
             current
                 .saturating_add(expand.unsigned_abs())
@@ -376,12 +390,13 @@ impl ResultsUI {
         } else {
             current.saturating_sub(expand.unsigned_abs())
         };
+
         log::trace!(
-            "Resizing {col} -> {expanded_idx}, current overrides: {:?}, new: {new:?}",
+            "Resizing {v_idx} -> {col}, current overrides: {:?}, new: {new:?}",
             self.config.width_overrides
         );
 
-        self.config.width_overrides[col] = new as u16;
+        self.config.width_overrides[v_idx] = new as u16;
         self.width_limits.clear();
     }
 

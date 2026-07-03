@@ -279,12 +279,10 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                                     .x
                                     .saturating_sub(layout.results.x)
                                     .saturating_sub(picker_ui.results.indentation() as u16);
-                                if let Some(gutter_idx) =
+                                if let Some(idx) =
                                     picker_ui.results.get_dragged_column_gutter(relative_x)
-                                    && let Some(stored_column) =
-                                        picker_ui.results.shrink_idx(gutter_idx)
                                 {
-                                    state.dragging_column = Some((pos, stored_column));
+                                    state.dragging_column = Some((pos, idx));
                                     continue;
                                 }
 
@@ -413,11 +411,11 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                                 if pos.x > start_pos.x {
                                     picker_ui
                                         .results
-                                        .expand((pos.x - start_pos.x) as i16, stored_column);
+                                        .resize_col((pos.x - start_pos.x) as i16, stored_column);
                                 } else if pos.x < start_pos.x {
                                     picker_ui
                                         .results
-                                        .expand(-((start_pos.x - pos.x) as i16), stored_column);
+                                        .resize_col(-((start_pos.x - pos.x) as i16), stored_column);
                                 }
                                 state.dragging_column = Some((pos, stored_column));
                             }
@@ -502,6 +500,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                         // Results
                         Action::ToggleWrap => {
                             results.wrap(!results.is_wrap());
+                        }
+                        Action::ToggleHeaderWrap => {
+                            picker_ui.header.wrap(!picker_ui.header.is_wrap());
                         }
                         Action::Up(x) | Action::Down(x) => {
                             let next = matches!(action, Action::Down(_)) ^ results.reverse();
@@ -804,7 +805,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                             };
 
                             if let Some(v) = v_idx {
-                                results.expand(delta, v);
+                                results.resize_col(delta, v);
                             }
                         }
 
@@ -1225,11 +1226,11 @@ fn render_display(frame: &mut Frame, area: Rect, ui: &mut DisplayUI, results_ui:
     }
     let widths = results_ui.width_limits().to_vec();
 
-    let widget = ui.make_display(
+    let widget = ui.make_display((
         results_ui.indentation() as u16 + results_ui.config.border.left(),
-        widths,
         results_ui.config.column_spacing.0,
-    );
+        widths,
+    ));
 
     frame.render_widget(widget, area);
 

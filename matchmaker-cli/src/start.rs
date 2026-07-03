@@ -441,7 +441,9 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     };
     matchmaker::event::set_mode(&mode);
 
-    let event_loop = EventLoop::with_binds(binds).with_tick_rate(render.tick_rate());
+    let event_loop = EventLoop::with_binds(binds)
+        .with_tick_rate(render.ui.tick_rate)
+        .with_mouse_events(render.ui.mouse_events);
 
     // make matcher and matchmaker with matchmaker-and-matcher-maker
     let copy_trailing_newline = tui.copy_trailing_newline;
@@ -468,12 +470,13 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             as for<'a, 'b, 'c> fn(&'a MMState<'b, 'c>, &'a str, Option<&dyn Fn(String)>) -> String,
     );
     let binds_ptr = event_loop.get_binds_ptr();
-    let previewer = make_previewer(
+    let mut previewer = make_previewer(
         &mut mm,
         previewer,
         cli_formatter.clone(),
         Box::new(move |config| matchmaker::binds::display_help(&binds_ptr.load(), config)),
     );
+    previewer.connect_controller(event_loop.controller());
 
     // ---------------------- build options ---------------------------
 

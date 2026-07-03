@@ -14,6 +14,10 @@ impl ResultsUI {
         selector: &Selector,
         matcher: &mut nucleo::Matcher,
     ) {
+        debug_assert!(
+            !worker.columns.is_empty() &&
+            (self.hidden_columns.mask_len() == worker.columns.len())
+        );
         // Step 0: Refresh the nucleo snapshot and status before rendering
         let (_snapshot, status) = new_snapshot(&mut worker.nucleo);
 

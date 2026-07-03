@@ -1,11 +1,11 @@
 ## TODO
-
 - it would be nice to have presets like full, simple, and minimal presets like fzf
 - it would be nice to have color presets too maybe
 - better hr styling (dim etc.)
 - improve/test wrap_text and hscroll on non filtering
 - Bottom scroll padding not working with --reverse (maybe we want to increase self.cursor if height before is insufficient).
 - vty to support animated previews/sixel (will that do the trick? otherwise pipe should be more efficient).
+- move preset screenshots into preset directory
 - improve restore: exit(clear: Option<bool>)
   - None: move up by input.y-area.y
   - true: move to area.y and clear
@@ -16,6 +16,9 @@
   - query change
   - frecency
   - api
+
+- tighten some of the sync detection logic, it's not racefree currently (maybe ai can review)
+  - Does render refs (statusUI, overlay?) improve performance?
 
 - sort by column
 - toast action:

@@ -132,16 +132,16 @@ impl DisplayUI {
     }
 
     pub fn make_display(&mut self, result_widths: ResultWidths) -> &Table<'static> {
-        if !self.dirty && (self.cached_result_widths == result_widths || result_widths.2.is_empty())
+        if result_widths.2.is_empty() || (!self.dirty && self.cached_result_widths == result_widths)
         {
             return &self.table;
         }
 
+        self.cached_result_widths = result_widths.clone();
+        self.dirty = false;
         let (result_indentation, col_spacing, widths) = result_widths;
 
-        self.dirty = false;
-
-        if self.text.is_empty() && self.lines.is_empty() || widths.is_empty() {
+        if self.text.is_empty() && self.lines.is_empty() {
             self.table = Table::default();
             return &self.table;
         }
@@ -266,6 +266,7 @@ impl DisplayUI {
                 !matches!(self.config.row_connection, RowConnectionStyle::Disjoint),
                 |t| t.style(self.config.style),
             );
+
         &self.table
     }
 

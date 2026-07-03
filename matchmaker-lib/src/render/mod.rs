@@ -813,6 +813,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                         Action::SetQuery(context) => {
                             query.set(context, u16::MAX);
                         }
+                        Action::InsertQuery(context) => {
+                            query.insert_str(&context);
+                        }
                         Action::ForwardChar => query.forward_char(),
                         Action::BackwardChar => query.backward_char(),
                         Action::ForwardWord => query.forward_word(),
@@ -881,7 +884,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                 }
                 Interrupt::Reload => {
                     picker_ui.restart();
-                    state.synced = [false; 2];
+                    state.synced = [false, false, true];
                     did_reload = true;
                 }
                 Interrupt::Become => {

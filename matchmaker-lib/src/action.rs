@@ -164,6 +164,8 @@ pub enum Action<A: ActionExt = NullActionExt> {
     ClearQuery,
     /// Set input query
     SetQuery(String),
+    /// Insert string at cursor into query
+    InsertQuery(String),
     /// Set query cursor pos
     QueryPos(i32),
 
@@ -383,7 +385,7 @@ enum_from_str_display!(
 
     tuples:
     Execute, ExecuteAsync, ExecuteThen, ExecuteSilent, Become, BecomeSilent, Preview,
-    SetQuery, Pos, QueryPos, SwitchColumn, Store,
+    SetQuery, Pos, QueryPos, SwitchColumn, Store, InsertQuery,
     CopyAsync, Copy;
 
     defaults:

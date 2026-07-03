@@ -16,12 +16,6 @@ devcontainer:
 		dev up; \
 	elif command -v devcontainer >/dev/null; then \
 		devcontainer up --workspace-folder .; \
-	else \
-		echo "Neither 'dev' (Rust devcontainer CLI) nor 'devcontainer' (@devcontainers/cli) was found."; \
-		echo "Please install one of them:"; \
-		echo "  - Rust: cargo install devcontainer"; \
-		echo "  - npm:  npm install -g @devcontainers/cli"; \
-		exit 1; \
 	fi
 
 # Open a shell inside the running Dev Container
@@ -30,11 +24,5 @@ devcontainer-shell:
 		dev shell; \
 	elif command -v devcontainer >/dev/null; then \
 		devcontainer exec --workspace-folder . bash; \
-	else \
-		echo "Neither 'dev' (Rust devcontainer CLI) nor 'devcontainer' (@devcontainers/cli) was found."; \
-		echo "Please install one of them:"; \
-		echo "  - Rust: cargo install devcontainer"; \
-		echo "  - npm:  npm install -g @devcontainers/cli"; \
-		exit 1; \
 	fi
 

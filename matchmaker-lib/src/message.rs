@@ -33,22 +33,24 @@ bitflags! {
         const Synced       = 1 << 7;
         /// Matcher finished processing current state
         const Resynced     = 1 << 8;
+        const Restarted     = 1 << 9;
 
         /// Window/terminal resize
-        const Resize = 1 << 9;
+        const Resize = 1 << 10;
         /// Full redraw
-        const Redraw = 1 << 10;
+        const Redraw = 1 << 11;
 
         /// Pause event listener
-        const Pause  = 1 << 11;
+        const Pause  = 1 << 12;
         /// Resume event listener
-        const Resume = 1 << 12;
+        const Resume = 1 << 13;
 
         /// Reload interrupt
-        const Reloaded = 1 << 13;
+        const Reloaded = 1 << 14;
 
-
-
+        // requires connecting [`EventLoop`] to [`Previewer`]
+        const PreviewStarted = 1 << 15;
+        const PreviewFinished = 1 << 16;
     }
 }
 // ---------------------------------------------------------------------

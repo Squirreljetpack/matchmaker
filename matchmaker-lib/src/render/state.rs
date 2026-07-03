@@ -39,7 +39,7 @@ pub struct State {
     pub(crate) dragging: Option<Position>,
     pub(crate) dragging_column: Option<(Position, usize)>,
     pub(crate) overlay_index: Option<usize>,
-    pub(crate) synced: [bool; 2], // ran, synced
+    pub(crate) synced: [bool; 3], // ran, synced, stopped
 
     pub(crate) events: Event,
 
@@ -117,7 +117,7 @@ impl State {
 
             input: String::new(),
             iteration: 0,
-            synced: [false; 2],
+            synced: [false; 3],
 
             events: Event::empty(),
             should_quit: false,
@@ -275,13 +275,13 @@ impl State {
         self.synced[1] |= status.running;
         if status.changed {
             // add a synced event when worker stops running
-            if !picker_ui.results.status.running {
+            if !status.running {
+                self.synced[2] = false;
                 if !self.synced[0] {
                     // this is supposed to fire when all inputs have been loaded into nucleo although it clearly can't be race-free
-                    if picker_ui.results.status.item_count > 0 {
+                    if status.item_count > 0 {
                         self.insert(Event::Synced);
                         self.synced[0] = true;
-                        picker_ui.results.set_dirty();
                         picker_ui.results.recompute_widths();
                     }
                 } else {
@@ -289,9 +289,12 @@ impl State {
                     // note that this will never emit on empty input
                     log::trace!("resynced on iteration {}", self.iteration);
                     self.insert(Event::Resynced);
-                    picker_ui.results.set_dirty();
                     picker_ui.results.recompute_widths();
                 }
+            } else if self.synced[2] {
+                // stopped + running -> running
+                self.synced[2] = true;
+                self.insert(Event::Restarted);
             }
         }
 
@@ -458,7 +461,7 @@ impl<'a, 'b: 'a, T: SSS, D: 'static> MMState<'a, 'b, T, D> {
 
     pub fn restart_worker(&mut self) {
         self.picker_ui.restart();
-        self.state.synced = [false; 2];
+        self.state.synced = [false, false, true];
     }
 
     pub fn make_env_vars(&self) -> EnvVars {

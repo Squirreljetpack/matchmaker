@@ -401,7 +401,7 @@ impl ResultsUI {
                 .max()
                 .unwrap_or_default();
 
-            debug_row(&row_texts);
+            // debug_row(&row_texts);
 
             rows.push(Row::new(row_texts).height(height).style(row_style));
             match row_data {

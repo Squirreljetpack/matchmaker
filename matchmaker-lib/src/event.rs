@@ -26,6 +26,9 @@ pub type BindSender<A> = mpsc::UnboundedSender<BindDirective<A>>;
 pub struct EventLoop<A: ActionExt> {
     txs: Vec<mpsc::UnboundedSender<RenderCommand<A>>>,
     tick_interval: time::Duration,
+    paused: bool,
+    skip_ticks: [bool; 2],
+    dirty: bool,
 
     binds: Arc<ArcSwap<ResolvedBindMap<A>>>,
     original_binds: BindMap<A>,
@@ -33,7 +36,6 @@ pub struct EventLoop<A: ActionExt> {
     fmt: KeyCombinationFormat,
 
     mouse_events: bool,
-    paused: bool,
     event_stream: Option<EventStream>,
 
     rx: mpsc::UnboundedReceiver<Event>,
@@ -63,6 +65,9 @@ impl<A: ActionExt> EventLoop<A> {
         Self {
             txs: vec![],
             tick_interval: time::Duration::from_millis(200),
+            skip_ticks: [false; 2],
+            paused: false,
+            dirty: false,
 
             binds: Arc::new(ArcSwap::from_pointee(ResolvedBindMap::new())),
             original_binds: BindMap::new(),
@@ -73,7 +78,6 @@ impl<A: ActionExt> EventLoop<A> {
             controller_tx,
 
             mouse_events: false,
-            paused: false,
             key_file: None,
             current_task: None,
 
@@ -123,8 +127,8 @@ impl<A: ActionExt> EventLoop<A> {
         self
     }
 
-    pub fn with_mouse_events(mut self) -> Self {
-        self.mouse_events = true;
+    pub fn with_mouse_events(mut self, enabled: bool) -> Self {
+        self.mouse_events = enabled;
         self
     }
 
@@ -157,6 +161,21 @@ impl<A: ActionExt> EventLoop<A> {
             }
             Event::Redraw => {
                 self.send(RenderCommand::Redraw);
+            }
+            Event::Synced => {
+                // coming from the render loop, Synced shouldn't need an extra frame but we add one just in case
+                self.dirty = true;
+                self.skip_ticks[0] = true;
+            }
+            Event::PreviewFinished => {
+                self.dirty = true;
+                self.skip_ticks[1] = true;
+            }
+            Event::Restarted => {
+                self.skip_ticks[0] = false;
+            }
+            Event::PreviewStarted => {
+                self.skip_ticks[1] = false;
             }
             _ => {}
         }
@@ -274,11 +293,15 @@ impl<A: ActionExt> EventLoop<A> {
                 biased;
 
                 _ = interval.tick() => {
-                    self.send(RenderCommand::Tick)
+                    if !self.skip_ticks.iter().all(|x| *x) || self.dirty {
+                        self.send(RenderCommand::Tick)
+                    }
+                    self.dirty = false;
                 }
 
                 // In case ctrl-c manifests as a signal instead of a key
                 _ = tokio::signal::ctrl_c() => {
+                    self.dirty = true;
                     self.record_key("ctrl-c".into());
                     if let Some(actions) = self.get_bind(TriggerKind::Key(key!(ctrl-c))) {
                         self.send_actions(actions, Some("ctrl-c".into()));
@@ -289,15 +312,21 @@ impl<A: ActionExt> EventLoop<A> {
                 }
 
                 Some(event) = self.rx.recv() => {
+                    self.dirty = true;
+
                     self.handle_event(event)
                 }
 
                 Some(directive) = self.bind_rx.recv() => {
+                    self.dirty = true;
+
                     self.handle_rebind(directive)
                 }
 
                 // Input ready
                 maybe_event = event => {
+                    self.dirty = true;
+
                     match maybe_event {
                         Some(Ok(event)) => {
                             if !matches!(
@@ -349,6 +378,9 @@ impl<A: ActionExt> EventLoop<A> {
                                     }
                                 }
                                 CrosstermEvent::Mouse(mouse) => {
+                                    if !self.mouse_events {
+                                        continue;
+                                    };
                                     if let Some(actions) = self.get_bind(TriggerKind::Mouse(SimpleMouseEvent {
                                         kind: mouse.kind,
                                         modifiers: mouse.modifiers,

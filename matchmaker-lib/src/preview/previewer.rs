@@ -83,17 +83,24 @@ impl Previewer {
         )
     }
 
+    fn signal_dirty(&self) {
+        self.changed.store(true, Ordering::Release);
+        if let Some(event_tx) = &self.event_controller_tx {
+            let _ = event_tx.send(Event::PreviewFinished);
+        }
+    }
+
     pub fn set_string(&self, s: Text<'static>) {
         if let Ok(mut guard) = self.string.lock() {
             *guard = Some(s);
-            self.changed.store(true, Ordering::Release);
+            self.signal_dirty();
         }
     }
 
     pub fn clear_string(&self) {
         if let Ok(mut guard) = self.string.lock() {
             *guard = None;
-            self.changed.store(true, Ordering::Release);
+            self.signal_dirty();
         }
     }
 
@@ -107,9 +114,10 @@ impl Previewer {
             let mut m = self.rx.borrow_and_update().clone();
 
             if self.config.trim_commands
-                && let PreviewMessage::Run(cmd, _) = &mut m {
-                    *cmd = cmd.trim().to_string();
-                }
+                && let PreviewMessage::Run(cmd, _) = &mut m
+            {
+                *cmd = cmd.trim().to_string();
+            }
 
             log::trace!("Previewer received: {m:?}");
 
@@ -206,7 +214,7 @@ impl Previewer {
 
                     if !self.config.delay_clear {
                         self.lines.clear();
-                        self.changed.store(true, Ordering::Relaxed);
+                        self.signal_dirty();
                     }
 
                     // we need the child handle
@@ -216,6 +224,7 @@ impl Previewer {
                             let mut guard = self.lines.read();
                             let changed = self.changed.clone();
                             let cmd_str = cmd.clone();
+                            let event_tx = self.event_controller_tx.clone();
 
                             // false => needs refresh (i.e. invalid utf-8)
                             let handle = tokio::spawn(async move {
@@ -314,6 +323,9 @@ impl Previewer {
                                         }
                                     }
                                 }
+                                if let Some(event_tx) = &event_tx {
+                                    let _ = event_tx.send(Event::PreviewFinished);
+                                }
 
                                 true
                             });
@@ -325,7 +337,7 @@ impl Previewer {
                 }
                 PreviewMessage::Stop => {
                     self.lines.clear();
-                    self.changed.store(true, Ordering::Relaxed);
+                    self.signal_dirty();
                     self.last.clear();
                 }
                 _ => {}

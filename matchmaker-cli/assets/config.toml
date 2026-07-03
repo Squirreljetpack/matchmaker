@@ -5,6 +5,8 @@ max = 120
 
 # --- UI ---
 [ui]
+# tick_rate = 60
+# mouse_events = true
 
 [query]
 prompt_style.fg = "Gray"

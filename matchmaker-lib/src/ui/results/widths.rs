@@ -46,7 +46,7 @@ impl ResultsUI {
                 continue;
             }
 
-            let mut lower = max_widths[i];
+            let mut lower = max_widths[vi];
             if lower > 0 {
                 lower = lower.max(if self.config.min_width_from_cols {
                     *name_w

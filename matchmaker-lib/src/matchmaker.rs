@@ -130,7 +130,9 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
         let mut event_loop = if let Some(e) = builder.event_loop {
             e
         } else if let Some(binds) = builder.binds {
-            EventLoop::with_binds(binds).with_tick_rate(self.render_config.tick_rate())
+            EventLoop::with_binds(binds)
+                .with_tick_rate(self.render_config.ui.tick_rate)
+                .with_mouse_events(self.render_config.ui.mouse_events)
         } else {
             EventLoop::new()
         };

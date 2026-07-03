@@ -162,12 +162,6 @@ pub struct RenderConfig {
     pub header: DisplayConfig,
 }
 
-impl RenderConfig {
-    pub fn tick_rate(&self) -> u8 {
-        self.ui.tick_rate
-    }
-}
-
 /// Terminal settings.
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -219,6 +213,7 @@ pub struct UiConfig {
     #[partial(alias = "b")]
     pub border: BorderSetting,
     pub tick_rate: u8, // separate from render, but best place ig
+    pub mouse_events: bool,
 }
 
 impl Default for UiConfig {
@@ -226,6 +221,7 @@ impl Default for UiConfig {
         Self {
             border: Default::default(),
             tick_rate: 60,
+            mouse_events: true,
         }
     }
 }

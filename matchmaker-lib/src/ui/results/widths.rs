@@ -126,9 +126,10 @@ impl ResultsUI {
                 .collect();
         } else {
             self.update_width_limits_into_width_buffer();
-            if !self.widths_buffer.is_empty() {
-                self.expand_width_limits_in_buffer();
+            if self.widths_buffer.is_empty() {
+                return;
             }
+            self.expand_width_limits_in_buffer();
             log::debug!(
                 "[update_table] new width limits from:  preferred={:?}",
                 self.preferred_widths,

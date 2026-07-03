@@ -1,6 +1,6 @@
 [package]
 name = "matchmaker-lib"
-version = "0.1.1"
+version = "0.1.2"
 categories = ["command-line-utilities", "rust-patterns"]
 edition = "2024"
 exclude = ["assets/"]

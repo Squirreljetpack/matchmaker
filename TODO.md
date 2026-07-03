@@ -29,7 +29,7 @@
 - support alternate actions syntax(?): case insensitive, execute::content <- use rhai could be cool
 - Picker overlay
 - builder with intermediate type states for pick options + make state depend on context C and aext A
-
+- CopyAsync causes a screen flicker somehow
 - replace ansi-2-text for performance and correctness (i.e. man output)
 
 # Previewer

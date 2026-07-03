@@ -1,6 +1,6 @@
 complete -c mm -l config -r -F
 complete -c mm -s o -l override -d 'Paths without a toml extension refer to a preset' -r -F
-complete -c mm -l download -d 'Download ALL presets from GitHub. Optionally, downloads a subfolder' -r
+complete -c mm -l download -d 'Download all presets from GitHub. Use `--download=<FOLDER>` to download only a subfolder' -r
 complete -c mm -s d -l doc -d 'Display documentation' -r -f -a "options\t''
 binds\t''
 template\t''

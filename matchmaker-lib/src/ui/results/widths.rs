@@ -46,15 +46,13 @@ impl ResultsUI {
                 continue;
             }
 
-            let w = self.preferred_widths[vi];
-
-            self.preferred_widths[vi] = w.max(max_widths[i].min(self.config.min_width).max(
-                if self.config.min_width_from_cols {
-                    *name_w
-                } else {
-                    0
-                },
-            ));
+            let min_candidate = if self.config.min_width_from_cols && max_widths[i] > 0 {
+                *name_w
+            } else {
+                0
+            };
+            let lower = max_widths[i].clamp(min_candidate, self.config.min_width);
+            self.preferred_widths[vi] = self.preferred_widths[vi].max(lower);
 
             vi += 1;
         }

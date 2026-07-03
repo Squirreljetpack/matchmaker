@@ -1,3 +1,14 @@
+## [0.1.2] - 2026-07-03
+
+### 🚀 Features
+
+- Add a gutter index style for absolute indices, update git preset
+- Sorting
+
+### 🐛 Bug Fixes
+
+- Misc
+
 ## [0.1.1] - 2026-07-01
 
 ### 🚀 Features

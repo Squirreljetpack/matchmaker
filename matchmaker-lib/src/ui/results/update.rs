@@ -17,8 +17,6 @@ impl ResultsUI {
         // Step 0: Refresh the nucleo snapshot and status before rendering
         let (_snapshot, status) = new_snapshot(&mut worker.nucleo);
 
-        log::trace!("{}", self.matched_count);
-
         let mc = status.matched_count;
         // safely covers all invalidation events. We still keep some savings when matcher is running by caching rows.
         let dirty = self.row_cache[0].is_empty() || self.width_limits.is_empty(); // this last one is cleared in update_dimensions as that doesn't change rows, querychange is more likely to change

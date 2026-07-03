@@ -16,7 +16,7 @@ It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and
 - Mouse (location aware) scrolling! Drag to resize! Horizontal scrolling!
 - Grapheme-width correct input wrapping!
 - Really good, the best text wrapping and width sizing.
-- Split input lines into multiple columns, that you can individually filter on (`%col query`[^17]), hide, and highlight.[^14]
+- Split input lines into multiple columns, that you can individually filter on (`%col query`[^17]), hide, and highlight and *sort*.[^14]
 - Split input lines by *regex capture groups*.
 - Split input lines by following CSV/TSV rules[^16].
 - Define `Execute/Preview/Print/Accept` actions with [templates](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md) which *safely* inject the current item(s) (yes, columns are supported here too).

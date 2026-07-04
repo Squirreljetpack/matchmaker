@@ -151,66 +151,52 @@ pub fn handle_download(download: &String) -> ! {
             None => continue,
         };
 
-        let is_toml = item.name.ends_with(".toml");
         let all_prefixes = ["win.", "macos.", "linux.", "unix."];
 
-        let (should_download, local_name) = if is_toml {
-            let mut prefix_to_strip = None;
-            let mut belongs_to_other_os = false;
+        let (mut skip, mut local_name) = (false, item.name.as_str());
+        for p in all_prefixes {
+            if let Some(name) = local_name.strip_prefix(p) {
+                let is_compatible_unix = p == "unix." && is_unix;
 
-            for p in all_prefixes {
-                if item.name.starts_with(p) {
-                    let is_current_os = !os_prefix.is_empty() && p == os_prefix;
-                    let is_compatible_unix = p == "unix." && is_unix;
-
-                    if is_current_os || is_compatible_unix {
-                        prefix_to_strip = Some(p);
-                    } else {
-                        belongs_to_other_os = true;
-                    }
-                    break;
+                if p == os_prefix || is_compatible_unix {
+                    local_name = name;
+                } else {
+                    skip = true;
                 }
+                break;
             }
+        }
 
-            if belongs_to_other_os {
-                (false, String::new())
-            } else if let Some(p) = prefix_to_strip {
-                (true, item.name.strip_prefix(p).unwrap().to_string())
-            } else {
-                (true, item.name.clone())
-            }
+        if skip {
+            continue;
+        }
+
+        let dest_path = if subfolder.ends_with(".toml") {
+            presets_dir.join(local_name)
         } else {
-            (true, item.name.clone())
+            presets_dir.join(subfolder).join(local_name)
         };
 
-        if should_download {
-            let dest_path = if subfolder.ends_with(".toml") {
-                presets_dir.join(local_name)
-            } else {
-                presets_dir.join(subfolder).join(local_name)
-            };
+        if let Some(parent) = dest_path.parent()
+            && !cba::bs::create_dir(parent)
+        {
+            std::process::exit(1)
+        }
 
-            if let Some(parent) = dest_path.parent()
-                && !cba::bs::create_dir(parent)
-            {
-                std::process::exit(1)
-            }
+        ibog!(
+            "Downloading {}...",
+            dest_path.file_name().unwrap().to_string_lossy()
+        );
 
-            ibog!(
-                "Downloading {}...",
-                dest_path.file_name().unwrap().to_string_lossy()
-            );
+        let status = Command::new("curl")
+            .args(["-L", "-s", "-o"])
+            .arg(&dest_path)
+            .arg(download_url)
+            .status()
+            .ok();
 
-            let status = Command::new("curl")
-                .args(["-L", "-s", "-o"])
-                .arg(&dest_path)
-                .arg(download_url)
-                .status()
-                .ok();
-
-            if status.is_some_and(|s| s.success()) {
-                download_count += 1;
-            }
+        if status.is_some_and(|s| s.success()) {
+            download_count += 1;
         }
     }
 

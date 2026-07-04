@@ -1,3 +1,4 @@
+use cba::_info;
 use log::error;
 use ratatui::{
     layout::Rect,
@@ -17,23 +18,23 @@ use crate::{
 pub struct PreviewUI {
     pub view: Preview,
     pub config: PreviewConfig,
-    layout_idx: usize,
     /// content area
     pub(crate) area: Rect,
+
+    // state
+    layout_idx: usize,
+    show: bool,
+    #[cfg(feature = "partial")]
+    initial: PreviewInitialSetting,
+    pub current_dimension: Option<u16>,
+
+    // scroll
     pub scroll: [u16; 2],
     offset: usize,
     target: Option<usize>,
     attained_target: bool,
-    #[cfg(feature = "partial")]
-    initial: PreviewInitialSetting,
-
-    pub last_count: usize,
-
     pub jump: (bool, usize), // end, initial
-
-    show: bool,
-
-    pub current_dimension: Option<u16>,
+    pub last_count: usize,
 }
 
 impl PreviewUI {
@@ -112,16 +113,13 @@ impl PreviewUI {
     }
 
     pub fn update_dimensions(&mut self, area: &Rect) {
-        let mut height = area.height;
-        height -= self.border().height().min(height);
-        self.area.height = height;
-
-        let mut width = area.width;
-        width -= self.border().width().min(width);
-        self.area.width = width;
+        self.area = self.border().inner(*area);
+        if self.config.reevaluate_show_on_resize {
+            self.reevaluate_show_condition([area.width, area.height], false);
+        }
     }
 
-    pub fn reevaluate_show_condition(&mut self, [ui_width, ui_height]: [u16; 2], hide: bool) {
+    pub fn reevaluate_show_condition(&mut self, [ui_width, ui_height]: [u16; 2], no_hide: bool) {
         match self.config.show {
             ShowCondition::Free(x) => {
                 if let Some(setting) = self.setting() {
@@ -134,7 +132,7 @@ impl PreviewUI {
                     log::debug!(
                         "Evaluated ShowCondition(Free({x})) against {ui_width}x{ui_height} => {show}"
                     );
-                    if !hide && !show {
+                    if no_hide && !show {
                         return;
                     }
 
@@ -142,7 +140,7 @@ impl PreviewUI {
                 };
             }
             ShowCondition::Bool(mut show) => {
-                if !hide && !show {
+                if no_hide && !show {
                     return;
                 };
                 show = show
@@ -313,8 +311,7 @@ impl PreviewUI {
     }
 
     pub fn set_target(&mut self, target: Option<isize>) {
-        #[cfg(debug_assertions)]
-        log::debug!("PreviewUI.set_target {target:?}");
+        _info!("PreviewUI.set_target ": target);
 
         if self.initial().tail {
             return;
@@ -347,8 +344,7 @@ impl PreviewUI {
             self.target_to_offset(index, &results)
         };
 
-        #[cfg(debug_assertions)]
-        log::debug!("Preview initial offset: {}, index: {}", self.offset, index);
+        _info!("Preview initial offset": self.offset; "index" : index);
     }
 
     pub fn jump(&mut self) {

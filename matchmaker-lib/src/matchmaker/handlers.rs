@@ -6,7 +6,7 @@ use std::{
     sync::Arc,
 };
 
-use cba::{bait::ResultExt, broc::CommandExt, define_either, env_vars};
+use cba::{_info, bait::ResultExt, broc::CommandExt, define_either, env_vars};
 use log::{debug, info, warn};
 use ratatui::text::Text;
 use tokio::io::AsyncReadExt;
@@ -481,8 +481,7 @@ pub fn make_previewer<T: SSS, S, D: 'static>(
                     })
                 }));
 
-                #[cfg(debug_assertions)]
-                log::debug!("previewui scroll target={target:?}");
+                _info!("previewui scroll target": target);
 
                 if let Some(p) = state.preview_ui {
                     p.set_target(target);

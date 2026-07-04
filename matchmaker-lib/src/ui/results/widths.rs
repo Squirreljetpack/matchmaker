@@ -1,3 +1,5 @@
+use cba::_info;
+
 use crate::ui::ResultsUI;
 impl ResultsUI {
     /// Update self.preferred_widths from collected raw_widths and max_widths, then clear them. Additionally, swap the read/write row caches.
@@ -186,9 +188,8 @@ impl ResultsUI {
     /// - User overrides are respected when feasible
     fn update_width_limits_into_width_buffer(&mut self) {
         if self.row_cache[0].is_empty() || self.preferred_widths.is_empty() {
-            #[cfg(debug_assertions)]
-            log::debug!(
-                "skipped width_limits update: either row cache or preferred={:?} empty",
+            _info!(
+                "skipped width_limits update: either row cache or preferred":
                 self.preferred_widths
             );
             self.widths_buffer.clear();
@@ -205,11 +206,7 @@ impl ResultsUI {
             }
         }
 
-        #[cfg(debug_assertions)]
-        log::debug!(
-            "max_widths={max_widths:?}, preferred={:?}",
-            self.preferred_widths
-        );
+        _info!(max_widths; self.preferred_widths);
 
         // Identify only the columns that have a preferred width > 0
         let active_cols: Vec<usize> = (0..v_cols)
@@ -408,11 +405,9 @@ impl ResultsUI {
         self.hidden_columns.gap_index(idx)
     }
 
-    pub fn recompute_widths(&mut self) {
-        if self.row_cache[0].is_empty() {
-            self.preferred_widths.clear();
-            // self.width_limits.clear(); clearing row cache already triggers redraw
-        } else if self.update_preferred_widths() {
+    /// Compared to set_dirty, this only clears cache if preferred widths change + resulting width limits change
+    pub fn recompute_preferred(&mut self) {
+        if self.update_preferred_widths() {
             self.width_limits.clear();
         }
     }

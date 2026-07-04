@@ -130,8 +130,9 @@ impl ResultsUI {
             self.width = new_width;
             self.height = new_height;
             log::debug!("Updated results dimensions: {}x{}", self.width, self.height);
+            self.set_dirty();
+            self.width_limits.clear();
         }
-        self.recompute_widths();
     }
 
     pub fn height(&self) -> u16 {
@@ -318,8 +319,8 @@ impl ResultsUI {
             }
     }
 
+    /// Mark row cache as stale
     pub fn set_dirty(&mut self) {
-        #[cfg(debug_assertions)]
         log::trace!("cache cleared");
         self.row_cache[0].clear();
         // self.row_cache[1].clear();

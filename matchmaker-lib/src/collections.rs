@@ -13,10 +13,10 @@ define_collection_wrapper!(
 impl Selector {
     pub fn cycle_all_bg(&mut self, indices: impl ExactSizeIterator<Item = u32>) {
         let matched: indexmap::IndexSet<u32> = indices.collect();
-        if !matched.is_empty() && matched.is_subset(&self.0) {
-            self.0.clear();
+        if !matched.is_empty() && matched.is_subset(&self) {
+            self.clear();
         } else {
-            self.0.extend(matched);
+            self.extend(matched);
         }
     }
 }

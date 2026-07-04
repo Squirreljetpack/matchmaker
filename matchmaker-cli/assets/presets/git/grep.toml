@@ -39,28 +39,34 @@ always_trigger = false
 [results]
 autoscroll.initial_preserved = 1
 
-[[preview.layout]]
-side = "top"
-percentage = 50
-min = 5
-max = 50
-command = '''
-git diff --color=always {1}\^ {1} -- {2} ||
-git show --color=always {1} -- {2}
-'''
+[preview]
+initial_layout = 2
+show = false
 
 [[preview.layout]]
 command = '''
 git show --color=always --stat --summary {1}
 '''
-side = "right"
-percentage = 40
-min = 30
-max = 120
+
+# side = "right"
+# percentage = 40
+# min = 30
+# max = 120
 
 [[preview.layout]]
 command = '''
+git diff --color=always {1}\^ {1} -- {2} ||
 git show --color=always {1} -- {2}
+'''
+
+# side = "top"
+# percentage = 50
+# min = 5
+# max = 50
+
+[[preview.layout]]
+command = '''
+git show --ext-diff --color=always {1} -- {2}
 '''
 
 # --- UI ---

@@ -24,7 +24,7 @@ use crate::{
         DisplayConfig, QueryConfig, RenderConfig, ResultsConfig, StatusConfig,
         TerminalLayoutSettings, UiConfig,
     },
-    nucleo::{Worker, new_snapshot},
+    nucleo::Worker,
     preview::Preview,
     tui::Tui,
 };
@@ -225,9 +225,6 @@ impl<'a, T: SSS, D: 'static> PickerUI<'a, T, D> {
 impl<'a, T: SSS, D> PickerUI<'a, T, D> {
     pub fn update(&mut self) {
         self.worker.find(&self.query.input);
-    }
-    pub fn update_status(&mut self) {
-        self.results.status = new_snapshot(&mut self.worker.nucleo).1;
     }
 
     // creation from UI ensures Some

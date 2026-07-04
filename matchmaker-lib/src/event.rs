@@ -270,6 +270,7 @@ impl<A: ActionExt> EventLoop<A> {
                         self.paused = false;
                         self.send(RenderCommand::Ack);
                         self.event_stream = Some(EventStream::new());
+                        self.dirty = true;
                         break;
                     }
                 } else {
@@ -325,7 +326,6 @@ impl<A: ActionExt> EventLoop<A> {
 
                 // Input ready
                 maybe_event = event => {
-                    self.dirty = true;
 
                     match maybe_event {
                         Some(Ok(event)) => {
@@ -334,9 +334,12 @@ impl<A: ActionExt> EventLoop<A> {
                                 CrosstermEvent::Mouse(MouseEvent {
                                     kind: crossterm::event::MouseEventKind::Moved,
                                     ..
-                                }) |  CrosstermEvent::Key {..}
+                                })
                             ) {
-                                info!("Event {event:?}");
+                                self.dirty = true;
+                                if matches!(event,  CrosstermEvent::Key {..}) {
+                                    info!("Event {event:?}");
+                                }
                             }
                             match event {
                                 CrosstermEvent::Key(k) => {

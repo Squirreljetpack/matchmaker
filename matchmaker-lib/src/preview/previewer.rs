@@ -214,7 +214,11 @@ impl Previewer {
 
                     if !self.config.delay_clear {
                         self.lines.clear();
-                        self.signal_dirty();
+                        self.changed.store(true, Ordering::Release);
+                    }
+                    // we could send it later to save some cpu but maybe this is more responsive
+                    if let Some(event_tx) = &self.event_controller_tx {
+                        let _ = event_tx.send(Event::PreviewStarted);
                     }
 
                     // we need the child handle
@@ -337,8 +341,10 @@ impl Previewer {
                 }
                 PreviewMessage::Stop => {
                     self.lines.clear();
-                    self.signal_dirty();
-                    self.last.clear();
+                    if !self.last.is_empty() {
+                        self.last.clear();
+                        self.signal_dirty();
+                    }
                 }
                 _ => {}
             }

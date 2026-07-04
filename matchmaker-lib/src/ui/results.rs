@@ -47,13 +47,12 @@ pub struct ResultsUI {
     // transient buffer for use within compute functions
     widths_buffer: Vec<u16>,
     col_indices_buffer: Vec<u32>,
-    // for caching
-    matched_count: u32,
 
     pub config: ResultsConfig,
     pub status: Status,
 
     row_cache: [Vec<(u32, Vec<Text<'static>>, Vec<u16>)>; 2],
+    pub(crate) changed: [bool; 1], // selector changed
     /// Visual-order row metadata from the most recent successful build.
     /// Each entry is `(item_idx, height)`; `u32::MAX` marks separator rows.
     /// Kept around so click positions can be mapped back to absolute
@@ -80,13 +79,13 @@ impl ResultsUI {
             preferred_widths: Vec::new(),
             widths_buffer: Vec::new(),
             col_indices_buffer: Vec::new(),
-            matched_count: 0,
 
             status: Default::default(),
             config,
 
             cursor_disabled: false,
             cursor_moved: None,
+            changed: Default::default(),
             row_cache: [Vec::new(), Vec::new()],
             row_data: Vec::new(),
             table: ratatui::widgets::Table::default(),

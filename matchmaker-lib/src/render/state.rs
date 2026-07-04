@@ -39,7 +39,7 @@ pub struct State {
     pub(crate) dragging: Option<Position>,
     pub(crate) dragging_column: Option<(Position, usize)>,
     pub(crate) overlay_index: Option<usize>,
-    pub(crate) synced: [bool; 3], // ran, synced, stopped
+    pub(crate) synced: [bool; 3], // ran, synced, not_stopped
 
     pub(crate) events: Event,
 
@@ -272,11 +272,12 @@ impl State {
         self.iteration += 1;
 
         let status = &picker_ui.results.status;
+        #[cfg(debug_assertions)]
+        log::trace!("{status:?} {:?}", self.synced);
         self.synced[1] |= status.running;
         if status.changed {
             // add a synced event when worker stops running
             if !status.running {
-                self.synced[2] = false;
                 if !self.synced[0] {
                     // this is supposed to fire when all inputs have been loaded into nucleo although it clearly can't be race-free
                     if status.item_count > 0 {
@@ -291,11 +292,20 @@ impl State {
                     self.insert(Event::Resynced);
                     picker_ui.results.recompute_widths();
                 }
-            } else if self.synced[2] {
+            }
+        }
+        if picker_ui.results.status.running {
+            if !self.synced[2] {
+                #[cfg(debug_assertions)]
+                {
+                    log::trace!("restarted on iteration {}", self.iteration);
+                }
                 // stopped + running -> running
                 self.synced[2] = true;
                 self.insert(Event::Restarted);
             }
+        } else {
+            self.synced[2] = false;
         }
 
         if let Some(o) = overlay_ui {
@@ -461,7 +471,7 @@ impl<'a, 'b: 'a, T: SSS, D: 'static> MMState<'a, 'b, T, D> {
 
     pub fn restart_worker(&mut self) {
         self.picker_ui.restart();
-        self.state.synced = [false, false, true];
+        self.state.synced = [false; 3];
     }
 
     pub fn make_env_vars(&self) -> EnvVars {

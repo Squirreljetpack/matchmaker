@@ -340,7 +340,7 @@ pub struct Status {
     pub changed: bool,
 }
 
-/// Standalone function to create a snapshot from nucleo without requiring D type parameter
+/// Do not create new snapshots
 pub fn new_snapshot<T: Sync + Send + 'static>(
     nucleo: &mut nucleo::Nucleo<T>,
 ) -> (&nucleo::Snapshot<T>, Status) {

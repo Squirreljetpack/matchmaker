@@ -7,6 +7,23 @@ use crate::{
 };
 
 impl ResultsUI {
+    // this is supposed to cover all invalidations
+    // Requirements: new snapshots are requested only by update_table
+    fn is_clean(&mut self) -> (bool, bool) {
+        let changed = self.changed.iter().any(|x| *x);
+        self.changed = Default::default();
+        let cursor_moved = self.cursor_moved.is_some();
+        self.cursor_moved = None;
+        let dirty = changed
+            || cursor_moved
+            || self.width_limits.is_empty()
+            || self.row_cache.is_empty()
+            || self.status.changed;
+        let update_preferred =
+            cursor_moved || self.preferred_widths.is_empty() || self.width_limits.is_empty();
+        (dirty, update_preferred)
+    }
+
     pub fn update_table<T: SSS, D: 'static>(
         &mut self,
         active_column: usize,
@@ -15,16 +32,13 @@ impl ResultsUI {
         matcher: &mut nucleo::Matcher,
     ) {
         debug_assert!(
-            !worker.columns.is_empty() &&
-            (self.hidden_columns.mask_len() == worker.columns.len())
+            !worker.columns.is_empty() && (self.hidden_columns.mask_len() == worker.columns.len())
         );
         // Step 0: Refresh the nucleo snapshot and status before rendering
         let (_snapshot, status) = new_snapshot(&mut worker.nucleo);
 
         let mc = status.matched_count;
         // safely covers all invalidation events. We still keep some savings when matcher is running by caching rows.
-        let dirty = self.row_cache[0].is_empty() || self.width_limits.is_empty(); // this last one is cleared in update_dimensions as that doesn't change rows, querychange is more likely to change
-        self.matched_count = mc;
         self.status = status;
 
         // Section 1: Boundaries alignment, update width limits, early returns
@@ -40,22 +54,13 @@ impl ResultsUI {
             self.cursor = self.cursor.min(mc.saturating_sub(1) as u16);
         }
 
-        // for (w, c) in max_widths.iter_mut().zip(self.columns.iter()) {                        ..
-        //     let name_width = c.name.width() as u16;                                           ..
-        //     if *w != 0 {                                                                      ..
-        //         *w = (*w).max(name_width);                                                    ..
-        //     }                                                                                 ..
-        // }
-
-        // todo: This is supposed to cover all invalidations but I'm not so certain
-        let cursor_moved = self.cursor_moved;
-        self.cursor_moved = None;
-        if cursor_moved.is_none() && !dirty {
+        let (dirty, update_preferred) = self.is_clean();
+        if !dirty {
             return;
         }
 
         // needs: preferred_widths
-        if dirty {
+        if self.width_limits.is_empty() {
             self.update_width_limits();
         }
         #[cfg(debug_assertions)]
@@ -306,11 +311,7 @@ impl ResultsUI {
         // width limits yet (first pass after a resize). Returns `true` if
         // the new preferred widths differ from the current ones, in which
         // case the width limits need to be recomputed.
-        if cursor_moved.is_some()
-            || self.preferred_widths.is_empty()
-            || self.width_limits.is_empty()
-            || self.status.changed
-        {
+        if update_preferred {
             if self.update_preferred_widths() {
                 #[cfg(debug_assertions)]
                 log::debug!(

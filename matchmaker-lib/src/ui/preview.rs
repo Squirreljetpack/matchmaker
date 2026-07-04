@@ -88,7 +88,9 @@ impl PreviewUI {
             config.layout.push(s);
         }
 
-        Self {
+        let idx = config.initial_layout;
+
+        let mut ret = Self {
             view,
             #[cfg(feature = "partial")]
             initial: config.initial.clone(),
@@ -103,7 +105,10 @@ impl PreviewUI {
             jump: Default::default(),
             show,
             current_dimension: None,
-        }
+        };
+        ret.set_layout(idx);
+
+        ret
     }
 
     pub fn update_dimensions(&mut self, area: &Rect) {

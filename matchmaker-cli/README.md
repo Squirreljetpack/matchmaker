@@ -115,7 +115,7 @@ wrap = true
 header_lines = 3 # sticky the top 3 lines
 
 # Full specification of (the default values of) a single layout. Multiple layouts can be specified.
-# Previews can also be adjusted on the fly (by dragging).
+# Previews (and columns!) can also be adjusted on the fly (by dragging or by keys).
 [[preview.layout]]
 command = ""
 side = "right"

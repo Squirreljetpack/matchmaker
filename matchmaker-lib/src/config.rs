@@ -670,6 +670,7 @@ pub struct PreviewConfig {
     pub show: ShowCondition,
     /// Trim trailing and initial new lines,
     pub trim_ends: bool,
+    pub initial_layout: u8,
 
     pub reevaluate_show_on_resize: bool,
 
@@ -687,6 +688,7 @@ impl Default for PreviewConfig {
                 ..Default::default()
             },
             initial: Default::default(),
+            initial_layout: 0,
             layout: Default::default(),
             scroll_wrap: false,
             wrap: false,

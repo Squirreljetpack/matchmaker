@@ -55,7 +55,7 @@ impl ResultsUI {
                 })
             }
 
-            self.preferred_widths[vi] = self.preferred_widths[vi].max(lower);
+            self.widths_buffer[vi] = self.preferred_widths[vi].max(lower);
 
             vi += 1;
         }
@@ -79,7 +79,7 @@ impl ResultsUI {
         // 3.
         if self.preferred_widths.is_empty() || condition {
             self.preferred_widths = std::mem::take(&mut self.widths_buffer);
-            true
+            grew || shrank
         } else {
             let [grow_threshold, shrink_threshold] = self.config.resize_col_thresholds;
             let mut changed = false;

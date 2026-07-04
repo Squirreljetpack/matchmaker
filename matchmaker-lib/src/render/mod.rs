@@ -91,7 +91,6 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
 
     while render_rx.recv_many(&mut buffer, 256).await > 0 {
         if state.iteration == 0 {
-            picker_ui.update_status();
             log::debug!("Render loop started");
         }
 
@@ -452,16 +451,19 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                     match action {
                         Action::Select => {
                             if let Some((idx, _)) = worker.get_nth_indexed(results.index()) {
+                                results.changed[0] = true;
                                 selector.insert(idx);
                             }
                         }
                         Action::Deselect => {
                             if let Some((idx, _)) = worker.get_nth_indexed(results.index()) {
+                                results.changed[0] = true;
                                 selector.shift_remove(&idx);
                             }
                         }
                         Action::ToggleSelection => {
                             if let Some((idx, _)) = worker.get_nth_indexed(results.index()) {
+                                results.changed[0] = true;
                                 if selector.contains(&idx) {
                                     selector.shift_remove(&idx);
                                 } else {
@@ -470,9 +472,11 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                             }
                         }
                         Action::CycleSelections => {
+                            results.changed[0] = true;
                             selector.cycle_all_bg(worker.matched_indices());
                         }
                         Action::ClearSelections => {
+                            results.changed[0] = true;
                             selector.clear();
                         }
                         Action::Accept => {
@@ -884,7 +888,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                 }
                 Interrupt::Reload => {
                     picker_ui.restart();
-                    state.synced = [false, false, true];
+                    state.synced = [false; 3];
                     did_reload = true;
                 }
                 Interrupt::Become => {

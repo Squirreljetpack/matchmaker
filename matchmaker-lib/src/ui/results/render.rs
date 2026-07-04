@@ -1,3 +1,5 @@
+use cba::_info;
+
 use super::*;
 use crate::{
     SSS, Selector,
@@ -212,9 +214,8 @@ pub fn render_row<T: SSS, D>(
                 // Non-filter columns without wrapping - just use as-is
                 to_static(&cell)
             };
-            #[cfg(debug_assertions)]
             if col_idx == 0 {
-                log::trace!("new row col: {:?}, limit: {}", &cell, width_limit);
+                _info!("new row col": &cell; "limit" : width_limit);
             }
 
             cell

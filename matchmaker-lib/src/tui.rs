@@ -1,6 +1,6 @@
 use crate::config::TerminalConfig;
 use anyhow::Result;
-use cba::bait::ResultExt;
+use cba::{_info, bait::ResultExt};
 use crossterm::{
     event::{
         DisableMouseCapture, EnableMouseCapture, KeyboardEnhancementFlags,
@@ -43,8 +43,7 @@ where
 
         let (width, height) = Self::full_size().unwrap_or_default();
         let area = if let Some(ref layout) = config.layout {
-            #[cfg(debug_assertions)]
-            log::debug!("tui: {layout:?}");
+            _info!(layout);
 
             let request = layout
                 .percentage

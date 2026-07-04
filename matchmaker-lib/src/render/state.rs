@@ -1,5 +1,5 @@
 use bitflags::Flags;
-use cba::{bait::TransformExt, broc::EnvVars, env_vars, unwrap};
+use cba::{_info, bait::TransformExt, broc::EnvVars, env_vars, unwrap};
 use ratatui::text::Text;
 
 use crate::{
@@ -272,8 +272,7 @@ impl State {
         self.iteration += 1;
 
         let status = &picker_ui.results.status;
-        #[cfg(debug_assertions)]
-        log::trace!("{status:?} {:?}", self.synced);
+        _info!(status; self.synced);
         self.synced[1] |= status.running;
         if status.changed {
             // add a synced event when worker stops running
@@ -283,23 +282,20 @@ impl State {
                     if status.item_count > 0 {
                         self.insert(Event::Synced);
                         self.synced[0] = true;
-                        picker_ui.results.recompute_widths();
+                        picker_ui.results.recompute_preferred();
                     }
                 } else {
                     // this should be emitted every time input filter changes
                     // note that this will never emit on empty input
                     log::trace!("resynced on iteration {}", self.iteration);
                     self.insert(Event::Resynced);
-                    picker_ui.results.recompute_widths();
+                    picker_ui.results.recompute_preferred();
                 }
             }
         }
         if picker_ui.results.status.running {
             if !self.synced[2] {
-                #[cfg(debug_assertions)]
-                {
-                    log::trace!("restarted on iteration {}", self.iteration);
-                }
+                _info!("restarted on iteration ": self.iteration);
                 // stopped + running -> running
                 self.synced[2] = true;
                 self.insert(Event::Restarted);
@@ -400,8 +396,7 @@ impl<'a, 'b: 'a, T: SSS, D: 'static> MMState<'a, 'b, T, D> {
 
     /// Same as `current_index`, but returns a reference to the underlying item.
     pub fn current_raw(&self) -> Option<&T> {
-        #[cfg(debug_assertions)]
-        log::trace!("got: {}", self.picker_ui.results.index());
+        _info!("got": self.picker_ui.results.index());
         self.picker_ui
             .worker
             .get_nth(self.picker_ui.results.index())

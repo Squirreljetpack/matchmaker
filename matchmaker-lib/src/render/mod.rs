@@ -1,6 +1,7 @@
 mod dynamic;
 mod state;
 
+use cba::_info;
 use cba::bait::ResultExt;
 use crossterm::event::{MouseButton, MouseEventKind};
 pub use dynamic::*;
@@ -999,8 +1000,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                     });
 
                     if did_resize {
-                        #[cfg(debug_assertions)]
-                        log::trace!("Resized results {results:?}");
+                        _info!("Resized results ": results);
                         picker_ui.results.update_dimensions(&results);
                         picker_ui.query.update_width(input.width);
                         footer_ui.update_width(

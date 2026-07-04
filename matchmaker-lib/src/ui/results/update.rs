@@ -1,4 +1,5 @@
 use crate::{config::RowConnectionStyle, ui::ResultsUI};
+use cba::_info;
 use ratatui::widgets::{Row, Table};
 
 use crate::{
@@ -63,15 +64,14 @@ impl ResultsUI {
         if self.width_limits.is_empty() {
             self.update_width_limits();
         }
-        #[cfg(debug_assertions)]
-        log::debug!(
-            "[update_table]: match_count={}, bottom={}, cursor={}, height={}, width={}, available_width={}",
-            mc,
-            self.bottom,
-            self.cursor,
-            self.height,
-            self.width,
-            self.available_width(),
+        _info!(
+            "[update_table]";
+            mc;
+            self.bottom;
+            self.cursor;
+            self.height;
+            self.width;
+            self.available_width();
         );
 
         // Section 3: Row-building algorithm
@@ -103,7 +103,6 @@ impl ResultsUI {
         } else {
             log::error!("Unreachable: failed to render cursor row");
         }
-        #[cfg(debug_assertions)]
         log::debug!("RENDER: AFTER ROWS");
 
         // Step 2: Build after_rows to ensure bottom scroll padding
@@ -142,7 +141,6 @@ impl ResultsUI {
             }
         }
 
-        #[cfg(debug_assertions)]
         log::debug!("RENDER: BEFORE ROWS");
         // Step 3: Fill before-cursor items
         let mut before_height = 0;
@@ -246,12 +244,10 @@ impl ResultsUI {
             // Find the next idx after after_row_data
             idx = after_idx;
 
-            #[cfg(debug_assertions)]
-            log::debug!(
-                "RENDER: FILLING ROWS AFTER {} + {} (after) items, from INDEX {}",
-                rows.len(),
-                after_rows.len(),
-                idx,
+            _info!(
+                "RENDER: FILLING ROWS AFTER": rows.len();
+                " + after": after_rows.len();
+                "from INDEX ": idx;
             );
 
             // Append after_rows to rows
@@ -297,8 +293,7 @@ impl ResultsUI {
             }
         }
 
-        #[cfg(debug_assertions)]
-        log::debug!("RENDER: FILLED AFTER ROWS to {} TOTAL", rows.len());
+        _info!(rows.len());
 
         // Section 5.5: Compute preferred widths for next pass from collected data
 
@@ -313,11 +308,10 @@ impl ResultsUI {
         // case the width limits need to be recomputed.
         if update_preferred {
             if self.update_preferred_widths() {
-                #[cfg(debug_assertions)]
-                log::debug!(
-                    "[update_table]: recomputed preferred={:?}, old width_limits={:?} hidden={:?}",
-                    self.preferred_widths,
-                    self.width_limits,
+                _info!(
+                    "[update_table]";
+                    self.preferred_widths;
+                    self.width_limits;
                     self.hidden_columns
                 );
                 self.width_limits.clear();

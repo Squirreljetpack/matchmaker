@@ -5,6 +5,13 @@ use cba::expr_as_path_fn;
 use crate::clap::LIBRARY_FULL;
 
 fn config_dir_impl() -> Option<PathBuf> {
+    if let Some(env_val) = std::env::var_os("MATCHMAKER_CONFIG_DIR") {
+        let env_path = PathBuf::from(env_val);
+        if env_path.exists() {
+            return Some(env_path);
+        }
+    }
+
     if let Some(home) = dirs::home_dir() {
         let config = home.join(".config").join(LIBRARY_FULL);
         if config.exists() {

@@ -109,7 +109,7 @@ fn get_partial(config_args: Vec<String>) -> anyhow::Result<PartialConfig> {
             parts
         };
 
-        _dbg!(&path, &parts);
+        _dbg!(&path; &parts);
         partial
             .set(path.as_slice(), &parts)
             .prefix(format!("Invalid value for {}", path.join(".")))?;

@@ -2,6 +2,7 @@
 
 use std::{borrow::Cow, ops::Range};
 
+use cba::_info;
 use ratatui::{
     style::{Color, Modifier, Style, Stylize},
     text::{Line, Span, Text},
@@ -122,8 +123,7 @@ pub fn debug_row(row: &[Text<'_>]) {
             .join("")
     });
 
-    #[cfg(debug_assertions)]
-    log::debug!("{}", cols.collect::<Vec<_>>().join(" │ "));
+    _info!("row": cols.collect::<Vec<_>>().join(" │ "));
 }
 
 pub fn wrapped_line_height(line: &Line<'_>, width: u16) -> u16 {

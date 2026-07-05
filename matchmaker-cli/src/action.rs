@@ -19,7 +19,7 @@ use matchmaker::{
 use matchmaker_partial::{Apply, Set};
 
 /// Sort function type accepted by `nucleo.sort_with` over `String` items.
-type StringSortFn = Arc<dyn Fn((u32, &String), (u32, &String)) -> Ordering + Send + Sync>;
+type StringSortFn = Arc<dyn Fn((u32, &String), (u32, &String)) -> bool + Send + Sync>;
 
 pub type MMState<'a, 'b> = matchmaker::render::MMState<'a, 'b, String, ConfigPreprocessedData>;
 
@@ -46,18 +46,18 @@ pub enum MMAction {
     // state
     /// Toggle refiltering of results by query.
     Filtering(Option<bool>),
-    /// Cycle result sorting between None, Partial, and Full
-    CycleSort,
+    /// Lexicographic sort by the active or given column.
+    Sort(Option<usize>),
+    /// Numeric sort.
+    SortNumeric(Option<usize>),
+    /// Reverse the non-match scoring function used in sorting. This is not the same as reversing the sort direction.
+    SortReverse(Option<bool>),
+    /// Set a threshold for result sorting (Empty/u32::MAX to ignore match scoring)
+    SortThreshold(Option<u32>),
+    /// Repopulate results using the next reload command declared in `start.additional_commands`
     ReloadNext(Option<usize>),
+    /// Repopulate results using the previous reload command declared in `start.additional_commands`
     ReloadPrev,
-    /// Lexicographic sort ascending by the active or given column.
-    SortAscending(Option<usize>),
-    /// Lexicographic sort descending.
-    SortDescending(Option<usize>),
-    /// Numeric sort ascending.
-    SortNumericAscending(Option<usize>),
-    /// Numeric sort descending.
-    SortNumericDescending(Option<usize>),
 
     // set
     /// Set header
@@ -104,9 +104,12 @@ pub struct ActionContext {
     pub additional_commands: (Vec<String>, usize),
     /// Factory producing per-column range lookups. See [`matchmaker::config_mm::RangesFactory`].
     pub ranges_fn: RangesFactory<String>,
-    /// Active custom sort, if any. Set by sort actions and used to toggle
-    /// the sort off when the same variant is re-applied.
-    pub sort_discriminant: Option<(SortMode, bool)>,
+    /// Active custom sort mode, if any. Set by `Sort`/`SortNumeric` and used
+    /// to toggle the sort off when the same mode is re-applied.
+    pub sort: Option<SortMode>,
+    /// Current sort direction. `false` is ascending, `true` is descending.
+    /// Tracked locally so `SortReverse(None)` can toggle it.
+    pub sort_descending: bool,
     // pub output_template: Option<String>,
     // pub print_handle: AppendOnly<String>,
     // pub output_separator: String,
@@ -120,22 +123,12 @@ pub fn action_handler(
         render_tx,
         additional_commands,
         ranges_fn,
-        sort_discriminant,
+        sort,
+        sort_descending,
     }: &mut ActionContext,
 ) {
     match a {
         // state
-        MMAction::CycleSort => {
-            #[cfg(feature = "experimental")]
-            {
-                let threshold = match state.picker_ui.worker.get_stability() {
-                    0 => 6,
-                    u32::MAX => 0,
-                    _ => u32::MAX,
-                };
-                state.picker_ui.worker.set_stability(threshold);
-            }
-        }
         MMAction::Filtering(s) => {
             if let Some(s) = s {
                 state.filtering = s
@@ -195,56 +188,22 @@ pub fn action_handler(
         }
 
         // sort
-        MMAction::SortAscending(idx) => {
+        MMAction::Sort(idx) => {
             let n = expand_maybe_column(state, idx);
-            handle_sort(
-                state,
-                ranges_fn,
-                n,
-                SortMode::Lexicographic,
-                false,
-                sort_discriminant,
-            );
+            handle_sort(state, ranges_fn, n, SortMode::Lexicographic, sort);
         }
-        MMAction::SortDescending(idx) => {
+        MMAction::SortNumeric(idx) => {
             let n = expand_maybe_column(state, idx);
-            handle_sort(
-                state,
-                ranges_fn,
-                n,
-                SortMode::Lexicographic,
-                true,
-                sort_discriminant,
-            );
+            handle_sort(state, ranges_fn, n, SortMode::Numeric, sort);
         }
-        MMAction::SortNumericAscending(idx) => {
-            let n = expand_maybe_column(state, idx);
-            handle_sort(
-                state,
-                ranges_fn,
-                n,
-                SortMode::Numeric,
-                false,
-                sort_discriminant,
-            );
+        MMAction::SortReverse(dir) => {
+            handle_sort_reverse(state, dir, sort_descending);
         }
-        MMAction::SortNumericDescending(idx) => {
-            let n = expand_maybe_column(state, idx);
-            handle_sort(
-                state,
-                ranges_fn,
-                n,
-                SortMode::Numeric,
-                true,
-                sort_discriminant,
-            );
-        }
-
-        MMAction::RunPreview(cmd) => {
-            if let Some(p) = state.preview_ui {
-                p.show(true);
-                state.update_preview_set(Ok(cmd));
-            }
+        MMAction::SortThreshold(threshold) => {
+            state
+                .picker_ui
+                .worker
+                .set_stability(threshold.unwrap_or(u32::MAX));
         }
 
         // binds
@@ -314,6 +273,12 @@ pub fn action_handler(
         }
         MMAction::SetPrompt(s) => {
             state.picker_ui.query.set_prompt(s.map(Line::raw));
+        }
+        MMAction::RunPreview(cmd) => {
+            if let Some(p) = state.preview_ui {
+                p.show(true);
+                state.update_preview_set(Ok(cmd));
+            }
         }
         MMAction::ExecuteOrConfirm(s) => {
             state.discriminant_payload = Some(0);
@@ -475,7 +440,7 @@ enum_from_str_display! {
     MMAction;
 
     units:
-    CycleSort, HistoryUp, HistoryDown, ReloadPrev, PopMode;
+    HistoryUp, HistoryDown, ReloadPrev, PopMode;
 
 
     tuples:
@@ -485,7 +450,7 @@ enum_from_str_display! {
     ;
 
     options:
-    SetPrompt, SetHeader, SetFooter, SetStatus, Filtering, ReloadNext, SortAscending, SortDescending, SortNumericAscending, SortNumericDescending;
+    SetPrompt, SetHeader, SetFooter, SetStatus, Filtering, ReloadNext, Sort, SortNumeric, SortReverse, SortThreshold;
 
     lossy:
     ;
@@ -676,7 +641,6 @@ fn apply_sort(
     ranges_fn: &RangesFactory<String>,
     n: usize,
     mode: SortMode,
-    descending: bool,
 ) {
     let lookup = ranges_fn(n);
     let lookup_for_closure = lookup.clone();
@@ -684,11 +648,12 @@ fn apply_sort(
         Arc::new(move |(_ia, a): (u32, &String), (_ib, b): (u32, &String)| {
             let sub_a: &str = &lookup_for_closure(a);
             let sub_b: &str = &lookup_for_closure(b);
-            let ord = mode.compare(sub_a, sub_b);
-            if descending { ord.reverse() } else { ord }
+            mode.compare(sub_a, sub_b) == Ordering::Less
         });
 
+    // state.picker_ui.worker.nucleo.reverse_items(true);
     state.picker_ui.worker.nucleo.sort_with(Some(sort_fn));
+    state.picker_ui.worker.nucleo.set_stability(u32::MAX);
     state.picker_ui.worker.nucleo.resort();
 }
 
@@ -697,17 +662,29 @@ fn handle_sort(
     ranges_fn: &RangesFactory<String>,
     n: usize,
     mode: SortMode,
-    descending: bool,
-    sort_discriminant: &mut Option<(SortMode, bool)>,
+    sort_discriminant: &mut Option<SortMode>,
 ) {
-    if *sort_discriminant == Some((mode, descending)) {
+    if *sort_discriminant == Some(mode) {
         state.picker_ui.worker.nucleo.sort_with(None);
+        state.picker_ui.worker.nucleo.set_stability(0);
         state.picker_ui.worker.nucleo.resort();
         *sort_discriminant = None;
     } else {
-        apply_sort(state, ranges_fn, n, mode, descending);
-        *sort_discriminant = Some((mode, descending));
+        apply_sort(state, ranges_fn, n, mode);
+        *sort_discriminant = Some(mode);
     }
+}
+
+#[allow(unused)]
+fn handle_sort_reverse(state: &mut MMState<'_, '_>, dir: Option<bool>, sort_descending: &mut bool) {
+    let new_dir = match dir {
+        Some(b) => b,
+        None => !*sort_descending,
+    };
+    *sort_descending = new_dir;
+
+    state.picker_ui.worker.nucleo.reverse_items(new_dir);
+    state.picker_ui.worker.nucleo.resort();
 }
 
 #[cfg(test)]

@@ -52,7 +52,7 @@ pub struct WorkerConfig {
     /// TODO: Track the current selection when the result list is updated.
     pub track: bool,
     /// Reverse the order of the input
-    pub reverse: bool, // TODO: test with sort_threshold
+    pub reverse: bool,
 }
 
 /// (client-app responsibility). Configures how input is fed to to the worker(s).

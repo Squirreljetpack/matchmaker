@@ -69,13 +69,10 @@ impl ConfigMatchmaker {
 
         let mut worker = Worker::new(columns, default_index, raw_preprocessor, text_preprocessor);
 
-        #[cfg(feature = "experimental")]
-        {
-            worker.reverse_items(worker_config.reverse);
-            worker.set_stability(*worker_config.sort_threshold);
-            for (i, c) in cc.names.iter().enumerate() {
-                worker.set_column_options(i, c.options)
-            }
+        worker.reverse_items(worker_config.reverse);
+        worker.set_stability(*worker_config.sort_threshold);
+        for (i, c) in cc.names.iter().enumerate() {
+            worker.set_column_options(i, c.options)
         }
 
         let injector = worker.injector();

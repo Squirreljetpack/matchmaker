@@ -27,7 +27,6 @@ pub trait Injector {
         self.inner().push(item)
     }
 
-    #[cfg(feature = "experimental")]
     fn extend(
         &self,
         items: impl IntoIterator<Item = Self::InputItem> + ExactSizeIterator,
@@ -95,7 +94,6 @@ impl<T: SSS, D> Injector for WorkerInjector<T, D> {
         Ok(())
     }
 
-    #[cfg(feature = "experimental")]
     fn extend(
         &self,
         items: impl IntoIterator<Item = T> + ExactSizeIterator,
@@ -107,7 +105,12 @@ impl<T: SSS, D> Injector for WorkerInjector<T, D> {
             .into_iter()
             .filter(|item| (self.raw_preprocessor)(item).is_some())
             .collect();
-        extend_impl(&self.inner, &self.columns, &self.raw_preprocessor, items.into_iter());
+        extend_impl(
+            &self.inner,
+            &self.columns,
+            &self.raw_preprocessor,
+            items.into_iter(),
+        );
         Ok(())
     }
 }
@@ -125,7 +128,6 @@ pub(crate) fn push_impl<T, D>(
     });
 }
 
-#[cfg(feature = "experimental")]
 pub(super) fn extend_impl<T, D, I>(
     injector: &nucleo::Injector<T>,
     columns: &[Column<T, D>],

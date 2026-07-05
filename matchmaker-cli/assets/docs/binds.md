@@ -223,12 +223,13 @@ Actions are the operations performed when a trigger is activated.
 
 Sort the results by one of the columns in the active row.
 
-| Action                   | Description                                                                                                                                  |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SortAscending(n)`       | Sort ascending by the active or given column.                       |
-| `SortDescending(n)`      | Same as `SortAscending` but in descending order.                    |
-| `SortNumericAscending(n)`| Same as `SortAscending` but parses column as a number.              |
-| `SortNumericDescending(n)` | Same as `SortNumericAscending` but in descending order.           |
+| Action              | Description                                                     |
+| ------------------- | --------------------------------------------------------------- |
+| `Sort(n)`           | Sort ascending by the active or given column lexicographically. |
+| `SortNumeric(n)`    | Same as `Sort` but parses column as a number.                   |
+| `SortReverse(bool)` | Reverse the non-match scoring function used in sorting\*.       |
+
+\*: This is not the same as reversing the sort direction.
 
 ### Input & Search
 

@@ -152,10 +152,9 @@ abort_empty = true
 "alt-." = "NextColumn"
 "alt-shift-." = "PrevColumn"
 
-"alt-s" = "SortAscending"
-"alt-shift-s" = "SortDescending"
-"alt-n" = "SortNumericAscending"
-"alt-shift-n" = "SortNumericDescending"
+"alt-s" = "Sort"
+"alt-n" = "SortNumeric"
+"alt-r" = "SortReverse"
 
 "alt-=" = "ExpandColumn"
 "alt-hyphen" = "ShrinkColumn"

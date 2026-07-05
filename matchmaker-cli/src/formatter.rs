@@ -1,4 +1,4 @@
-use cba::bath::shell_quote_impl;
+use cba::broc::shell_quote;
 use cba::unwrap;
 use matchmaker::config_mm::ConfigPreprocessedData;
 use matchmaker::render::MMState;
@@ -211,20 +211,19 @@ fn process_key(
                 .iter()
                 .map(|arg| {
                     if quote {
-                        shell_quote_impl(&arg.to_string_lossy())
+                        shell_quote(&arg)
                     } else {
-                        arg.to_string_lossy().to_string()
+                        arg.to_str().map(str::to_string)
                     }
                 })
-                .collect::<Vec<_>>()
+                .collect::<Option<Vec<_>>>()?
                 .join(" ");
             Some(joined)
         } else if let Some(arg) = args.get(idx - 1) {
-            let val = arg.to_string_lossy();
             if quote {
-                Some(shell_quote_impl(&val))
+                shell_quote(&arg)
             } else {
-                Some(val.to_string())
+                arg.to_str().map(str::to_string)
             }
         } else {
             Some(String::new())
@@ -242,9 +241,9 @@ fn process_key(
                 .map_selected_to_vec(|i, item| {
                     let val = get_val(key, (i, item), state).unwrap_or(Cow::Borrowed(""));
                     if quote {
-                        shell_quote_impl(&val)
+                        shell_quote(val.as_ref()).unwrap()
                     } else {
-                        val.into_owned()
+                        val.to_string()
                     }
                 })
                 .join(" "),
@@ -254,7 +253,7 @@ fn process_key(
 
         let val = get_val(key, item, state)?;
         if quote {
-            Some(shell_quote_impl(&val))
+            shell_quote(val.as_ref())
         } else {
             Some(val.into_owned())
         }
@@ -373,7 +372,7 @@ fn handle_range<'a, 'b>(
                     }
                     let joined = row_res.join(" ");
                     if quote {
-                        shell_quote_impl(&joined)
+                        shell_quote(&joined).unwrap()
                     } else {
                         joined
                     }
@@ -391,7 +390,7 @@ fn handle_range<'a, 'b>(
             }
             let joined = row_res.join(" ");
             if quote {
-                Some(shell_quote_impl(&joined))
+                Some(shell_quote(&joined).unwrap())
             } else {
                 Some(joined)
             }
@@ -405,7 +404,7 @@ fn handle_range<'a, 'b>(
             }
             let joined = row_res.join(" ");
             if quote {
-                Some(shell_quote_impl(&joined))
+                Some(shell_quote(&joined).unwrap())
             } else {
                 Some(joined)
             }

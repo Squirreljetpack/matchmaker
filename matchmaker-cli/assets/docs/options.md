@@ -188,6 +188,7 @@ All colors and modifiers come from ratatui:
 - `scroll_padding`: (number) Number of items to keep visible above/below the selection.
 - `r`, `reverse`: (When) When to reverse the list order (`Always`, `Never`, `Auto`).
 - `w`, `wrap`: (bool) Enable line wrapping for result items.
+- `width_overrides`: ([number]) Initial column width overrides
 - `min_width`: (number) Minimum column width.
 - `column_spacing`: (number) Spacing between columns.
 - `right_align_last`: (bool) Right-align the last column.

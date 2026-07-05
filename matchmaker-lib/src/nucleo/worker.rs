@@ -146,7 +146,6 @@ where
         }
     }
 
-    #[cfg(feature = "experimental")]
     pub fn set_column_options(&mut self, index: usize, options: ColumnOptions) {
         if options.contains(ColumnOptions::Optional) {
             self.nucleo
@@ -157,7 +156,6 @@ where
         self.column_options[index] = options
     }
 
-    #[cfg(feature = "experimental")]
     pub fn reverse_items(&mut self, reverse_items: bool) {
         self.nucleo.reverse_items(reverse_items);
     }
@@ -233,12 +231,11 @@ where
         (snapshot.matched_item_count(), snapshot.item_count())
     }
 
-    #[cfg(feature = "experimental")]
     pub fn set_stability(&mut self, threshold: u32) {
         self.nucleo.set_stability(threshold);
+        self.nucleo.resort();
     }
 
-    #[cfg(feature = "experimental")]
     pub fn get_stability(&self) -> u32 {
         self.nucleo.get_stability()
     }

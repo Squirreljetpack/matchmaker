@@ -419,6 +419,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let header_lines = render.header.header_lines;
     let print_handle = AppendOnly::new();
     let output_separator = output_separator.clone().unwrap_or("\n".into());
+    let sort_descending = worker.reverse;
 
     if exit.last_key_path.is_none() {
         exit.last_key_path = Some(last_key_path().into())
@@ -611,10 +612,8 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         render_tx: render_tx.clone(),
         additional_commands: (additional_commands, initial_index),
         ranges_fn,
-        sort_discriminant: None,
-        // output_template,
-        // print_handle: print_handle.clone(),
-        // output_separator: output_separator.clone(),
+        sort: None,
+        sort_descending,
     };
 
     let _output_separator = output_separator.clone();

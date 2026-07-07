@@ -2,8 +2,8 @@ use std::{cmp::Ordering, process::Command, str::FromStr, sync::Arc};
 
 use atoi::FromRadix10;
 use cba::{
-    StringError, bait::ResultExt, bring::split::split_on_unescaped_delimiter, broc::CommandExt,
-    unwrap,
+    StringError, bait::ResultExt, bring::split::split_on_delimiter_with_doubled_escape,
+    broc::CommandExt, unwrap,
 };
 use log::{debug, error};
 use matchmaker::{
@@ -344,7 +344,7 @@ pub fn action_handler(
                     Ok(pairs) => {
                         let mut partial = PartialRenderConfig::default();
                         for (path, val) in pairs {
-                            let mut parts = split_on_unescaped_delimiter(&val, "|||");
+                            let mut parts = split_on_delimiter_with_doubled_escape(&val, ',');
                             if let Err(e) = crate::parse::try_split_kv(&mut parts, false) {
                                 error!("Failed to split KV for {}: {e}", path.join("."));
                                 continue;
@@ -385,7 +385,7 @@ impl MMAction {
     pub fn validate(&self) -> Result<(), StringError> {
         match self {
             MMAction::Bind(s) => {
-                let (_trigger, actions) = crate::action::parse_bind_parts(s)?;
+                let (_trigger, actions) = parse_bind_parts(s)?;
                 for a in &actions {
                     if let Action::Custom(mm) = a {
                         mm.validate()?;
@@ -393,7 +393,7 @@ impl MMAction {
                 }
             }
             MMAction::PushBind(s) => {
-                let (_trigger, a) = crate::action::parse_push_bind_parts(s)?;
+                let (_trigger, a) = parse_push_bind_parts(s)?;
                 if let Action::Custom(mm) = &a {
                     mm.validate()?;
                 }
@@ -414,7 +414,7 @@ pub fn parse_bind_parts(s: &str) -> Result<(Trigger, Actions<MMAction>), StringE
 
     let trigger = trigger.trim().parse()?;
 
-    let parts = split_on_unescaped_delimiter(values, "|||");
+    let parts = split_on_delimiter_with_doubled_escape(values, ',');
 
     let actions = parts
         .iter()

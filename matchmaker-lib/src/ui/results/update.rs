@@ -19,7 +19,10 @@ impl ResultsUI {
             || cursor_moved
             || self.width_limits.is_empty()
             || self.row_cache.is_empty()
-            || self.status.changed;
+            || self.status.changed
+            || self.dirty;
+        self.dirty = false;
+
         let update_preferred =
             cursor_moved || self.preferred_widths.is_empty() || self.width_limits.is_empty();
         (dirty, update_preferred)

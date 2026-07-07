@@ -25,7 +25,7 @@ pub struct ResultsUI {
     bottom: u32,
     pub hscroll: i8,
     pub vscroll: u8,
-    pub cursor_disabled: bool,
+    cursor_disabled: bool,
     cursor_moved: Option<bool>,
 
     /// available height
@@ -47,6 +47,7 @@ pub struct ResultsUI {
     // transient buffer for use within compute functions
     widths_buffer: Vec<u16>,
     col_indices_buffer: Vec<u32>,
+    dirty: bool,
 
     pub config: ResultsConfig,
     pub status: Status,
@@ -84,6 +85,7 @@ impl ResultsUI {
             config,
 
             cursor_disabled: false,
+            dirty: false,
             cursor_moved: None,
             changed: Default::default(),
             row_cache: [Vec::new(), Vec::new()],
@@ -109,6 +111,14 @@ impl ResultsUI {
                 }
             })
             .collect();
+    }
+
+    pub fn disable_cursor(&mut self, disabled: bool) {
+        self.cursor_disabled = disabled;
+        self.dirty = true;
+    }
+    pub fn cursor_disabled(&self) -> bool {
+        self.cursor_disabled
     }
 
     pub fn hidden_cols(&self) -> &HiddenColumns {

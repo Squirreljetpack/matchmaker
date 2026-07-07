@@ -16,7 +16,7 @@ nucleo = { git = "https://github.com/Squirreljetpack/nucleo", branch = "mm" }
 # The profile that 'dist' will build with
 [profile.dist]
 inherits = "release"
-lto = "thin"
+lto = "fat"
 
 [workspace.dependencies]
 cli_boilerplate_automation = { version = "0.*" }

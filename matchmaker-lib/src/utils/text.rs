@@ -79,7 +79,7 @@ pub fn prefix_span<'a, 'b: 'a>(
     is_current: bool,
 ) {
     let style = if is_current { style } else { inactive_style };
-    let prefix_span = Span::styled(prefix, style.r#override(Style::reset()));
+    let prefix_span = Span::styled(prefix, style);
 
     for line in original.lines.iter_mut() {
         line.spans.insert(0, prefix_span.clone());

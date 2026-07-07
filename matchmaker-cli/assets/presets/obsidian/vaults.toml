@@ -3,11 +3,12 @@
 [envs]
 OBSIDIAN_VAULTS_FILE = { value = 'echo "$(dirname -- "$MM_OVERRIDE")"/__vaults', exec = true }
 PATH = { value = 'echo "$(dirname -- "$MM_OVERRIDE"):$PATH"', exec = true, force = true }
+OPENcmd = "fs :o"
 
 [start]
 command = 'ob-vaults -c'
 sync = true
-on_accept = 'for vault in {+vault}; do; fs :o "obsidian://open?vault=$vault"; done'
+on_accept = '''for vault in {+vault}; do; eval $OPENcmd "'obsidian://open?vault=$vault'"; done'''
 
 [columns]
 split = '\t'
@@ -46,9 +47,9 @@ FS_OPTS='opener=ob-open' fs
     '''BecomeOrResume(printf '%s\n' {+path} | ob-files)''',
 ]
 
-"@open" = "ExecuteSilent(fs :o {+path})"
+"@open" = "ExecuteSilent(eval $OPENcmd {+path})"
 "@open_2" = "ExecuteSilent(fs :tool lessfilter edit {path})"
-"ctrl-d" = "ExecuteSilent(fs :o $(dirname -- {+path}))"
+"ctrl-d" = "ExecuteSilent(eval $OPENcmd $(dirname -- {+path}))"
 "@copy" = "CopyAsync(echo {path})"
 "Start" = 'ToggleExitFirst(false)'
 

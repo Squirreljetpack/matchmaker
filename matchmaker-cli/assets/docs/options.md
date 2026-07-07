@@ -44,24 +44,24 @@ The `-o` flag allows you to layer additional configuration files on top of your 
 
 ### Values
 
-If a "leaf" value contains multiple settings (like a [border](#border-settings) or a bind with multiple actions), you can specify them within a single string joined by `|||` (which can be escaped like `\|||`).
+If a "leaf" value contains multiple settings (like a [border](#border-settings) or a bind with multiple actions), you can specify them within a single string joined by `,` (which can be escaped by doubling: `,,`).
 
 A few illustrative (but not very practical) examples:
 
 ```bash
 # Example:
 # If you started with one preview layout, the following overrides the first preview layout to just display hi and have a minimum width of 3, and adds two new ones. It also sets 3 binds.
-mm p.l command=ls p.l "x=echo hi|||min=3" b "ctrl-c=Quit|||?=preview(echo hi)" b.ctrl-a cancel
+mm p.l command=ls p.l "x=echo hi,min=3" b "ctrl-c=Quit,?=preview(echo hi)" b.ctrl-a cancel
 
 # Example:
 # Setting the column splitting delimiter
-mm m.c.split "\w+|||/\w+" # Sets the field: columns.split = Split::Regexes([Regex('\w'), Regex('/\w+')])
+mm m.c.split "\w+,/\w+" # Sets the field: columns.split = Split::Regexes([Regex('\w'), Regex('/\w+')])
 
 # Note that the same effect is NOT achieved by specifying mm m.c.split "\w+" m.c.split "/\w+" in this case:
 # both declare a single (delimiter) regex, and the second command overwrites the first.
 ```
 
-Note however, that when declaring a bind, you should prefer to use `mm b.ctrl-x "ExecuteSilent(rm {+})|||Reload"` over `mm b "ctrl-x=ExecuteSilent(rm {+})"`, since as you can see, the second format doesn't support chained actions, while the first does.
+Note however, that when declaring a bind, you should prefer to use `mm b.ctrl-x "ExecuteSilent(rm {+}),Reload"` over `mm b "ctrl-x=ExecuteSilent(rm {+})"`, since as you can see, the second format doesn't support chained actions, while the first does.
 
 Bool values can be specified with true, false, or "".
 

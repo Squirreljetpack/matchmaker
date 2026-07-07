@@ -129,7 +129,7 @@ The structure of the config file is defined [here](./matchmaker-cli/src/config.r
 Options can be overridden on the command line, where abbreviations are supported:
 
 ```sh
-mm p.l "cmd=echo {}|||p=50|||max=20" cmd "ls" o "{=}"
+mm p.l "cmd=echo {},p=50,max=20" cmd "ls" o "{=}"
 
 # 1. Start mm with the following overrides:
 # 2. List the contents of the current directory by executing `ls`
@@ -142,7 +142,7 @@ For quick reference, `mm --doc` provides fairly readable and comprehensive guide
 
 [^1]: Note that the flatten attribute on the render field means that the subfields of RenderConfig should be specified at the top level of the toml (i.e. your toml should specify `[results]` instead of `[render.results]`).
 
-[^2]: and parts of it [here](./matchmaker-lib/src/config-types.rs).
+[^2]: and parts of it [here](./matchmaker-lib/src/config_types.rs).
 
 ### Keybindings
 

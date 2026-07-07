@@ -81,7 +81,8 @@ Actions can be bound to events:
 - `Complete` – Triggered when the application is about to exit.
 - `Synced` – Triggered when the matcher completes its first synchronization.
 - `Resynced` – Triggered when the matcher finishes processing the current state again.
-- `Reloaded` – Triggered when a `Reload` or `ReloadNext` action completes.
+- `Reloaded` – Triggered when a `Reload` or `ReloadNext` action begins.
+- `Restarted` - Triggered when the matcher starts running again.
 
 #### Input & Cursor
 
@@ -93,6 +94,8 @@ Actions can be bound to events:
 - `PreviewChange` – Triggered when the preview content updates.
 - `PreviewSet` – Triggered when preview content is explicitly set.
 - `OverlayChange` – Triggered when the overlay content changes.
+- `PreviewStarted` - When the preview command for a result starts running.
+- `PreviewFinished` - When a preview finishes.
 
 #### Window
 
@@ -317,7 +320,7 @@ Note: Commands executed via these actions have access to various [environment va
 Multiple actions can be executed in sequence by using an array:
 
 - **TOML**: `ctrl-x = ["Cancel", "Quit"]`
-- **CLI**: `mm b "ctrl-x=Cancel|||Quit"`
+- **CLI**: `mm b "ctrl-x=Cancel,Quit"`
 
 ### CLI Overrides
 
@@ -327,11 +330,9 @@ When overriding binds from the command line, use the `b` (or `binds`) prefix:
 # Bind a single action:
 mm b 'alt-enter=Accept'
 
-# Bind multiple actions to one key:
-mm b.ctrl-s='Select|||Down'
-
 # Some action parameters are optional
-mm b.ctrl-q 'SwitchPreview'
+mm b.ctrl-q 'SwitchPreview' # toggle preview
+mm b.ctrl-q 'SwitchPreview(2)' # toggle preview layout 2
 ```
 
 #### Advanced Example: Switching between Ripgrep and MM

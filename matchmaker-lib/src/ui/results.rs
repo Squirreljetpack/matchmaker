@@ -47,13 +47,12 @@ pub struct ResultsUI {
     // transient buffer for use within compute functions
     widths_buffer: Vec<u16>,
     col_indices_buffer: Vec<u32>,
-    dirty: bool,
 
     pub config: ResultsConfig,
     pub status: Status,
 
     row_cache: [Vec<(u32, Vec<Text<'static>>, Vec<u16>)>; 2],
-    pub(crate) changed: [bool; 1], // selector changed
+    pub(crate) changed: [bool; 2], // need redraw, need recompute
     /// Visual-order row metadata from the most recent successful build.
     /// Each entry is `(item_idx, height)`; `u32::MAX` marks separator rows.
     /// Kept around so click positions can be mapped back to absolute
@@ -85,7 +84,6 @@ impl ResultsUI {
             config,
 
             cursor_disabled: false,
-            dirty: false,
             cursor_moved: None,
             changed: Default::default(),
             row_cache: [Vec::new(), Vec::new()],
@@ -115,7 +113,7 @@ impl ResultsUI {
 
     pub fn disable_cursor(&mut self, disabled: bool) {
         self.cursor_disabled = disabled;
-        self.dirty = true;
+        self.changed[0] = true;
     }
     pub fn cursor_disabled(&self) -> bool {
         self.cursor_disabled
@@ -131,14 +129,11 @@ impl ResultsUI {
         }
     }
 
-    pub fn update_dimensions(&mut self, area: &Rect) {
-        let bw = self.config.border.width();
-        let bh = self.config.border.height();
-        let new_width = area.width.saturating_sub(bw);
-        let new_height = area.height.saturating_sub(bh);
-        if self.width != new_width || self.height != new_height {
-            self.width = new_width;
-            self.height = new_height;
+    pub fn update_dimensions(&mut self, area: Rect) {
+        let new = self.config.border.inner(area);
+        if self.width != new.width || self.height != new.height {
+            self.width = new.width;
+            self.height = new.height;
             log::debug!("Updated results dimensions: {}x{}", self.width, self.height);
             self.set_dirty();
             self.width_limits.clear();

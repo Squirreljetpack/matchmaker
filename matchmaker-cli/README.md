@@ -41,7 +41,7 @@ On the way:
 
 [^15]: I like this so much i had to mention it twice
 
-[^16]: See [presets](#presets), run with `mm -o csv`, multi-line values not supported.
+[^16]: [See](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/presets/csv.toml), run with `mm --download=csv.toml`, multi-line values not supported.
 
 [^17]: <https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/other.md>
 

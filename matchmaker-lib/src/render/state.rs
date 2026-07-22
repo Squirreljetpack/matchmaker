@@ -36,8 +36,7 @@ pub struct State {
     pub(crate) iteration: u32,
     pub(crate) preview_visible: bool,
     pub(crate) layout: Layout,
-    pub(crate) dragging: Option<Position>,
-    pub(crate) dragging_column: Option<(Position, usize)>,
+    pub(crate) dragging: Option<Result<(Position, usize), Position>>,
     pub(crate) overlay_index: Option<usize>,
     pub(crate) synced: [bool; 3], // ran, synced, not_stopped
 
@@ -112,7 +111,6 @@ impl State {
             stashed_preview_visibility: None,
             layout: Layout::default(),
             dragging: None,
-            dragging_column: None,
             overlay_index: None,
 
             input: String::new(),
@@ -272,9 +270,9 @@ impl State {
         self.iteration += 1;
 
         let status = &picker_ui.results.status;
-        _info!(status; self.synced);
         self.synced[1] |= status.running;
         if status.changed {
+            _info!(status; self.synced);
             // add a synced event when worker stops running
             if !status.running {
                 if !self.synced[0] {
@@ -293,7 +291,9 @@ impl State {
                 }
             }
         }
-        if picker_ui.results.status.running {
+
+        let status = &picker_ui.results.status;
+        if status.running {
             if !self.synced[2] {
                 _info!("restarted on iteration ": self.iteration);
                 // stopped + running -> running
@@ -396,7 +396,7 @@ impl<'a, 'b: 'a, T: SSS, D: 'static> MMState<'a, 'b, T, D> {
 
     /// Same as `current_index`, but returns a reference to the underlying item.
     pub fn current_raw(&self) -> Option<&T> {
-        _info!("got": self.picker_ui.results.index());
+        _info!("current_raw": self.picker_ui.results.index());
         self.picker_ui
             .worker
             .get_nth(self.picker_ui.results.index())

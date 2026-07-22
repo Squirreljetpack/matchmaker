@@ -11,20 +11,19 @@ impl ResultsUI {
     // this is supposed to cover all invalidations
     // Requirements: new snapshots are requested only by update_table
     fn is_clean(&mut self) -> (bool, bool) {
-        let changed = self.changed.iter().any(|x| *x);
-        self.changed = Default::default();
-        let cursor_moved = self.cursor_moved.is_some();
-        self.cursor_moved = None;
-        let dirty = changed
-            || cursor_moved
+        let dirty = self.changed.iter().any(|x| *x)
+            || self.cursor_moved.is_some()
             || self.width_limits.is_empty()
-            || self.row_cache.is_empty()
-            || self.status.changed
-            || self.dirty;
-        self.dirty = false;
+            || self.row_cache.is_empty();
 
-        let update_preferred =
-            cursor_moved || self.preferred_widths.is_empty() || self.width_limits.is_empty();
+        let update_preferred = self.changed[1]
+            || self.cursor_moved.is_some()
+            || self.preferred_widths.is_empty()
+            || self.width_limits.is_empty();
+
+        self.cursor_moved = None;
+        self.changed = Default::default();
+
         (dirty, update_preferred)
     }
 
@@ -42,7 +41,10 @@ impl ResultsUI {
         let (_snapshot, status) = new_snapshot(&mut worker.nucleo);
 
         let mc = status.matched_count;
-        // safely covers all invalidation events. We still keep some savings when matcher is running by caching rows.
+        if mc != self.status.matched_count {
+            self.changed[1] = true;
+            // query change will emit dirty signal independently: this prevents unnecessary redraws while running
+        }
         self.status = status;
 
         // Section 1: Boundaries alignment, update width limits, early returns
@@ -106,7 +108,7 @@ impl ResultsUI {
         } else {
             log::error!("Unreachable: failed to render cursor row");
         }
-        log::debug!("RENDER: AFTER ROWS");
+        _info!("RENDER: AFTER ROWS");
 
         // Step 2: Build after_rows to ensure bottom scroll padding
         let mut after_rows: Vec<Row<'static>> = Vec::new();
@@ -144,7 +146,7 @@ impl ResultsUI {
             }
         }
 
-        log::debug!("RENDER: BEFORE ROWS");
+        _info!("RENDER: BEFORE ROWS");
         // Step 3: Fill before-cursor items
         let mut before_height = 0;
         let mut remaining_height = self.height.saturating_sub(total_height + after_height);
@@ -318,6 +320,7 @@ impl ResultsUI {
                     self.hidden_columns
                 );
                 self.width_limits.clear();
+                self.changed[0] = true;
             }
         };
 

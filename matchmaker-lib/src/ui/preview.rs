@@ -311,7 +311,7 @@ impl PreviewUI {
     }
 
     pub fn set_target(&mut self, target: Option<isize>) {
-        _info!("PreviewUI.set_target ": target);
+        _info!(target);
 
         if self.initial().tail {
             return;

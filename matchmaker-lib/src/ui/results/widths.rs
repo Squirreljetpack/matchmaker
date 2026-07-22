@@ -146,8 +146,8 @@ impl ResultsUI {
                 self.width_limits,
                 self.widths_buffer
             );
-            self.set_dirty();
             self.width_limits = std::mem::take(&mut self.widths_buffer);
+            self.set_dirty();
 
             if self.config.stacked_columns {
                 self.widths = vec![self.width];
@@ -219,6 +219,8 @@ impl ResultsUI {
             return;
         }
 
+        // update temporarily for accurate available_width
+        self.widths = max_widths.iter().cloned().filter(|x| *x != 0).collect();
         let available_width = self.available_width();
 
         // Prepare width buffers
@@ -412,11 +414,13 @@ impl ResultsUI {
         }
     }
 
-    pub fn get_dragged_column_gutter(&self, x: u16) -> Option<usize> {
-        let mut pos = 0;
+    pub fn get_gutter_col_idx(&self, x: u16) -> Option<usize> {
+        let mut pos = self.indentation() as u16;
         if self.config.column_spacing.0 == 0 {
             return None;
         }
+
+        _info!("Computing gutter"; self.width_limits; x);
 
         for (i, &width) in self.width_limits.iter().enumerate() {
             pos += width;
@@ -462,20 +466,20 @@ mod tests {
         // Column 1 ends at 10 + 2 + 20 = 32. Gutter 1 is 32..34.
         // Column 2 ends at 32 + 2 + 30 = 64. Gutter 2 is 64..66.
 
-        assert_eq!(results.get_dragged_column_gutter(9), None);
-        assert_eq!(results.get_dragged_column_gutter(10), Some(0));
-        assert_eq!(results.get_dragged_column_gutter(11), Some(0));
-        assert_eq!(results.get_dragged_column_gutter(12), None);
+        assert_eq!(results.get_gutter_col_idx(9), None);
+        assert_eq!(results.get_gutter_col_idx(10), Some(0));
+        assert_eq!(results.get_gutter_col_idx(11), Some(0));
+        assert_eq!(results.get_gutter_col_idx(12), None);
 
-        assert_eq!(results.get_dragged_column_gutter(31), None);
-        assert_eq!(results.get_dragged_column_gutter(32), Some(1));
-        assert_eq!(results.get_dragged_column_gutter(33), Some(1));
-        assert_eq!(results.get_dragged_column_gutter(34), None);
+        assert_eq!(results.get_gutter_col_idx(31), None);
+        assert_eq!(results.get_gutter_col_idx(32), Some(1));
+        assert_eq!(results.get_gutter_col_idx(33), Some(1));
+        assert_eq!(results.get_gutter_col_idx(34), None);
 
-        assert_eq!(results.get_dragged_column_gutter(63), None);
-        assert_eq!(results.get_dragged_column_gutter(64), Some(2));
-        assert_eq!(results.get_dragged_column_gutter(65), Some(2));
-        assert_eq!(results.get_dragged_column_gutter(66), None);
+        assert_eq!(results.get_gutter_col_idx(63), None);
+        assert_eq!(results.get_gutter_col_idx(64), Some(2));
+        assert_eq!(results.get_gutter_col_idx(65), Some(2));
+        assert_eq!(results.get_gutter_col_idx(66), None);
     }
 
     #[test]

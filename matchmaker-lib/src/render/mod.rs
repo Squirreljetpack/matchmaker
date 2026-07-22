@@ -226,8 +226,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                                 && let drag_width = p.drag_width()
                                 && drag_width > 0
                                 && let Some(side) = p.setting().map(|s| &s.layout.side)
-                            {
-                                let is_in_drag_area = match side {
+                                && match side {
                                     Side::Right => {
                                         let drag_area = Rect {
                                             x: layout.preview.x,
@@ -266,29 +265,24 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                                         };
                                         drag_area.contains(pos)
                                     }
-                                };
-
-                                if is_in_drag_area {
-                                    state.dragging = Some(pos);
-                                    continue;
                                 }
-                            }
-
-                            if layout.results.contains(pos) {
+                            {
+                                state.dragging = Some(Err(pos));
+                                _info!(state.dragging);
+                            } else if layout.results.contains(pos) {
                                 let relative_x = pos
                                     .x
-                                    .saturating_sub(layout.results.x)
-                                    .saturating_sub(picker_ui.results.indentation() as u16);
+                                    .saturating_sub(layout.results.x);
                                 if let Some(idx) =
-                                    picker_ui.results.get_dragged_column_gutter(relative_x)
+                                    picker_ui.results.get_gutter_col_idx(relative_x)
                                 {
-                                    state.dragging_column = Some((pos, idx));
-                                    continue;
+                                    _info!(state.dragging);
+                                    state.dragging = Some(Ok((pos, idx)));
+                                } else {
+                                    let y = mouse.row - layout.results.top();
+                                    debug!("Results clicked at: {y}");
+                                    click = Click::ResultPos(y);
                                 }
-
-                                let y = mouse.row - layout.results.top();
-                                debug!("Results clicked at: {y}");
-                                click = Click::ResultPos(y);
                             } else if layout.input.contains(pos) {
                                 // The X offset of the start of the visible text relative to the terminal
                                 let text_start_x = layout.input.x + picker_ui.query.left();
@@ -369,7 +363,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                             }
                         }
                         MouseEventKind::Drag(MouseButton::Left) => {
-                            if let Some(start_pos) = state.dragging
+                            if let Some(Err(start_pos)) = &mut state.dragging
                                 && let Some(p) = preview_ui.as_mut()
                             {
                                 let side =
@@ -404,25 +398,24 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                                         }
                                     }
                                 }
-                                state.dragging = Some(pos);
-                            }
-
-                            if let Some((start_pos, stored_column)) = state.dragging_column {
+                                *start_pos = pos;
+                            } else if let Some(Ok((start_pos, stored_column))) = &mut state.dragging
+                            {
                                 if pos.x > start_pos.x {
                                     picker_ui
                                         .results
-                                        .resize_col((pos.x - start_pos.x) as i16, stored_column);
+                                        .resize_col((pos.x - start_pos.x) as i16, *stored_column);
                                 } else if pos.x < start_pos.x {
-                                    picker_ui
-                                        .results
-                                        .resize_col(-((start_pos.x - pos.x) as i16), stored_column);
+                                    picker_ui.results.resize_col(
+                                        -((start_pos.x - pos.x) as i16),
+                                        *stored_column,
+                                    );
                                 }
-                                state.dragging_column = Some((pos, stored_column));
+                                *start_pos = pos;
                             }
                         }
                         MouseEventKind::Up(MouseButton::Left) => {
                             state.dragging = None;
-                            state.dragging_column = None;
                         }
                         _ => {}
                     }
@@ -1001,7 +994,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
 
                     if did_resize {
                         _info!("Resized results ": results);
-                        picker_ui.results.update_dimensions(&results);
+                        picker_ui.results.update_dimensions(results);
                         picker_ui.query.update_width(input.width);
                         footer_ui.update_width(
                             if footer_ui.config.row_connection == RowConnectionStyle::Capped {

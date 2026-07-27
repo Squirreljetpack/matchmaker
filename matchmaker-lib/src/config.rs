@@ -169,8 +169,6 @@ pub struct RenderConfig {
 pub struct TerminalConfig {
     pub stream: IoStream, // consumed
     pub restore_fullscreen: bool,
-    pub redraw_on_resize: bool,
-    // https://docs.rs/crossterm/latest/crossterm/event/struct.PushKeyboardEnhancementFlags.html
     pub extended_keys: bool,
     pub sleep_ms: u64, // necessary to give ratatui a small delay before resizing after entering and exiting
     #[serde(flatten)]
@@ -192,7 +190,6 @@ impl Default for TerminalConfig {
         Self {
             stream: IoStream::default(),
             restore_fullscreen: true,
-            redraw_on_resize: bool::default(),
             sleep_ms: 100,
             layout: Option::default(),
             extended_keys: true,

@@ -48,7 +48,7 @@ async fn main() {
     if let Some(download) = &cli.download {
         // Empty string here means "download all"; a non-empty value is a
         // folder name or a file preset (with or without `.toml`).
-        handle_download(download);
+        handle_download(download, &["jpg", "png", "gif"]);
     }
 
     // get config overrides

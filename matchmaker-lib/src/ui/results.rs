@@ -6,9 +6,10 @@ use ratatui::{
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
+    SSS,
     collections::HiddenColumns,
     config::{HorizontalSeparator, ResultsConfig, RowConnectionStyle},
-    nucleo::{Column, Status},
+    nucleo::{Status, Worker, new_snapshot},
     utils::{
         string::{fit_width, substitute_escaped},
         text::{debug_row, prefix_span},
@@ -62,8 +63,8 @@ pub struct ResultsUI {
 }
 
 impl ResultsUI {
-    pub fn new<T, D>(config: ResultsConfig, cols: &[Column<T, D>]) -> Self {
-        let mut ret = Self {
+    pub fn new(config: ResultsConfig) -> Self {
+        Self {
             cursor: 0,
             bottom: 0,
             hscroll: 0,
@@ -72,7 +73,7 @@ impl ResultsUI {
             height: 0, // uninitialized, so be sure to call update_dimensions
             width: 0,
             widths: Vec::new(),
-            hidden_columns: Default::default(),
+            hidden_columns: HiddenColumns::new_with_size(3), // for easy testing
             column_name_widths: Default::default(),
 
             width_limits: Vec::new(),
@@ -89,16 +90,15 @@ impl ResultsUI {
             row_cache: [Vec::new(), Vec::new()],
             row_data: Vec::new(),
             table: ratatui::widgets::Table::default(),
-        };
-        ret.init(cols);
-        ret
+        }
     }
 
-    pub fn init<T, D>(&mut self, cols: &[Column<T, D>]) {
+    pub fn init<T: SSS, D: 'static>(&mut self, worker: &mut Worker<T, D>) {
         // self.preferred_widths.resize(n_cols, 0);
         // self.width_limits.resize(n_cols, 0);
-        self.hidden_columns = HiddenColumns::new_with_size(cols.len());
-        self.column_name_widths = cols
+        self.hidden_columns = HiddenColumns::new_with_size(worker.columns.len());
+        self.column_name_widths = worker
+            .columns
             .into_iter()
             .zip(self.hidden_columns.mask())
             .filter_map(|(col, &flag)| {
@@ -109,6 +109,7 @@ impl ResultsUI {
                 }
             })
             .collect();
+        self.status = new_snapshot(&mut worker.nucleo).1
     }
 
     pub fn disable_cursor(&mut self, disabled: bool) {

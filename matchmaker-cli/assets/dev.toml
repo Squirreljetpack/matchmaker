@@ -124,6 +124,13 @@ border.padding = [2, 0]
 "alt-." = "NextColumn"
 "alt-shift-." = "PrevColumn"
 
+"alt-s" = "Sort"
+"alt-n" = "SortNumeric"
+"alt-r" = "SortReverse"
+
+"alt-=" = "ExpandColumn"
+"alt-hyphen" = "ShrinkColumn"
+
 # Preview
 "ctrl-j" = "PreviewJump"
 
@@ -138,9 +145,6 @@ border.padding = [2, 0]
 "alt-shift-=" = "ExpandPreview"
 "alt-+" = "ExpandPreview" # A terminal might only transmit alt-shift-=
 "alt-shift-hyphen" = "ShrinkPreview"
-
-"alt-=" = "ExpandColumn"
-"alt-hyphen" = "ShrinkColumn"
 
 # Reserved
 "F1" = "@help"

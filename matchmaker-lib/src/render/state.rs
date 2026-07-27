@@ -38,7 +38,10 @@ pub struct State {
     pub(crate) layout: Layout,
     pub(crate) dragging: Option<Result<(Position, usize), Position>>,
     pub(crate) overlay_index: Option<usize>,
-    pub(crate) synced: [bool; 3], // ran, synced, not_stopped
+    /// ran, synced, not_stopped.
+    /// All start false.
+    /// not_stopped: unset on a frame when picker is running
+    pub(crate) synced: [bool; 3],
 
     pub(crate) events: Event,
 
@@ -270,6 +273,9 @@ impl State {
         self.iteration += 1;
 
         let status = &picker_ui.results.status;
+        if self.iteration < 10 {
+            _info!(status);
+        }
         self.synced[1] |= status.running;
         if status.changed {
             _info!(status; self.synced);
@@ -464,9 +470,14 @@ impl<'a, 'b: 'a, T: SSS, D: 'static> MMState<'a, 'b, T, D> {
         )
     }
 
-    pub fn restart_worker(&mut self) {
+    pub fn worker_restart(&mut self) {
         self.picker_ui.restart();
         self.state.synced = [false; 3];
+    }
+    pub fn worker_resort(&mut self) {
+        self.picker_ui.worker.nucleo.resort();
+        self.synced[1] = false;
+        // self.synced[2] = true;
     }
 
     pub fn make_env_vars(&self) -> EnvVars {

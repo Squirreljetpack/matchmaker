@@ -24,7 +24,7 @@ impl ResultsUI {
         self.cursor_moved = None;
         self.changed = Default::default();
 
-        (dirty, update_preferred)
+        (!dirty, update_preferred)
     }
 
     pub fn update_table<T: SSS, D: 'static>(
@@ -41,9 +41,10 @@ impl ResultsUI {
         let (_snapshot, status) = new_snapshot(&mut worker.nucleo);
 
         let mc = status.matched_count;
-        if mc != self.status.matched_count {
+        if status.changed || mc != self.status.matched_count {
             self.changed[1] = true;
-            // query change will emit dirty signal independently: this prevents unnecessary redraws while running
+            // change due to query change, overshadows this by a cache wipe: this is a lesser dirty signal which does not wipe cache, saving a few more cpu cycles
+            // this can trigger during ingestion or resort.
         }
         self.status = status;
 
@@ -60,8 +61,8 @@ impl ResultsUI {
             self.cursor = self.cursor.min(mc.saturating_sub(1) as u16);
         }
 
-        let (dirty, update_preferred) = self.is_clean();
-        if !dirty {
+        let (is_clean, update_preferred) = self.is_clean();
+        if is_clean {
             return;
         }
 

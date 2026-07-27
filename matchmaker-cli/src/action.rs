@@ -654,7 +654,7 @@ fn apply_sort(
     // state.picker_ui.worker.nucleo.reverse_items(true);
     state.picker_ui.worker.nucleo.sort_with(Some(sort_fn));
     state.picker_ui.worker.nucleo.set_stability(u32::MAX);
-    state.picker_ui.worker.nucleo.resort();
+    state.worker_resort();
 }
 
 fn handle_sort(

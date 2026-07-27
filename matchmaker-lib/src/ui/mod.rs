@@ -157,11 +157,14 @@ impl<'a, T: SSS, D: 'static> PickerUI<'a, T, D> {
         input_config: QueryConfig,
         header_config: DisplayConfig,
         matcher: &'a mut nucleo::Matcher,
-        worker: Worker<T, D>,
+        mut worker: Worker<T, D>,
         selector: Selector,
     ) -> Self {
+        let mut results = ResultsUI::new(results_config);
+        results.init(&mut worker);
+
         Self {
-            results: ResultsUI::new(results_config, &worker.columns),
+            results,
             status: StatusUI::new(status_config),
             query: QueryUI::new(input_config),
             header: DisplayUI::new(header_config),

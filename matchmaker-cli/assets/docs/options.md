@@ -274,7 +274,6 @@ All colors and modifiers come from ratatui:
 ### TUI Settings (`tui.`)
 
 - `restore_fullscreen`: (bool) Restore fullscreen on exit.
-- `redraw_on_resize`: (bool) Redraw the UI when the terminal is resized.
 - `extended_keys`: (bool) Enable enhanced keyboard support.
 - `sleep_ms`: (number) Delay in milliseconds before resizing.
 - `clear_on_exit`: (bool) Clear the TUI screen after selection.

@@ -204,9 +204,6 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
             hidden_columns,
         );
 
-        // initial redraw to clear artifacts,
-        tui.redraw();
-
         let ret = render::render_loop(
             ui,
             picker,

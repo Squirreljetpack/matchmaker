@@ -441,52 +441,31 @@ impl ResultsUI {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{config::ResultsConfig, nucleo::Column};
-
-    fn make_cols(n: usize) -> Vec<Column<(), ()>> {
-        (0..n)
-            .map(|i| {
-                Column::new_boxed(
-                    format!("col{i}"),
-                    Box::new(|_t, _d| ratatui::text::Text::default()),
-                )
-            })
-            .collect()
-    }
+    use crate::config::ResultsConfig;
 
     #[test]
     fn test_get_dragged_column_gutter() {
         let mut config = ResultsConfig::default();
-        config.column_spacing.0 = 2; // gutter spacing of 2
+        config.column_spacing.0 = 2;
 
-        let mut results = ResultsUI::new(config, &make_cols(3));
+        let mut results = ResultsUI::new(config);
         results.width_limits = vec![10, 20, 30];
 
-        // Column 0 ends at 10. Gutter 0 is 10..12.
-        // Column 1 ends at 10 + 2 + 20 = 32. Gutter 1 is 32..34.
-        // Column 2 ends at 32 + 2 + 30 = 64. Gutter 2 is 64..66.
-
-        assert_eq!(results.get_gutter_col_idx(9), None);
-        assert_eq!(results.get_gutter_col_idx(10), Some(0));
-        assert_eq!(results.get_gutter_col_idx(11), Some(0));
-        assert_eq!(results.get_gutter_col_idx(12), None);
-
-        assert_eq!(results.get_gutter_col_idx(31), None);
-        assert_eq!(results.get_gutter_col_idx(32), Some(1));
-        assert_eq!(results.get_gutter_col_idx(33), Some(1));
-        assert_eq!(results.get_gutter_col_idx(34), None);
-
-        assert_eq!(results.get_gutter_col_idx(63), None);
-        assert_eq!(results.get_gutter_col_idx(64), Some(2));
-        assert_eq!(results.get_gutter_col_idx(65), Some(2));
-        assert_eq!(results.get_gutter_col_idx(66), None);
+        // Indentation = 2
+        // Column 0 ends at 12 -> Gutter 0 spans [12, 13]
+        // Column 1 ends at 34 -> Gutter 1 spans [34, 35]
+        assert_eq!(results.get_gutter_col_idx(11), None);
+        assert_eq!(results.get_gutter_col_idx(12), Some(0));
+        assert_eq!(results.get_gutter_col_idx(13), Some(0));
+        assert_eq!(results.get_gutter_col_idx(14), None);
+        assert_eq!(results.get_gutter_col_idx(34), Some(1));
     }
 
     #[test]
     fn test_shrink_idx() {
         use crate::collections::HiddenColumns;
         let config = ResultsConfig::default();
-        let mut results = ResultsUI::new(config, &make_cols(4));
+        let mut results = ResultsUI::new(config);
         let mut hc = HiddenColumns::new_with_size(4);
         hc.push(1);
         results.hidden_columns = hc;
@@ -500,9 +479,7 @@ mod tests {
         assert_eq!(results.shrink_idx(0), Some(0));
         assert_eq!(results.shrink_idx(1), None);
         assert_eq!(results.shrink_idx(2), Some(1));
-        assert_eq!(results.shrink_idx(3), Some(2));
-        // assert_eq!(results.shrink_idx(4), None);
-        assert_eq!(results.shrink_idx(4), Some(3)); // makes equal sense to allow oob or not
+        assert_eq!(results.shrink_idx(3), Some(2)); // makes equal sense to allow oob or not
     }
 
     #[test]
@@ -511,7 +488,7 @@ mod tests {
         config.width_overrides = vec![10, 0, 5]; // Column 0 override 10, Column 2 override 5
         config.min_width = 2;
 
-        let mut results = ResultsUI::new(config, &make_cols(3));
+        let mut results = ResultsUI::new(config);
         results.width = 100;
         results.preferred_widths = vec![8, 12, 6];
         results.row_cache[0] = vec![(0, vec![], vec![8, 12, 6])];

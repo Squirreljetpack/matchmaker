@@ -276,7 +276,7 @@ where
         self.area = area
     }
 
-    pub fn redraw(&mut self) {
+    pub fn flush(&mut self) {
         self.terminal.resize(self.area)._elog();
     }
 

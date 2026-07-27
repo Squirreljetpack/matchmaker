@@ -55,7 +55,7 @@ pub enum GitHubResponse {
 /// and a `.toml` file path downloads (and re-runs with `-o`) a file preset.
 /// This function always exits — it either fetches what the user asked for
 /// or errors out, and never returns to the caller.
-pub fn handle_download(download: &String) -> ! {
+pub fn handle_download(download: &String, folder_exclude_extensions: &[&str]) -> ! {
     let subfolder = download;
     let presets_dir = crate::paths::presets_path();
 
@@ -145,6 +145,12 @@ pub fn handle_download(download: &String) -> ! {
         if item.entry_type != "file" {
             continue;
         }
+
+        // Skip files whose extension is in folder_exclude_extensions.
+        if let Some(ext) = Path::new(&item.name).extension().and_then(|e| e.to_str())
+            && folder_exclude_extensions.contains(&ext) {
+                continue;
+            }
 
         let download_url = match item.download_url {
             Some(url) => url,

@@ -211,7 +211,7 @@ fn process_key(
                 .iter()
                 .map(|arg| {
                     if quote {
-                        shell_quote(&arg)
+                        shell_quote(arg)
                     } else {
                         arg.to_str().map(str::to_string)
                     }
@@ -221,7 +221,7 @@ fn process_key(
             Some(joined)
         } else if let Some(arg) = args.get(idx - 1) {
             if quote {
-                shell_quote(&arg)
+                shell_quote(arg)
             } else {
                 arg.to_str().map(str::to_string)
             }
@@ -353,7 +353,7 @@ fn handle_range<'a, 'b>(
     }
 
     let columns_to_join: Vec<usize> = (start_idx..end_idx)
-        .filter(|&i| state.picker_ui.results.hidden_cols().contains(i))
+        .filter(|&i| !state.picker_ui.results.hidden_cols().contains(i))
         .collect();
 
     if multi {

@@ -389,10 +389,19 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             {
                 let new_d = Path::new(new_d.trim()).to_path_buf();
                 if new_d.exists() {
-                    failed = set_current_dir(&new_d)
+                    failed = match set_current_dir(&new_d)
                         .prefix(format!("Failed to switch to {new_d:?}"))
-                        ._wbog()
-                        .is_some();
+                    {
+                        Err(e) => {
+                            if force {
+                                ebog!("{e}")
+                            } else {
+                                wbog!("{e}")
+                            }
+                            true
+                        }
+                        _ => false,
+                    };
                 } else {
                     ebog!("Directory does not exist: {}", new_d.display());
                     failed = true;

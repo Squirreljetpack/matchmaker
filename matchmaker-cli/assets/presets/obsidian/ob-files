@@ -1,5 +1,11 @@
 #!/bin/sh
 
+if ! command -v fs >/dev/null 2>&1; then
+  echo "Error: 'fs' is not installed or not in your PATH." >&2
+  echo "Please install it from https://github.com/Squirreljetpack/fist" >&2
+  exit 1
+fi
+
 if [ -t 0 ]; then
   ob-vaults -g "$@"
 else

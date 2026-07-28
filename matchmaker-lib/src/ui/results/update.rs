@@ -14,7 +14,7 @@ impl ResultsUI {
         let dirty = self.changed.iter().any(|x| *x)
             || self.cursor_moved.is_some()
             || self.width_limits.is_empty()
-            || self.row_cache.is_empty();
+            || self.row_cache[0].is_empty();
 
         let update_preferred = self.changed[1]
             || self.cursor_moved.is_some()
@@ -29,7 +29,6 @@ impl ResultsUI {
 
     pub fn update_table<T: SSS, D: 'static>(
         &mut self,
-        active_column: usize,
         worker: &mut Worker<T, D>,
         selector: &Selector,
         matcher: &mut nucleo::Matcher,
@@ -100,7 +99,6 @@ impl ResultsUI {
             worker,
             selector,
             !self.cursor_disabled,
-            active_column,
             Some((self.height, false)),
             &mut rows,
             None,
@@ -133,7 +131,6 @@ impl ResultsUI {
                     worker,
                     selector,
                     false,
-                    active_column,
                     Some((scroll_padding.saturating_sub(after_height), self.reverse())),
                     &mut after_rows,
                     Some(&mut after_row_data),
@@ -157,6 +154,7 @@ impl ResultsUI {
                 idx -= 1;
             } else if before_height < scroll_padding && self.bottom > 0 {
                 self.bottom -= 1;
+                self.cursor_moved = Some(true);
                 self.cursor += 1;
                 // keep adding
             } else {
@@ -186,7 +184,6 @@ impl ResultsUI {
                 worker,
                 selector,
                 false,
-                active_column,
                 max_h,
                 &mut rows,
                 None,
@@ -275,7 +272,6 @@ impl ResultsUI {
                     worker,
                     selector,
                     false,
-                    active_column,
                     max_h,
                     &mut rows,
                     None,
@@ -321,7 +317,6 @@ impl ResultsUI {
                     self.hidden_columns
                 );
                 self.width_limits.clear();
-                self.changed[0] = true;
             }
         };
 

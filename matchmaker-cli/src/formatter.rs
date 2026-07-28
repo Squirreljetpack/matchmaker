@@ -260,6 +260,32 @@ fn process_key(
     }
 }
 
+/// Resolve a template key to a column index.
+///
+/// Numeric keys are always treated as column indices (never column names):
+/// `0` resolves to the primary column, `1` to the first column, etc.
+/// Non-numeric keys are looked up by column name.
+fn column_index_for_key(key: &str, state: &ConfigMMState<'_, '_>) -> Option<usize> {
+    if let Ok(n) = key.parse::<usize>() {
+        if COLUMN_INDICES {
+            Some(if n == 0 {
+                state.picker_ui.worker.query.primary_column_index()
+            } else {
+                n - 1
+            })
+        } else {
+            None
+        }
+    } else {
+        state
+            .picker_ui
+            .worker
+            .columns
+            .iter()
+            .position(|c| c.name.as_ref() == key)
+    }
+}
+
 fn get_val<'a>(
     key: &str,
     (index, item): (u32, &'a String),
@@ -280,21 +306,9 @@ fn get_val<'a>(
         } else if key == "#" {
             Some(index.to_string().into())
         } else {
-            // Try to use key as column index or name
-            let col_idx = state
-                .picker_ui
-                .worker
-                .columns
-                .iter()
-                .position(|c| c.name.as_ref() == key);
-
-            let idx = if let Some(i) = col_idx {
-                Some(i)
-            } else if COLUMN_INDICES {
-                key.parse::<usize>().ok().map(|x| x.saturating_sub(1))
-            } else {
-                None
-            };
+            // Numeric keys are always treated as column indices, never as
+            // column names. Non-numeric keys are looked up by name.
+            let idx = column_index_for_key(key, state);
 
             if let Some(idx) = idx
                 && let Some(col) = state.picker_ui.worker.columns.get(idx)
@@ -319,26 +333,17 @@ fn handle_range<'a, 'b>(
     let start_key = parts.first().copied().unwrap_or("");
     let end_key = parts.get(1).copied().unwrap_or("");
 
+    // Same index-first resolution as get_val: numeric keys are treated as
     let start_idx = if start_key.is_empty() {
         0
     } else {
-        state
-            .picker_ui
-            .worker
-            .columns
-            .iter()
-            .position(|c| c.name.as_ref() == start_key)?
+        column_index_for_key(start_key, state)?
     };
 
     let end_idx = if end_key.is_empty() {
         state.picker_ui.worker.columns.len()
     } else {
-        state
-            .picker_ui
-            .worker
-            .columns
-            .iter()
-            .position(|c| c.name.as_ref() == end_key)?
+        column_index_for_key(end_key, state)?
     };
 
     if start_idx >= state.picker_ui.worker.columns.len()

@@ -113,7 +113,7 @@ impl PreviewUI {
     }
 
     pub fn update_dimensions(&mut self, area: &Rect) {
-        self.area = self.border().inner(*area);
+        self.area = self.border().inner_of(*area);
         if self.config.reevaluate_show_on_resize {
             self.reevaluate_show_condition([area.width, area.height], false);
         }

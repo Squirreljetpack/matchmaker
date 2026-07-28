@@ -935,7 +935,23 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
             &mut ui,
             overlay_ui_ref.as_deref_mut(),
         );
+
+        // we do an strange thing by defaulting to empty column when non-filtering so that we can render for f:ist a certain way
+        let active_column = if !state.filtering {
+            picker_ui.worker.query.empty_column_index()
+        } else {
+            picker_ui.active_column_index()
+        };
+        picker_ui.results.update_active_column(active_column);
+
+        picker_ui.results.update_table(
+            &mut picker_ui.worker,
+            &picker_ui.selector,
+            picker_ui.matcher,
+        );
+
         if did_tick {
+            _info!("tick");
             // 3. Pure rendering phase
             tui.terminal
                 .draw(|frame| {
@@ -954,7 +970,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                         ui.area().width,
                     );
 
-                    render_results(frame, layout.results, &mut picker_ui, state.filtering);
+                    render_results(frame, layout.results, &mut picker_ui);
                     render_display(
                         frame,
                         layout.header,
@@ -1096,26 +1112,12 @@ fn render_results<T: SSS, D: 'static>(
     frame: &mut Frame,
     mut area: Rect,
     picker_ui: &mut PickerUI<T, D>,
-    filtering: bool,
 ) {
     let cap = matches!(
         picker_ui.results.config.row_connection,
         RowConnectionStyle::Capped
     );
 
-    // we do an strange thing by defaulting to empty column when non-filtering so that we can render for f:ist a certain way
-    let active_column = if !filtering {
-        picker_ui.worker.query.empty_column_index()
-    } else {
-        picker_ui.active_column_index()
-    };
-
-    picker_ui.results.update_table(
-        active_column,
-        &mut picker_ui.worker,
-        &picker_ui.selector,
-        picker_ui.matcher,
-    );
     let (table, width) = picker_ui.results.get_table();
 
     if cap {

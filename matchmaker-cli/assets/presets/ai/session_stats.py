@@ -3,7 +3,10 @@
 pi_stats.py — aggregate usage statistics from pi session JSONL files, bucketed by (model, provider).
 
 Usage:
-    python3 pi_stats.py [--price] [--format=auto|table|yaml|json] <file.jsonl> ...
+    python3 pi_stats.py [--inline-providers] [--price] [--format=auto|table|yaml|json] <file.jsonl> ...
+
+By default the provider is shown on a new line below the model in the Model column.
+Pass --inline-providers to show provider inline as "model (provider)".
 """
 
 import json
@@ -29,15 +32,15 @@ def parse_file(path):
 
 def classify_events(events, path):
     model_changes = [e for e in events if e.get("type") == "model_change"]
-    default_model    = model_changes[0].get("modelId",  "unknown") if model_changes else "unknown"
+    default_model = model_changes[0].get("modelId", "unknown") if model_changes else "unknown"
     default_provider = model_changes[0].get("provider", "unknown") if model_changes else "unknown"
 
     model_at_time = {}
-    current_model    = default_model
+    current_model = default_model
     current_provider = default_provider
     for e in events:
         if e.get("type") == "model_change":
-            current_model    = e.get("modelId",  current_model)
+            current_model = e.get("modelId", current_model)
             current_provider = e.get("provider", current_provider)
         model_at_time[e.get("id")] = (current_model, current_provider)
 
@@ -65,12 +68,12 @@ def classify_events(events, path):
         if e.get("type") != "message":
             continue
 
-        msg  = e.get("message", {})
+        msg = e.get("message", {})
         role = msg.get("role")
 
         model_name = msg.get("model") or model_at_time.get(e.get("id"), (default_model, default_provider))[0]
-        provider   = model_at_time.get(e.get("id"), (model_name, default_provider))[1]
-        
+        provider = model_at_time.get(e.get("id"), (model_name, default_provider))[1]
+
         combo_key = (model_name, provider)
         s = stats[combo_key]
         s["sessions"].add(session_id)
@@ -82,16 +85,16 @@ def classify_events(events, path):
             s["assistant_turns"] += 1
 
             usage = msg.get("usage", {})
-            s["input"]       += usage.get("input",      0)
-            s["cache_read"]  += usage.get("cacheRead",  0)
+            s["input"] += usage.get("input", 0)
+            s["cache_read"] += usage.get("cacheRead", 0)
             s["cache_write"] += usage.get("cacheWrite", 0)
-            s["output"]      += usage.get("output",     0)
+            s["output"] += usage.get("output", 0)
 
             cost = usage.get("cost") or {}
             if isinstance(cost, dict):
-                s["input_cost"]  += cost.get("input", 0) + cost.get("cacheRead", 0) + cost.get("cacheWrite", 0)
+                s["input_cost"] += cost.get("input", 0) + cost.get("cacheRead", 0) + cost.get("cacheWrite", 0)
                 s["output_cost"] += cost.get("output", 0)
-                s["cost"]        += cost.get("total",  0)
+                s["cost"] += cost.get("total", 0)
             elif isinstance(cost, (int, float)):
                 s["cost"] += cost
 
@@ -107,7 +110,7 @@ def classify_events(events, path):
             if msg.get("isError", False):
                 s2 = stats[combo_key2]
                 s2["tool_calls_fail"] += 1
-                s2["tool_calls_ok"]    = max(0, s2["tool_calls_ok"] - 1)
+                s2["tool_calls_ok"] = max(0, s2["tool_calls_ok"] - 1)
 
     return stats
 
@@ -134,18 +137,18 @@ def merge_stats(all_stats):
     for stats in all_stats:
         for combo_key, s in stats.items():
             m = merged[combo_key]
-            m["sessions"]        |= s["sessions"]
-            m["user_turns"]      += s["user_turns"]
+            m["sessions"] |= s["sessions"]
+            m["user_turns"] += s["user_turns"]
             m["assistant_turns"] += s["assistant_turns"]
-            m["tool_calls_ok"]   += s["tool_calls_ok"]
+            m["tool_calls_ok"] += s["tool_calls_ok"]
             m["tool_calls_fail"] += s["tool_calls_fail"]
-            m["input"]           += s["input"]
-            m["cache_read"]      += s["cache_read"]
-            m["cache_write"]     += s["cache_write"]
-            m["output"]          += s["output"]
-            m["input_cost"]      += s["input_cost"]
-            m["output_cost"]     += s["output_cost"]
-            m["cost"]            += s["cost"]
+            m["input"] += s["input"]
+            m["cache_read"] += s["cache_read"]
+            m["cache_write"] += s["cache_write"]
+            m["output"] += s["output"]
+            m["input_cost"] += s["input_cost"]
+            m["output_cost"] += s["output_cost"]
+            m["cost"] += s["cost"]
             m["thinking_tokens"] += s["thinking_tokens"]
     return merged
 
@@ -153,21 +156,24 @@ def merge_stats(all_stats):
 def fmt_int(n):
     return f"{n:,}"
 
+
 def fmt_pct(num, denom):
     if denom == 0:
         return "—"
     return f"{num * 100 / denom:.1f}%"
+
 
 def fmt_cost(c):
     if c == 0:
         return "—"
     return f"{c:.2f}"
 
+
 def fmt_k(n):
     if n >= 1_000_000:
-        return f"{n/1_000_000:.1f}M"
+        return f"{n / 1_000_000:.1f}M"
     if n >= 1_000:
-        return f"{n/1_000:.1f}k"
+        return f"{n / 1_000:.1f}k"
     return str(n)
 
 
@@ -176,55 +182,55 @@ def build_columns(show_price):
         return s["input"] + s["cache_read"] + s["cache_write"]
 
     base = [
-        ("#S",      lambda m, s: fmt_int(len(s["sessions"]))),
-        ("#U",       lambda m, s: fmt_int(s["user_turns"])),
-        ("#A",       lambda m, s: fmt_int(s["assistant_turns"])),
-        ("✓",          lambda m, s: fmt_int(s["tool_calls_ok"])),
-        ("✗",          lambda m, s: fmt_int(s["tool_calls_fail"])),
-        ("Input",      lambda m, s: fmt_k(total_input(s))),
-        ("C R%",   lambda m, s: fmt_pct(s["cache_read"],  total_input(s))),
-        ("C W%",   lambda m, s: fmt_pct(s["cache_write"], total_input(s))),
-        ("Output",     lambda m, s: fmt_k(s["output"])),
-        ("Think",     lambda m, s: fmt_k(s["thinking_tokens"]) if s["thinking_tokens"] else "—"),
+        ("#S", lambda m, s: fmt_int(len(s["sessions"]))),
+        ("#U", lambda m, s: fmt_int(s["user_turns"])),
+        ("#A", lambda m, s: fmt_int(s["assistant_turns"])),
+        ("✓", lambda m, s: fmt_int(s["tool_calls_ok"])),
+        ("✗", lambda m, s: fmt_int(s["tool_calls_fail"])),
+        ("Input", lambda m, s: fmt_k(total_input(s))),
+        ("C R%", lambda m, s: fmt_pct(s["cache_read"], total_input(s))),
+        ("C W%", lambda m, s: fmt_pct(s["cache_write"], total_input(s))),
+        ("Output", lambda m, s: fmt_k(s["output"])),
+        ("Think", lambda m, s: fmt_k(s["thinking_tokens"]) if s["thinking_tokens"] else "—"),
     ]
-    
+
     if show_price:
         # Rate per 1M tokens: (Cost / Tokens) * 1,000,000
         base += [
-            ("$/in",  lambda m, s: fmt_cost((s["input_cost"] / total_input(s)) * 1_000_000) if total_input(s) else "—"),
+            ("$/in", lambda m, s: fmt_cost((s["input_cost"] / total_input(s)) * 1_000_000) if total_input(s) else "—"),
             ("$/out", lambda m, s: fmt_cost((s["output_cost"] / s["output"]) * 1_000_000) if s["output"] else "—"),
-            ("Cost",    lambda m, s: fmt_cost(s["cost"])),
+            ("Cost", lambda m, s: fmt_cost(s["cost"])),
         ]
     else:
         # Absolute total spending columns
         base += [
-            ("in $",  lambda m, s: fmt_cost(s["input_cost"])),
+            ("in $", lambda m, s: fmt_cost(s["input_cost"])),
             ("out $", lambda m, s: fmt_cost(s["output_cost"])),
-            ("Cost",    lambda m, s: fmt_cost(s["cost"])),
+            ("Cost", lambda m, s: fmt_cost(s["cost"])),
         ]
-        
+
     return base
 
 
 def build_total(merged):
     return {
-        "sessions":        set().union(*(s["sessions"] for s in merged.values())),
-        "user_turns":      sum(s["user_turns"]      for s in merged.values()),
+        "sessions": set().union(*(s["sessions"] for s in merged.values())),
+        "user_turns": sum(s["user_turns"] for s in merged.values()),
         "assistant_turns": sum(s["assistant_turns"] for s in merged.values()),
-        "tool_calls_ok":   sum(s["tool_calls_ok"]   for s in merged.values()),
+        "tool_calls_ok": sum(s["tool_calls_ok"] for s in merged.values()),
         "tool_calls_fail": sum(s["tool_calls_fail"] for s in merged.values()),
-        "input":           sum(s["input"]           for s in merged.values()),
-        "cache_read":      sum(s["cache_read"]      for s in merged.values()),
-        "cache_write":     sum(s["cache_write"]     for s in merged.values()),
-        "output":          sum(s["output"]          for s in merged.values()),
-        "input_cost":      sum(s["input_cost"]      for s in merged.values()),
-        "output_cost":     sum(s["output_cost"]     for s in merged.values()),
-        "cost":            sum(s["cost"]            for s in merged.values()),
+        "input": sum(s["input"] for s in merged.values()),
+        "cache_read": sum(s["cache_read"] for s in merged.values()),
+        "cache_write": sum(s["cache_write"] for s in merged.values()),
+        "output": sum(s["output"] for s in merged.values()),
+        "input_cost": sum(s["input_cost"] for s in merged.values()),
+        "output_cost": sum(s["output_cost"] for s in merged.values()),
+        "cost": sum(s["cost"] for s in merged.values()),
         "thinking_tokens": sum(s["thinking_tokens"] for s in merged.values()),
     }
 
 
-def render_table(merged, show_price=False):
+def render_table(merged, show_price=False, inline_providers=False):
     columns = build_columns(show_price)
     show_total = len(merged) > 1
 
@@ -233,7 +239,20 @@ def render_table(merged, show_price=False):
     if show_total:
         data_rows.append(("TOTAL", build_total(merged)))
 
-    all_cols = [("Model", lambda m, s: f"{m[0]} ({m[1]})" if isinstance(m, tuple) else m)] + columns
+    if inline_providers:
+
+        def model_fmt(m, s):
+            if isinstance(m, tuple):
+                return f"{m[0]} ({m[1]})"
+            return m
+    else:
+
+        def model_fmt(m, s):
+            if isinstance(m, tuple):
+                return f"{m[0]}\n{m[1]}"
+            return m
+
+    all_cols = [("Model", model_fmt)] + columns
     all_headers = [h for h, _ in all_cols]
 
     rows = [[fn(mk, s) for _, fn in all_cols] for mk, s in data_rows]
@@ -241,19 +260,25 @@ def render_table(merged, show_price=False):
     widths = [len(h) for h in all_headers]
     for row in rows:
         for i, cell in enumerate(row):
-            widths[i] = max(widths[i], len(cell))
+            widths[i] = max(widths[i], max(len(line) for line in cell.split("\n")))
 
     def bar(left, mid, right, fill="─"):
         return left + mid.join(fill * (w + 2) for w in widths) + right
 
     def row_str(cells):
-        parts = [f" {cell:<{w}} " for cell, w in zip(cells, widths)]
-        return "│" + "│".join(parts) + "│"
+        cell_lines = [cell.split("\n") for cell in cells]
+        max_lines = max(len(cl) for cl in cell_lines)
+        cell_lines = [cl + [""] * (max_lines - len(cl)) for cl in cell_lines]
+        out = []
+        for i in range(max_lines):
+            parts = [f" {cell_lines[j][i]:<{widths[j]}} " for j in range(len(cells))]
+            out.append("│" + "│".join(parts) + "│")
+        return "\n".join(out)
 
-    top     = bar("┌", "┬", "┐")
+    top = bar("┌", "┬", "┐")
     headsep = bar("├", "┼", "┤")
-    midsep  = bar("├", "┼", "┤")
-    botsep  = bar("└", "┴", "┘")
+    midsep = bar("├", "┼", "┤")
+    botsep = bar("└", "┴", "┘")
 
     lines = [top, row_str(all_headers), headsep]
     for i, (row, (mk, _)) in enumerate(zip(rows, data_rows)):
@@ -270,7 +295,7 @@ def build_output_list(merged, show_price=False):
     show_total = len(merged) > 1
 
     rows = sorted(merged.items())
-    
+
     out_list = []
     for mk, s in rows:
         model_name, provider = mk
@@ -320,12 +345,18 @@ def terminal_columns():
 
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(
         prog="pi_stats.py",
         description="Aggregate usage statistics from pi session JSONL files, bucketed by model and provider.",
     )
     parser.add_argument("files", nargs="+", metavar="FILE", help="Session JSONL files to process")
     parser.add_argument("--price", action="store_true", help="Show price instead of cost ($ / in, $ / out)")
+    parser.add_argument(
+        "--inline-providers",
+        action="store_true",
+        help="Show provider inline as 'model (provider)' instead of on a separate line (default)",
+    )
     parser.add_argument(
         "--format",
         choices=["auto", "table", "yaml", "json"],
@@ -335,8 +366,9 @@ def main():
     )
     args = parser.parse_args()
     show_price = args.price
-    fmt        = args.format
-    paths      = args.files
+    inline_providers = args.inline_providers
+    fmt = args.format
+    paths = args.files
 
     all_stats = []
     errors = []
@@ -363,9 +395,9 @@ def main():
     elif fmt == "yaml":
         print(render_yaml(merged, show_price=show_price))
     elif fmt == "table":
-        print(render_table(merged, show_price=show_price))
+        print(render_table(merged, show_price=show_price, inline_providers=inline_providers))
     else:  # auto
-        table = render_table(merged, show_price=show_price)
+        table = render_table(merged, show_price=show_price, inline_providers=inline_providers)
         width = max((len(line) for line in table.splitlines()), default=0)
         if width > terminal_columns():
             print(render_yaml(merged, show_price=show_price))

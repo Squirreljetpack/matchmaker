@@ -27,6 +27,7 @@ pub struct ResultsUI {
     pub hscroll: i8,
     pub vscroll: u8,
     cursor_disabled: bool,
+    /// Option(bottom_changed)
     cursor_moved: Option<bool>,
 
     /// available height
@@ -41,6 +42,7 @@ pub struct ResultsUI {
     width_limits: Vec<u16>,
     pub(crate) hidden_columns: HiddenColumns,
     column_name_widths: Vec<u16>,
+    active_column: usize,
 
     // used to compute width_limits
     // valid after calling update_preferred_widths
@@ -75,6 +77,7 @@ impl ResultsUI {
             widths: Vec::new(),
             hidden_columns: HiddenColumns::new_with_size(3), // for easy testing
             column_name_widths: Default::default(),
+            active_column: 0,
 
             width_limits: Vec::new(),
             preferred_widths: Vec::new(),
@@ -112,6 +115,11 @@ impl ResultsUI {
         self.status = new_snapshot(&mut worker.nucleo).1
     }
 
+    pub fn update_active_column(&mut self, col: usize) {
+        self.changed[0] = self.active_column != col;
+        self.active_column = col;
+    }
+
     pub fn disable_cursor(&mut self, disabled: bool) {
         self.cursor_disabled = disabled;
         self.changed[0] = true;
@@ -131,7 +139,7 @@ impl ResultsUI {
     }
 
     pub fn update_dimensions(&mut self, area: Rect) {
-        let new = self.config.border.inner(area);
+        let new = self.config.border.inner_of(area);
         if self.width != new.width || self.height != new.height {
             self.width = new.width;
             self.height = new.height;
@@ -201,21 +209,22 @@ impl ResultsUI {
         None
     }
 
-    fn set_cursor_changed(&mut self, jumped: bool) {
-        if jumped || self.cursor_moved != Some(true) {
-            self.cursor_moved = Some(jumped);
+    fn set_cursor_changed(&mut self) {
+        if self.cursor_moved != Some(true) {
+            self.cursor_moved = Some(false);
         }
     }
 
     pub fn cursor_prev(&mut self) -> bool {
         self.cursor_disabled = false;
         self.reset_current_scroll();
-        self.set_cursor_changed(false);
+        self.set_cursor_changed();
 
         if self.cursor > 0 {
             self.cursor -= 1;
         } else if self.bottom > 0 {
             self.bottom -= 1;
+            self.cursor_moved = Some(true);
         } else if self.config.scroll_wrap {
             self.cursor_jump(self.end());
             return true;
@@ -227,7 +236,7 @@ impl ResultsUI {
     pub fn cursor_next(&mut self) -> bool {
         self.reset_current_scroll();
         self.cursor_disabled = false;
-        self.set_cursor_changed(false);
+        self.set_cursor_changed();
 
         if self.index() < self.end() {
             self.cursor = self.cursor.saturating_add(1);
@@ -242,7 +251,7 @@ impl ResultsUI {
     pub fn cursor_jump(&mut self, index: u32) {
         self.reset_current_scroll();
         self.cursor_disabled = false;
-        self.set_cursor_changed(true);
+        self.set_cursor_changed();
 
         let end = self.end();
         let index = index.min(end);
@@ -251,6 +260,7 @@ impl ResultsUI {
             self.bottom = (end + 1)
                 .saturating_sub(self.height as u32) // don't exceed the first item of the last self.height items
                 .min(index);
+            self.cursor_moved = Some(true);
         }
         self.cursor = (index - self.bottom) as u16;
         log::debug!("cursor jumped to {}: {index}, end: {end}", self.cursor);

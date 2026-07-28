@@ -5,6 +5,8 @@ max = 120
 
 # --- UI ---
 [ui]
+# tick_rate = 60
+# mouse_events = true
 
 [query]
 prompt_style.fg = "Gray"
@@ -86,7 +88,6 @@ separator = "\\0"
 
 [start]
 ansi = false # don't set to true here
-sanitize = false # applies sanitize fns to the text/string returned from text_preprocessor
 skip_invalid_lines = true # set false to error on encountering invalid utf-8
 
 [exit]
@@ -144,6 +145,14 @@ abort_empty = true
 # "ctrl-]" = "TogglePreviewWrap",  # requires keyboard enhancement
 # "alt-{" = "ToggleWrap",
 # "alt-}" = "TogglePreviewWrap",
+"ctrl-[" = ["ToggleWrap", "ToggleHeaderWrap"] # requires keyboard enhancement
+
+"alt-s" = "Sort"
+"alt-n" = "SortNumeric"
+"alt-r" = "SortReverse"
+
+"alt-=" = "ExpandColumn"
+"alt-hyphen" = "ShrinkColumn"
 
 # Columns
 "ctrl-." = "NextColumn" # requires keyboard enhancement
@@ -164,7 +173,7 @@ abort_empty = true
 
 "alt-shift-=" = "ExpandPreview"
 "alt-+" = "ExpandPreview" # A terminal might only transmit alt-shift-=
-"alt-hyphen" = "ShrinkPreview"
+"alt-shift-hyphen" = "ShrinkPreview"
 
 # Reserved
 "F1" = "@help"
@@ -217,6 +226,6 @@ abort_empty = true
 
 "@print" = "Print({-})"
 "@print_2" = "Print({-!})"
-"@copy" = "CopyAsync(Write-Output {+1})"
+"@copy" = "CopyAsync(Write-Output {+0})"
 "@copy_all" = "CopyAsync(Write-Output {})"
 "@copy_active" = "CopyAsync(Write-Output {+!})"

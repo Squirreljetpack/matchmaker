@@ -248,7 +248,6 @@ impl ResultsUI {
         // post_render styling options
         selector: &Selector,
         is_current: bool,
-        active_column: usize,
         max_height: Option<(u16, bool)>,
         // output
         rows: &mut Vec<Row<'static>>,
@@ -366,7 +365,7 @@ impl ResultsUI {
                 );
             }
 
-            let col = style_text(col, active_column == col_idx, is_current, &self.config);
+            let col = style_text(col, self.active_column == col_idx, is_current, &self.config);
             row_texts.push(col);
         }
 

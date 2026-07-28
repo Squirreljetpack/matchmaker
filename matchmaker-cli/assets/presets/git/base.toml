@@ -1,5 +1,5 @@
 [start]
-directory = { value = "git rev-parse --show-toplevel", exec = true }
+directory = { value = "git rev-parse --show-toplevel", exec = true, force = true }
 
 [binds]
 "ctrl-s" = "@show"

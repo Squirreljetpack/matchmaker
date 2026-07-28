@@ -1,83 +1,110 @@
-# picker configuration file
-
 [tui]
 percentage = 60
 min = 10
 max = 120
 
+# --- UI ---
 [ui]
-# border    = { color = "blue", bg = "#282828" }
-tick_rate = 30
+# tick_rate = 60
+# mouse_events = true
 
 [query]
-style.fg = "White"
-cursor = "default"
-prompt = ">"
+prompt_style.fg = "Gray"
+prompt_style.modifier = "ITALIC"
 
-[header]
-content = "test"
-# header_lines = 2
-interactions = [[[0, "test"]], [[1, "test"], [3, "open"], [4, ""]]]
-wrap = true
 [results]
-scroll_padding = 2
-
-# border           = { type = "Rounded", sides = "", padding = 0 }
-style.fg = "White"
-current.bg = "Black"
-current.modifier = "BOLD"
-match.fg = "Green"
-
-# reverse = auto
-wrap = true
-
-scroll_wrap = true
+# wrap = true
+max_height = 16
 
 [status]
-style.fg = "Green"
-style.modifier = "ITALIC"
 
-[previewer]
-try_lossy = false
-delay_clear = false
-max_procs = 4
-always_trigger = true
+[header]
 
+[footer]
+# --- Preview ---
 [preview]
-# border      = { type = "Rounded", color = "Blue" }
-scroll_wrap = true
-show = true
 wrap = true
+scroll_wrap = true
 
 [[preview.layout]]
 command = '''
-if [ -d {} ]; then
-    cd {} &&
-    find . -maxdepth 2 | sed 's|[^/]*/|  |g'
+if [ -d {1} ]; then
+    if command -v eza >/dev/null 2>&1; then
+        eza --color=always -T -L 2 -- {1}
+    else
+        find {1} -maxdepth 2 | sed 's|[^/]*/|  |g'
+    fi
 else
-    cat {}
+    if command -v bat >/dev/null 2>&1; then
+        bat --binary no-printing --color=always -- {1}
+    elif command -v $PAGER >/dev/null 2>&1; then
+        $PAGER -- {1}
+    else
+        cat -- {1}
+    fi
 fi
 '''
-side = "right"
-percentage = 40
-min = 30
-max = 120
-border = { type = "LightDoubleDashed", color = "DarkGray" }
 
-[[preview.layout]]
-side = "top"
+side = "right"
 percentage = 40
 min = 30
 max = 120
 border.type = "Plain"
 border.padding = [2, 0]
 
+[[preview.layout]]
+side = "top"
+percentage = 55
+min = 5
+max = 50
+border.type = "Plain"
+
+[[preview.layout]]
+side = "right"
+percentage = 75
+min = 5
+max = 240
+border.type = "Plain"
+border.padding = [2, 0]
+
+[previewer]
+always_trigger = true
+
+# --- Misc ---
+[matcher]
+
+[columns]
+
+[start.command]
+command = '''
+    if command -v fd >/dev/null 2>&1; then
+        fd --strip-cwd-prefix --print0
+    else
+        find . -print0
+    fi
+    '''
+separator = "\\0"
+
+[start]
+ansi = false # don't set to true here
+skip_invalid_lines = true # set false to error on encountering invalid utf-8
+
+[exit]
+abort_empty = true
+
+[envs]
+# CLIPcmd = # Leave blank to auto-determine
+# PASTEcmd = # Leave blank to auto-determine
+# PAGER = # Leave blank to auto-determine
+# EDITOR = # Leave blank to auto-determine
+
+# --- Binds ---
 [binds]
 # Essentia
 "ctrl-c" = "Quit"
 "esc" = "Quit"
 "enter" = "@accept"
-# "alt-enter" = "@accept_2"
+"alt-enter" = "@accept_2"
 # "ctrl-enter" = "@accept_2" # requires enhancement
 "ctrl-a" = "CycleSelections"
 "tab" = ["Toggle", "Down"]
@@ -117,6 +144,7 @@ border.padding = [2, 0]
 # "ctrl-]" = "TogglePreviewWrap",  # requires keyboard enhancement
 # "alt-{" = "ToggleWrap",
 # "alt-}" = "TogglePreviewWrap",
+"ctrl-[" = ["ToggleWrap", "ToggleHeaderWrap"] # requires keyboard enhancement
 
 # Columns
 "ctrl-." = "NextColumn" # requires keyboard enhancement
@@ -185,7 +213,7 @@ border.padding = [2, 0]
 "@next" = ["ReloadNext", "Cancel"]
 "@prev" = ["ReloadPrev", "Cancel"]
 "@help" = "Help"
-"@refresh" = "Redraw"
+"@refresh" = "Redraw" # invalid unicode or unsupported emoji can break rendering
 
 # Printing
 "alt-p" = "@print"
@@ -200,35 +228,3 @@ border.padding = [2, 0]
 "@copy" = "CopyAsync(printf '%s\n' {+1})"
 "@copy_all" = "CopyAsync(printf {})"
 "@copy_active" = "CopyAsync(printf '%s\n' {+!})"
-
-# test
-"ctrl-t" = "Become(set -e; false; echo hi;)"
-"alt-t" = "@test"
-"@test" = "Execute(echo ----; read v; echo $v; echo ----)"
-"alt-enter" = "Print({1})"
-
-[matcher]
-trim = true
-sort_threshold = 1
-
-[columns]
-# split = '\s+'
-max = 8
-
-[start]
-skip_invalid_lines = true # set false to error on encountering invalid utf-8
-sanitize = true
-# require_column = 1 # don't set this here
-
-[start.command]
-cmd = '''
-if command -v fd >/dev/null 2>&1; then
-    fd --strip-cwd-prefix --print0
-else
-    find . -print0
-fi
-'''
-separator = "\\0"
-
-[exit]
-first = false

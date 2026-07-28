@@ -3,7 +3,15 @@
 [envs]
 OBSIDIAN_VAULTS_FILE = { value = 'echo "$(dirname -- "$MM_OVERRIDE")"/__vaults', exec = true }
 PATH = { value = 'echo "$(dirname -- "$MM_OVERRIDE"):$PATH"', exec = true, force = true }
-OPENcmd = "fs :o"
+OPENcmd = { value = '''
+if command -v fs >/dev/null 2>&1; then
+  echo fs :o
+elif [ "${OSTYPE#darwin}" = "$OSTYPE" ]; then
+  echo xdg-open
+else
+  echo open
+fi
+''', exec = true }
 
 [start]
 command = 'ob-vaults -c'
@@ -19,13 +27,7 @@ default = "vault"
 show = true
 
 [[preview.layout]]
-command = '''
-if command -v fs >/dev/null 2>&1; then
-  fs :tool liza :u2 {path}
-else
-  ls -l {path}
-fi
-'''
+command = "fs :tool liza :u2 {path} || ls -l {path}"
 
 [binds]
 "right" = [

@@ -5,16 +5,13 @@ WAIT=5
 
 uri() {
   if command -v "jq" > /dev/null 2>&1; then
-    # POSIX replacement for print -nl; jq handles URL encoding
     printf '%s' "$*" | jq -sRr @uri
   else
-    # POSIX replacement using sed
     printf '%s' "$*" | sed 's/ /%20/g; s/\//%2F/g'
   fi
 }
 
-### SCRIPT START
-
+# === ARGPARSE ===
 usage(){
   echo "Opens a file in Obsidian, or their default application if not contained in a vault.
 
@@ -56,24 +53,36 @@ case "$1" in
   *)  file="$PWD/$file" ;;
 esac
 
-if vault=$(ob-vaults -b "$file"); then
-  if ps -e -o args= 2>/dev/null | grep -q '[O]bsidian'; then
-    fs :o "obsidian://open?path=$(uri "$file")"
+# === SCRIPT START ===
+if [ -z "$OPENcmd" ]; then
+  if command -v fs >/dev/null 2>&1; then
+    echo fs :o
+  elif [ "${OSTYPE#darwin}" = "$OSTYPE" ]; then
+    echo xdg-open
   else
-    fs :o "obsidian://open?path=$(uri "$file")"
+    echo open
+  fi
+fi
+TARGET="'obsidian://open?path=$(uri "$file")'"
+
+if vault="$(ob-vaults -b "$file")"; then
+  if ps -e -o args= 2>/dev/null | grep -q '[O]bsidian'; then
+    eval $OPENcmd "$TARGET"
+  else
+    eval $OPENcmd "$TARGET"
     # queue up some extra tries in case the request was dropped while obsidian was starting up
     (
       sleep "$WAIT"
-      fs :o "obsidian://open?path=$(uri "$file")"
+      eval $OPENcmd "$TARGET"
       sleep "$WAIT"
-      fs :o "obsidian://open?path=$(uri "$file")"
+      eval $OPENcmd "$TARGET"
     ) >/dev/null 2>&1 &
   fi
 else
   if [ -e "$file" ]; then
-    fs :o "$file"
+    eval $OPENcmd "$file"
   else
-    # Normalize markdown link syntax using POSIX parameter expansion
-    fs :o "${file%%#*}" || exit 1
+    # Normalize markdown link syntax
+    eval $OPENcmd "${file%%#*}" || exit 1
   fi
 fi

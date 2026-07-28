@@ -1,0 +1,79 @@
+# LLM models browser
+
+[start]
+command = '''
+llm models --options | perl -ne '
+  BEGIN {
+    sub emit {
+      return unless $cur{model};
+      my $opts  = join(",", @{$cur{options} || []});
+      my $feats = join(",", @{$cur{features} || []});
+      my $atts  = join(",", @{$cur{attachments} || []});
+      print "$cur{provider}\t$cur{model}\t$cur{aliases}\t$opts\t$feats\t$atts\n";
+      %cur = ();
+    }
+  }
+
+  if (/^(\S[^:\n]*):\s*(\S+)(?:\s*\(aliases:\s*([^)]*)\))?/) {
+    emit();
+    $cur{provider} = $1;
+    $cur{model}    = $2;
+    $cur{aliases}  = $3 // "";
+    $state = "";
+    next;
+  }
+
+  next unless $cur{model};
+
+  if (/^\s*Options:/i) { $state = "opt"; next; }
+  if (/^\s*Attachment types:/i) { $state = "att"; next; }
+  if (/^\s*Features:/i) { $state = "feat"; next; }
+  if (/^\s*Keys:/i) { $state = "keys"; next; }
+
+  if ($state eq "opt") {
+    if (/^\s*([a-zA-Z0-9_]+):/) { push @{$cur{options}}, $1; }
+  } elsif ($state eq "att") {
+    s/^\s+|\s+$//g;
+    for my $type (split /\s*,\s*/, $_) {
+      push @{$cur{attachments}}, $type if length $type;
+    }
+  } elsif ($state eq "feat") {
+    if (/^\s*-\s*(.+)/) {
+      my $f = $1;
+      $f =~ s/^\s+|\s+$//g;
+      push @{$cur{features}}, $f if length $f;
+    }
+  }
+
+  END { emit(); }
+'
+'''
+
+[columns]
+max = 6
+names = [
+    "provider",
+    "model",
+    { name = "alias", options = "Optional | OrUseDefault" },
+    "options",
+    "features",
+    "attachments",
+]
+default = "model"
+split = '\t'
+
+[header]
+content = ["provider", "model", "aliases", "options", "features", "attachments"]
+
+# --- Preview ---
+[preview]
+show = true
+
+[[preview.layout]]
+command = '''
+llm models --options -m {model}
+'''
+
+# --- Binds ---
+[binds]
+"@accept" = ["Print({-model})", "Quit"]

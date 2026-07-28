@@ -19,9 +19,11 @@ Templates use `{}` placeholders with various modifiers to inject item data.
 
 ## Column Specifics
 
-You can specify a column by its name or by its index (starting from 1).
+You can specify a column by its name or by its index (starting from 1). `{0}` refers to the primary (default) column.
 
-Note that the default column names (when `columns.names` is unspecified) are `1` … `columns.max`.
+> [!NOTE]
+> Numeric placeholders are always treated as column indices, even if a column happens to have a matching name.
+> If you are using default column names (when `columns.names` is unspecified), there is no conflict as they are named `1` … `columns.max`, but avoid otherwise using integers for columns names for this reason.
 
 **Note: Column names must be alphanumeric.**
 

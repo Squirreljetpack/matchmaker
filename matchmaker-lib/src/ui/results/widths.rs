@@ -57,7 +57,7 @@ impl ResultsUI {
                 })
             }
 
-            self.widths_buffer[vi] = self.preferred_widths[vi].max(lower);
+            self.widths_buffer[vi] = self.widths_buffer[vi].max(lower);
 
             vi += 1;
         }
@@ -91,6 +91,7 @@ impl ResultsUI {
                 .iter_mut()
                 .zip(self.widths_buffer.iter())
             {
+                // we could also enforce immediate column disappearance but we don't
                 if *old == 0 && new > 0 {
                     *old = new;
 

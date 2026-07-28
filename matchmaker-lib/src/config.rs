@@ -7,7 +7,7 @@ use matchmaker_partial_macros::partial;
 use ratatui::layout::Rect;
 
 pub use crate::config_types::*;
-pub use crate::utils::{Percentage, serde::StringOrVec};
+pub use crate::utils::{serde::StringOrVec, Percentage};
 
 use crate::{
     tui::IoStream,
@@ -922,9 +922,9 @@ impl BorderSetting {
         self.sides() == Borders::NONE
     }
 
-    pub fn inner(&self, mut outer: Rect) -> Rect {
-        outer.width -= self.width();
-        outer.height -= self.height();
+    pub fn inner_of(&self, mut outer: Rect) -> Rect {
+        outer.width = outer.width.saturating_sub(self.width());
+        outer.height = outer.height.saturating_sub(self.height());
         outer.x += self.left();
         outer.y += self.top();
 
@@ -1061,8 +1061,6 @@ pub struct ColumnsConfig {
     max_columns: usize,
     #[partial(alias = "i")]
     pub default: StringOrInt,
-    /// When autogenerating column names, start from 0 instead of 1.
-    pub names_from_zero: bool,
 }
 
 impl ColumnsConfig {
@@ -1078,7 +1076,6 @@ impl Default for ColumnsConfig {
             names: Default::default(),
             max_columns: 6,
             default: StringOrInt::Int(0),
-            names_from_zero: false,
         }
     }
 }

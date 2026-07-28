@@ -5,7 +5,7 @@ use anyhow::Result;
 use arc_swap::ArcSwap;
 use cba::bait::ResultExt;
 use cba::bath::PathExt;
-use cba::{_info, unwrap};
+use cba::unwrap;
 use crokey::{Combiner, KeyCombination, KeyCombinationFormat, key};
 use crossterm::event::{
     Event as CrosstermEvent, EventStream, KeyModifiers, MouseEvent, MouseEventKind,
@@ -294,11 +294,7 @@ impl<A: ActionExt> EventLoop<A> {
 
                 _ = interval.tick() => {
                     if !self.skip_ticks.iter().all(|x| *x) || self.dirty {
-                        if self.dirty {
-                            _info!("dirty tick")
-                        }
                         self.send(RenderCommand::Tick)
-
                     }
                     self.dirty = false;
                 }

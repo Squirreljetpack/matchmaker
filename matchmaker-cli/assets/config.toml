@@ -225,6 +225,6 @@ abort_empty = true
 
 "@print" = "Print({-})"
 "@print_2" = "Print({-!})"
-"@copy" = "CopyAsync(printf '%s\n' {+1})"
+"@copy" = "CopyAsync(printf '%s\n' {+0})"
 "@copy_all" = "CopyAsync(printf {})"
 "@copy_active" = "CopyAsync(printf '%s\n' {+!})"

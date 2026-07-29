@@ -210,7 +210,7 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                     match child.wait().await {
                         Ok(s) => {
                             info!("Async command [{}] exited with {}", cmd, s);
-                            if (require_success || s.success())
+                            if (!require_success || s.success())
                                 && let Some(closure) = closure_opt
                             {
                                 closure();

@@ -115,8 +115,10 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
             return Ok(ret);
         }
 
-        let (mut did_pause, mut did_reload, mut did_exit, mut did_cursor_wrap, mut did_tick) =
-            (false, false, None, false, false);
+        let (mut did_pause, mut did_reload, mut did_exit, mut did_cursor_wrap, mut did_tick) = (
+            false, false, None, false, //
+            None,  // ticked(only_tick)
+        );
 
         if let Some(aliaser) = &mut ext_aliaser {
             apply_aliases(
@@ -154,8 +156,11 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
 
             if !matches!(event, RenderCommand::Tick) {
                 info!("Received {event:?}");
-            } else {
-                did_tick = true;
+                if did_tick.is_some() {
+                    did_tick = Some(false);
+                }
+            } else if did_tick.is_none() {
+                did_tick = Some(true);
                 // log::trace!("Recieved {event:?}");
             }
 
@@ -673,7 +678,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                             if let Some(id) = state.stash_actions(remainder, bind_tx.clone()) {
                                 state.set_interrupt(Interrupt::ExecuteAsync, payload);
                                 state.discriminant_payload =
-                                    Some(2 * id + (if is_async { 1 } else { 0 }));
+                                    Some(2 * id + (if is_async { 0 } else { 1 }));
                             } else {
                                 log::error!("No free slots left: remaining actions dropped");
                             }
@@ -950,8 +955,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
             picker_ui.matcher,
         );
 
-        if did_tick {
-            _info!("tick");
+        if did_tick.is_some() {
             // 3. Pure rendering phase
             tui.terminal
                 .draw(|frame| {
@@ -1022,7 +1026,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
         }
 
         // send events into event loop controller
-        if !events.is_empty() {
+        if did_tick != Some(true) || !events.is_empty() {
             controller_tx.send(events)._elog();
         }
 

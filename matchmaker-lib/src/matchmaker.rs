@@ -133,6 +133,7 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
             EventLoop::with_binds(binds)
                 .with_tick_rate(self.render_config.ui.tick_rate)
                 .with_mouse_events(self.render_config.ui.mouse_events)
+                .with_scroll_debounce(self.render_config.ui.mouse_scroll_debounce_ms)
         } else {
             EventLoop::new()
         };

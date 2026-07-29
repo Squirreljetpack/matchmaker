@@ -453,7 +453,8 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
 
     let event_loop = EventLoop::with_binds(binds)
         .with_tick_rate(render.ui.tick_rate)
-        .with_mouse_events(render.ui.mouse_events);
+        .with_mouse_events(render.ui.mouse_events)
+        .with_scroll_debounce(render.ui.mouse_scroll_debounce_ms);
 
     // make matcher and matchmaker with matchmaker-and-matcher-maker
     let copy_trailing_newline = tui.copy_trailing_newline;

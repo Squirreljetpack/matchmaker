@@ -13,6 +13,8 @@ use crate::{
     },
 };
 pub type HeaderTable = Vec<Vec<Line<'static>>>;
+
+/// Left Indentation + Border, column spacing, widths
 pub type ResultWidths = (u16, u16, Vec<u16>);
 
 #[derive(Debug, Default)]

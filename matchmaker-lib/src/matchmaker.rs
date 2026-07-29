@@ -110,7 +110,7 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
     }
 
     pub fn prepare(&mut self) {
-        self.worker.find(&self.render_config.query.initial)
+        self.worker.find(&self.render_config.query.initial);
     }
 
     /// The main method of the Matchmaker. It starts listening for events and renders the TUI with ratatui. It successfully returns with all the selected items selected when the Accept action is received.

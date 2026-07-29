@@ -7,6 +7,7 @@ additional_commands = [
     '''zstd -dc "$(dirname -- "$MM_OVERRIDE")"/emoji.zst''',
     '''zstd -dc "$(dirname -- "$MM_OVERRIDE")"/emoji_compat.zst''',
 ]
+output = "{=char}"
 
 [envs]
 ACTIVE_DICT = "unicode"
@@ -178,8 +179,6 @@ else
 fi
 )'''
 
-"enter" = ["Print({=char})", "Quit"]
-
 "0,1^^enter" = [
     '''Copy(
 if ((MM_INDEX == 0 || MM_INDEX == 1)); then
@@ -189,7 +188,7 @@ else
   printf "%b" "$emoji_seq"
 fi
 )''',
-    "Quit",
+    "Quit(0)",
 ]
 
 # --- Scripts ---

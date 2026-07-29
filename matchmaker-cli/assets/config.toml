@@ -14,6 +14,7 @@ prompt_style.modifier = "ITALIC"
 
 [results]
 # wrap = true
+# uniformly_truncate_columns = false
 max_height = 16
 
 [status]
@@ -101,8 +102,8 @@ abort_empty = true
 # --- Binds ---
 [binds]
 # Essentia
-"ctrl-c" = "Quit"
-"esc" = "Quit"
+# "ctrl-c" = "Quit(1)""
+# "esc" = "Quit(1)"
 "enter" = "@accept"
 "alt-enter" = "@accept_2"
 # "ctrl-enter" = "@accept_2" # requires enhancement
@@ -151,6 +152,8 @@ abort_empty = true
 "ctrl-shift-." = "PrevColumn" # requires keyboard enhancement
 "alt-." = "NextColumn"
 "alt-shift-." = "PrevColumn"
+"alt-\\" = "HideColumn"
+"alt-shift-\\" = "UnhideColumn"
 
 "alt-s" = "Sort"
 "alt-n" = "SortNumeric"

@@ -5,6 +5,7 @@ mod preview;
 mod results;
 mod status;
 pub mod utils;
+use cba::_trace;
 pub use display::*;
 pub use input::*;
 pub use overlay::*;
@@ -142,6 +143,7 @@ pub struct PickerUI<'a, T: SSS, D> {
     pub matcher: &'a mut nucleo::Matcher,
     pub selector: Selector,
     pub worker: Worker<T, D>,
+    pub filtering: bool,
 }
 
 impl<'a, T: SSS, D: 'static> PickerUI<'a, T, D> {
@@ -171,24 +173,44 @@ impl<'a, T: SSS, D: 'static> PickerUI<'a, T, D> {
             matcher,
             selector,
             worker,
+            filtering: true,
         }
     }
 
     /// Prefer [`crate::render::MMState::restart_worker`]
     pub fn restart(&mut self) {
         self.worker.restart(false);
-        self.results.set_dirty();
+        self.results.invalidate_widths();
         self.selector.clear();
     }
 
-    pub fn active_column_index(&self) -> usize {
+    pub(crate) fn active_column_index_raw(&self) -> usize {
         let cursor_byte = self.query.byte_index(self.query.cursor() as usize);
 
-        self.worker
-            .query
-            .current_column(cursor_byte)
-            .and_then(|name| self.worker.columns.iter().position(|c| &c.name == name))
-            .unwrap_or(self.worker.query.primary_column_index())
+        self.worker.query.active_column_index(cursor_byte)
+    }
+
+    /// Get the active column index by checking the query
+    ///
+    /// We defaulting to empty column when non-filtering so that we can render for f:ist a certain way
+    pub fn active_column_index(&self) -> usize {
+        if !self.filtering {
+            self.worker
+                .query
+                .empty_column_index()
+                .unwrap_or(self.worker.query.primary_column_index())
+        } else {
+            self.active_column_index_raw()
+        }
+    }
+
+    pub fn set_filtering(&mut self, s: Option<bool>) {
+        if let Some(s) = s {
+            self.filtering = s
+        } else {
+            self.filtering = !self.filtering
+        }
+        _trace!(self.filtering);
     }
 
     pub fn layout(&self, area: Rect) -> [Rect; 4] {
@@ -225,9 +247,14 @@ impl<'a, T: SSS, D: 'static> PickerUI<'a, T, D> {
     }
 }
 
-impl<'a, T: SSS, D> PickerUI<'a, T, D> {
+impl<'a, T: SSS, D: 'static> PickerUI<'a, T, D> {
     pub fn update(&mut self) {
-        self.worker.find(&self.query.input);
+        if self.filtering {
+            self.worker.find(&self.query.input());
+        }
+
+        let active_column = self.active_column_index();
+        self.results.update_active_column(active_column);
     }
 
     // creation from UI ensures Some

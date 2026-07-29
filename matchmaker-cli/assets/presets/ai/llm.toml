@@ -49,6 +49,8 @@ llm models --options | perl -ne '
 '
 '''
 
+output = "{-model}"
+
 [columns]
 max = 6
 names = [
@@ -76,4 +78,3 @@ llm models --options -m {model}
 
 # --- Binds ---
 [binds]
-"@accept" = ["Print({-model})", "Quit"]

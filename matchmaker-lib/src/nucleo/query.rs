@@ -43,6 +43,21 @@ impl PickerQuery {
         }
     }
 
+    /// Sets the default column index.
+    ///
+    /// # Warning
+    /// This method does not check if the index exists.
+    pub fn with_default_column(mut self, index: usize) -> Self {
+        self.primary_column = index;
+        let primary_field = &self.column_names[self.primary_column];
+        self.column_ranges.clear();
+        self.column_ranges
+            .push((0..usize::MAX, Some(primary_field.clone())));
+        self
+    }
+
+    // ----- getters -----
+
     pub fn get(&self, column: &str) -> Option<&Arc<str>> {
         self.inner.get(column)
     }
@@ -59,9 +74,45 @@ impl PickerQuery {
     pub fn primary_column_index(&self) -> usize {
         self.primary_column
     }
-    pub fn empty_column_index(&self) -> usize {
-        self.empty_column.unwrap_or(self.primary_column)
+    pub fn empty_column_index(&self) -> Option<usize> {
+        self.empty_column
     }
+
+    /// Finds the column which the cursor is 'within' in the last parse.
+    ///
+    /// The cursor is considered to be within a column when it is placed within any
+    /// of a column's text. See the `active_column_test` unit test below for examples.
+    ///
+    /// `cursor` is a byte index that represents the location of the prompt's cursor.
+    pub fn current_column(&self, cursor: usize) -> Option<&Arc<str>> {
+        let point = self
+            .column_ranges
+            .partition_point(|(range, _field)| cursor > range.end);
+
+        self.column_ranges
+            .get(point)
+            .filter(|(range, _field)| cursor >= range.start)
+            .and_then(|(_range, field)| field.as_ref())
+    }
+
+    pub fn active_column_name(&self, input: &str) -> String {
+        let (_, ranges) = self.parse_impl(input);
+        ranges
+            .last()
+            .and_then(|x| x.1.as_deref())
+            .unwrap_or(self.column_names[self.primary_column].as_ref())
+            .to_string()
+    }
+
+    /// Finds the index of the column which the cursor is 'within' in the last parse.
+    /// Returns the primary column index if no specific column is active at the cursor.
+    pub fn active_column_index(&self, cursor: usize) -> usize {
+        self.current_column(cursor)
+            .and_then(|name| self.column_names.iter().position(|c| c == name))
+            .unwrap_or(self.primary_column)
+    }
+
+    // ----- parse -----
 
     pub fn parse(&mut self, input: &str) -> HashMap<Arc<str>, Arc<str>> {
         let (new_inner, new_ranges) = self.parse_impl(input);
@@ -185,63 +236,5 @@ impl PickerQuery {
             .collect();
 
         (new_fields, column_ranges)
-    }
-
-    /// Finds the column which the cursor is 'within' in the last parse.
-    ///
-    /// The cursor is considered to be within a column when it is placed within any
-    /// of a column's text. See the `active_column_test` unit test below for examples.
-    ///
-    /// `cursor` is a byte index that represents the location of the prompt's cursor.
-    pub fn current_column(&self, cursor: usize) -> Option<&Arc<str>> {
-        let point = self
-            .column_ranges
-            .partition_point(|(range, _field)| cursor > range.end);
-
-        self.column_ranges
-            .get(point)
-            .filter(|(range, _field)| cursor >= range.start)
-            .and_then(|(_range, field)| field.as_ref())
-    }
-
-    pub fn active_column_name(&self, input: &str) -> String {
-        let (_, ranges) = self.parse_impl(input);
-        ranges
-            .last()
-            .and_then(|x| x.1.as_deref())
-            .unwrap_or(self.column_names[self.primary_column].as_ref())
-            .to_string()
-    }
-
-    /// Finds the index of the column which the cursor is 'within' in the last parse.
-    /// Returns the primary column index if no specific column is active at the cursor.
-    // pub fn active_column_index(&mut self, input: &str) -> usize {
-    //     self.trial_parse(input);
-    //     self.column_ranges
-    //         .last()
-    //         .and_then(|x| {
-    //             x.1.as_ref()
-    //                 .and_then(|name| self.column_names.iter().position(|c| c == name))
-    //         })
-    //         .unwrap_or(self.primary_column)
-    // }
-
-    pub fn active_column_index(&self, cursor: usize) -> usize {
-        self.current_column(cursor)
-            .and_then(|name| self.column_names.iter().position(|c| c == name))
-            .unwrap_or(self.primary_column)
-    }
-
-    /// Sets the default column index.
-    ///
-    /// # Warning
-    /// This method does not check if the index exists.
-    pub fn with_default_column(mut self, index: usize) -> Self {
-        self.primary_column = index;
-        let primary_field = &self.column_names[self.primary_column];
-        self.column_ranges.clear();
-        self.column_ranges
-            .push((0..usize::MAX, Some(primary_field.clone())));
-        self
     }
 }

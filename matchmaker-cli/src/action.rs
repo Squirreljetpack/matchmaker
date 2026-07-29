@@ -129,13 +129,7 @@ pub fn action_handler(
 ) {
     match a {
         // state
-        MMAction::Filtering(s) => {
-            if let Some(s) = s {
-                state.filtering = s
-            } else {
-                state.filtering = !state.filtering
-            }
-        }
+        MMAction::Filtering(s) => state.picker_ui.set_filtering(s),
 
         // history
         MMAction::HistoryUp => {

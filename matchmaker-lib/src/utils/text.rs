@@ -88,8 +88,13 @@ pub fn prefix_span<'a, 'b: 'a>(
 
 /// Clip text to a given number of lines.
 /// from_end: take from the end
-pub fn take_lines<'a, 'b: 'a>(original: &'a mut Text<'b>, max_lines: u16, from_end: bool) {
+///
+/// Returns: original lines > max_lines
+pub fn take_lines<'a, 'b: 'a>(original: &'a mut Text<'b>, max_lines: u16, from_end: bool) -> bool {
     let max = max_lines as usize;
+    if original.lines.len() <= max {
+        return false;
+    }
     let new_lines: Vec<Line> = if from_end {
         original
             .lines
@@ -107,6 +112,7 @@ pub fn take_lines<'a, 'b: 'a>(original: &'a mut Text<'b>, max_lines: u16, from_e
     let style = original.style;
     *original = Text::from(new_lines);
     original.style = style;
+    true
 }
 
 pub fn debug_row(row: &[Text<'_>]) {

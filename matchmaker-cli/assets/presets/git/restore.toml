@@ -128,7 +128,7 @@ printf 'Proceed? [y/N] '
 read -r c
 case $c in
   [y]) ;;
-  [*]) kill $$ ;;
+  *) exit 100;;
 esac
 
 case $MM_INDEX in
@@ -230,12 +230,12 @@ case $c in
   [au])
   git stash push -u -- {$1} ;;
   [y]) ;;
-  *) kill $$ ;;
+  *) exit 100 ;;
 esac
 
 case $MM_INDEX in
   # return on success
-  1) git stash pop {1} && kill $$ ;;
+  1) git stash pop {1} && exit 100 ;;
   # leave on success
   *) git checkout {1} -- {$1} ;;
 esac
@@ -273,7 +273,7 @@ case $MM_INDEX in
     [yY])
       ;;
     *)
-      kill $$
+      exit 100
       ;;
   esac
 
@@ -320,7 +320,7 @@ case $MM_INDEX in
   read -r ans
   case "$ans" in
     [yY]*) git reset --soft {1} ;;
-    *) kill $$ ;;
+    *) exit 100 ;;
   esac
   ;;
 esac
@@ -350,7 +350,7 @@ case $MM_INDEX in
         delete=--delete
         ;;
       *)
-        kill $$
+        exit 100
         ;;
     esac
   else
@@ -369,7 +369,7 @@ case $MM_INDEX in
       git push $delete $remote "$tag_name"
       ;;
     *)
-      kill $$
+      exit 100
       ;;
   esac
   ;;

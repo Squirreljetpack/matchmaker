@@ -1,4 +1,4 @@
-use cba::_info;
+use cba::{_info, _trace};
 
 use crate::ui::ResultsUI;
 impl ResultsUI {
@@ -6,9 +6,10 @@ impl ResultsUI {
     /// Every nonempty column is assigned a nonzero width.
     /// Noop if row_cache is empty or stacked_columns
     pub(super) fn update_preferred_widths(&mut self) -> bool {
-        if self.row_cache[0].is_empty() || self.config.stacked_columns {
+        if self.row_cache[1].is_empty() || self.config.stacked_columns {
             return false;
         }
+        // _info!(self.row_cache[1]);
 
         let v_cols = self.hidden_columns.visible_count();
         self.widths_buffer.clear();
@@ -17,7 +18,7 @@ impl ResultsUI {
 
         // Compute max_widths on the fly for the adjustment phase
         let mut max_widths = vec![0u16; v_cols];
-        for (_, _, row_widths) in &self.row_cache[0] {
+        for (_, _, row_widths) in &self.row_cache[1] {
             for (i, &w) in row_widths.iter().enumerate() {
                 if i < v_cols {
                     max_widths[i] = max_widths[i].max(w);
@@ -26,7 +27,7 @@ impl ResultsUI {
         }
 
         for col_idx in 0..v_cols {
-            let mut v: Vec<u16> = self.row_cache[0]
+            let mut v: Vec<u16> = self.row_cache[1]
                 .iter()
                 .map(|(_, _, row_widths)| row_widths.get(col_idx).copied().unwrap_or(0))
                 .collect();
@@ -83,38 +84,71 @@ impl ResultsUI {
             self.preferred_widths = std::mem::take(&mut self.widths_buffer);
             grew || shrank
         } else {
-            let [grow_threshold, shrink_threshold] = self.config.resize_col_thresholds;
-            let mut changed = false;
+            Self::apply_width_thresholds(
+                &mut self.preferred_widths,
+                &self.widths_buffer,
+                self.config.resize_col_thresholds,
+                false,
+            )
+        }
+    }
 
-            for (old, &new) in self
-                .preferred_widths
-                .iter_mut()
-                .zip(self.widths_buffer.iter())
-            {
-                // we could also enforce immediate column disappearance but we don't
-                if *old == 0 && new > 0 {
-                    *old = new;
+    /// Applies threshold-based width updates to `old` based on `new` values.
+    /// Returns `true` if any widths were modified or if `old` was fully replaced.
+    ///
+    /// - If lengths differ, `old` is replaced with `new`.
+    /// - If **any** column becomes visible (`old == 0` and `new > 0`), or disappears
+    ///   (`old > 0` and `new == 0`) while `immediate_prune` is `true`, `old` is
+    ///   fully replaced with `new`.
+    /// - Otherwise, individual column widths are updated only if their size change
+    ///   meets or exceeds the respective `grow` or `shrink` thresholds.
+    fn apply_width_thresholds(
+        old: &mut Vec<u16>,
+        new: &[u16],
+        [grow, shrink]: [u16; 2],
+        immediate_prune: bool,
+    ) -> bool {
+        // If lengths differ, replace immediately
+        if old.len() != new.len() {
+            *old = new.to_vec();
+            return true;
+        }
 
-                    changed = true;
-                } else if new > *old {
-                    if new - *old >= grow_threshold {
-                        *old = new;
+        // Check if any column appeared (0 -> >0) or dropped to zero (if immediate_prune)
+        let needs_full_update = old.iter().zip(new.iter()).any(|(&o, &n)| {
+            let appeared = o == 0 && n > 0;
+            let disappeared = immediate_prune && o > 0 && n == 0;
+            appeared || disappeared
+        });
 
-                        changed = true;
-                    }
-                } else if *old > new && *old - new >= shrink_threshold {
-                    *old = new;
+        if needs_full_update {
+            old.clone_from_slice(new);
+            return true;
+        }
 
+        // Standard threshold logic for hysteresis resizing
+        let mut changed = false;
+
+        for (old_val, &new_val) in old.iter_mut().zip(new.iter()) {
+            if new_val > *old_val {
+                // Growing: update if change meets/exceeds threshold
+                if new_val - *old_val >= grow {
+                    *old_val = new_val;
                     changed = true;
                 }
+            } else if *old_val > new_val && *old_val - new_val >= shrink {
+                // Shrinking: update if change meets/exceeds threshold
+                *old_val = new_val;
+                changed = true;
             }
-            changed
         }
+
+        changed
     }
 
     /// Set self.width_limits using self.preferred_widths.
     /// Also sets self.widths: the rendered table column widths
-    /// no-op: if row_cache[0] or preferred_widths are not populated
+    /// no-op: if row_cache[1] or preferred_widths are not populated
     pub(super) fn update_width_limits(&mut self) {
         if self.config.stacked_columns {
             let default = self.width.saturating_sub(self.indentation() as u16);
@@ -135,20 +169,25 @@ impl ResultsUI {
             }
             self.expand_width_limits_in_buffer();
 
-            log::trace!(
-                "[update_table] new width limits from:  preferred={:?}",
-                self.preferred_widths,
+            _trace!(
+                "[update_width_limits]";
+                self.preferred_widths
             );
         }
 
         if self.width_limits != self.widths_buffer {
-            log::trace!(
-                "limits changed: {:?} -> {:?}",
-                self.width_limits,
-                self.widths_buffer
-            );
-            self.width_limits = std::mem::take(&mut self.widths_buffer);
-            self.set_dirty();
+            _info!("applying width buffer"; self.width_limits; self.widths_buffer);
+        }
+
+        // using apply_width_thresholds has unexpected effect of transitioning instead of preventing small resizes
+        if Self::apply_width_thresholds(
+            &mut self.width_limits,
+            &self.widths_buffer,
+            self.config.resize_col_thresholds,
+            true,
+        ) {
+            self.row_cache[0].clear();
+            _trace!(self.width_limits);
 
             if self.config.stacked_columns {
                 self.widths = vec![self.width];
@@ -163,6 +202,7 @@ impl ResultsUI {
                 if !self.widths.is_empty() {
                     self.widths[0] += self.indentation() as u16;
                 }
+                _info!(self.widths);
             }
         }
     }
@@ -190,7 +230,7 @@ impl ResultsUI {
     fn update_width_limits_into_width_buffer(&mut self) {
         if self.row_cache[0].is_empty() || self.preferred_widths.is_empty() {
             _info!(
-                "skipped width_limits update: either row cache or preferred":
+                "skipped width_limits update, either is empty: row cache or preferred":
                 self.preferred_widths
             );
             self.widths_buffer.clear();
@@ -221,7 +261,10 @@ impl ResultsUI {
         }
 
         // update temporarily for accurate available_width
-        self.widths = max_widths.iter().cloned().filter(|x| *x != 0).collect();
+        let new: Vec<_> = max_widths.iter().cloned().filter(|x| *x != 0).collect();
+        if new.len() != self.widths.len() {
+            self.widths = new;
+        }
         let available_width = self.available_width();
 
         // Prepare width buffers
@@ -408,13 +451,6 @@ impl ResultsUI {
         self.hidden_columns.gap_index(idx)
     }
 
-    /// Compared to set_dirty, this only clears cache if preferred widths change + resulting width limits change
-    pub fn recompute_preferred(&mut self) {
-        if self.update_preferred_widths() {
-            self.width_limits.clear();
-        }
-    }
-
     pub fn get_gutter_col_idx(&self, x: u16) -> Option<usize> {
         let mut pos = self.indentation() as u16;
         if self.config.column_spacing.0 == 0 {
@@ -468,7 +504,7 @@ mod tests {
         let config = ResultsConfig::default();
         let mut results = ResultsUI::new(config);
         let mut hc = HiddenColumns::new_with_size(4);
-        hc.push(1);
+        hc.set(1);
         results.hidden_columns = hc;
 
         // Columns:

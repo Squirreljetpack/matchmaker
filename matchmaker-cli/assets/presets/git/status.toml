@@ -29,6 +29,7 @@ while IFS= read -r -d '' entry; do
 done
 '''
 ansi = true
+output = "{=1}"
 
 [columns]
 split = "\\x00"
@@ -78,7 +79,6 @@ git -c  color.ui=always log --ext-diff -D -p -- {1}
 # --- Binds ---
 [binds]
 "@accept" = ["#stage", "@stage", "Reload"]
-"@accept_2" = ["#print", "Print({=1})", "Quit"]
 "@next" = "BecomeSilent(mm -o git/restore)"
 "@prev" = "BecomeSilent(mm -o git/grep)"
 "@reload" = "Reload"

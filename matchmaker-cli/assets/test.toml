@@ -64,8 +64,8 @@ max = 120
 
 [binds]
 # UI
-"ctrl-c" = "Quit"
-"esc" = "Quit"
+# "ctrl-c" = "Quit(1)"
+# "esc" = "Quit(1)"
 "enter" = "Accept"
 "ctrl-a" = "CycleSelections"
 "tab" = ["Select", "Down"]

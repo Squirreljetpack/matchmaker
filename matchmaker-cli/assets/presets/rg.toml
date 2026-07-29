@@ -4,6 +4,7 @@
 command = '''rg --column --line-number --no-heading --color=always --smart-case "$FZF_QUERY"'''
 ansi = true
 require_column = 1
+output = "{=1}:{=2}"
 
 [columns]
 max = 3
@@ -54,7 +55,6 @@ scroll_wrap = true
 "ctrl-." = "NextColumn"
 "?" = "SwitchPreview"
 
-"@accept" = ["Print({=1}:{=2})", "Quit"]
 "0,1^^@accept" = "Become($EDITOR {1})"
 
 # --- Scripts ---

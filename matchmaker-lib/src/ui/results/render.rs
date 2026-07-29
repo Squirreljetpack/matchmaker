@@ -248,11 +248,11 @@ impl ResultsUI {
         // post_render styling options
         selector: &Selector,
         is_current: bool,
-        max_height: Option<(u16, bool)>,
+        (max_h, from_end): (u16, bool), // from_end
         // output
         rows: &mut Vec<Row<'static>>,
         row_data: Option<&mut Vec<(u32, u16)>>,
-    ) -> Option<u16> {
+    ) -> Option<(u16, bool)> {
         let vscroll_offset = self.vscroll_to_skip(is_current);
         let stacked = self.config.stacked_columns;
         let (id, item) = worker.get_nth_indexed_item(idx)?;
@@ -269,6 +269,8 @@ impl ResultsUI {
                 .cloned()
         };
 
+        _info!(cached);
+
         let (id, texts) = if let Some(cached) = cached {
             if !self.row_cache[1].iter().any(|(x, _, _)| *x == id) {
                 self.row_cache[1].push(cached.clone());
@@ -276,6 +278,7 @@ impl ResultsUI {
 
             (cached.0, cached.1)
         } else {
+            self.changed[3] = true;
             let mut non_hidden_idx = 0;
             let width_callback = |_: usize, w: usize| {
                 if non_hidden_idx < row_widths.len() {
@@ -312,7 +315,7 @@ impl ResultsUI {
                         Some(rd) => rd.push((idx, 1)),
                         None => self.row_data.push((idx, 1)),
                     }
-                    return Some(1);
+                    return Some((1, false));
                 } else {
                     return None;
                 }
@@ -325,7 +328,9 @@ impl ResultsUI {
             (id, texts)
         };
 
-        if self.width_limits.is_empty() {
+        let mut truncated = false;
+
+        if self.needs_new_width_limits() {
             // wait for update. Compute a stand-in height so the caller can
             // size the surrounding layout, but don't push any rows.
             let height = if !stacked {
@@ -337,7 +342,11 @@ impl ResultsUI {
             } else {
                 texts.iter().map(|t| t.height() as u16).sum()
             };
-            return Some(height);
+
+            if let Some(rd) = row_data {
+                rd.push((idx, height))
+            }
+            return Some((height, height > max_h));
         }
 
         let is_selected = selector.contains(&id);
@@ -373,13 +382,6 @@ impl ResultsUI {
             row_texts.last_mut().unwrap().alignment = Some(ratatui::layout::Alignment::Right);
         }
 
-        // Apply truncation if max_height is specified
-        if let Some((max_h, from_end)) = max_height {
-            for text in &mut row_texts {
-                crate::utils::text::take_lines(text, max_h, from_end);
-            }
-        }
-
         // Determine row-level styling based on connection style and current row state
         let row_style = match (is_current, self.config.row_connection) {
             (true, RowConnectionStyle::Capped) => self
@@ -394,6 +396,33 @@ impl ResultsUI {
         };
 
         if !stacked {
+            let max_lines = row_texts
+                .iter()
+                .map(|text| text.height())
+                .max()
+                .unwrap_or(0);
+
+            if max_lines > max_h as usize {
+                if from_end && self.config.uniformly_truncate_columns {
+                    for text in &mut row_texts {
+                        let current_height = text.height();
+                        if current_height < max_lines {
+                            let padding_needed = max_lines - current_height;
+
+                            text.lines.extend(std::iter::repeat_n(
+                                ratatui::text::Line::default(),
+                                padding_needed,
+                            ));
+                        }
+                    }
+                }
+
+                for text in &mut row_texts {
+                    truncated |= crate::utils::text::take_lines(text, max_h, from_end);
+                    _info!(text; max_h);
+                }
+            }
+
             // Non-stacked mode: single row with all cells
             let height = row_texts
                 .iter()
@@ -408,22 +437,31 @@ impl ResultsUI {
                 Some(rd) => rd.push((idx, height)),
                 None => self.row_data.push((idx, height)),
             }
-            Some(height)
+            Some((height, truncated))
         } else {
             // Stacked mode: split into multiple rows, one per cell
             let mut total_height = 0u16;
             let mut entries: Vec<(u32, u16)> = Vec::with_capacity(row_texts.len());
-            for cell in row_texts {
+            for mut cell in row_texts {
+                truncated |= crate::utils::text::take_lines(
+                    &mut cell,
+                    max_h.saturating_sub(total_height),
+                    from_end,
+                );
+
                 let h = cell.height() as u16;
                 rows.push(Row::new(vec![cell]).height(h).style(row_style));
                 entries.push((idx, h));
                 total_height += h;
+                if truncated {
+                    break;
+                }
             }
             match row_data {
                 Some(rd) => rd.extend(entries),
                 None => self.row_data.extend(entries),
             }
-            Some(total_height)
+            Some((total_height, truncated))
         }
     }
 }

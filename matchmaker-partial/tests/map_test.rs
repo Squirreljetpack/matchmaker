@@ -22,13 +22,13 @@ fn test_map_set_path() {
     let mut p = PartialMapStruct::default();
 
     // Test 1: Setting a key via path (head="binds", tail=["ctrl-c"])
-    let res = p.set(&vec_!["binds", "ctrl-c"], &vec_!["Quit"]);
+    let res = p.set(&vec_!["binds", "ctrl-c"], &vec_!["Quit(1)"]);
     assert!(
         res.is_ok(),
         "Setting map key via path should succeed, got {:?}",
         res
     );
-    assert_eq!(p.binds.get("ctrl-c"), Some(&"Quit".to_string()));
+    assert_eq!(p.binds.get("ctrl-c"), Some(&"Quit(1)".to_string()));
 
     // Test 2: Setting whole map via field (head="binds", tail=[])
     let mut p2 = PartialMapStruct::default();

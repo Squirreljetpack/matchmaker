@@ -258,6 +258,9 @@ pub struct QueryConfig {
 
     /// Maintain padding when moving the cursor in the bar.
     pub scroll_padding: bool,
+
+    // experimental
+    pub reset_cursor_on_query_change: bool,
 }
 
 impl Default for QueryConfig {
@@ -274,6 +277,7 @@ impl Default for QueryConfig {
             initial: Default::default(),
 
             scroll_padding: true,
+            reset_cursor_on_query_change: false,
         }
     }
 }
@@ -439,6 +443,9 @@ pub struct ResultsConfig {
     /// Always false if max_height is set
     pub vscroll_current_only: bool,
 
+    /// Truncate the row height instead of the columns individually
+    pub uniformly_truncate_columns: bool,
+
     // lowpri: maybe space-around/space-between instead?
     #[partial(alias = "ra")]
     pub right_align_last: bool,
@@ -520,6 +527,7 @@ impl Default for ResultsConfig {
 
             width_overrides: vec![],
             resize_col_thresholds: [4, 4],
+            uniformly_truncate_columns: true,
         }
     }
 }

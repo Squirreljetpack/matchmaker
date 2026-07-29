@@ -172,9 +172,6 @@ where
 
     pub fn find(&mut self, line: &str) {
         let old_query = self.query.parse(line);
-        if self.query == old_query {
-            return;
-        }
         for (i, column) in self
             .columns
             .iter()
@@ -262,7 +259,9 @@ where
         snapshot.matched_items(..).map(|item| item.data)
     }
 
-    pub fn matched_indices(&self) -> impl ExactSizeIterator<Item = u32> + DoubleEndedIterator + '_ {
+    pub fn matched_indices(
+        &self,
+    ) -> impl ExactSizeIterator<Item = u32> + DoubleEndedIterator + Clone + '_ {
         let snapshot = self.nucleo.snapshot();
         snapshot.matches().iter().map(|m| m.idx)
     }
@@ -341,8 +340,13 @@ pub struct Status {
 pub fn new_snapshot<T: Sync + Send + 'static>(
     nucleo: &mut nucleo::Nucleo<T>,
 ) -> (&nucleo::Snapshot<T>, Status) {
-    let nucleo::Status { changed, running } = nucleo.tick(10);
+    let nucleo::Status {
+        changed,
+        mut running,
+    } = nucleo.tick(10);
     let snapshot = nucleo.snapshot();
+    running |= nucleo.active_injectors() > 0;
+
     (
         snapshot,
         Status {

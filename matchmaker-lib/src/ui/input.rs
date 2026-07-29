@@ -13,12 +13,12 @@ use crate::config::QueryConfig;
 
 #[derive(Debug, Default, Clone)]
 pub struct InputUI {
-    pub cursor: usize, // index into graphemes, can = graphemes.len()
-    pub input: String, // remember to call recompute_graphemes() after modifying directly
+    cursor: usize, // index into graphemes, can = graphemes.len()
+    input: String, // remember to call recompute_graphemes() after modifying directly
     /// (byte_index, width)
-    pub graphemes: Vec<(usize, u16)>,
-    pub before: usize, // index into graphemes of the first visible grapheme
-    pub width: u16,    // only relevant to cursor scrolling
+    graphemes: Vec<(usize, u16)>,
+    before: usize, // index into graphemes of the first visible grapheme
+    width: u16,    // only relevant to cursor scrolling
 }
 
 impl InputUI {
@@ -53,6 +53,9 @@ impl InputUI {
     }
     pub fn is_empty(&self) -> bool {
         self.input.is_empty()
+    }
+    pub fn input(&self) -> String {
+        self.input.clone()
     }
 
     /// grapheme index
@@ -125,14 +128,13 @@ impl InputUI {
         }
     }
 
-    pub fn cancel(&mut self) {
+    pub fn clear(&mut self) {
         self.input.clear();
         self.graphemes.clear();
         self.cursor = 0;
         self.before = 0;
     }
 
-    // Doesn't recompute graphemes or update cursor
     pub fn prepare_column_change(&mut self) {
         let trimmed = self.input.trim_end();
         if let Some(pos) = trimmed.rfind(' ') {
@@ -148,6 +150,9 @@ impl InputUI {
         if !self.input.is_empty() && !self.input.ends_with(' ') {
             self.input.push(' ');
         }
+
+        self.recompute_graphemes();
+        self.cursor = (self.cursor as usize).min(self.graphemes.len());
     }
 
     /// Set cursor to a visual offset relative to start position
@@ -244,11 +249,13 @@ impl InputUI {
         self.backward_word();
         let mut new_cursor = self.cursor;
 
-        if new_cursor == 0 && old_cursor > 1
+        if new_cursor == 0
+            && old_cursor > 1
             && let Some(first) = self.input.chars().next()
-                && matches!(first, '^' | '!' | '\'') {
-                    new_cursor = 1;
-                }
+            && matches!(first, '^' | '!' | '\'')
+        {
+            new_cursor = 1;
+        }
 
         let start = self.byte_index(new_cursor);
         let end = self.byte_index(old_cursor);
@@ -288,7 +295,6 @@ impl InputUI {
 
         let start_byte = self.byte_index(self.before);
         let end_byte = self.byte_index(end_idx);
-        
 
         (&self.input[start_byte..end_byte]) as _
     }
@@ -367,8 +373,7 @@ impl QueryUI {
     }
 
     // ---------------------------------------
-    // remember to call scroll_to_cursor beforehand
-
+    /// remember to call scroll_to_cursor beforehand
     pub fn make_input(&self) -> Paragraph<'_> {
         let mut line = self.prompt.clone();
         line.push_span(Span::styled(

@@ -180,7 +180,7 @@ impl<A: ActionExt> EventLoop<A> {
             Event::PreviewFinished => {
                 self.skip_ticks[1] = true;
             }
-            Event::Restarted => {
+            Event::Restarted | Event::Reloaded => {
                 self.skip_ticks[0] = false;
             }
             Event::PreviewStarted => {
@@ -188,8 +188,11 @@ impl<A: ActionExt> EventLoop<A> {
             }
             _ => {}
         }
-        if let Some(actions) = self.get_bind(TriggerKind::Event(e)) {
-            self.send_actions(actions, None);
+
+        for e in e.iter() {
+            if let Some(actions) = self.get_bind(TriggerKind::Event(e)) {
+                self.send_actions(actions, None);
+            }
         }
     }
 
@@ -303,7 +306,7 @@ impl<A: ActionExt> EventLoop<A> {
 
                 _ = interval.tick() => {
                     if !self.skip_ticks.iter().all(|x| *x) || self.dirty {
-                        _info!("event tick");
+                        _info!("event tick": self.dirty);
                         self.send(RenderCommand::Tick)
                     }
                     self.dirty = false;

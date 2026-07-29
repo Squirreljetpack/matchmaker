@@ -1,3 +1,4 @@
+use cba::_info;
 use ratatui::{
     layout::Rect,
     text::Text,
@@ -43,9 +44,11 @@ pub struct ResultsUI {
     pub(crate) hidden_columns: HiddenColumns,
     column_name_widths: Vec<u16>,
     active_column: usize,
+    bottom_clip: u16,
 
     // used to compute width_limits
     // valid after calling update_preferred_widths
+    // same len as hidden_columns
     preferred_widths: Vec<u16>,
     // transient buffer for use within compute functions
     widths_buffer: Vec<u16>,
@@ -55,7 +58,7 @@ pub struct ResultsUI {
     pub status: Status,
 
     row_cache: [Vec<(u32, Vec<Text<'static>>, Vec<u16>)>; 2],
-    pub(crate) changed: [bool; 2], // need redraw, need recompute
+    pub(crate) changed: [bool; 4], // need redraw, need new preferred_widths, need new width_limits, cache miss. We use bools instead of clearing so that we can support threshold growing.
     /// Visual-order row metadata from the most recent successful build.
     /// Each entry is `(item_idx, height)`; `u32::MAX` marks separator rows.
     /// Kept around so click positions can be mapped back to absolute
@@ -71,6 +74,7 @@ impl ResultsUI {
             bottom: 0,
             hscroll: 0,
             vscroll: 0,
+            bottom_clip: 0,
 
             height: 0, // uninitialized, so be sure to call update_dimensions
             width: 0,
@@ -104,7 +108,7 @@ impl ResultsUI {
             .columns
             .into_iter()
             .zip(self.hidden_columns.mask())
-            .filter_map(|(col, &flag)| {
+            .filter_map(|(col, flag)| {
                 if !flag {
                     Some(col.name.len() as u16)
                 } else {
@@ -112,7 +116,7 @@ impl ResultsUI {
                 }
             })
             .collect();
-        self.status = new_snapshot(&mut worker.nucleo).1
+        self.status = new_snapshot(&mut worker.nucleo).1;
     }
 
     pub fn update_active_column(&mut self, col: usize) {
@@ -134,18 +138,19 @@ impl ResultsUI {
 
     pub fn set_hidden_columns(&mut self, hidden_columns: impl IntoIterator<Item = usize>) {
         for i in hidden_columns {
-            self.hidden_columns.push(i);
+            self.hidden_columns.set(i);
         }
     }
 
     pub fn update_dimensions(&mut self, area: Rect) {
         let new = self.config.border.inner_of(area);
         if self.width != new.width || self.height != new.height {
+            _info!("results area": area);
+            if self.width != new.width {
+                self.width_limits.clear();
+            }
             self.width = new.width;
             self.height = new.height;
-            log::debug!("Updated results dimensions: {}x{}", self.width, self.height);
-            self.set_dirty();
-            self.width_limits.clear();
         }
     }
 
@@ -167,7 +172,10 @@ impl ResultsUI {
     pub fn wrap(&mut self, wrap: bool) {
         if self.config.wrap != wrap {
             self.config.wrap = wrap;
-            self.set_dirty();
+            // self.set_dirty();
+            // self.changed[1] = true;
+            // todo: lowpri: not sure if the above is better
+            self.invalidate_widths();
         }
     }
 
@@ -335,11 +343,26 @@ impl ResultsUI {
             }
     }
 
-    /// Mark row cache as stale
+    /// Mark row cache as stale: forces a render but does not recompute width limits.
+    #[track_caller]
     pub fn set_dirty(&mut self) {
-        log::trace!("cache cleared");
+        if cfg!(debug_assertions) {
+            let caller = std::panic::Location::caller();
+            log::trace!("row_cache cleared ({}:{})", caller.file(), caller.line());
+        } else {
+            log::trace!("cache cleared");
+        }
+
+        // self.changed[3] = true;
+
         self.row_cache[0].clear();
-        // self.row_cache[1].clear();
+    }
+
+    pub fn invalidate_widths(&mut self) {
+        // self.changed[2] = true;
+        self.width_limits.clear();
+        self.preferred_widths.clear();
+        self.row_cache[0].clear(); // empty limits still calls get_row which is invalidated if hidden_columns changed
     }
 
     // ------- RENDERING ----------

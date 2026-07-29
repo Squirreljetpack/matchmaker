@@ -2,7 +2,7 @@ mod dynamic;
 mod state;
 
 use cba::bait::ResultExt;
-use cba::{_info, _trace};
+use cba::{_info, unwrap};
 use crossterm::event::{MouseButton, MouseEventKind};
 pub use dynamic::*;
 pub use state::*;
@@ -350,7 +350,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                             } else {
                                 if !left
                                     || picker_ui.results.hscroll > 0
-                                    || !picker_ui.query.input.is_empty()
+                                    || !picker_ui.query.is_empty()
                                 {
                                     picker_ui
                                         .results
@@ -436,6 +436,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                         results,
                         worker,
                         selector,
+                        filtering,
                         ..
                     } = &mut picker_ui;
                     match action {
@@ -534,7 +535,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                             } else if !matches!(action, Action::HScroll(_))
                                 || n >= 0
                                 || results.hscroll > 0
-                                || !query.input.is_empty()
+                                || !query.is_empty()
                             {
                                 results.current_scroll(n, matches!(action, Action::HScroll(_)));
                             }
@@ -704,7 +705,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
 
                         // Columns
                         Action::SwitchColumn(col_name) => {
-                            if !state.filtering {
+                            if !*filtering {
                                 continue;
                             }
 
@@ -718,54 +719,69 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                             }
                         }
                         Action::NextColumn | Action::PrevColumn => {
-                            if !state.filtering {
+                            if !picker_ui.filtering {
                                 continue;
                             }
-                            let cursor_byte = query.byte_index(query.cursor() as usize);
-                            let active_idx = worker.query.active_column_index(cursor_byte);
+                            let active_idx = picker_ui.active_column_index_raw();
 
-                            let num_columns = worker.columns.len();
+                            let num_columns = picker_ui.worker.columns.len();
                             if num_columns > 0 {
-                                query.prepare_column_change();
+                                picker_ui.query.prepare_column_change();
 
                                 let next_idx = match action {
-                                    Action::NextColumn => {
-                                        results.hidden_columns.next_gap_wrapping(active_idx + 1)
-                                    }
-                                    Action::PrevColumn => results
+                                    Action::NextColumn => picker_ui
+                                        .results
+                                        .hidden_columns
+                                        .next_gap_wrapping(active_idx + 1),
+                                    Action::PrevColumn => picker_ui
+                                        .results
                                         .hidden_columns
                                         .prev_gap_wrapping(active_idx)
                                         .unwrap_or(active_idx),
                                     _ => unreachable!(),
                                 };
 
-                                let col_name = &worker.columns[next_idx].name;
-                                query.push_str(&format!("%{} ", col_name));
+                                let col_name = &picker_ui.worker.columns[next_idx].name;
+                                picker_ui.query.push_str(&format!("%{} ", col_name));
                             }
                         }
-
-                        Action::ToggleColumn(col_name) => {
-                            let index = if let Some(name) = col_name {
-                                worker.columns.iter().position(|c| *c.name == name)
+                        // todo: take (Option) strings for both hide/unhide/expand/shrink, check if string is int treat as int, otherwise search for name
+                        // todo: instead of clearing preferred_width, simply
+                        Action::HideColumn(col_name) => {
+                            let idx = if let Some(name) = col_name {
+                                unwrap!(worker.columns.iter().position(|c| *c.name == name); continue)
                             } else {
-                                let cursor_byte = query.byte_index(query.cursor() as usize);
-                                Some(worker.query.active_column_index(cursor_byte))
+                                picker_ui.active_column_index()
                             };
 
-                            if let Some(idx) = index {
-                                let was_hidden = results.hidden_columns.contains(idx);
-                                results.hidden_columns.set(idx, !was_hidden);
+                            if idx == picker_ui.worker.query.primary_column_index() {
+                                log::error!("Cannot hide default column");
+                                continue;
+                            } else {
+                                while picker_ui.active_column_index_raw() == idx {
+                                    let last = picker_ui.query.input();
+                                    picker_ui.query.prepare_column_change();
+                                    if picker_ui.query.input() == last {
+                                        picker_ui.query.clear();
+                                        break;
+                                    }
+                                }
                             }
+
+                            log::info!("Hiding col: {idx}");
+
+                            picker_ui.results.hidden_columns.set(idx);
+                            picker_ui.results.invalidate_widths();
                         }
 
-                        Action::HideColumn => {
-                            let cursor_byte = query.byte_index(query.cursor() as usize);
-                            let idx = worker.query.active_column_index(cursor_byte);
-                            results.hidden_columns.push(idx);
-                        }
-
-                        Action::UnhideColumn => {
-                            results.hidden_columns.pop();
+                        Action::UnhideColumn(col_name) => {
+                            if let Some(name) = col_name {
+                                let idx = unwrap!(worker.columns.iter().position(|c| *c.name == name); continue);
+                                results.hidden_columns.unset(idx);
+                            } else {
+                                results.hidden_columns.pop();
+                            }
+                            picker_ui.results.invalidate_widths();
                         }
                         Action::ExpandColumn(ref col_idx) | Action::ShrinkColumn(ref col_idx) => {
                             let delta: i16 = if matches!(action, Action::ExpandColumn(_)) {
@@ -781,25 +797,12 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                             let v_idx = if let Some(idx) = col_idx {
                                 Some(*idx)
                             } else {
-                                // picker_ui.active_column_index
-                                let active_idx = if !state.filtering {
-                                    worker.query.empty_column_index()
-                                } else {
-                                    let cursor_byte = query.byte_index(query.cursor() as usize);
-                                    worker
-                                        .query
-                                        .current_column(cursor_byte)
-                                        .and_then(|name| {
-                                            worker.columns.iter().position(|c| &c.name == name)
-                                        })
-                                        .unwrap_or(worker.query.primary_column_index())
-                                };
-
-                                results.shrink_idx(active_idx)
+                                let idx = picker_ui.active_column_index();
+                                picker_ui.results.shrink_idx(idx)
                             };
 
                             if let Some(v) = v_idx {
-                                results.resize_col(delta, v);
+                                picker_ui.results.resize_col(delta, v);
                             }
                         }
 
@@ -818,7 +821,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                         Action::DeleteWord => query.delete_word(),
                         Action::DeleteLineStart => query.delete_line_start(),
                         Action::DeleteLineEnd => query.delete_line_end(),
-                        Action::ClearQuery => query.cancel(),
+                        Action::ClearQuery => query.clear(),
 
                         // Other
                         Action::Redraw => {
@@ -885,7 +888,8 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                     tui.exit(None);
                 }
                 Interrupt::BecomeSilent => {
-                    tui.exit_lite();
+                    tui.exit(None);
+                    // tui.exit_lite();
                 }
                 _ => {}
             }
@@ -911,11 +915,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
         // debug!("{state:?}");
 
         // ------------- update state + render ------------------------
-        if state.filtering {
-            picker_ui.update();
-        } else {
-            // nothing
-        }
+        picker_ui.update();
         if did_cursor_wrap {
             log::trace!("cursor wrapped"); // todo: event handler?
         }
@@ -927,7 +927,6 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
             tui.flush();
         }
 
-        let mut overlay_ui_ref = overlay_ui.as_mut();
         let mut cursor_y_offset = 0;
 
         // 2. Compute layout geometry & update state outside the draw closure
@@ -938,22 +937,24 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
             &mut footer_ui,
             preview_ui.as_mut(),
             &mut ui,
-            overlay_ui_ref.as_deref_mut(),
+            overlay_ui.as_mut(),
         );
 
-        // we do an strange thing by defaulting to empty column when non-filtering so that we can render for f:ist a certain way
-        let active_column = if !state.filtering {
-            picker_ui.worker.query.empty_column_index()
-        } else {
-            picker_ui.active_column_index()
-        };
-        picker_ui.results.update_active_column(active_column);
+        if state.update_input(&picker_ui.query.input()) {
+            picker_ui.results.set_dirty();
+            if picker_ui.query.config.reset_cursor_on_query_change {
+                picker_ui.results.cursor_jump(0);
+            }
+            state.insert(Event::QueryChange)
+        }
 
         picker_ui.results.update_table(
             &mut picker_ui.worker,
             &picker_ui.selector,
             picker_ui.matcher,
         );
+
+        state.update(&mut picker_ui, &overlay_ui);
 
         if did_tick.is_some() {
             // 3. Pure rendering phase
@@ -974,7 +975,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                         ui.area().width,
                     );
 
-                    render_results(frame, layout.results, &mut picker_ui);
+                    render_results(frame, layout.results, &picker_ui);
                     render_display(
                         frame,
                         layout.header,
@@ -989,7 +990,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                         }
                     }
 
-                    if let Some(x) = overlay_ui_ref {
+                    if let Some(x) = overlay_ui.as_mut() {
                         x.draw(frame);
                     }
                 })
@@ -1001,7 +1002,6 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
 
         // note: the remainder could be scoped by a conditional on having run?
         // ====== Event handling ==========
-        state.update(&mut picker_ui, &overlay_ui);
         let events = state.events();
 
         // ---- Invoke handlers -------
@@ -1115,7 +1115,7 @@ fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {
 fn render_results<T: SSS, D: 'static>(
     frame: &mut Frame,
     mut area: Rect,
-    picker_ui: &mut PickerUI<T, D>,
+    picker_ui: &PickerUI<T, D>,
 ) {
     let cap = matches!(
         picker_ui.results.config.row_connection,
@@ -1133,7 +1133,6 @@ fn render_results<T: SSS, D: 'static>(
 
 /// Returns the offset of the cursor against the drawing area
 fn render_input(frame: &mut Frame, area: Rect, ui: &mut QueryUI) -> Position {
-    ui.scroll_to_cursor();
     let widget = ui.make_input();
     let p = ui.cursor_offset(&area);
     if let CursorSetting::Default = ui.config.cursor {
@@ -1267,7 +1266,6 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
 
     // Update state layout
     if state.update_layout(layout) {
-        _trace!("Resized results": results);
         picker_ui.results.update_dimensions(results);
         picker_ui.query.update_width(input.width);
         footer_ui.update_width(

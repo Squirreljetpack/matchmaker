@@ -99,7 +99,7 @@ All colors and modifiers come from ratatui:
 - `input_separator`: (char) Character separating input items.
   - Absolute alias: `i`.
 - `os`, `output_separator`: (string) String separating output selections.
-- `output_template`: (string) Template string used to print results.
+- `output_template`, `output`: (string) Template string used to print results.
   - Absolute alias: `o`.
 - `on_accept`: (String) Template to execute on accepted items. Exclusive with output_template, output_separator.
 - `sync`: (bool) Whether to wait for the command to finish before starting.
@@ -160,6 +160,8 @@ All colors and modifiers come from ratatui:
 #### Global UI (`ui.`)
 
 - `tick_rate`: (number) Refresh rate of the UI (default 60).
+- `mouse_events`: (bool) toggle mouse events (default true).
+- `scroll_debounce_ms`: (number) scroll events debouncing milliseconds.
 - `border`: [Border Settings](#border-settings).
 
 #### Query Bar (`query.`, `q`)
@@ -170,6 +172,7 @@ All colors and modifiers come from ratatui:
 - `prompt_style`: [Style Settings](#style-settings) for the prompt.
 - `cursor`: Cursor style.
 - `border`: [Border Settings](#border-settings).
+- `reset_cursor_on_query_change`: (bool) Reset cursor to initial position on query change (experimental).
 
 #### Results Table (`results.`, `r`)
 
@@ -194,8 +197,7 @@ All colors and modifiers come from ratatui:
 - `right_align_last`: (bool) Right-align the last column.
 - `v`, `vertical`, `stacked_columns`: (bool) Display columns stacked vertically instead of across.
 - `hr`, `horizontal_separator`: (none, empty, light, normal, heavy, dashed): Show a seperator between rows (Currently only limited to one column).
-- `autoscroll`: Control how the results table scrolls horizontally to keep matches in view.
-  - Alias: `a`.
+- `autoscroll`, `a`: Control how the results table scrolls horizontally to keep matches in view.
   - `enabled`: (bool) Enable/disable horizontal autoscroll.
   - `initial_preserved`: (number) Number of characters at the start of the line to always keep visible.
   - `context`: (number) Number of characters to show around the match.
@@ -231,8 +233,7 @@ All colors and modifiers come from ratatui:
     - `min`, `max`: Pixel constraints for the preview size. Setting `max` to 0 disables a preview layout.
     - `scroll` *(flattened)*: Initial scroll settings for this layout. See [Initial](#initial) for available fields.
 - `border`: [Border Settings](#border-settings).
-- `initial`: Control the initial scroll offset of the preview window.
-  - Alias: `i`.
+- `initial`, `i`: Control the initial scroll offset of the preview window.
   - `index` (string, optional) – Extract the initial display index `n` of the preview window from this column. `n` lines are skipped after the header lines are consumed.
   - `o`, `offset` (integer) – Adjust the initial scroll index relative to `index`.
   - `p`, `percentage` (0-100) – How far from the bottom of the preview window the scroll offset should appear.

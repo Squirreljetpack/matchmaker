@@ -10,21 +10,22 @@ use crate::{
 impl ResultsUI {
     // this is supposed to cover all invalidations
     // Requirements: new snapshots are requested only by update_table
-    fn is_clean(&mut self) -> (bool, bool) {
+    fn is_clean(&mut self) -> bool {
         let dirty = self.changed.iter().any(|x| *x)
             || self.cursor_moved.is_some()
-            || self.width_limits.is_empty()
-            || self.row_cache[0].is_empty();
-
-        let update_preferred = self.changed[1]
-            || self.cursor_moved.is_some()
-            || self.preferred_widths.is_empty()
-            || self.width_limits.is_empty();
+            || self.row_cache[0].is_empty()
+            || self.needs_new_width_limits();
 
         self.cursor_moved = None;
-        self.changed = Default::default();
+        self.changed[0] = false;
+        self.changed[2] = false;
+        self.changed[3] = false;
 
-        (!dirty, update_preferred)
+        !dirty
+    }
+
+    pub(crate) fn needs_new_width_limits(&self) -> bool {
+        self.changed[2] || self.width_limits.is_empty()
     }
 
     pub fn update_table<T: SSS, D: 'static>(
@@ -41,9 +42,8 @@ impl ResultsUI {
 
         let mc = status.matched_count;
         if status.changed || mc != self.status.matched_count {
-            self.changed[1] = true;
-            // change due to query change, overshadows this by a cache wipe: this is a lesser dirty signal which does not wipe cache, saving a few more cpu cycles
             // this can trigger during ingestion or resort.
+            self.changed[0] = true;
         }
         self.status = status;
 
@@ -60,15 +60,17 @@ impl ResultsUI {
             self.cursor = self.cursor.min(mc.saturating_sub(1) as u16);
         }
 
-        let (is_clean, update_preferred) = self.is_clean();
-        if is_clean {
+        if self.needs_new_width_limits() {
+            self.update_width_limits();
+        }
+
+        if self.cursor_moved.is_some() {
+            self.bottom_clip = 0;
+        }
+        if self.is_clean() {
             return;
         }
 
-        // needs: preferred_widths
-        if self.width_limits.is_empty() {
-            self.update_width_limits();
-        }
         _info!(
             "[update_table]";
             mc;
@@ -93,13 +95,13 @@ impl ResultsUI {
 
         // Step 1: Render cursor item
         let mut total_height = 0;
-        if let Some(h) = self.get_row(
+        if let Some((h, _truncated)) = self.get_row(
             self.bottom + idx,
             matcher,
             worker,
             selector,
             !self.cursor_disabled,
-            Some((self.height, false)),
+            (self.height, false),
             &mut rows,
             None,
         ) {
@@ -114,8 +116,9 @@ impl ResultsUI {
         let mut after_row_data: Vec<(u32, u16)> = Vec::new();
         let mut after_height = 0u16;
         let mut after_idx = idx + 1;
+        let mut after_truncated = false;
 
-        if scroll_padding > 0 {
+        if scroll_padding > 0 && total_height < self.height {
             while after_height < scroll_padding && idx + self.bottom < mc {
                 // Add separator if needed
                 if let Some(cells) = self.hr() {
@@ -125,17 +128,18 @@ impl ResultsUI {
                 }
 
                 // Add item
-                if let Some(h) = self.get_row(
+                if let Some((h, truncated)) = self.get_row(
                     self.bottom + after_idx,
                     matcher,
                     worker,
                     selector,
                     false,
-                    Some((scroll_padding.saturating_sub(after_height), self.reverse())),
+                    (scroll_padding.saturating_sub(after_height), self.reverse()),
                     &mut after_rows,
                     Some(&mut after_row_data),
                 ) {
                     after_height += h;
+                    after_truncated = truncated;
                 } else {
                     break;
                 }
@@ -144,26 +148,31 @@ impl ResultsUI {
             }
         }
 
-        _info!("RENDER: BEFORE ROWS");
         // Step 3: Fill before-cursor items
         let mut before_height = 0;
         let mut remaining_height = self.height.saturating_sub(total_height + after_height);
+        _info!("RENDER: BEFORE ROWS with remaining height": remaining_height);
 
         while remaining_height > 0 {
+            let mut max_h = remaining_height;
+
             if idx > 0 {
                 idx -= 1;
+                if idx == 0 {
+                    if self.bottom_clip > 0 {
+                        _info!(self.bottom_clip);
+                        max_h = self.bottom_clip
+                    }
+                }
             } else if before_height < scroll_padding && self.bottom > 0 {
                 self.bottom -= 1;
-                self.cursor_moved = Some(true);
                 self.cursor += 1;
+                after_idx += 1;
+                max_h = max_h.min(scroll_padding.saturating_sub(before_height))
                 // keep adding
             } else {
                 break;
             }
-
-            // Check if we need to truncate
-            let max_h =
-                (remaining_height <= scroll_padding).then_some((remaining_height, !self.reverse()));
 
             // Add separator if needed
             if let Some(cells) = self.hr() {
@@ -178,16 +187,20 @@ impl ResultsUI {
             }
 
             // Add item
-            if let Some(h) = self.get_row(
+            if let Some((h, truncated)) = self.get_row(
                 self.bottom + idx,
                 matcher,
                 worker,
                 selector,
                 false,
-                max_h,
+                (max_h, !self.reverse()),
                 &mut rows,
                 None,
             ) {
+                if truncated && before_height < scroll_padding {
+                    self.bottom_clip = h;
+                }
+
                 before_height += h;
                 remaining_height = remaining_height.saturating_sub(h);
             } else {
@@ -217,9 +230,8 @@ impl ResultsUI {
             rows.extend(after_rows);
             self.row_data.extend(after_row_data);
         } else {
-            // pop possibly truncated rows, leaving the maybe_separator
-            if after_height == scroll_padding && scroll_padding > 0 && !self.width_limits.is_empty()
-            {
+            // pop last truncated row, leaving the maybe_separator
+            if after_truncated {
                 let last_item_idx = after_row_data.last().unwrap().0;
                 let mut removed = false;
 
@@ -259,14 +271,10 @@ impl ResultsUI {
 
             while remaining_height > 0 && self.bottom + idx < mc {
                 // Check if we need to truncate
-                let max_h = if remaining_height <= scroll_padding {
-                    Some((remaining_height, self.reverse()))
-                } else {
-                    None
-                };
+                let max_h = (remaining_height, self.reverse());
 
                 // Add item
-                if let Some(h) = self.get_row(
+                if let Some((h, _truncated)) = self.get_row(
                     self.bottom + idx,
                     matcher,
                     worker,
@@ -299,28 +307,41 @@ impl ResultsUI {
 
         // Section 5.5: Compute preferred widths for next pass from collected data
 
+        let wrap_condition = if self.is_wrap() {
+            self.row_cache[0].iter().any(|(_, _, widths)| {
+                widths
+                    .iter()
+                    .zip(&self.preferred_widths)
+                    .any(|(&w, &pref_w)| pref_w == 0 && w > 0)
+            })
+        } else {
+            self.changed[3]
+        };
+        // Recompute preferred widths when the row layout is known to have
+        // changed or when we don't have valid
+        // width limits yet (first pass after a resize). Returns `true` if
+        // the new preferred widths differ from the current ones, in which
+        // case the width limits need to be recomputed.
+        if self.changed[1] || self.preferred_widths.is_empty() || wrap_condition {
+            if self.update_preferred_widths() {
+                _info!(
+                    "[update_preferred]";
+                    self.preferred_widths;
+                    self.width_limits;
+                    self.hidden_columns;
+                    self.changed[1];
+                    self.changed[3];
+                );
+                self.changed[2] = true;
+            }
+        };
+        self.changed[1] = false;
+
         // if we needed redraw table, its because row changed
         self.row_cache.swap(0, 1);
         self.row_cache[1].clear();
 
-        // Recompute preferred widths when the row layout is known to have
-        // changed (cursor moved, fresh table) or when we don't have valid
-        // width limits yet (first pass after a resize). Returns `true` if
-        // the new preferred widths differ from the current ones, in which
-        // case the width limits need to be recomputed.
-        if update_preferred {
-            if self.update_preferred_widths() {
-                _info!(
-                    "[update_table]";
-                    self.preferred_widths;
-                    self.width_limits;
-                    self.hidden_columns
-                );
-                self.width_limits.clear();
-            }
-        };
-
-        if rows.is_empty() {
+        if rows.is_empty() || self.needs_new_width_limits() {
             // update rendered table next pass using preferred widths gathered this pass
             return;
         }

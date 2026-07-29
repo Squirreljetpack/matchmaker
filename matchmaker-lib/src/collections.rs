@@ -11,203 +11,217 @@ define_collection_wrapper!(
 );
 
 impl Selector {
-    pub fn cycle_all_bg(&mut self, indices: impl ExactSizeIterator<Item = u32>) {
-        let matched: indexmap::IndexSet<u32> = indices.collect();
-        if !matched.is_empty() && matched.is_subset(&self) {
-            self.clear();
-        } else {
-            self.extend(matched);
+    pub fn cycle_all_bg(&mut self, indices: impl ExactSizeIterator<Item = u32> + Clone) {
+        let len = indices.len();
+
+        // check if indices is a subset of self
+        if len <= self.len() {
+            let mut cloned_indices = indices.clone();
+
+            if cloned_indices.all(|item| self.contains(&item)) {
+                self.clear();
+                return;
+            }
         }
+
+        self.reserve(len);
+        self.extend(indices);
     }
 }
-
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct HiddenColumns {
-    order: Vec<usize>,
-    mask: Vec<bool>,
+    /// Bitfield where bit `i` is 1 if hidden, 0 if visible.
+    mask: u64,
+    /// LIFO insertion order stack for hidden column indices.
+    order: Vec<u8>,
+    /// Number of tracked columns (0..=64).
+    len: u8,
 }
 
 impl HiddenColumns {
-    /// Create a `HiddenColumns` with a fixed mask of `size` columns, all initially visible.
-    /// The mask size is fixed for the lifetime of the value; out-of-range indices are treated
-    /// as visible and `set` is a no-op past `mask_len`.
+    /// Creates a `HiddenColumns` with a fixed mask size (up to 64 columns), all initially visible.
+    ///
+    /// # Panics
+    /// Panics if `size > 64`.
     pub fn new_with_size(size: usize) -> Self {
+        assert!(size <= 64, "HiddenColumns size cannot exceed 64");
         Self {
-            order: Vec::new(),
-            mask: vec![false; size],
+            mask: 0,
+            order: Vec::with_capacity(size),
+            len: size as u8,
         }
     }
 
+    #[inline]
     pub fn mask_len(&self) -> usize {
-        self.mask.len()
+        self.len as usize
     }
 
-    /// Returns a slice of the underlying visibility mask. `true` means hidden.
-    pub fn mask(&self) -> &[bool] {
-        &self.mask
+    /// Returns the raw 64-bit visibility bitfield (`1` = hidden, `0` = visible).
+    #[inline]
+    pub fn mask(&self) -> Vec<bool> {
+        (0..self.len)
+            .map(|i| (self.mask & (1u64 << i)) != 0)
+            .collect()
     }
 
-    /// Set the visibility of `idx`.
-    pub fn set(&mut self, i: usize, hidden: bool) {
-        if i >= self.mask.len() {
-            return;
-        }
-        if self.mask[i] == hidden {
-            return;
-        }
-        self.mask[i] = hidden;
-        if hidden {
-            self.order.push(i);
-        } else {
-            if let Some(pos) = self.order.iter().position(|&x| x == i) {
-                self.order.remove(pos);
-            }
-        }
-    }
-
-    /// O(N) - Returns the number of visible (non-hidden) columns.
+    /// Return the number of visible (non-hidden) columns.
+    #[inline]
     pub fn visible_count(&self) -> usize {
-        self.mask.iter().filter(|x| !**x).count()
+        (!self.mask & self.valid_mask()).count_ones() as usize
     }
 
     /// Iterator over `(index, hidden)` pairs.
     pub fn iter(&self) -> impl Iterator<Item = (usize, bool)> + '_ {
-        self.mask.iter().copied().enumerate()
+        (0..self.len as usize).map(move |i| (i, (self.mask & (1u64 << i)) != 0))
     }
 
-    /// Checks if the value is in the set.
-    /// Returns false if the value is out of bounds of the mask.
+    /// Checks if column `value` is hidden.
+    /// Returns false if out of bounds.
+    #[inline]
     pub fn contains(&self, value: usize) -> bool {
-        self.mask.get(value).copied().unwrap_or(false)
-    }
-
-    /// Pushes a value onto the end of the order list if not present.
-    /// Returns true if successfully inserted.
-    /// Returns false if the value is out of bounds or already present.
-    pub fn push(&mut self, value: usize) -> bool {
-        if value >= self.mask.len() || self.contains(value) {
+        if value >= self.len as usize {
             false
         } else {
-            self.mask[value] = true;
-            self.order.push(value);
-            true
+            (self.mask & (1u64 << value)) != 0
         }
     }
 
-    /// Removes the last inserted element and updates the mask.
+    /// Hides column `i` and adds it to the order stack.
+    /// Does nothing if out of bounds or already hidden.
+    pub fn set(&mut self, i: usize) {
+        if i >= self.len as usize || self.contains(i) {
+            return;
+        }
+
+        self.mask |= 1u64 << i;
+        self.order.push(i as u8);
+    }
+
+    /// Unhides column `i` and removes it from the order stack.
+    /// Does nothing if out of bounds or already visible.
+    pub fn unset(&mut self, i: usize) {
+        if i >= self.len as usize || !self.contains(i) {
+            return;
+        }
+
+        self.mask &= !(1u64 << i);
+        if let Some(pos) = self.order.iter().position(|&x| x == i as u8) {
+            self.order.remove(pos);
+        }
+    }
+
+    /// Unhides the last inserted element and updates the mask.
     pub fn pop(&mut self) -> Option<usize> {
-        if let Some(value) = self.order.pop() {
-            self.mask[value] = false;
-            Some(value)
-        } else {
-            None
-        }
+        let value = self.order.pop()? as usize;
+        self.mask &= !(1u64 << value);
+        Some(value)
     }
 
+    /// Clears all hidden state, making all columns visible.
     pub fn clear(&mut self) {
         self.order.clear();
-        // Resetting the mask to all false is faster than re-allocating
-        self.mask.fill(false);
+        self.mask = 0;
     }
 
-    /// O(1) amortized / O(M) worst case - First value >= n not contained in the set.
-    pub fn next_gap(&self, mut n: usize) -> usize {
-        // If n is outside our tracked mask, then n itself is a gap.
-        while n < self.mask.len() {
-            if !self.mask[n] {
-                return n;
-            }
-            n += 1;
+    /// Returns the first visible index >= `n`.
+    pub fn next_gap(&self, n: usize) -> usize {
+        if n >= self.len as usize {
+            return n;
         }
-        n
+
+        let n_and_above = !0u64 << n;
+        let available = !self.mask & self.valid_mask() & n_and_above;
+
+        if available == 0 {
+            self.len as usize
+        } else {
+            available.trailing_zeros() as usize
+        }
     }
 
-    /// O(N) worst case - First value < n not contained in the set.
+    /// Returns the first visible index < `n`.
     pub fn prev_gap(&self, n: usize) -> Option<usize> {
         if n == 0 {
             return None;
         }
+        if n > self.len as usize {
+            return Some(n - 1);
+        }
 
-        let mut i = n - 1;
-        loop {
-            // Anything beyond the mask bounds is technically a gap,
-            // but since i starts at n - 1, we check if it's out of bounds or false.
-            if i >= self.mask.len() || !self.mask[i] {
-                return Some(i);
-            }
+        let strictly_below = Self::mask_below(n);
+        let available = !self.mask & self.valid_mask() & strictly_below;
 
-            if i == 0 {
-                return None;
-            }
-            i -= 1;
+        if available == 0 {
+            None
+        } else {
+            Some(63 - available.leading_zeros() as usize)
         }
     }
 
-    /// O(M) - Like [`Self::next_gap`], but wraps around to 0 when the
-    /// direct search runs past the end of the mask. Returns the first
-    /// value >= n not contained in the set, or the first gap starting
-    /// from 0 if no gap exists in [n, mask_len()).
+    /// Like [`Self::next_gap`], but wraps around to index 0.
     pub fn next_gap_wrapping(&self, n: usize) -> usize {
         let candidate = self.next_gap(n);
-        if candidate < self.mask.len() {
+        if candidate < self.len as usize {
             candidate
         } else {
             self.next_gap(0)
         }
     }
 
-    /// O(M) - Like [`Self::prev_gap`], but wraps around to the end of the
-    /// mask when the direct search yields None or exceeds the bound.
-    /// Returns the first value < n not contained in the set, or the last
-    /// gap before mask_len() if no gap exists in [0, n).
+    /// Like [`Self::prev_gap`], but wraps around to the end of the mask.
     pub fn prev_gap_wrapping(&self, n: usize) -> Option<usize> {
         match self.prev_gap(n) {
-            Some(idx) if idx < self.mask.len() => Some(idx),
-            _ => self.prev_gap(self.mask.len()),
+            Some(idx) if idx < self.len as usize => Some(idx),
+            _ => self.prev_gap(self.len as usize),
         }
     }
 
-    /// O(M) where M is the mask size - Returns the k-th number NOT in the set.
+    /// Returns the zero-indexed `k`-th visible column index.
     pub fn nth_gap(&self, k: usize) -> usize {
-        let mut count = 0;
+        let visible = !self.mask & self.valid_mask();
+        let visible_in_mask = visible.count_ones() as usize;
 
-        // Step 1: Scan gaps inside the mask boundary
-        for (n, &present) in self.mask.iter().enumerate() {
-            if !present {
-                if count == k {
-                    return n;
-                }
-                count += 1;
+        if k < visible_in_mask {
+            let mut val = visible;
+            for _ in 0..k {
+                val &= val - 1; // Clears the lowest set bit (Kernighan's Algorithm)
             }
+            val.trailing_zeros() as usize
+        } else {
+            let remaining = k - visible_in_mask;
+            self.len as usize + remaining
         }
-
-        // Step 2: If k is larger than the gaps inside the mask,
-        // the remaining gaps are just the numbers following the mask.
-        let remaining = k - count;
-        self.mask.len() + remaining
     }
 
-    /// O(x) - If x is NOT in the set, returns how many gaps are < x.
+    /// If `x` is visible, returns how many visible columns exist before `x`.
     pub fn gap_index(&self, x: usize) -> Option<usize> {
         if self.contains(x) {
             return None;
         }
 
-        let mut count = 0;
-
-        // Count gaps up to x within the mask bounds
-        let upper_limit = x.min(self.mask.len());
-        for i in 0..upper_limit {
-            if !self.mask[i] {
-                count += 1;
-            }
+        if x <= self.len as usize {
+            let visible_below = !self.mask & self.valid_mask() & Self::mask_below(x);
+            Some(visible_below.count_ones() as usize)
+        } else {
+            let visible_in_mask = (!self.mask & self.valid_mask()).count_ones() as usize;
+            Some(visible_in_mask + (x - self.len as usize))
         }
+    }
 
-        // If x is past the mask size, every element between mask.len() and x is also a gap
-        if x > self.mask.len() {
-            count += x - self.mask.len();
+    // --- Internal Bitmask Helpers ---
+
+    #[inline]
+    fn valid_mask(&self) -> u64 {
+        if self.len == 64 {
+            !0
+        } else {
+            (1u64 << self.len) - 1
         }
+    }
 
-        Some(count)
+    #[inline]
+    fn mask_below(n: usize) -> u64 {
+        if n >= 64 { !0 } else { (1u64 << n) - 1 }
     }
 }

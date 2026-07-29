@@ -140,7 +140,7 @@ In this example, if the mode is `vim`, `h` and `l` will move the cursor horizont
 "0,1^^enter" = "Accept"
 
 # Active in any mode EXCEPT when stdin is a terminal
-"!0^^esc" = "Quit(1)"
+"!0^^esc" = "Quit(1)""
 
 # Active when mode contains "vim" but not "insert"
 "vim,!insert^^h" = "BackwardChar"
@@ -175,7 +175,7 @@ Actions are the operations performed when a trigger is activated.
 | `CycleSelections` / `Cycle`  | Toggle selection for all items in the current view.        |
 | `ClearSelections` / `Clear`  | Clear all active selections.                               |
 | `Accept`                     | Accept the current selection and exit.                     |
-| `Quit(code)`                 | Exit Matchmaker with the specified exit code (default: 1). |
+| `Quit(code)`                 | Exit Matchmaker with the specified exit code (default: 0). |
 
 ### Navigation
 
@@ -319,8 +319,8 @@ Note: Commands executed via these actions have access to various [environment va
 
 Multiple actions can be executed in sequence by using an array:
 
-- **TOML**: `ctrl-x = ["Cancel", "Quit"]`
-- **CLI**: `mm b "ctrl-x=Cancel,Quit"`
+- **TOML**: `ctrl-x = ["Cancel", "Reload"]`
+- **CLI**: `mm b "ctrl-x=Cancel,Reload"`
 
 ### CLI Overrides
 

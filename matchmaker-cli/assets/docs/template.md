@@ -238,7 +238,7 @@ interactions = [
 ]
 
 [binds]
-"@quit" = "Quit"
+"@quit" = "Quit(1)"
 "@accept" = "Accept"
 ```
 

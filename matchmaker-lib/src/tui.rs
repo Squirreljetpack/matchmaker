@@ -257,6 +257,7 @@ where
         debug!("Terminal exited");
     }
 
+    // todo: for some reason this leaves artifacts that initial tui.flush cannot remove after we implemented aggressive caching
     pub fn exit_lite(&mut self) {
         let backend = self.terminal.backend_mut();
 

@@ -59,7 +59,6 @@ pub struct State {
     pub should_quit: bool,
     /// Setting this to true finishes the picker with [`crate::MatchError::NoMatch`].
     pub should_quit_nomatch: bool,
-    pub filtering: bool,
 
     /// This field is never touched by the rendering loop and is reserved for
     /// callers to use to store values, such as distinguishing between multiple
@@ -123,7 +122,6 @@ impl State {
             events: Event::empty(),
             should_quit: false,
             should_quit_nomatch: false,
-            filtering: true,
 
             discriminant_payload: None,
             async_actions: std::array::from_fn(|_| None),
@@ -203,6 +201,9 @@ impl State {
     // ------- updates --------------
     pub(crate) fn update_input(&mut self, new_input: &str) -> bool {
         let changed = self.input.cmp_replace(new_input.to_string());
+        if self.iteration == 0 {
+            return false;
+        }
         if changed {
             self.insert(Event::QueryChange);
         }
@@ -264,21 +265,13 @@ impl State {
     ) {
         if self.iteration == 0 {
             self.insert(Event::Start);
-            self.input = picker_ui.query.input.clone();
-        } else {
-            if self.update_input(&picker_ui.query.input) {
-                picker_ui.results.set_dirty();
-            }
         }
         self.iteration += 1;
 
         let status = &picker_ui.results.status;
-        if self.iteration < 10 {
-            _info!(status);
-        }
+        _info!(status; self.synced);
         self.synced[1] |= status.running;
         if status.changed {
-            _info!(status; self.synced);
             // add a synced event when worker stops running
             if !status.running {
                 if !self.synced[0] {
@@ -286,14 +279,14 @@ impl State {
                     if status.item_count > 0 {
                         self.insert(Event::Synced);
                         self.synced[0] = true;
-                        picker_ui.results.recompute_preferred();
+                        picker_ui.results.changed[1] = true;
                     }
                 } else {
                     // this should be emitted every time input filter changes
                     // note that this will never emit on empty input
                     log::trace!("resynced on iteration {}", self.iteration);
                     self.insert(Event::Resynced);
-                    picker_ui.results.recompute_preferred();
+                    picker_ui.results.changed[1] = true;
                 }
             }
         }
@@ -318,10 +311,10 @@ impl State {
             self.overlay_index = o.index()
         }
 
-        let new_id = picker_ui.current_indexed().map(|x| x.0);
-        let changed = self.last_id != picker_ui.current_indexed().map(|x| x.0);
-        if changed {
-            self.last_id = new_id;
+        if self
+            .last_id
+            .cmp_replace(picker_ui.current_indexed().map(|x| x.0))
+        {
             self.insert(Event::CursorChange);
 
             if self.last_id.is_none() {
@@ -464,10 +457,7 @@ impl<'a, 'b: 'a, T: SSS, D: 'static> MMState<'a, 'b, T, D> {
     }
 
     pub fn get_content_and_index(&self) -> (String, u32) {
-        (
-            self.picker_ui.query.input.clone(),
-            self.picker_ui.results.index(),
-        )
+        (self.picker_ui.query.input(), self.picker_ui.results.index())
     }
 
     pub fn worker_restart(&mut self) {

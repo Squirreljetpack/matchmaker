@@ -7,7 +7,7 @@ use matchmaker_partial_macros::partial;
 use ratatui::layout::Rect;
 
 pub use crate::config_types::*;
-pub use crate::utils::{serde::StringOrVec, Percentage};
+pub use crate::utils::{Percentage, serde::StringOrVec};
 
 use crate::{
     tui::IoStream,
@@ -211,6 +211,11 @@ pub struct UiConfig {
     pub border: BorderSetting,
     pub tick_rate: u8, // separate from render, but best place ig
     pub mouse_events: bool,
+    /// Debounce interval for mouse scroll events in milliseconds.
+    /// When scroll events arrive within this window, they are buffered and sent
+    /// together as a batch to avoid triggering multiple render cycles.
+    /// Set to 0 to disable debouncing (default: 100).
+    pub mouse_scroll_debounce_ms: u64,
 }
 
 impl Default for UiConfig {
@@ -219,6 +224,7 @@ impl Default for UiConfig {
             border: Default::default(),
             tick_rate: 60,
             mouse_events: true,
+            mouse_scroll_debounce_ms: 0,
         }
     }
 }
@@ -759,7 +765,7 @@ impl Default for PreviewerConfig {
             try_lossy: false,
             delay_clear: true,
             cache: 0,
-            debounce_ms: 0,
+            debounce_ms: 50,
             max_procs: 4,
             always_trigger: true,
             help: Default::default(),

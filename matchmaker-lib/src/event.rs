@@ -5,7 +5,7 @@ use anyhow::Result;
 use arc_swap::ArcSwap;
 use cba::bait::ResultExt;
 use cba::bath::PathExt;
-use cba::unwrap;
+use cba::{_info, unwrap};
 use crokey::{Combiner, KeyCombination, KeyCombinationFormat, key};
 use crossterm::event::{
     Event as CrosstermEvent, EventStream, KeyModifiers, MouseEvent, MouseEventKind,
@@ -24,7 +24,7 @@ pub type BindSender<A> = mpsc::UnboundedSender<BindDirective<A>>;
 
 #[derive(Debug)]
 pub struct EventLoop<A: ActionExt> {
-    txs: Vec<mpsc::UnboundedSender<RenderCommand<A>>>,
+    txs: Vec<RenderSender<A>>,
     tick_interval: time::Duration,
     paused: bool,
     skip_ticks: [bool; 2],
@@ -36,6 +36,9 @@ pub struct EventLoop<A: ActionExt> {
     fmt: KeyCombinationFormat,
 
     mouse_events: bool,
+    scroll_debounce: time::Duration,
+    scroll_buffer: Vec<MouseEvent>,
+    scroll_deadline: Option<std::pin::Pin<Box<time::Sleep>>>,
     event_stream: Option<EventStream>,
 
     rx: mpsc::UnboundedReceiver<Event>,
@@ -78,6 +81,9 @@ impl<A: ActionExt> EventLoop<A> {
             controller_tx,
 
             mouse_events: false,
+            scroll_debounce: time::Duration::from_millis(0),
+            scroll_buffer: Vec::new(),
+            scroll_deadline: None,
             key_file: None,
             current_task: None,
 
@@ -122,13 +128,18 @@ impl<A: ActionExt> EventLoop<A> {
         &self.original_binds
     }
 
-    pub fn add_tx(&mut self, handler: mpsc::UnboundedSender<RenderCommand<A>>) -> &mut Self {
+    pub fn add_tx(&mut self, handler: RenderSender<A>) -> &mut Self {
         self.txs.push(handler);
         self
     }
 
     pub fn with_mouse_events(mut self, enabled: bool) -> Self {
         self.mouse_events = enabled;
+        self
+    }
+
+    pub fn with_scroll_debounce(mut self, ms: u64) -> Self {
+        self.scroll_debounce = time::Duration::from_millis(ms);
         self
     }
 
@@ -151,7 +162,8 @@ impl<A: ActionExt> EventLoop<A> {
     }
 
     fn handle_event(&mut self, e: Event) {
-        debug!("Received: {e}");
+        debug!("Received event: {e}");
+        self.dirty = true;
 
         match e {
             Event::Pause => {
@@ -163,11 +175,9 @@ impl<A: ActionExt> EventLoop<A> {
                 self.send(RenderCommand::Redraw);
             }
             Event::Synced | Event::Resynced => {
-                self.dirty = true;
                 self.skip_ticks[0] = true;
             }
             Event::PreviewFinished => {
-                self.dirty = true;
                 self.skip_ticks[1] = true;
             }
             Event::Restarted => {
@@ -229,7 +239,7 @@ impl<A: ActionExt> EventLoop<A> {
             }
 
             BindDirective::Action(action) => {
-                self.send_actions(vec![action], None);
+                self.send_actions(std::iter::once(action), None);
                 return;
             }
         }
@@ -269,7 +279,6 @@ impl<A: ActionExt> EventLoop<A> {
                         self.paused = false;
                         self.send(RenderCommand::Ack);
                         self.event_stream = Some(EventStream::new());
-                        self.dirty = true;
                         break;
                     }
                 } else {
@@ -294,6 +303,7 @@ impl<A: ActionExt> EventLoop<A> {
 
                 _ = interval.tick() => {
                     if !self.skip_ticks.iter().all(|x| *x) || self.dirty {
+                        _info!("event tick");
                         self.send(RenderCommand::Tick)
                     }
                     self.dirty = false;
@@ -301,7 +311,6 @@ impl<A: ActionExt> EventLoop<A> {
 
                 // In case ctrl-c manifests as a signal instead of a key
                 _ = tokio::signal::ctrl_c() => {
-                    self.dirty = true;
                     self.record_key("ctrl-c".into());
                     if let Some(actions) = self.get_bind(TriggerKind::Key(key!(ctrl-c))) {
                         self.send_actions(actions, Some("ctrl-c".into()));
@@ -311,15 +320,18 @@ impl<A: ActionExt> EventLoop<A> {
                     }
                 }
 
-                Some(event) = self.rx.recv() => {
-                    self.dirty = true;
+                // Scroll debounce deadline — flush all buffered scroll events
+                // together so the render loop processes them as a single batch.
+                _ = scroll_deadline_future(&mut self.scroll_deadline) => {
+                    self.flush_scroll_buffer();
+                    self.scroll_deadline = None;
+                }
 
+                Some(event) = self.rx.recv() => {
                     self.handle_event(event)
                 }
 
                 Some(directive) = self.bind_rx.recv() => {
-                    self.dirty = true;
-
                     self.handle_rebind(directive)
                 }
 
@@ -335,7 +347,6 @@ impl<A: ActionExt> EventLoop<A> {
                                     ..
                                 })
                             ) {
-                                self.dirty = true;
                                 if matches!(event,  CrosstermEvent::Key {..}) {
                                     info!("Event {event:?}");
                                 }
@@ -389,9 +400,19 @@ impl<A: ActionExt> EventLoop<A> {
                                     })) {
                                         self.send_actions(actions, None);
                                     } else if !matches!(mouse.kind, MouseEventKind::Moved) {
-                                        // mouse binds can be disabled by overriding with empty action
-                                        // preview scroll can be disabled by overriding scroll event with scroll action
-                                        self.send(RenderCommand::Mouse(mouse));
+                                        if is_scroll_kind(&mouse.kind) && !self.scroll_debounce.is_zero()
+                                        {
+                                            // Buffer scroll events and reset/start the debounce timer.
+                                            // When the timer fires, all buffered scrolls are flushed
+                                            // together so the render loop sees them as a single batch.
+                                            self.scroll_buffer.push(mouse);
+                                            self.scroll_deadline =
+                                                Some(Box::pin(time::sleep(self.scroll_debounce)));
+                                        } else {
+                                            // mouse binds can be disabled by overriding with empty action
+                                            // preview scroll can be disabled by overriding scroll event with scroll action
+                                            self.send(RenderCommand::Mouse(mouse));
+                                        }
                                     }
                                 }
                                 CrosstermEvent::Resize(width, height) => {
@@ -453,8 +474,6 @@ impl<A: ActionExt> EventLoop<A> {
         actions: impl IntoIterator<Item = Action<A>>,
         key: Option<String>,
     ) {
-        let actions: Vec<Action<A>> = actions.into_iter().collect();
-
         for action in actions {
             match action {
                 Action::PrintKey => {
@@ -464,7 +483,7 @@ impl<A: ActionExt> EventLoop<A> {
                 }
                 Action::Semantic(s) => {
                     if let Some(actions) = self.get_bind(TriggerKind::Semantic(s)) {
-                        self.send_actions(actions.clone(), None);
+                        self.send_actions(actions, None);
                     }
                 }
                 #[cfg(not(debug_assertions))]
@@ -481,6 +500,21 @@ impl<A: ActionExt> EventLoop<A> {
     fn send_action(&self, action: Action<A>) {
         self.send(RenderCommand::Action(action));
     }
+
+    /// Drain the scroll buffer, sending every buffered scroll event through the
+    /// unbounded channel back-to-back. Because `UnboundedSender::send` does not
+    /// await, the events are all enqueued before the render loop's next
+    /// `recv_many` call, so the render loop processes them as a single batch and
+    /// performs one re-render after all of them have been applied.
+    fn flush_scroll_buffer(&mut self) {
+        if self.scroll_buffer.is_empty() {
+            return;
+        }
+        let buffered = std::mem::take(&mut self.scroll_buffer);
+        for mouse in buffered {
+            self.send(RenderCommand::Mouse(mouse));
+        }
+    }
 }
 
 fn key_code_as_letter(key: KeyCombination) -> Option<char> {
@@ -494,6 +528,28 @@ fn key_code_as_letter(key: KeyCombination) -> Option<char> {
             modifiers: KeyModifiers::SHIFT,
         } => Some(l.to_ascii_uppercase()),
         _ => None,
+    }
+}
+
+/// Returns true if the given mouse event kind is a scroll event
+/// (ScrollUp, ScrollDown, ScrollLeft, or ScrollRight).
+fn is_scroll_kind(kind: &crossterm::event::MouseEventKind) -> bool {
+    matches!(
+        kind,
+        crossterm::event::MouseEventKind::ScrollUp
+            | crossterm::event::MouseEventKind::ScrollDown
+            | crossterm::event::MouseEventKind::ScrollLeft
+            | crossterm::event::MouseEventKind::ScrollRight
+    )
+}
+
+/// Adapter for use in `tokio::select!` that awaits the optional scroll
+/// debounce deadline. When no deadline is set, the future is pending forever
+/// so this branch never fires.
+async fn scroll_deadline_future(deadline: &mut Option<std::pin::Pin<Box<time::Sleep>>>) {
+    match deadline.as_mut() {
+        Some(sleep) => sleep.as_mut().await,
+        None => std::future::pending().await,
     }
 }
 

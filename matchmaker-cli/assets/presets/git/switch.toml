@@ -2,6 +2,7 @@
 source = 'base.toml'
 
 [start]
+# only
 command = '''
 git for-each-ref --format='%(objectname:short) %(refname:strip=2)' refs/heads
 git remote |
@@ -96,6 +97,12 @@ prompt = "switch> "
 "@rm" = ["@delete", "Reload"]
 
 "ctrl-u" = ["@update", "Reload"]
+# restore fetch spec to defaults (i.e. after cloning with --single-branch)
+"alt-u" = [
+    'Execute(git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*" && git fetch origin)',
+    'Reload',
+]
+
 "ctrl-a" = ["@add_remote", "Reload"]
 "ctrl-n" = ["@add_branch", "Reload"]
 "alt-r" = ["@show_remotes"]

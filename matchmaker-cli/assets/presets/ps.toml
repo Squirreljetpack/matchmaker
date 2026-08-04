@@ -50,7 +50,7 @@ fi
 '''
 
 [[preview.layout]]
-command = "echo '### Resources ###\n'; top -pid {2}"
+command = "echo '### Resources ###\n'; top -p {2}"
 initial.tail = true
 min = 13
 

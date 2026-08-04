@@ -48,10 +48,18 @@ scroll.index = 2
 [[preview.layout]]
 command = '''
 jq -rs '
+  def render_content: [.[] |
+    if .type == "thinking" then "[thinking] \(.thinking)"
+    elif .type == "text" then .text
+    elif .type == "toolCall" then "[tool call: \(.name)] \(.arguments | tojson)"
+    else empty end
+  ] | join("\n");
   (map(select(.type == "session")) | .[0] // \{}) as $session |
   (map(select(.type == "model_change")) | .[0] // \{}) as $model |
   (map(select(.type == "message" and .message.role == "user")) | .[0] // \{}) as $user_msg |
-  (map(select(.type == "message" and .message.role == "assistant")) | last // \{}) as $assistant_msg |
+  (map(select(.type == "message" and .message.role == "assistant"))
+   | map(select(([.message.content // [] | .[] | select(.type == "text") | .text] | join("") | gsub("^[[:space:]]+|[[:space:]]+$"; "")) != ""))
+   | last // \{}) as $assistant_msg |
   (map(select(.type == "message" and .message.usage != null)) | map(.message.usage)) as $all_usage |
   ($all_usage | map(.input // 0) | add // 0) as $input |
   ($all_usage | map(.cacheRead // 0) | add // 0) as $cache_read |
@@ -80,14 +88,9 @@ jq -rs '
   "---",
   ([$user_msg.message.content // [] | .[] | select(.type == "text") | .text] | join("\n") // "N/A"),
   "",
-  "# Response",
+  "# Last response",
   "---",
-  ([$assistant_msg.message.content // [] | .[] |
-    if .type == "thinking" then "[thinking] \(.thinking)"
-    elif .type == "text" then .text
-    elif .type == "toolCall" then "[tool call: \(.name)] \(.arguments | tojson)"
-    else empty end
-  ] | join("\n") // "N/A")
+  ($assistant_msg.message.content // [] | render_content // "N/A")
 ' -- {file} | bat --wrap=never --color=always -pp -l md
 '''
 

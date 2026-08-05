@@ -6,7 +6,7 @@ use std::{
 use serde::{Deserialize, Serialize, Serializer};
 
 use crate::utils::string::allowed_semantic_char;
-use crate::{SSS, utils::serde::StringOrVec};
+use crate::{utils::serde::StringOrVec, SSS};
 
 /// Bindable actions
 /// # Additional
@@ -86,7 +86,6 @@ pub enum Action<A: ActionExt = NullActionExt> {
     /// If wrapping is enabled, the visual distance may exceed half a page.
     PreviewHalfPageDown,
 
-    // experimental
     /// Persistent horizontal scroll
     /// 0 to reset.
     PreviewHScroll(i8),

@@ -7,27 +7,29 @@ members = [
     "matchmaker-partial-macros",
 ]
 
+# iirc, needed if we commit version bumps then publish from ci afterward: the versions don't exist yet
 [patch.crates-io]
 matchmaker-lib = { path = "./matchmaker-lib" }
 matchmaker-partial = { path = "./matchmaker-partial" }
 matchmaker-partial-macros = { path = "./matchmaker-partial-macros" }
-nucleo = { git = "https://github.com/Squirreljetpack/nucleo", branch = "mm" }
-
-# The profile that 'dist' will build with
-[profile.dist]
-inherits = "release"
-lto = "fat"
 
 [workspace.dependencies]
 cli_boilerplate_automation = { version = "0.*" }
-matchmaker-lib = { version = "0.1.0" }
+matchmaker-lib = { version = "0.1.*" }
 matchmaker-partial = { version = "0.0.*" }
 matchmaker-partial-macros = { version = "0.0.*", default-features = false }
+nucleo = { package = "matchmaker-nucleo", version = "0.1.*" }
 
 [workspace.lints.clippy]
 single_match = "allow"
-#
+
 # [profile.release]
 # opt-level = 0
 # incremental = true
 # codegen-units = 256
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+codegen-units = 1
+lto = "fat"

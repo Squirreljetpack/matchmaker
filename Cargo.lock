@@ -1276,11 +1276,11 @@ dependencies = [
  "futures",
  "indexmap",
  "log",
+ "matchmaker-nucleo",
  "matchmaker-partial",
  "matchmaker-partial-macros",
  "mio",
  "nix 0.31.3",
- "nucleo",
  "paste",
  "phf 0.14.0",
  "ratatui",
@@ -1295,6 +1295,17 @@ dependencies = [
  "unicode-segmentation",
  "unicode-width 0.2.2",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "matchmaker-nucleo"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "memchr",
+ "parking_lot",
+ "rayon",
+ "unicode-segmentation",
 ]
 
 [[package]]
@@ -1415,24 +1426,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df9761775871bdef83bee530e60050f7e54b1105350d6884eb0fb4f46c2f9405"
 dependencies = [
  "memchr",
-]
-
-[[package]]
-name = "nucleo"
-version = "0.5.0"
-dependencies = [
- "log",
- "nucleo-matcher",
- "parking_lot",
- "rayon",
-]
-
-[[package]]
-name = "nucleo-matcher"
-version = "0.3.1"
-dependencies = [
- "memchr",
- "unicode-segmentation",
 ]
 
 [[package]]

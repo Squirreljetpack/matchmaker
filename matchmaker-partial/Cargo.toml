@@ -12,7 +12,7 @@ thiserror = "2.0"
 
 [dev-dependencies]
 matchmaker-partial-macros = { path = "../matchmaker-partial-macros", features = ["partial"] }
-toml = "0.9.8"
+toml = "1.1"
 
 [[test]]
 name = "derive_macro_test"

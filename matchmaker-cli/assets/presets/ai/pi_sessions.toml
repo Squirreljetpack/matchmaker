@@ -96,7 +96,7 @@ jq -rs '
 
 [[preview.layout]]
 command = '''
-"$(dirname -- "$MM_OVERRIDE")"/session_stats.py --price -- {+file}
+"$(dirname -- "$MM_OVERRIDE")"/session_stats.py --price -- {+file} 2>&1
 '''
 
 [[preview.layout]]
@@ -111,8 +111,9 @@ fi
 # --- Binds ---
 [binds]
 "@show" = '''ExecuteOrConfirm(mkdir -p $TMPdir && node "$(dirname -- "$MM_OVERRIDE")"/export-pi-session.mjs -o $TMPdir/session.html $PWD/{file} && eval $OPENcmd /tmp/pi/html/session.html)'''
-"@accept_2" = '''ExecuteOrConfirm(fx {1})'''
+"@open_2" = '''ExecuteOrConfirm(fx {1})'''
 "0,1^^@accept" = 'Become(cwd={dir}; cd "${cwd/#\~/$HOME}" && pi --session {id})'
+"0,1^^@accept_2" = 'Become(cwd={dir}; cd "${cwd/#\~/$HOME}" && pi --fork {id})'
 "?" = "SwitchPreview"
 "@rm" = ["ExecuteAsync(rm -- {+file})", "Reload"]
 "@copy" = "CopyAsync(printf '%s\n' {+id})"

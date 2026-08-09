@@ -422,13 +422,13 @@ fn handle_range<'a, 'b>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use matchmaker::Selector;
-    use matchmaker::config::{ColumnsConfig, TerminalConfig};
+    use matchmaker::config::{ColumnsConfig, PreprocessConfig};
     use matchmaker::config_mm::{ConfigInjector, ConfigMatchmaker};
     use matchmaker::nucleo::injector::Injector;
+    use matchmaker::nucleo::new_snapshot;
     use matchmaker::nucleo::nucleo::{Config as NucleoConfig, Matcher};
     use matchmaker::render::State;
-    use matchmaker::ui::UI;
+    use matchmaker::ui::{DisplayUI, PickerUI, UI};
     use std::sync::Mutex;
     use tokio::sync::mpsc;
 
@@ -478,27 +478,41 @@ mod tests {
         (mm, injector, guard)
     }
 
+    /// Builds the picker offline (no terminal) for formatting tests.
+    fn offline_ui<'a>(
+        mm: ConfigMatchmaker,
+        matcher: &'a mut Matcher,
+    ) -> (UI, PickerUI<'a, String, ConfigPreprocessedData>) {
+        UI::new_offline(mm.render_config, matcher, mm.worker, vec![])
+    }
+
+    /// Pushes items and waits until the worker has indexed `expected` of them.
+    /// `tick` alone is racy: the worker thread may not have finished processing
+    /// the queue, so we sync on the snapshot like the `--list` implementation.
+    fn push_items(mm: &mut ConfigMatchmaker, injector: ConfigInjector, items: &[&str], expected: usize) {
+        for item in items {
+            injector.push(item.to_string()).unwrap();
+        }
+        drop(injector);
+        let status = loop {
+            let (_, s) = new_snapshot(&mut mm.worker.nucleo);
+            if s.item_count as usize == expected && !s.running {
+                break s;
+            }
+        };
+        assert_eq!(status.item_count as usize, expected);
+    }
+
     #[tokio::test]
     async fn test_format_cli_basic() {
         let (mut mm, injector, _guard) = setup_test_mm();
-        injector.push("a,b,c".to_string()).unwrap();
-        mm.worker.nucleo.tick(10);
-
+        push_items(&mut mm, injector, &["a,b,c"], 1);
         let mut state_obj = State::new();
-        let Ok(mut tui) = matchmaker::tui::Tui::new(TerminalConfig::default()) else {
-            return;
-        };
         let mut matcher = Matcher::new(NucleoConfig::DEFAULT);
 
-        let (mut ui, mut picker_ui, mut footer_ui, mut preview_ui) = UI::new(
-            mm.render_config,
-            &mut matcher,
-            mm.worker,
-            Selector::new(),
-            None,
-            &mut tui,
-            vec![],
-        );
+        let (mut ui, mut picker_ui) = offline_ui(mm, &mut matcher);
+        let mut footer_ui = DisplayUI::default();
+        let mut preview_ui = None;
 
         let (event_tx, _event_rx) = mpsc::unbounded_channel();
 
@@ -531,24 +545,13 @@ mod tests {
     #[tokio::test]
     async fn test_format_cli_ranges() {
         let (mut mm, injector, _guard) = setup_test_mm();
-        injector.push("a,b,c".to_string()).unwrap();
-        mm.worker.nucleo.tick(10);
-
+        push_items(&mut mm, injector, &["a,b,c"], 1);
         let mut state_obj = State::new();
-        let Ok(mut tui) = matchmaker::tui::Tui::new(TerminalConfig::default()) else {
-            return;
-        };
         let mut matcher = Matcher::new(NucleoConfig::DEFAULT);
 
-        let (mut ui, mut picker_ui, mut footer_ui, mut preview_ui) = UI::new(
-            mm.render_config,
-            &mut matcher,
-            mm.worker,
-            Selector::new(),
-            None,
-            &mut tui,
-            vec![],
-        );
+        let (mut ui, mut picker_ui) = offline_ui(mm, &mut matcher);
+        let mut footer_ui = DisplayUI::default();
+        let mut preview_ui = None;
 
         let (event_tx, _event_rx) = mpsc::unbounded_channel();
 
@@ -574,25 +577,14 @@ mod tests {
     #[tokio::test]
     async fn test_format_cli_selections() {
         let (mut mm, injector, _guard) = setup_test_mm();
-        injector.push("a,b,c".to_string()).unwrap();
-        injector.push("1,2,3".to_string()).unwrap();
-        mm.worker.nucleo.tick(10);
+        push_items(&mut mm, injector, &["a,b,c", "1,2,3"], 2);
 
         let mut state_obj = State::new();
-        let Ok(mut tui) = matchmaker::tui::Tui::new(TerminalConfig::default()) else {
-            return;
-        };
         let mut matcher = Matcher::new(NucleoConfig::DEFAULT);
 
-        let (mut ui, mut picker_ui, mut footer_ui, mut preview_ui) = UI::new(
-            mm.render_config,
-            &mut matcher,
-            mm.worker,
-            Selector::new(),
-            None,
-            &mut tui,
-            vec![],
-        );
+        let (mut ui, mut picker_ui) = offline_ui(mm, &mut matcher);
+        let mut footer_ui = DisplayUI::default();
+        let mut preview_ui = None;
 
         // Select both items
         let (idx1, _) = picker_ui.worker.get_nth_indexed(0).unwrap();
@@ -628,24 +620,13 @@ mod tests {
     #[tokio::test]
     async fn test_format_cli_invalid_key() {
         let (mut mm, injector, _guard) = setup_test_mm();
-        injector.push("a,b,c".to_string()).unwrap();
-        mm.worker.nucleo.tick(10);
-
+        push_items(&mut mm, injector, &["a,b,c"], 1);
         let mut state_obj = State::new();
-        let Ok(mut tui) = matchmaker::tui::Tui::new(TerminalConfig::default()) else {
-            return;
-        };
         let mut matcher = Matcher::new(NucleoConfig::DEFAULT);
 
-        let (mut ui, mut picker_ui, mut footer_ui, mut preview_ui) = UI::new(
-            mm.render_config,
-            &mut matcher,
-            mm.worker,
-            Selector::new(),
-            None,
-            &mut tui,
-            vec![],
-        );
+        let (mut ui, mut picker_ui) = offline_ui(mm, &mut matcher);
+        let mut footer_ui = DisplayUI::default();
+        let mut preview_ui = None;
 
         let (event_tx, _event_rx) = mpsc::unbounded_channel();
 
@@ -673,24 +654,13 @@ mod tests {
         }
 
         let (mut mm, injector, _guard) = setup_test_mm();
-        injector.push("a,b,c".to_string()).unwrap();
-        mm.worker.nucleo.tick(10);
-
+        push_items(&mut mm, injector, &["a,b,c"], 1);
         let mut state_obj = State::new();
-        let Ok(mut tui) = matchmaker::tui::Tui::new(TerminalConfig::default()) else {
-            return;
-        };
         let mut matcher = Matcher::new(NucleoConfig::DEFAULT);
 
-        let (mut ui, mut picker_ui, mut footer_ui, mut preview_ui) = UI::new(
-            mm.render_config,
-            &mut matcher,
-            mm.worker,
-            Selector::new(),
-            None,
-            &mut tui,
-            vec![],
-        );
+        let (mut ui, mut picker_ui) = offline_ui(mm, &mut matcher);
+        let mut footer_ui = DisplayUI::default();
+        let mut preview_ui = None;
 
         let (event_tx, _event_rx) = mpsc::unbounded_channel();
 
@@ -711,90 +681,88 @@ mod tests {
         }
     }
 
-    // #[tokio::test]
-    // async fn test_skip_empty() {
-    //     use matchmaker::config_mm::ConfigMatchmaker;
-    //     let mut columns_config = matchmaker::config::ColumnsConfig::default();
-    //     columns_config.names = vec![
-    //         matchmaker::config::ColumnSetting {
-    //             name: "col1".to_string().into(),
-    //             ignore: false,
-    //             hidden: false,
-    //             options: Default::default(),
-    //         },
-    //         matchmaker::config::ColumnSetting {
-    //             name: "col2".to_string().into(),
-    //             ignore: false,
-    //             hidden: false,
-    //             options: Default::default(),
-    //         },
-    //     ];
-    //     columns_config.split =
-    //         matchmaker::config::Split::Delimiter(regex::Regex::new(",").unwrap());
+    #[tokio::test]
+    async fn test_skip_empty() {
+        let mut columns_config = ColumnsConfig::default();
+        columns_config.names = vec![
+            matchmaker::config::ColumnSetting {
+                name: "col1".to_string().into(),
+                ignore: false,
+                hidden: false,
+                options: Default::default(),
+            },
+            matchmaker::config::ColumnSetting {
+                name: "col2".to_string().into(),
+                ignore: false,
+                hidden: false,
+                options: Default::default(),
+            },
+        ];
+        columns_config.split =
+            matchmaker::config::Split::Delimiter(regex::Regex::new(",").unwrap());
 
-    //     // (parse_ansi, trim, skip_empty = true)
-    //     let preprocess = (false, true, true);
+        // ansi: false, trim: true, require the first column to be non-empty
+        let preprocess = PreprocessConfig {
+            ansi: false,
+            trim: true,
+            sanitize: false,
+            require_column: Some(0),
+        };
 
-    //     let (mut mm, injector, _misc) = ConfigMatchmaker::new_from_config(
-    //         Default::default(),
-    //         Default::default(),
-    //         Default::default(),
-    //         columns_config,
-    //         Default::default(),
-    //         preprocess,
-    //     );
+        let (mut mm, injector, _misc) = ConfigMatchmaker::new_from_config(
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            columns_config,
+            Default::default(),
+            preprocess,
+        );
 
-    //     injector.push("a,b".to_string()).unwrap();
-    //     injector.push("".to_string()).unwrap(); // should be skipped
-    //     injector.push("  ".to_string()).unwrap(); // should be trimmed to empty and skipped
-    //     injector.push("c,d".to_string()).unwrap();
+        push_items(&mut mm, injector, &["a,b", "", "  ", "c,d"], 2);
+        let count = mm.worker.counts().1; // total item count
+        assert_eq!(count, 2);
+    }
 
-    //     mm.worker.nucleo.tick(10);
-    //     let count = mm.worker.counts().1; // total item count
-    //     assert_eq!(count, 2);
-    // }
+    #[tokio::test]
+    async fn test_skip_no_match() {
+        let mut columns_config = ColumnsConfig::default();
+        columns_config.names = vec![
+            matchmaker::config::ColumnSetting {
+                name: "col1".to_string().into(),
+                ignore: false,
+                hidden: false,
+                options: Default::default(),
+            },
+            matchmaker::config::ColumnSetting {
+                name: "col2".to_string().into(),
+                ignore: false,
+                hidden: false,
+                options: Default::default(),
+            },
+        ];
+        // Regex with capture groups
+        columns_config.split =
+            matchmaker::config::Split::Delimiter(regex::Regex::new(r"^([a-z]+)-([a-z]+)$").unwrap());
 
-    // #[tokio::test]
-    // async fn test_skip_no_match() {
-    //     use matchmaker::config_mm::ConfigMatchmaker;
-    //     let mut columns_config = matchmaker::config::ColumnsConfig::default();
-    //     columns_config.names = vec![
-    //         matchmaker::config::ColumnSetting {
-    //             name: "col1".to_string().into(),
-    //             ignore: false,
-    //             hidden: false,
-    //             options: Default::default(),
-    //         },
-    //         matchmaker::config::ColumnSetting {
-    //             name: "col2".to_string().into(),
-    //             ignore: false,
-    //             hidden: false,
-    //             options: Default::default(),
-    //         },
-    //     ];
-    //     // Regex with capture groups
-    //     columns_config.split =
-    //         matchmaker::config::Split::Delimiter(regex::Regex::new(r"^([a-z]+)-([a-z]+)$").unwrap());
+        // ansi: false, trim: true, require the first column to be non-empty
+        let preprocess = PreprocessConfig {
+            ansi: false,
+            trim: true,
+            sanitize: false,
+            require_column: Some(0),
+        };
 
-    //     // (parse_ansi, trim, skip_empty = true)
-    //     let preprocess = (false, true, true);
+        let (mut mm, injector, _misc) = ConfigMatchmaker::new_from_config(
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            columns_config,
+            Default::default(),
+            preprocess,
+        );
 
-    //     let (mut mm, injector, _misc) = ConfigMatchmaker::new_from_config(
-    //         Default::default(),
-    //         Default::default(),
-    //         Default::default(),
-    //         columns_config,
-    //         Default::default(),
-    //         preprocess,
-    //     );
-
-    //     injector.push("abc-def".to_string()).unwrap(); // matches -> kept
-    //     injector.push("abc".to_string()).unwrap(); // no match -> skipped
-    //     injector.push("abc-".to_string()).unwrap(); // no match -> skipped
-    //     injector.push("xyz-uvw".to_string()).unwrap(); // matches -> kept
-
-    //     mm.worker.nucleo.tick(10);
-    //     let count = mm.worker.counts().1; // total item count
-    //     assert_eq!(count, 2);
-    // }
+        push_items(&mut mm, injector, &["abc-def", "abc", "abc-", "xyz-uvw"], 2);
+        let count = mm.worker.counts().1; // total item count
+        assert_eq!(count, 2);
+    }
 }

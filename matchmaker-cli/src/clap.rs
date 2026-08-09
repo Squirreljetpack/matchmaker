@@ -43,6 +43,10 @@ pub struct Cli {
     #[arg(long, value_name = "FOLDER", num_args = 0..=1, default_missing_value = "")]
     pub download: Option<String>,
 
+    /// Run the populating command directly (see `mm --doc other`).
+    #[arg(long, value_name = "N:TEMPLATE", num_args = 0..=1, default_missing_value = "")]
+    pub list: Option<String>,
+
     /// Display documentation
     #[arg(long, short, value_enum)]
     pub doc: Option<Doc>,
@@ -75,6 +79,12 @@ impl Cli {
 
             // Special handling for download since it has an optional value that must be joined to it
             if s == "--download" || s.starts_with("--download=") {
+                clap_args.push(arg.clone());
+                continue;
+            }
+
+            // Special handling for list since it has an optional value that must be joined to it
+            if s == "--list" || s.starts_with("--list=") {
                 clap_args.push(arg.clone());
                 continue;
             }

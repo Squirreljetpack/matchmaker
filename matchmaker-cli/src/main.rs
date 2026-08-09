@@ -3,6 +3,7 @@ mod clap;
 mod config;
 mod crokey;
 pub mod formatter;
+mod list;
 mod logger;
 mod parse;
 mod paths;
@@ -59,8 +60,18 @@ async fn main() {
     };
 
     let no_read = cli.no_read;
+    let list = cli.list.clone();
     // get config
     let config = enter(cli, partial).__ebog();
+
+    // --list: output the command's output without starting the matcher
+    if let Some(l) = &list {
+        if l.is_empty() {
+            crate::list::list(config)
+        } else {
+            crate::list::template(config, l)
+        }
+    }
 
     // begin
     match start(config, no_read).await {

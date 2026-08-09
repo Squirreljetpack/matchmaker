@@ -8,3 +8,4 @@ A TUI for browsing Obsidian notes:
 Requires:
 
 - f:ist
+- Edit and run `ob-vaults -r` beforehand to populate vaults (suggestion: include this command in a shell startup or cache reset script).

@@ -19,6 +19,7 @@ It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and
 - Split input lines into multiple columns, that you can individually filter on (`%col query`[^17]), hide, and highlight and *sort*.[^14]
 - Split input lines by *regex capture groups*.
 - Split input lines by following CSV/TSV rules[^16].
+- Aggressive UI caching minimizes cpu resources consumed for rendering.
 - Define `Execute/Preview/Print/Accept` actions with [templates](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md) which *safely* inject the current item(s) (yes, columns are supported here too).
 - All the dynamic UI support you could hope for: preview offsets, styled status lines, responsive header tables, wrapped footers, active and inactive column colors, stacked columns, programmable status and header bars, multiple preview layouts[^15]... even overlays! (in the library).
 - Bind keys to multiple actions, bind actions to mouse triggers, bind actions to event triggers, bind keys to rebind keys, bind keys to modify the configuration, bind keys to run a shell script and use its output to execute actions and bind more keys, bind keys to set the header, footer, status, input, bind semantic triggers to actions, bind keys to semantic triggers, bind keys to -- wait nope thats about it.

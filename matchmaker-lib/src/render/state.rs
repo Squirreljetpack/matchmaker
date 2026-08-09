@@ -424,14 +424,14 @@ impl<'a, 'b: 'a, T: SSS, D: 'static> MMState<'a, 'b, T, D> {
     ///
     /// Iterates over selection indices, gets `&T` using `get_by_idx()`,
     /// and keeps only those items for which `f(&T)` evaluates to `true`.
-    pub fn retain_selections(&mut self, mut f: impl FnMut(&T) -> bool) {
-        self.picker_ui.selector.retain(|&idx| {
-            self.picker_ui
-                .worker
-                .get_by_idx(idx)
-                .is_some_and(|item| f(item))
-        });
-    }
+    // pub fn retain_selections(&mut self, mut f: impl FnMut(&T) -> bool) {
+    //     self.picker_ui.selector.retain(|&idx| {
+    //         self.picker_ui
+    //             .worker
+    //             .get_by_idx(idx)
+    //             .is_some_and(|item| f(item))
+    //     });
+    // }
 
     /// Maps selected items, falling back to current item if selection is empty.
     ///

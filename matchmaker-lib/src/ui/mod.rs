@@ -97,6 +97,41 @@ impl UI {
         (ui, picker, footer, preview)
     }
 
+    /// Construct a picker UI without a terminal backend.
+    ///
+    /// Intended for non-interactive use, e.g. formatting templates without
+    /// starting the interface. Only the pieces needed offline are built and
+    /// returned: the display UI is not used (callers pass a
+    /// `DisplayUI::default()` and `None` preview to the dispatcher), there is
+    /// no preview, and no reverse detection happens.
+    pub fn new_offline<'a, T: SSS, D: 'static>(
+        config: RenderConfig,
+        matcher: &'a mut nucleo::Matcher,
+        worker: Worker<T, D>,
+        hidden_columns: impl IntoIterator<Item = usize>,
+    ) -> (Self, PickerUI<'a, T, D>) {
+        assert!(!worker.columns.is_empty());
+
+        let ui = Self {
+            layout: None,
+            area: Rect::default(),
+            config: config.ui,
+        };
+
+        let mut picker = PickerUI::new(
+            config.results,
+            config.status,
+            config.query,
+            config.header,
+            matcher,
+            worker,
+            Selector::new(),
+        );
+        picker.results.set_hidden_columns(hidden_columns);
+
+        (ui, picker)
+    }
+
     pub fn update_dimensions(&mut self, area: Rect) {
         let border = &self.config.border;
 
@@ -177,7 +212,7 @@ impl<'a, T: SSS, D: 'static> PickerUI<'a, T, D> {
         }
     }
 
-    /// Prefer [`crate::render::MMState::restart_worker`]
+    /// Prefer [`crate::render::MMState::worker_restart`]
     pub fn restart(&mut self) {
         self.worker.restart(false);
         self.results.invalidate_widths();

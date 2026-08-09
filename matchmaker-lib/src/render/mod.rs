@@ -1297,20 +1297,20 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
 
 /// Collects selected items in match order. Scans `snapshot.get_matched_item(n)`
 /// for each n and yields (nucleo_idx, &T) for matches present in the selector.
-pub fn get_selected<'a, T: SSS, D>(picker_ui: &'a PickerUI<'_, T, D>) -> Vec<(u32, &'a T)> {
-    let snapshot = picker_ui.worker.nucleo.snapshot();
-    let mc = snapshot.matched_item_count();
-    (0..mc)
-        .filter_map(|n| {
-            let item = snapshot.get_matched_item(n)?;
-            let idx = snapshot.matches().get(n as usize)?.idx;
-            picker_ui
-                .selector
-                .contains(&idx)
-                .then_some((idx, item.data))
-        })
-        .collect()
-}
+// pub fn get_selected<'a, T: SSS, D>(picker_ui: &'a PickerUI<'_, T, D>) -> Vec<(u32, &'a T)> {
+//     let snapshot = picker_ui.worker.nucleo.snapshot();
+//     let mc = snapshot.matched_item_count();
+//     (0..mc)
+//         .filter_map(|n| {
+//             let item = snapshot.get_matched_item(n)?;
+//             let idx = snapshot.matches().get(n as usize)?.idx;
+//             picker_ui
+//                 .selector
+//                 .contains(&idx)
+//                 .then_some((idx, item.data))
+//         })
+//         .collect()
+// }
 
 #[cfg(test)]
 mod test {}

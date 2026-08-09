@@ -213,7 +213,7 @@ case $MM_INDEX in
     echo
   ;;
   *)
-  echo "### Soft Reset ###\n"
+  echo "### Checkout ###\n"
 
   git --no-pager diff --stat {1} -- {$1}
   ;;
@@ -278,7 +278,7 @@ case $MM_INDEX in
   esac
 
   # Shift target index if stash was created.
-  NEW_STASH=$(git rev-parse refs/stash 2>/dev/null || true)
+  NEW_STASH="$(git rev-parse refs/stash 2>/dev/null || true)"
   if [ "$STASHED" != "$NEW_STASH" ] && [ -n "$NEW_STASH" ]; then
       STASHED=true
       N=$(echo "$TARGET" | grep -oE '[0-9]+' || echo 0)
@@ -315,7 +315,7 @@ case $MM_INDEX in
   fi
   ;;
 *)
-  git --no-pager diff --color=always --name-status {1}..HEAD
+  git --no-pager diff --name-status {1}..HEAD # --color=always inapplicable
   printf "Soft reset to %s? [y/N] " {1}
   read -r ans
   case "$ans" in

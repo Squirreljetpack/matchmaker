@@ -115,10 +115,21 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
         // no recursion because tail bad
         let o: PartialConfig = load_type(&p, |s| toml::from_str(s))?;
 
+        // MM_OVERRIDE must always reflect the current override path: force it so a
+        // stale MM_OVERRIDE inherited from the parent environment cannot shadow it,
+        // and canonicalize so `dirname "$MM_OVERRIDE"` in preset commands is always
+        // absolute regardless of how the override path was given.
+        let mut override_env = EnvValue::new(
+            std::fs::canonicalize(&p)
+                .unwrap_or_else(|_| p.clone())
+                .to_string_lossy()
+                .to_string(),
+        );
+        override_env.force = true;
         config
             .envs
             .entry("MM_OVERRIDE".to_string())
-            .or_insert_with(|| EnvValue::new(p.to_string_lossy().to_string()));
+            .or_insert(override_env);
 
         if let Some(q) = &o.source {
             let source = p.parent().as_ref().unwrap().join(q);

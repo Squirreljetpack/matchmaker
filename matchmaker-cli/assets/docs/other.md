@@ -64,6 +64,43 @@ Filter a specific column using `%name` or any abbreviation thereof:
 
 ---
 
+## `--list` — non-interactive output
+
+Runs the populating command without starting the matcher. Useful for scripting,
+debugging presets and observing what the matcher would receive.
+
+### Bare `--list`
+
+Executes `start.command` directly (replacing the `mm` process), so its stdout,
+stderr and exit code are preserved:
+
+```sh
+mm --list
+```
+
+### `--list=<N:TEMPLATE>`
+
+Runs the populating command, formats `TEMPLATE` with the N-th item (0-based) and
+executes the formatted result:
+
+```sh
+mm --list="3:open {path}"   # third item
+mm --list="echo {}"         # first item
+```
+
+- `N` is **0-based**; omitting `N:` uses the first item.
+- The value must be joined with `=` — a separate argument after `--list` is parsed
+  as a config override.
+- `TEMPLATE` uses the full template syntax: see `mm --doc template`.
+- Items are ordered exactly as the matcher would display them (with an empty query,
+  all items are matched), so index `0` is the item Enter would accept first.
+- The executed command inherits the `MM_*` / `FZF_*` environment variables
+  (`MM_POS`, `MM_TOTAL_COUNT`, ...).
+
+*Note: `--list` never starts the TUI; `sync`, `mode` and `--no-read` are ignored.*
+
+---
+
 ## Miscellaneous
 
 ### Exit codes

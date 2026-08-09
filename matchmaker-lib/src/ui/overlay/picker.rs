@@ -269,7 +269,7 @@ impl<A: ActionExt> Overlay for PickerOverlay<A> {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(1 + self.query.config.border.height()),
+                Constraint::Length(self.query.height()),
                 Constraint::Fill(1),
             ])
             .split(inner);
@@ -302,7 +302,7 @@ impl<A: ActionExt> Overlay for PickerOverlay<A> {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(1 + self.query.config.border.height()),
+                Constraint::Length(self.query.height()),
                 Constraint::Fill(1),
             ])
             .split(inner);

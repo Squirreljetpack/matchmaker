@@ -9,7 +9,7 @@ use ratatui::{
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
-use crate::config::QueryConfig;
+use crate::config::{BorderSetting, QueryConfig};
 
 #[derive(Debug, Default, Clone)]
 pub struct InputUI {
@@ -312,6 +312,10 @@ pub struct QueryUI {
     pub state: InputUI,
     prompt: Line<'static>,
     pub config: QueryConfig,
+    /// When false, the query bar renders without its border: border lines,
+    /// title, and padding are skipped and no space is reserved for them in
+    /// layout.
+    pub show_border: bool,
 }
 
 impl Deref for QueryUI {
@@ -333,6 +337,7 @@ impl QueryUI {
             state: InputUI::new(),
             prompt: Line::styled(config.prompt.clone(), config.prompt_style),
             config,
+            show_border: true,
         };
 
         if !ui.config.initial.is_empty() {
@@ -344,13 +349,23 @@ impl QueryUI {
         ui
     }
 
+    /// The effective border setting: `None` while `show_border` is false.
+    fn border(&self) -> Option<&BorderSetting> {
+        self.show_border.then_some(&self.config.border)
+    }
+
     pub fn left(&self) -> u16 {
-        self.config.border.left() + self.prompt.width() as u16
+        self.border().map_or(0, BorderSetting::left) + self.prompt.width() as u16
+    }
+
+    /// Total height of the input bar, including the border.
+    pub fn height(&self) -> u16 {
+        1 + self.border().map_or(0, BorderSetting::height)
     }
 
     /// Given a rect the widget is rendered with, produce the absolute position the cursor is rendered at.
     pub fn cursor_offset(&self, rect: &Rect) -> Position {
-        let top = self.config.border.top();
+        let top = self.border().map_or(0, BorderSetting::top);
         Position::new(
             rect.x + self.left() + self.cursor_rel_offset(),
             rect.y + top,
@@ -361,7 +376,7 @@ impl QueryUI {
     pub fn update_width(&mut self, width: u16) {
         let text_width = width
             .saturating_sub(self.prompt.width() as u16)
-            .saturating_sub(self.config.border.width());
+            .saturating_sub(self.border().map_or(0, BorderSetting::width));
         if self.width != text_width {
             self.width = text_width;
         }
@@ -381,7 +396,11 @@ impl QueryUI {
             self.config.style.r#override(Style::reset()),
         ));
 
-        Paragraph::new(line).block(self.config.border.as_block())
+        let paragraph = Paragraph::new(line);
+        match self.border() {
+            Some(border) => paragraph.block(border.as_block()),
+            None => paragraph,
+        }
     }
 
     /// Set the input ui prefix. The prompt style from the config overrides the Line style (but not the span styles).

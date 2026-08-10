@@ -29,7 +29,7 @@ Register-ArgumentCompleter -Native -CommandName 'mm' -ScriptBlock {
             [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Display documentation')
             [CompletionResult]::new('--doc', '--doc', [CompletionResultType]::ParameterName, 'Display documentation')
             [CompletionResult]::new('--dump-config', '--dump-config', [CompletionResultType]::ParameterName, 'Write the default configuration to the default location. If piped, writes the current configuration to stdout')
-            [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'F')
+            [CompletionResult]::new('-F', '-F ', [CompletionResultType]::ParameterName, 'Run in fullscreen')
             [CompletionResult]::new('--test-keys', '--test-keys', [CompletionResultType]::ParameterName, 'test-keys')
             [CompletionResult]::new('--last-key', '--last-key', [CompletionResultType]::ParameterName, 'Print the last key pressed in the last `mm` run')
             [CompletionResult]::new('--no-read', '--no-read', [CompletionResultType]::ParameterName, 'Force the default command to run')

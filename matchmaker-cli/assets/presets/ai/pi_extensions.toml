@@ -12,52 +12,65 @@
 #                 the global or project settings (creates the file if missing)
 #
 # Point MM_EXTENSIONS_FILE elsewhere to use a different mm_extensions file.
+#
+# All commands in this preset are Python (`shell = ['python', '-c']`); the
+# standalone helpers live in pi_extensions_{reconcile,set,preview}.py next to
+# this file. Injected placeholder values ({1}, {+1}, ...) sit inside raw
+# python strings (r"""...""") so backslashes in values stay literal.
+#
+# Binds that just call a helper use the `@` syntax: `@pi_extensions_set.py
+# global` resolves the script next to `MM_OVERRIDE` and runs it via `shell[0]`
+# (python) with the remaining words as arguments.
 
 [start]
+shell = ['python', '-c']
 command = '''
-MMX="${MM_EXTENSIONS_FILE:-$HOME/.pi/agent/mm_extensions}"
+import json, os, subprocess, sys
 
-if [ ! -f "$MMX" ]; then
+mmx = os.environ.get("MM_EXTENSIONS_FILE") or os.path.expanduser("~/.pi/agent/mm_extensions")
+base = os.path.dirname(os.environ["MM_OVERRIDE"])
+
+if not os.path.isfile(mmx) or os.path.getsize(mmx) == 0:
     # seed the list from the global/project settings
-    "$(dirname -- "$MM_OVERRIDE")"/pi_extensions_reconcile.sh 1>&2 || true
-fi
+    subprocess.run([sys.executable, os.path.join(base, "pi_extensions_reconcile.py")], stdout=sys.stderr)
 
-[ -f "$MMX" ] || { echo "error: mm_extensions not found: $MMX" >&2; exit 1; }
+if not os.path.isfile(mmx):
+    sys.stderr.write("error: mm_extensions not found: " + mmx + "\n")
+    sys.exit(1)
 
-while IFS= read -r line || [ -n "$line" ]; do
-    case "$line" in
-        '#'*)
-            state="✗"
-            stripped="${line#"# "}"
-            stripped="${stripped#"#"}"
-            ;;
-        *)
-            state="✓"
-            stripped="$line"
-            ;;
-    esac
+with open(mmx, encoding="utf-8") as f:
+    for line in f.read().splitlines():
+        if line.startswith("# "):
+            state = "✗"
+            stripped = line[2:]
+        elif line.startswith("#"):
+            state = "✗"
+            stripped = line[1:]
+        else:
+            state = "✓"
+            stripped = line
 
-    # keep only real definitions: skip blank and whitespace-only lines
-    case "$stripped" in
-        '' | *[![:space:]]*) ;;
-        *) continue ;;
-    esac
+        # keep only real definitions: skip blank and whitespace-only lines
+        if not stripped.strip():
+            continue
 
-    # each definition is a JSON value; its `source` is the display name
-    if ! name=$(printf '%s' "${stripped%,}" | jq -r 'if type == "object" then .source else . end' 2>/dev/null); then
-        echo "warning: skipping unparseable line: $stripped" >&2
-        continue
-    fi
-
-    printf '%s\t%s\n' "$name" "$state"
-done < "$MMX"
+        # each definition is a JSON value; its `source` is the display name
+        try:
+            value = json.loads(stripped.rstrip(","))
+        except json.JSONDecodeError:
+            sys.stderr.write("warning: skipping unparseable line: " + stripped + "\n")
+            continue
+        name = value.get("source") if isinstance(value, dict) else value
+        if name is None:
+            continue
+        print(name + "\t" + state)
 '''
 
 [columns]
 max = 2
 names = [
-  { name = "ext", options = "Optional | OrUseDefault" },
-  { name = "on", options = "Optional | OrUseDefault" },
+    { name = "ext", options = "Optional | OrUseDefault" },
+    { name = "on", options = "Optional | OrUseDefault" },
 ]
 default = "ext"
 split = "\t"
@@ -78,36 +91,50 @@ sort = 40
 [preview]
 show = true
 
+[previewer]
+shell = ['python', '-c']
+
 [[preview.layout]]
 command = '''
-"$(dirname -- "$MM_OVERRIDE")"/pi_extensions_preview.sh {1}
+import os, shlex, subprocess, sys
+args = shlex.split(r"""{1}""")
+if args:
+    subprocess.run([sys.executable, os.path.join(os.path.dirname(os.environ["MM_OVERRIDE"]), "pi_extensions_preview.py"), args[0]])
 '''
 
 [[preview.layout]]
 command = '''
-cat <<'EOF'
-Usage:
+import subprocess
+subprocess.run(
+    ["bat", "--wrap=never", "--color=always", "-pp", "-l", "md"],
+    input="""Usage:
 
 This preset reads `~/.pi/agent/mm_extensions` (`MM_EXTENSIONS_FILE`) for your desired extension setup.
 The rows shown may not reflect your current pi settings! Trigger `@reconcile` (ctrl-r) to update the file to reflect your current extension settings for this project.
 Trigger `@accept` to toggle extensions.
 `@set global` or `@set local` to apply the shown configuration local/global pi settings.
-
-EOF | bat --wrap=never --color=always -pp -l md
+""",
+    text=True,
+)
 '''
 
 [[preview.layout]]
 command = '''
-name={1}
-[ -n "$name" ] || exit 0
-
-dir=$("$(dirname -- "$MM_OVERRIDE")"/pi_extensions_preview.sh --dir "$name" 2>/dev/null) || exit 0
-
-if [ -f "$dir/README.md" ]; then
-    bat --wrap=never --color=always -pp -l md -- "$dir/README.md"
-elif [ -f "$dir/readme.md" ]; then
-    bat --wrap=never --color=always -pp -l md -- "$dir/readme.md"
-fi
+import os, shlex, subprocess, sys
+args = shlex.split(r"""{1}""")
+if args:
+    base = os.path.dirname(os.environ["MM_OVERRIDE"])
+    r = subprocess.run(
+        [sys.executable, os.path.join(base, "pi_extensions_preview.py"), "--dir", args[0]],
+        capture_output=True, text=True,
+    )
+    if r.returncode == 0:
+        d = r.stdout.strip()
+        for readme in ("README.md", "readme.md"):
+            p = os.path.join(d, readme)
+            if os.path.isfile(p):
+                subprocess.run(["bat", "--wrap=never", "--color=always", "-pp", "-l", "md", "--", p])
+                break
 '''
 
 # --- Binds ---
@@ -119,69 +146,63 @@ fi
 # "@start" = ["@reconcile", "Reload"]
 "@accept" = ["@toggle extension", "Reload"]
 
+"@set global" = 'ExecuteOrConfirm(@pi_extensions_set.py global)'
+"@set local" = 'ExecuteOrConfirm(@pi_extensions_set.py local)'
+"@reconcile" = 'ExecuteOrConfirm(@pi_extensions_reconcile.py)'
 "@toggle extension" = '''ExecuteOrConfirm(
-set -e
+import json, os, shlex, subprocess, sys, tempfile
 
-MMX="${MM_EXTENSIONS_FILE:-$HOME/.pi/agent/mm_extensions}"
+mmx = os.environ.get("MM_EXTENSIONS_FILE") or os.path.expanduser("~/.pi/agent/mm_extensions")
 
-[ -f "$MMX" ] || { echo "error: mm_extensions not found: $MMX" >&2; exit 1; }
+if not os.path.isfile(mmx):
+    sys.stderr.write("error: mm_extensions not found: " + mmx + "\n")
+    sys.exit(1)
 
 # every selected extension must share the same state (cursor row when nothing is selected)
-set -- {+2}
-[ $# -gt 0 ] || { echo "error: no extension selected" >&2; exit 1; }
-first=$1
-for x in "$@"; do
-    [ "$x" = "$first" ] || { echo "error: selection mixes enabled and disabled extensions" >&2; exit 1; }
-done
+names = shlex.split(r"""{+1}""")
+states = shlex.split(r"""{+2}""")
+if not names:
+    sys.stderr.write("error: no extension selected\n")
+    sys.exit(1)
+if len(set(states)) > 1:
+    sys.stderr.write("error: selection mixes enabled and disabled extensions\n")
+    sys.exit(1)
+mode = "off" if states[0] == "✓" else "on"
 
-if [ "$first" = "✓" ]; then mode="off"; else mode="on"; fi
+with open(mmx, encoding="utf-8") as f:
+    lines = f.read().splitlines()
 
-set -- {+1}
+out = []
+for line in lines:
+    if line.startswith("# "):
+        stripped = line[2:]
+    elif line.startswith("#"):
+        stripped = line[1:]
+    else:
+        stripped = line
 
-tmp=$(mktemp "${TMPDIR:-/tmp}/mm_extensions.XXXXXX")
-trap 'rm -f -- "$tmp"' EXIT
+    if not stripped.strip():
+        out.append(line)
+        continue
 
-while IFS= read -r line || [ -n "$line" ]; do
-    case "$line" in
-        '#'*)
-            stripped="${line#"# "}"
-            stripped="${stripped#"#"}"
-            ;;
-        *)
-            stripped="$line"
-            ;;
-    esac
+    try:
+        value = json.loads(stripped.rstrip(","))
+    except json.JSONDecodeError:
+        out.append(line)
+        continue
+    name = value.get("source") if isinstance(value, dict) else value
 
-    case "$stripped" in
-        '' | *[![:space:]]*) ;;
-        *) printf '%s\n' "$line"; continue ;;
-    esac
+    if name in names:
+        if mode == "off":
+            out.append(line if line.startswith("#") else "# " + line)
+        else:
+            out.append(stripped if line.startswith("#") else line)
+    else:
+        out.append(line)
 
-    name=$(printf '%s' "${stripped%,}" | jq -r 'if type == "object" then .source else . end' 2>/dev/null || true)
-    [ -n "$name" ] || { printf '%s\n' "$line"; continue; }
-
-    hit=false
-    for n in "$@"; do
-        [ "$n" = "$name" ] && { hit=true; break; }
-    done
-
-    if $hit; then
-        if [ "$mode" = "off" ]; then
-            case "$line" in '#'*) printf '%s\n' "$line" ;; *) printf '# %s\n' "$line" ;; esac
-        else
-            case "$line" in '#'*) printf '%s\n' "$stripped" ;; *) printf '%s\n' "$line" ;; esac
-        fi
-    else
-        printf '%s\n' "$line"
-    fi
-done < "$MMX" > "$tmp"
-
-mv "$tmp" "$MMX"
-echo "toggled $# extension(s) $mode (apply with alt-enter / ctrl-enter)"
+fd, tmp = tempfile.mkstemp(prefix="mm_toggle.", suffix=".tmp", dir=os.path.dirname(os.path.abspath(mmx)))
+with os.fdopen(fd, "w", encoding="utf-8") as f:
+    f.write("\n".join(out) + ("\n" if out else ""))
+os.replace(tmp, mmx)
+print("toggled " + str(len(names)) + " extension(s) " + mode + " (apply with alt-enter / ctrl-enter)")
 )'''
-
-"@set global" = '''ExecuteOrConfirm("$(dirname -- "$MM_OVERRIDE")"/pi_extensions_set.sh global 2>&1)'''
-
-"@set local" = '''ExecuteOrConfirm("$(dirname -- "$MM_OVERRIDE")"/pi_extensions_set.sh local 2>&1)'''
-
-"@reconcile" = '''ExecuteOrConfirm("$(dirname -- "$MM_OVERRIDE")"/pi_extensions_reconcile.sh 2>&1)'''

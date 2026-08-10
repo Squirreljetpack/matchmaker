@@ -3,7 +3,7 @@ use quote::{ToTokens, format_ident, quote};
 use std::collections::HashSet;
 use syn::{
     Fields, GenericArgument, ItemStruct, LitStr, Meta, Path, PathArguments, Token, Type,
-    parse::Parse, parse_macro_input, spanned::Spanned,
+    ext::IdentExt, parse::Parse, parse_macro_input, spanned::Spanned,
 };
 
 #[proc_macro_attribute]
@@ -143,13 +143,46 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut set_field_arms = Vec::new();
     let mut flattened_field_targets = Vec::new();
     let mut used_idents = HashSet::new();
+    // Custom-deserializer wrapper fns generated for mirrored fields, emitted
+    // next to the partial struct. (See the serde-attr handling below.)
+    let mut deserializer_wrappers = Vec::new();
+    // Struct generic parameters (a generated wrapper fn cannot reference them).
+    let mut struct_generic_idents = HashSet::new();
+    for param in &input.generics.params {
+        match param {
+            syn::GenericParam::Type(t) => {
+                struct_generic_idents.insert(t.ident.clone());
+            }
+            syn::GenericParam::Const(c) => {
+                struct_generic_idents.insert(c.ident.clone());
+            }
+            _ => {}
+        }
+    }
+    let struct_ident = input.ident.clone();
 
     for field in fields.iter_mut() {
         let field_name = &field.ident;
         let field_vis = &field.vis;
         let field_ty = &field.ty;
+        let field_ident = field
+            .ident
+            .as_ref()
+            .expect("Partial only supports structs with named fields")
+            .unraw()
+            .clone();
 
         let is_opt = is_option(field_ty);
+        // Wrapper fns generated for this field, promoted to `deserializer_wrappers`
+        // only if the field survives the `#[partial(skip)]` check below.
+        let mut field_wrappers = Vec::new();
+        let wrapper_ident = || format_ident!("__mm_partial_deser_{}_{}", struct_ident, field_ident);
+        // True when the field type references one of the struct's generic params.
+        let uses_struct_generics = {
+            let mut field_ty_idents = HashSet::new();
+            find_idents_in_tokens(field_ty.to_token_stream(), &mut field_ty_idents);
+            struct_generic_idents.iter().any(|g| field_ty_idents.contains(g))
+        };
         let mut skip_field = false;
         let mut field_recurse = false;
         let mut recurse_override: Option<Option<proc_macro2::TokenStream>> = None;
@@ -231,7 +264,20 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                         && !matches!(recurse_override, Some(None));
                 let is_same_type = !should_recurse && (field_unwrap == !is_opt);
 
+                // A plain (non-Option, non-unwrapped, non-recursed) field can keep
+                // its custom deserializer in the partial: the partial mirrors such
+                // fields as `Option<T>`, and serde's `deserialize_with` requires
+                // the fn to return the exact field type, so we generate a small
+                // wrapper turning `T` into `Some(T)` and rewrite the attr to point
+                // at it instead of dropping the attr entirely.
+                let can_wrap_deserializer = !should_recurse
+                    && !is_opt
+                    && !field_unwrap
+                    && !no_field_mirror
+                    && !uses_struct_generics;
+
                 let mut drop_attr = false;
+                let mut wrap_deserializer: Option<proc_macro2::Ident> = None;
                 let _ = attr.parse_nested_meta(|meta| {
                     if meta.path.is_ident("deserialize_with") {
                         if let Ok(value) = meta.value()
@@ -239,7 +285,11 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                         {
                             custom_deserializer = s.parse::<Path>().ok();
                             if !is_same_type {
-                                drop_attr = true;
+                                if can_wrap_deserializer && custom_deserializer.is_some() {
+                                    wrap_deserializer = Some(wrapper_ident());
+                                } else {
+                                    drop_attr = true;
+                                }
                             }
                         }
                     } else if meta.path.is_ident("with") {
@@ -250,7 +300,11 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                             p.segments.push(format_ident!("deserialize").into());
                             custom_deserializer = Some(p);
                             if !is_same_type {
-                                drop_attr = true;
+                                if can_wrap_deserializer {
+                                    wrap_deserializer = Some(wrapper_ident());
+                                } else {
+                                    drop_attr = true;
+                                }
                             }
                         } else if meta.path.is_ident("serialize_with") && !is_same_type {
                             drop_attr = true;
@@ -270,6 +324,25 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                 if drop_attr {
                     return false; // Drop the #[serde] attribute
                 }
+
+                if let Some(wrapper_name) = wrap_deserializer {
+                    // The partial field stays `Option<T>` but parses through the
+                    // original custom deserializer via a generated wrapper fn.
+                    let func = custom_deserializer
+                        .clone()
+                        .expect("wrapped field has a custom deserializer");
+                    field_wrappers.push(quote! {
+                        #[doc(hidden)]
+                        fn #wrapper_name<'de, D>(__d: D) -> Result<Option<#field_ty>, D::Error>
+                        where
+                            D: serde::Deserializer<'de>,
+                        {
+                            Ok(Some(#func(__d)?))
+                        }
+                    });
+                    field_attrs_for_mirror.push(rewrite_serde_attr_to_wrapper(attr, &wrapper_name));
+                    return false;
+                }
             }
 
             // Keep the attribute and mirror it if it's not a #[partial]
@@ -287,6 +360,7 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
         if skip_field {
             continue;
         }
+        deserializer_wrappers.extend(field_wrappers);
 
         if let Some(ref s) = field_set
             && s == "sequence"
@@ -857,6 +931,8 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
     let expanded = quote! {
         #input
 
+        #(#deserializer_wrappers)*
+
         #(#final_attrs)*
         #vis struct #partial_name #p_ty_generics #p_where_clause {
             #(#partial_field_defs),*
@@ -936,6 +1012,35 @@ fn extract_inner_type_from_option(ty: &Type) -> &Type {
         return inner;
     }
     ty
+}
+
+/// Rewrites a `#[serde(...)]` attribute so that `deserialize_with = "path"`
+/// (or `with = "path"`) points at `wrapper` instead, keeping every other meta
+/// (e.g. `alias`) untouched. `with` is rewritten to `deserialize_with`; the
+/// partial only needs the deserialization half.
+fn rewrite_serde_attr_to_wrapper(attr: &syn::Attribute, wrapper: &proc_macro2::Ident) -> proc_macro2::TokenStream {
+    let meta = match &attr.meta {
+        Meta::List(list) => list,
+        _ => return attr.to_token_stream(),
+    };
+    let tokens: Vec<proc_macro2::TokenTree> = meta.tokens.clone().into_iter().collect();
+    let mut out = proc_macro2::TokenStream::new();
+    let mut i = 0;
+    while i < tokens.len() {
+        let is_key = matches!(&tokens[i], proc_macro2::TokenTree::Ident(id)
+            if id == "deserialize_with" || id == "with");
+        let is_eq = matches!(tokens.get(i + 1), Some(proc_macro2::TokenTree::Punct(p)) if p.as_char() == '=');
+        let is_lit = matches!(tokens.get(i + 2), Some(proc_macro2::TokenTree::Literal(_)));
+        if is_key && is_eq && is_lit {
+            let wrapper_str = syn::LitStr::new(&wrapper.to_string(), wrapper.span());
+            out.extend(quote! { deserialize_with = #wrapper_str });
+            i += 3;
+        } else {
+            out.extend(std::iter::once(tokens[i].clone()));
+            i += 1;
+        }
+    }
+    quote! { #[serde(#out)] }
 }
 
 fn find_idents_in_tokens(tokens: proc_macro2::TokenStream, set: &mut HashSet<proc_macro2::Ident>) {

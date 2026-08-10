@@ -11,7 +11,7 @@ pub use crate::utils::{Percentage, serde::StringOrVec};
 
 use crate::{
     tui::IoStream,
-    utils::serde::{escaped_opt_char, escaped_opt_string},
+    utils::serde::{escaped_opt_char, escaped_opt_string, os_strings},
 };
 
 use cba::serde::transform::{camelcase_normalized, camelcase_normalized_option};
@@ -98,7 +98,7 @@ pub struct StartConfig {
 
     /// Shell to execute scripts with, e.g. `["bash", "-c"]`. Empty (the
     /// default) uses `$SHELL` (or `/bin/sh`).
-    #[serde(deserialize_with = "crate::utils::serde::os_strings::deserialize")]
+    #[serde(deserialize_with = "os_strings::deserialize")]
     pub shell: Vec<OsString>,
 
     /// Don't kill the last populating command when reloading
@@ -765,7 +765,7 @@ pub struct PreviewerConfig {
     pub always_trigger: bool,
 
     pub help: HelpDisplayConfig,
-    #[serde(deserialize_with = "crate::utils::serde::os_strings::deserialize")]
+    #[serde(deserialize_with = "os_strings::deserialize")]
     pub shell: Vec<OsString>,
     pub trim_commands: bool,
 

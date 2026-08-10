@@ -23,7 +23,7 @@ _mm() {
 '-d+[Display documentation]:DOC:(options binds template other)' \
 '--doc=[Display documentation]:DOC:(options binds template other)' \
 '--dump-config[Write the default configuration to the default location. If piped, writes the current configuration to stdout]' \
-'-F[]' \
+'-F[Run in fullscreen]' \
 '--test-keys[]' \
 '--last-key[Print the last key pressed in the last \`mm\` run]' \
 '--no-read[Force the default command to run]' \

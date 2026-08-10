@@ -1,18 +1,38 @@
+use std::{
+    ffi::OsString,
+    process::Child,
+    thread,
+    time::{Duration, Instant},
+};
+
 use cba::broc::SHELL;
 
-pub fn tokio_command_from_script(script: &str) -> tokio::process::Command {
-    let (shell, arg) = &*SHELL;
+/// [`tokio::process::Command`] counterpart of `cba::broc::CommandExt::from_script`.
+/// Mirrors the current patched-cba implementation: `shell[0] shell[1..] script`
+/// when `shell` is non-empty, else `SHELL.0 SHELL.1 script` (plus an empty `$0`
+/// on unix so subsequent args are fed to the script directly).
+pub fn tokio_command_from_script(script: &str, shell: &[OsString]) -> tokio::process::Command {
+    let (def_sh, def_arg) = &*SHELL;
 
-    let mut ret = tokio::process::Command::new(shell);
+    let mut ret = if shell.is_empty() {
+        let mut ret = tokio::process::Command::new(def_sh);
+        ret.arg(def_arg);
+        ret
+    } else {
+        let mut ret = tokio::process::Command::new(&shell[0]);
+        ret.args(&shell[1..]);
+        ret
+    };
 
-    ret.arg(arg).arg(script).arg(""); //
+    ret.arg(script);
+
+    #[cfg(unix)]
+    if shell.is_empty() {
+        ret.arg("");
+    }
 
     ret
 }
-
-use std::process::Child;
-use std::thread;
-use std::time::{Duration, Instant};
 
 pub(crate) fn wait_with_timeout(mut child: Child, timeout: Duration) {
     let start = Instant::now();

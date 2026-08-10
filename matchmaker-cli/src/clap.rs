@@ -8,6 +8,7 @@ pub static BINARY_SHORT: &str = "mm";
 pub struct Cli {
     #[arg(long, value_name = "PATH")]
     pub config: Option<PathBuf>,
+
     /// Paths without a toml extension refer
     /// to a preset.
     #[arg(long, short, value_name = "PATH")]
@@ -16,8 +17,10 @@ pub struct Cli {
     /// If piped, writes the current configuration to stdout.
     #[arg(long)]
     pub dump_config: bool,
+    /// Run in fullscreen
     #[arg(short = 'F')]
     pub fullscreen: bool,
+
     #[arg(long)]
     pub test_keys: bool,
     /// Print the last key pressed in the last `mm` run.

@@ -7,7 +7,7 @@ binds\t''
 template\t''
 other\t''"
 complete -c mm -l dump-config -d 'Write the default configuration to the default location. If piped, writes the current configuration to stdout'
-complete -c mm -s F
+complete -c mm -s F -d 'Run in fullscreen'
 complete -c mm -l test-keys
 complete -c mm -l last-key -d 'Print the last key pressed in the last `mm` run'
 complete -c mm -l no-read -d 'Force the default command to run'

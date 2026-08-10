@@ -7,7 +7,7 @@ use std::{
 };
 
 use cba::{_info, bait::ResultExt, broc::CommandExt, define_either, env_vars};
-use log::{debug, info, warn};
+use log::warn;
 use ratatui::text::Text;
 use tokio::io::AsyncReadExt;
 
@@ -90,141 +90,6 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
         });
     }
 
-    /// Causes [`Action::Execute`] to cause the program to execute the program specified by its payload.
-    /// Note:
-    /// - not intended for direct use.
-    /// - Assumes preview and cmd formatter are the same.
-    pub fn _register_execute_handler(&mut self, formatter: AttachmentFormatter<T, D>) {
-        let formatter_1 = formatter.clone();
-        self.register_interrupt_handler(Interrupt::Execute, move |state| {
-            let template = state.payload();
-
-            if !template.is_empty() {
-                let cmd = use_formatter(&formatter_1, state, template, None);
-                if cmd.is_empty() {
-                    return;
-                }
-                let mut vars = state.make_env_vars();
-
-                let preview_template = state.preview_payload().clone();
-                let preview_cmd = use_formatter(&formatter_1, state, &preview_template, None);
-                let extra = env_vars!(
-                    "MM_PREVIEW_COMMAND" => preview_cmd,
-                );
-                vars.extend(extra);
-
-                if let Some(mut child) = Command::from_script(&cmd, &[])
-                    .envs(vars)
-                    .stdin(maybe_tty())
-                    ._spawn()
-                {
-                    match child.wait() {
-                        Ok(i) => {
-                            info!("Command [{cmd}] exited with {i}");
-                        }
-                        Err(e) => {
-                            info!("Failed to wait on command [{cmd}]: {e}")
-                        }
-                    }
-                }
-            };
-        });
-
-        let formatter_2 = formatter.clone();
-        self.register_interrupt_handler(Interrupt::ExecuteSilent, move |state| {
-            let template = state.payload();
-            if !template.is_empty() {
-                let cmd = use_formatter(&formatter_2, state, template, None);
-                if cmd.is_empty() {
-                    return;
-                }
-                let mut vars = state.make_env_vars();
-
-                let preview_template = state.preview_payload().clone();
-                let preview_cmd = use_formatter(&formatter_2, state, &preview_template, None);
-                let extra = env_vars!(
-                    "MM_PREVIEW_COMMAND" => preview_cmd,
-                );
-                vars.extend(extra);
-
-                if let Some(mut _child) = Command::from_script(&cmd, &[])
-                    .envs(vars)
-                    .stdin(maybe_tty())
-                    ._spawn()
-                {
-                    // match child.wait() {
-                    //     Ok(i) => {
-                    //         info!("Command [{cmd}] exited with {i}")
-                    //     }
-                    //     Err(e) => {
-                    //         info!("Failed to wait on command [{cmd}]: {e}")
-                    //     }
-                    // }
-                }
-            };
-        });
-    }
-
-    /// Causes [`Action::ExecuteAsync`] and [`Action::ExecuteThen`] to execute their payload without blocking, and for the remaining actions in the batch to depend on the execution result.
-    pub fn _register_execute_async_handler(&mut self, formatter: AttachmentFormatter<T, D>) {
-        self.register_interrupt_handler(Interrupt::ExecuteAsync, move |state| {
-            if state.discriminant_payload.as_ref().is_some_and(|p| *p >= 2)
-                && let payload = state.discriminant_payload.take().unwrap()
-                && let template = state.payload()
-                && !template.is_empty()
-            {
-                let cmd = use_formatter(&formatter, state, template, None);
-                if cmd.is_empty() {
-                    return;
-                }
-
-                let id = payload / 2;
-                let require_success = (payload % 2) == 1;
-
-                let closure_opt = state.take_actions(id);
-
-                let mut vars = state.make_env_vars();
-
-                let preview_template = state.preview_payload().clone();
-                let preview_cmd = use_formatter(&formatter, state, &preview_template, None);
-                let extra = env_vars!(
-                    "MM_PREVIEW_COMMAND" => preview_cmd,
-                );
-                vars.extend(extra);
-
-                tokio::spawn(async move {
-                    let mut child = match tokio_command_from_script(&cmd)
-                        .envs(vars)
-                        .stdin(Stdio::null())
-                        .stdout(Stdio::null())
-                        .stderr(Stdio::null())
-                        .spawn()
-                    {
-                        Ok(c) => c,
-                        Err(e) => {
-                            log::warn!("Failed to spawn async command [{}]: {}", cmd, e);
-                            return;
-                        }
-                    };
-
-                    match child.wait().await {
-                        Ok(s) => {
-                            info!("Async command [{}] exited with {}", cmd, s);
-                            if (!require_success || s.success())
-                                && let Some(closure) = closure_opt
-                            {
-                                closure();
-                            }
-                        }
-                        Err(e) => {
-                            log::warn!("Failed to wait on async command [{}]: {}", cmd, e);
-                        }
-                    }
-                });
-            }
-        });
-    }
-
     /// Causes [`Action::Copy`] and [`Action::CopySync`] to execute their payload, and copy the result to the clipboard.
     /// Note:
     /// - intended for direct use
@@ -252,7 +117,7 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
 
                 tokio::spawn(async move {
                     let clip_cmd = vars.get("CLIPcmd").map(|x| x.to_string());
-                    let mut child = match tokio_command_from_script(&cmd)
+                    let mut child = match tokio_command_from_script(&cmd, &[])
                         .envs(vars)
                         .stdin(Stdio::null())
                         .stdout(Stdio::piped())
@@ -293,7 +158,7 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                         } else if let Some(clip_cmd) = clip_cmd {
                             // discriminant 0: use CLIPcmd
                             if !clip_cmd.is_empty() {
-                                let mut child = match tokio_command_from_script(&clip_cmd)
+                                let mut child = match tokio_command_from_script(&clip_cmd, &[])
                                     .stdin(Stdio::piped())
                                     .spawn()
                                 {
@@ -384,53 +249,6 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
         });
     }
 
-    /// Causes [`Action::Become`] to cause the program to become the program specified by its payload.
-    /// Note:
-    /// - not intended for direct use.
-    /// - Assumes preview and cmd formatter are the same.
-    pub fn _register_become_handler(&mut self, formatter: AttachmentFormatter<T, D>) {
-        let formatter_2 = formatter.clone();
-        self.register_interrupt_handler(Interrupt::Become, move |state| {
-            let template = state.payload().clone();
-            if !template.is_empty() {
-                let cmd = use_formatter(&formatter, state, &template, None);
-                if cmd.is_empty() {
-                    return;
-                }
-                let mut vars = state.make_env_vars();
-
-                let preview_template = state.preview_payload().clone();
-                let preview_cmd = use_formatter(&formatter, state, &preview_template, None);
-                let extra = env_vars!(
-                    "MM_PREVIEW_COMMAND" => preview_cmd,
-                );
-                vars.extend(extra);
-                debug!("Becoming: {cmd}");
-
-                Command::from_script(&cmd, &[]).envs(vars)._exec()
-            }
-        });
-        self.register_interrupt_handler(Interrupt::BecomeSilent, move |state| {
-            let template = state.payload().clone();
-            if !template.is_empty() {
-                let cmd = use_formatter(&formatter_2, state, &template, None);
-                if cmd.is_empty() {
-                    return;
-                }
-                let mut vars = state.make_env_vars();
-
-                let preview_template = state.preview_payload().clone();
-                let preview_cmd = use_formatter(&formatter_2, state, &preview_template, None);
-                let extra = env_vars!(
-                    "MM_PREVIEW_COMMAND" => preview_cmd,
-                );
-                vars.extend(extra);
-                debug!("Becoming: {cmd}");
-
-                Command::from_script(&cmd, &[]).envs(vars)._exec()
-            }
-        });
-    }
 }
 
 /// Causes the program to display a preview of the active result.
@@ -535,16 +353,6 @@ pub fn make_previewer<T: SSS, S, D: 'static>(
 }
 
 // ----------------------------
-
-fn maybe_tty() -> Stdio {
-    if let Ok(tty) = std::fs::File::open("/dev/tty") {
-        // let _ = std::io::Write::flush(&mut tty); // does nothing but seems logical
-        Stdio::from(tty)
-    } else {
-        log::error!("Failed to open /dev/tty");
-        Stdio::inherit()
-    }
-}
 
 pub fn set_host_clipboard_universal(text: &str) -> io::Result<()> {
     use base64::Engine;

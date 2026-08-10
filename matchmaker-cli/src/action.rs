@@ -79,6 +79,12 @@ pub enum MMAction {
     /// Run a command and display output in preview window (TODO)
     RunPreview(String),
 
+    // copy
+    /// Execute command and copy its output to the clipboard
+    Copy(String),
+    /// Execute command asynchronously and copy its output to the clipboard
+    CopyAsync(String),
+
     // Unimplemented
     /// History up (TODO)
     HistoryUp,
@@ -110,6 +116,9 @@ pub struct ActionContext {
     /// Current sort direction. `false` is ascending, `true` is descending.
     /// Tracked locally so `SortReverse(None)` can toggle it.
     pub sort_descending: bool,
+    /// Whether OSC 52 clipboard copying is enabled. Used to select the
+    /// `Copy`/`CopyAsync` handler discriminant (1 = host clipboard, 0 = CLIPcmd).
+    pub osc52: bool,
     // pub output_template: Option<String>,
     // pub print_handle: AppendOnly<String>,
     // pub output_separator: String,
@@ -125,6 +134,7 @@ pub fn action_handler(
         ranges_fn,
         sort,
         sort_descending,
+        osc52,
     }: &mut ActionContext,
 ) {
     match a {
@@ -273,6 +283,14 @@ pub fn action_handler(
                 p.show(true);
                 state.update_preview_set(Ok(cmd));
             }
+        }
+        MMAction::Copy(s) => {
+            state.discriminant_payload = Some(if *osc52 { 1 } else { 0 });
+            state.set_interrupt(Interrupt::ExecuteSilent, s);
+        }
+        MMAction::CopyAsync(s) => {
+            state.discriminant_payload = Some(if *osc52 { 1 } else { 0 });
+            state.set_interrupt(Interrupt::ExecuteAsync, s);
         }
         MMAction::ExecuteOrConfirm(s) => {
             state.discriminant_payload = Some(0);
@@ -438,7 +456,8 @@ enum_from_str_display! {
 
 
     tuples:
-    Bind, Unbind, PushBind, PopBind, SetMode, PushMode, ExecuteOrConfirm, ExecuteAndQuit, BecomeOrConfirm, BecomeOrResume, Transform, TransformConfig, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter, RunPreview;
+    Bind, Unbind, PushBind, PopBind, SetMode, PushMode, ExecuteOrConfirm, ExecuteAndQuit, BecomeOrConfirm, BecomeOrResume, Transform, TransformConfig, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter, RunPreview,
+    Copy, CopyAsync;
 
     defaults:
     ;

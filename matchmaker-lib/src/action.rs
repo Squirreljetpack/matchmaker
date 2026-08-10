@@ -123,10 +123,6 @@ pub enum Action<A: ActionExt = NullActionExt> {
     ExecuteThen(String),
     /// Execute command without leaving the UI
     ExecuteSilent(String),
-    /// Execute command and copy its output to the clipboard
-    Copy(String),
-    /// Execute command asynchronously and copy its output to the clipboard
-    CopyAsync(String),
     /// Exit and become
     Become(String),
     /// Become without exiting the TUI
@@ -382,8 +378,7 @@ enum_from_str_display!(
 
     tuples:
     Execute, ExecuteAsync, ExecuteThen, ExecuteSilent, Become, BecomeSilent, Preview,
-    SetQuery, Pos, QueryPos, SwitchColumn, Store, InsertQuery,
-    CopyAsync, Copy;
+    SetQuery, Pos, QueryPos, SwitchColumn, Store, InsertQuery;
 
     defaults:
     (Up, 1), (Down, 1), (PreviewUp, 1), (PreviewDown, 1), (Quit, 0), (Overlay, 0), (Print, String::new()), (Help, String::new()), (Reload, String::new()), (PreviewScroll, 1), (PreviewHScroll, 1), (HScroll, 0), (VScroll, 0), (ExpandPreview, 1), (ShrinkPreview, 1);

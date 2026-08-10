@@ -31,8 +31,7 @@ use cba::{
 use cba::{bo::load_type, broc::CommandExt};
 use log::debug;
 use matchmaker::{
-    Action, Either, MatchError, Matchmaker, PickOptions, SSS,
-    bindmap,
+    Action, Either, MatchError, Matchmaker, PickOptions, SSS, bindmap,
     binds::{BindMap, BindMapExt, Trigger},
     config::{CommandSetting, EnvValue, MatcherConfig, StartConfig},
     config_mm::{ConfigInjector, ConfigPreprocessedData, OddEnds},
@@ -485,6 +484,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
 
     // make matcher and matchmaker with matchmaker-and-matcher-maker
     let copy_trailing_newline = tui.copy_trailing_newline;
+    let osc52 = tui.osc52;
     let (
         mut mm,
         injector,
@@ -587,6 +587,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         cli_formatter.clone(),
         copy_trailing_newline,
         Some(render_tx.clone()),
+        shell.clone(),
     );
     mm.register_become_handler(cli_formatter.clone(), shell.clone());
 
@@ -652,6 +653,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         ranges_fn,
         sort: None,
         sort_descending,
+        osc52,
     };
 
     let _output_separator = output_separator.clone();

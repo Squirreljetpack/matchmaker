@@ -7,7 +7,7 @@ use matchmaker_partial_macros::partial;
 use ratatui::layout::Rect;
 
 pub use crate::config_types::*;
-pub use crate::utils::{serde::StringOrVec, Percentage};
+pub use crate::utils::{Percentage, serde::StringOrVec};
 
 use crate::{
     tui::IoStream,
@@ -185,6 +185,7 @@ pub struct TerminalConfig {
     pub clear_after_execute: bool,
 
     /// Whether to use OSC 52 for clipboard copying.
+    /// (This is not handled in the library and must be handled by library users)
     pub osc52: bool,
     /// Whether to drop the end of the output of the copy command if it is a new line
     pub copy_trailing_newline: bool,

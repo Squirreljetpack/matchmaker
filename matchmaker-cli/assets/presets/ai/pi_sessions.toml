@@ -111,9 +111,9 @@ fi
 # --- Binds ---
 [binds]
 "@show" = '''ExecuteOrConfirm(mkdir -p $TMPdir && node "$(dirname -- "$MM_OVERRIDE")"/export-pi-session.mjs -o $TMPdir/session.html $PWD/{file} && eval $OPENcmd /tmp/pi/html/session.html)'''
-"@open_2" = '''ExecuteOrConfirm(fx {1})'''
+"@open_2" = 'ExecuteOrConfirm(fx {1})'
 "0,1^^@accept" = 'Become(cwd={dir}; cd "${cwd/#\~/$HOME}" && pi --session {id})'
-"0,1^^@accept_2" = 'Become(cwd={dir}; cd "${cwd/#\~/$HOME}" && pi --fork {id})'
+"0,1^^@accept_2" = ['#fork', 'Become(cwd={dir}; cd "${cwd/#\~/$HOME}" && pi --fork {id})']
 "?" = "SwitchPreview"
 "@rm" = ["ExecuteAsync(rm -- {+file})", "Reload"]
 "@copy" = "CopyAsync(printf '%s\n' {+id})"

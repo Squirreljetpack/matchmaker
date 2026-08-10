@@ -39,6 +39,7 @@
 # Previewer
 
 - Offload large previews to disk/caching
+- spawn with pty
 
 # Perf
 

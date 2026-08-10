@@ -1,0 +1,5 @@
+error: unknown partial attribute: bogus
+ --> tests/ui/unknown_struct_attr.rs:3:11
+  |
+3 | #[partial(bogus)]
+  |           ^^^^^

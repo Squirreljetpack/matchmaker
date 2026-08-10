@@ -1,0 +1,5 @@
+error: invalid path in deserialize_with: unexpected token
+ --> tests/ui/invalid_deserialize_with_path.rs:5:32
+  |
+5 |     #[serde(deserialize_with = "not a path!!")]
+  |                                ^^^^^^^^^^^^^^

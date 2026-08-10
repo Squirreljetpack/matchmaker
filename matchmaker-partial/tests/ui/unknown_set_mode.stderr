@@ -1,0 +1,5 @@
+error: unknown set mode: "bogus" (expected "sequence" or "recurse")
+ --> tests/ui/unknown_set_mode.rs:5:15
+  |
+5 |     #[partial(set = "bogus")]
+  |               ^^^^^^^^^^^^^

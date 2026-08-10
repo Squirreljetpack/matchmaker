@@ -404,7 +404,7 @@ def main():
         else:
             print(table)
 
-    print(f"\n{len(paths) - len(errors)} file(s) processed, {len(errors)} skipped.", file=sys.stderr)
+    # print(f"\n{len(paths) - len(errors)} file(s) processed, {len(errors)} skipped.", file=sys.stderr)
 
 
 if __name__ == "__main__":

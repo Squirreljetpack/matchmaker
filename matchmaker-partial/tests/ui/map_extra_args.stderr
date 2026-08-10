@@ -1,0 +1,5 @@
+error: unsupported number of type arguments for HashMap
+ --> tests/ui/map_extra_args.rs:5:8
+  |
+5 |     x: HashMap<String, i32, std::collections::hash_map::RandomState>,
+  |        ^^^^^^^

@@ -728,4 +728,50 @@ mod tests {
             "Should have cleared the 'old' rename attribute"
         );
     }
+
+    /// Non-`Option` field with a custom deserializer: the macro generates a
+    /// wrapper fn (`__mm_partial_deser_<Struct>_<field>`) so the partial's
+    /// `Option<T>` field can parse through the original deserializer, while
+    /// the original struct keeps its attribute.
+    #[test]
+    fn test_custom_deserializer_wrapper() {
+        use serde::{Deserialize, Deserializer};
+
+        mod custom {
+            use super::*;
+            use serde::Deserializer;
+            pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<i32>, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                let v = Vec::<i32>::deserialize(deserializer)?;
+                Ok(v.into_iter().map(|x| x + 1).collect())
+            }
+        }
+
+        #[partial(derive(Debug, PartialEq, Deserialize))]
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct Wrapped {
+            #[serde(deserialize_with = "custom::deserialize")]
+            nums: Vec<i32>,
+        }
+
+        // The original struct keeps its custom deserializer.
+        let orig: Wrapped = toml::from_str("nums = [1, 2]")
+            .expect("original struct should keep its deserialize_with attr");
+        assert_eq!(orig.nums, vec![2, 3]);
+
+        // The partial parses through the generated wrapper into `Option<T>`.
+        let p: PartialWrapped = toml::from_str("nums = [1, 2]")
+            .expect("partial should parse through the generated wrapper fn");
+        assert_eq!(p.nums, Some(vec![2, 3]));
+
+        // Missing key: serde treats a `deserialize_with` field as required,
+        // even when the partial field is `Option<T>` — no `None` fallback.
+        let res: Result<PartialWrapped, _> = toml::from_str("");
+        assert!(
+            res.is_err(),
+            "deserialize_with fields are required, even on the partial"
+        );
+    }
 }

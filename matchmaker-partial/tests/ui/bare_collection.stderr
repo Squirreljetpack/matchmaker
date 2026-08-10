@@ -1,0 +1,5 @@
+error: collection type is missing its type arguments
+ --> tests/ui/bare_collection.rs:5:8
+  |
+5 |     x: Vec,
+  |        ^^^

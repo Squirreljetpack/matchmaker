@@ -1,0 +1,5 @@
+error: unknown partial attribute: bogus
+ --> tests/ui/unknown_field_attr.rs:5:15
+  |
+5 |     #[partial(bogus)]
+  |               ^^^^^

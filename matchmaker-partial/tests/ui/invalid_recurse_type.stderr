@@ -1,0 +1,5 @@
+error: invalid type in recurse: unexpected token
+ --> tests/ui/invalid_recurse_type.rs:5:25
+  |
+5 |     #[partial(recurse = "not a type")]
+  |                         ^^^^^^^^^^^^

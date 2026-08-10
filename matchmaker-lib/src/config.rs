@@ -7,7 +7,7 @@ use matchmaker_partial_macros::partial;
 use ratatui::layout::Rect;
 
 pub use crate::config_types::*;
-pub use crate::utils::{Percentage, serde::StringOrVec};
+pub use crate::utils::{serde::StringOrVec, Percentage};
 
 use crate::{
     tui::IoStream,

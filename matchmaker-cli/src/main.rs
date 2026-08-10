@@ -18,7 +18,7 @@ use paths::*;
 use start::*;
 use utils::*;
 
-use std::process::exit;
+use std::{io::{self, Write}, process::exit};
 
 use cba::{
     _dbg, bait::ResultExt, bog::BogOkExt, bring::split::split_on_delimiter_with_doubled_escape,
@@ -50,6 +50,29 @@ async fn main() {
         // Empty string here means "download all"; a non-empty value is a
         // folder name or a file preset (with or without `.toml`).
         handle_download(download, &["jpg", "png", "gif"]);
+    }
+
+    if cli.presets {
+        let presets_dir = presets_path();
+        match preset_paths() {
+            Ok(paths) => {
+                let stdout = io::stdout();
+                let mut stdout = stdout.lock();
+                for path in paths {
+                    if writeln!(stdout, "{}", path.display()).is_err() {
+                        break;
+                    }
+                }
+                exit(0);
+            }
+            Err(error) => {
+                eprintln!(
+                    "failed to list presets in {}: {error}",
+                    presets_dir.display()
+                );
+                exit(1);
+            }
+        }
     }
 
     // get config overrides

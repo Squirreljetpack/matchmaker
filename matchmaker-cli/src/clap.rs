@@ -46,6 +46,10 @@ pub struct Cli {
     #[arg(long, value_name = "FOLDER", num_args = 0..=1, default_missing_value = "")]
     pub download: Option<String>,
 
+    /// List installed presets.
+    #[arg(long)]
+    pub presets: bool,
+
     /// Useful for testing presets (see `mm --doc other`).
     #[arg(long, value_name = "N@ALIAS | N-M | N:TEMPLATE | TEMPLATE", num_args = 0..=1, default_missing_value = "")]
     pub list: Option<String>,
@@ -123,6 +127,7 @@ impl Cli {
             // Flags
             if [
                 "--dump-config",
+                "--presets",
                 "--test-keys",
                 "--last-key",
                 "--no-read",

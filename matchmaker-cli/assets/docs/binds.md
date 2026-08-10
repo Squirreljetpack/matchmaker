@@ -190,58 +190,62 @@ Actions are the operations performed when a trigger is activated.
 
 ### Navigation
 
-| Action         | Description                                                          |
-| -------------- | -------------------------------------------------------------------- |
-| `Up(n)`        | Move selection cursor up by `n` lines (default: 1).                  |
-| `Down(n)`      | Move selection cursor down by `n` lines (default: 1).                |
-| `Pos(idx)`     | Move selection cursor to absolute index `idx`. `-1` for end.         |
-| `HalfPageUp`   | Scroll the results list up by half the height of the results pane.   |
-| `HalfPageDown` | Scroll the results list down by half the height of the results pane. |
-| `HScroll(n)`   | Horizontally scroll the active column by `n`. `0` to reset.          |
-| `VScroll(n)`   | Vertically scroll down the current result by `n`. `0` to reset.      |
-| `ToggleWrap`   | Toggle line wrapping for the results list.                           |
+| Action             | Description                                                          |
+| ------------------ | -------------------------------------------------------------------- |
+| `Up(n)`            | Move selection cursor up by `n` lines (default: 1).                  |
+| `Down(n)`          | Move selection cursor down by `n` lines (default: 1).                |
+| `Pos(idx)`         | Move selection cursor to absolute index `idx`. `-1` for end.         |
+| `HalfPageUp`       | Scroll the results list up by half the height of the results pane.   |
+| `HalfPageDown`     | Scroll the results list down by half the height of the results pane. |
+| `HScroll(n)`       | Horizontally scroll the active column by `n`. `0` to reset.          |
+| `VScroll(n)`       | Vertically scroll down the current result by `n`. `0` to reset.      |
+| `ToggleWrap`       | Toggle line wrapping for the results list.                           |
+| `ToggleHeaderWrap` | Toggle line wrapping for the header.                                 |
 
 ### Preview
 
-| Action                | Description                                                               |
-| --------------------- | ------------------------------------------------------------------------- |
-| `NextPreview`         | Cycle through available preview layouts.                                  |
-| `PrevPreview`         | Cycle through available preview layouts in reverse order.                 |
-| `Preview(cmd)`        | Show/hide preview using the provided shell command.                       |
-| `SetPreview(idx)`     | Set preview layout to index `idx`.                                        |
-| `SwitchPreview(idx)`  | Switch to layout `idx`, or toggle it if already active.                   |
-| `TogglePreviewWrap`   | Toggle line wrapping in the preview window.                               |
-| `ExpandPreview(idx)`  | Expand preview window.                                                    |
-| `ShrinkPreview(idx)`  | Shrink preview window.                                                    |
-| `PreviewUp(n)`        | Scroll the preview window up by `n` lines (default: 1).                   |
-| `PreviewDown(n)`      | Scroll the preview window down by `n` lines (default: 1).                 |
-| `PreviewHalfPageUp`   | Scroll the preview up by half a page.                                     |
-| `PreviewHalfPageDown` | Scroll the preview down by half a page.                                   |
-| `RunPreview(cmd)`     | Run a one-off shell command and display its output in the preview window. |
-| `Help(section)`       | Display the specified help section in the preview.                        |
+| Action                 | Description                                                              |
+| ---------------------- | ------------------------------------------------------------------------ |
+| `NextPreview`          | Cycle through available preview layouts.                                 |
+| `PrevPreview`          | Cycle through available preview layouts in reverse order.                |
+| `Preview(cmd)`         | Show the preview using the provided command.                             |
+| `SetPreview([idx])`    | Set layout `idx`; without an index, restore the current layout command.  |
+| `SwitchPreview([idx])` | Switch to layout `idx`; without an index, toggle preview visibility.     |
+| `TogglePreviewWrap`    | Toggle line wrapping in the preview window.                              |
+| `ExpandPreview(n)`     | Expand the preview dimension by `n` (default: 1).                        |
+| `ShrinkPreview(n)`     | Shrink the preview dimension by `n` (default: 1).                        |
+| `PreviewUp(n)`         | Scroll the preview window up by `n` lines (default: 1).                  |
+| `PreviewDown(n)`       | Scroll the preview window down by `n` lines (default: 1).                |
+| `PreviewHalfPageUp`    | Scroll the preview up by half a page.                                    |
+| `PreviewHalfPageDown`  | Scroll the preview down by half a page.                                  |
+| `PreviewHScroll(n)`    | Persistently scroll the preview horizontally by `n` (0 resets).          |
+| `PreviewScroll(n)`     | Persistently scroll the preview vertically by `n` (0 resets).            |
+| `PreviewJump`          | Jump between the preview's start, end, and initial locations.            |
+| `RunPreview(cmd)`      | CLI action: run a one-off command and display its output in the preview. |
+| `Help(section)`        | Display the specified help section in the preview.                       |
 
 ### Columns
 
-| Action              | Description                                                               |
-| ------------------- | ------------------------------------------------------------------------- |
-| `NextColumn`        | Move focus to the next column.                                            |
-| `PrevColumn`        | Move focus to the previous column.                                        |
-| `SwitchColumn(col)` | Focus column specified by name or index.                                  |
-| `ToggleColumn(col)` | Toggle visibility of the specified column.                                |
-| `HideColumn(col)`   | Hide the specified column (or the active column if `None`).               |
-| `UnhideColumn`      | Unhide the most recently hidden column.                                   |
-| `ExpandColumn(n)`   | Widen the n-th non-hidden column by 1; `None` widens the active column.   |
-| `ShrinkColumn(n)`   | Narrow the n-th non-hidden column by 1; `None` narrows the active column. |
+| Action                | Description                                                                |
+| --------------------- | -------------------------------------------------------------------------- |
+| `NextColumn`          | Move focus to the next column.                                             |
+| `PrevColumn`          | Move focus to the previous column.                                         |
+| `SwitchColumn(col)`   | Focus column specified by name or index.                                   |
+| `HideColumn([col])`   | Hide the specified column (or the active column if omitted).               |
+| `UnhideColumn([col])` | Unhide the specified or most recently hidden column.                       |
+| `ExpandColumn([n])`   | Widen the n-th non-hidden column by 1; omitted widens the active column.   |
+| `ShrinkColumn([n])`   | Narrow the n-th non-hidden column by 1; omitted narrows the active column. |
 
 ### Sorting
 
 Sort the results by one of the columns in the active row.
 
-| Action              | Description                                                     |
-| ------------------- | --------------------------------------------------------------- |
-| `Sort(n)`           | Sort ascending by the active or given column lexicographically. |
-| `SortNumeric(n)`    | Same as `Sort` but parses column as a number.                   |
-| `SortReverse(bool)` | Reverse the non-match scoring function used in sorting\*.       |
+| Action                | Description                                                              |
+| --------------------- | ------------------------------------------------------------------------ |
+| `Sort(n)`             | Sort ascending by the active or given column lexicographically.          |
+| `SortNumeric(n)`      | Same as `Sort` but parses column as a number.                            |
+| `SortThreshold([n])`  | Set matcher stability to `n`; omitted restores maximum stability.        |
+| `SortReverse([bool])` | Reverse the non-match scoring function; omitted toggles the direction\*. |
 
 \*: This is not the same as reversing the sort direction.
 
@@ -259,9 +263,11 @@ Sort the results by one of the columns in the active row.
 | `DeleteLineEnd`         | Delete from cursor to the end of the line.                   |
 | `ClearQuery` / `Cancel` | Clear the current input query.                               |
 | `SetQuery(s)`           | Replace the input query with `s`.                            |
+| `InsertQuery(s)`        | Insert `s` at the query cursor.                              |
 | `QueryPos(n)`           | Move the input cursor to position `n`.                       |
-| `Filtering(bool)`       | Toggle or set whether input filters results (default: true). |
-| `CycleSort`             | Cycle through sorting stability levels.                      |
+| `Filtering([bool])`     | Toggle or set whether input filters results (default: true). |
+| `HistoryUp`             | TODO: move to the previous query history entry.              |
+| `HistoryDown`           | TODO: move to the next query history entry.                  |
 
 ### Binds (Dynamic)
 
@@ -271,6 +277,14 @@ Sort the results by one of the columns in the active row.
 | `Unbind(trigger)`       | Remove a binding.                         |
 | `PushBind(t=a)`         | Append an action to an existing binding.  |
 | `PopBind(t)`            | Remove the last action from a binding.    |
+
+### Modes
+
+| Action        | Description                              |
+| ------------- | ---------------------------------------- |
+| `SetMode(s)`  | Replace the current mode stack with `s`. |
+| `PushMode(s)` | Push a mode tag onto the mode stack.     |
+| `PopMode`     | Pop the current mode tag.                |
 
 ### Programmable and Miscellaneous
 
@@ -289,41 +303,41 @@ Sort the results by one of the columns in the active row.
 | `BecomeOrConfirm(cmd)` | Execute the command, quit on success, ask for confirmation on failure, resume on user-originated termination or exit code 100.      |
 | `BecomeOrResume(cmd)`  | Execute the command, quit on success, resume on failure, exit on any nonstandard termination.                                       |
 | `Reload(cmd)`          | Rerun the initial command or a new one.                                                                                             |
-| `ReloadNext(n)`        | Cycle through `additional_commands`.                                                                                                |
+| `ReloadNext([n])`      | Cycle through `additional_commands`; an optional `n` selects a specific command index.                                              |
 | `ReloadPrev`           | Cycle backwards through `additional_commands`.                                                                                      |
 | `Transform(cmd)`       | Run command and parse its output as a stream of Actions.                                                                            |
 | `TransformConfig(cmd)` | Run command and parse its output as configuration pairs (analogously to the cli input, one per line).                               |
 | `Store(str)`           | Set the value of `MM_STORE`.                                                                                                        |
-| `Print(s)`             | Print a string to stdout on exit.                                                                                                   |
+| `Print(s)`             | Print a string to stdout.                                                                                                           |
 | `PrintKey`             | Print the activating key.                                                                                                           |
 | `@name`                | Execute the actions associated with semantic trigger `name`.                                                                        |
+| `#description`         | Add a description-only trace action for help/debug output.                                                                          |
 
-Note: Commands executed via these actions have access to various [environment variables](template.md#environment-variables).
-They are run with `$SHELL -c` (falling back to `/bin/sh`), so keep scripts POSIX-compatible if the binds should work regardless of the user's shell.
+- `ToggleExitFirst([bool])`: Toggle or set the exit-on-one-match behavior.
+
+Note: Commands executed via these actions have access to various [environment variables](template.md#environment-variables). CLI command actions use the configured `start.shell`; an empty shell uses `$SHELL` (falling back to `/bin/sh`). A command beginning with `@` for `Execute`, `ExecuteAsync`, `ExecuteThen`, `ExecuteSilent`, `Become`, or `BecomeSilent` treats the first word as a script path relative to the parent of `MM_OVERRIDE` (absolute paths are also accepted) and passes the remaining words as arguments without shell parsing.
 
 ### UI & Display
 
-| Action               | Description                                |
-| -------------------- | ------------------------------------------ |
-| `SetHeader(str)`     | Set the header text (pass empty to clear). |
-| `PushHeader(str)`    | Append a column to the header.             |
-| `SetFooter(str)`     | Set the footer text (pass empty to clear). |
-| `PushFooter(str)`    | Append a column to the footer.             |
-| `SetPrompt(str)`     | Set the input prompt text.                 |
-| `SetStatus(str)`     | Set the status line template.              |
-| `SetStyledPrompt(s)` | Update the input prompt.                   |
-| `SetStyledStatus(s)` | Update the status line.                    |
+| Action               | Description                                                        |
+| -------------------- | ------------------------------------------------------------------ |
+| `SetHeader([str])`   | Set the header text; omit or pass empty to clear.                  |
+| `PushHeader(str)`    | Append a column to the header.                                     |
+| `SetFooter([str])`   | Set the footer text; omit or pass empty to clear.                  |
+| `PushFooter(str)`    | Append a column to the footer.                                     |
+| `SetPrompt([str])`   | Set the input prompt text; omit or pass empty to restore/clear.    |
+| `SetStatus([str])`   | Set the status line template; omit or pass empty to restore/clear. |
+| `SetStyledPrompt(s)` | Update the input prompt.                                           |
+| `SetStyledStatus(s)` | Update the status line.                                            |
 
 \* See mm --doc template
 
 ### Other & Experimental
 
-| Action            | Description                                                     |
-| ----------------- | --------------------------------------------------------------- |
-| `Filtering(bool)` | Enable or disable query filtering.                              |
-| `CycleSort`       | Cycle through result sorting modes (`Full` / `Mixed` / `None`). |
-| `Overlay(idx)`    | Activate the UI overlay at index `idx`.                         |
-| `Redraw`          | Force a complete UI redraw.                                     |
+| Action         | Description                             |
+| -------------- | --------------------------------------- |
+| `Overlay(idx)` | Activate the UI overlay at index `idx`. |
+| `Redraw`       | Force a complete UI redraw.             |
 
 ---
 

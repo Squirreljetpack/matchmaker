@@ -299,7 +299,7 @@ pub fn action_handler(
             let vars = state.make_env_vars();
 
             let render_tx = render_tx.clone();
-            if let Some(contents) = Command::from_script(&cmd)
+            if let Some(contents) = Command::from_script(&cmd, &[])
                 .envs(vars)
                 .read_to_string()
                 ._elog()
@@ -326,7 +326,7 @@ pub fn action_handler(
             }
             let vars = state.make_env_vars();
 
-            if let Some(contents) = Command::from_script(&cmd)
+            if let Some(contents) = Command::from_script(&cmd, &[])
                 .envs(vars)
                 .read_to_string()
                 ._elog()

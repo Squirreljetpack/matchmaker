@@ -71,6 +71,17 @@ When sharing a command-line matchmaker command, you can also define your actions
 
 *Note: You can also dynamically rebind semantic triggers at runtime using the `Bind` action. For an advanced example, scroll to the bottom.*
 
+**Predefined Semantic Triggers:**
+
+`@next` and `@prev` are will resolve to the following defaults unless you (or a preset) redefine them:
+
+```toml
+[binds]
+# cycle through the reload commands in `start.additional_commands`
+"@next" = ["ReloadNext", "Cancel"]
+"@prev" = ["ReloadPrev", "Cancel"]
+```
+
 ### Events
 
 Actions can be bound to events:
@@ -288,6 +299,7 @@ Sort the results by one of the columns in the active row.
 | `@name`                | Execute the actions associated with semantic trigger `name`.                                                                        |
 
 Note: Commands executed via these actions have access to various [environment variables](template.md#environment-variables).
+They are run with `$SHELL -c` (falling back to `/bin/sh`), so keep scripts POSIX-compatible if the binds should work regardless of the user's shell.
 
 ### UI & Display
 

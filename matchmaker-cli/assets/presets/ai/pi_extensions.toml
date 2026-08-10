@@ -1,0 +1,187 @@
+# Pi extensions manager
+#
+# Maintains a mirrored list at ~/.pi/agent/mm_extensions (one JSON extension
+# definition per line; lines prefixed with `# ` are disabled) and syncs the
+# enabled set into pi's settings.json `packages` array:
+#
+#   enter         toggle the selected extensions (all must share the same state)
+#   tab           multi-select (see global config)
+#   alt-enter     write the enabled set to the global settings (~/.pi/agent/settings.json)
+#   ctrl-enter    write the enabled set to the project settings (.pi/settings.json)
+#   alt-r         reconcile: sync mm_extensions with what is actually defined in
+#                 the global or project settings (creates the file if missing)
+#
+# Point MM_EXTENSIONS_FILE elsewhere to use a different mm_extensions file.
+
+[start]
+command = '''
+MMX="${MM_EXTENSIONS_FILE:-$HOME/.pi/agent/mm_extensions}"
+
+if [ ! -f "$MMX" ]; then
+    # seed the list from the global/project settings
+    "$(dirname -- "$MM_OVERRIDE")"/pi_extensions_reconcile.sh 1>&2 || true
+fi
+
+[ -f "$MMX" ] || { echo "error: mm_extensions not found: $MMX" >&2; exit 1; }
+
+while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+        '#'*)
+            state="✗"
+            stripped="${line#"# "}"
+            stripped="${stripped#"#"}"
+            ;;
+        *)
+            state="✓"
+            stripped="$line"
+            ;;
+    esac
+
+    # keep only real definitions: skip blank and whitespace-only lines
+    case "$stripped" in
+        '' | *[![:space:]]*) ;;
+        *) continue ;;
+    esac
+
+    # each definition is a JSON value; its `source` is the display name
+    if ! name=$(printf '%s' "${stripped%,}" | jq -r 'if type == "object" then .source else . end' 2>/dev/null); then
+        echo "warning: skipping unparseable line: $stripped" >&2
+        continue
+    fi
+
+    printf '%s\t%s\n' "$name" "$state"
+done < "$MMX"
+'''
+
+[columns]
+max = 2
+names = [
+  { name = "ext", options = "Optional | OrUseDefault" },
+  { name = "on", options = "Optional | OrUseDefault" },
+]
+default = "ext"
+split = "\t"
+
+[header]
+content = ["extension", "on"]
+
+# [footer]
+# content = "enter: toggle | tab: multi-select | alt-enter: set global | ctrl-enter: set local | alt-r: reconcile"
+
+[query]
+prompt = "extensions> "
+
+[matcher]
+sort = 40
+
+# --- Preview ---
+[preview]
+show = true
+
+[[preview.layout]]
+command = '''
+"$(dirname -- "$MM_OVERRIDE")"/pi_extensions_preview.sh {1}
+'''
+
+[[preview.layout]]
+command = '''
+cat <<'EOF'
+Usage:
+
+This preset reads `~/.pi/agent/mm_extensions` (`MM_EXTENSIONS_FILE`) for your desired extension setup.
+The rows shown may not reflect your current pi settings! Trigger `@reconcile` (ctrl-r) to update the file to reflect your current extension settings for this project.
+Trigger `@accept` to toggle extensions.
+`@set global` or `@set local` to apply the shown configuration local/global pi settings.
+
+EOF | bat --wrap=never --color=always -pp -l md
+'''
+
+[[preview.layout]]
+command = '''
+name={1}
+[ -n "$name" ] || exit 0
+
+dir=$("$(dirname -- "$MM_OVERRIDE")"/pi_extensions_preview.sh --dir "$name" 2>/dev/null) || exit 0
+
+if [ -f "$dir/README.md" ]; then
+    bat --wrap=never --color=always -pp -l md -- "$dir/README.md"
+elif [ -f "$dir/readme.md" ]; then
+    bat --wrap=never --color=always -pp -l md -- "$dir/readme.md"
+fi
+'''
+
+# --- Binds ---
+[binds]
+"ctrl-g" = "@set global"
+"ctrl-enter" = "@set local"
+"ctrl-e" = "@set local"
+"@reload" = ["@reconcile", "Reload"]
+# "@start" = ["@reconcile", "Reload"]
+"@accept" = ["@toggle extension", "Reload"]
+
+"@toggle extension" = '''ExecuteOrConfirm(
+set -e
+
+MMX="${MM_EXTENSIONS_FILE:-$HOME/.pi/agent/mm_extensions}"
+
+[ -f "$MMX" ] || { echo "error: mm_extensions not found: $MMX" >&2; exit 1; }
+
+# every selected extension must share the same state (cursor row when nothing is selected)
+set -- {+2}
+[ $# -gt 0 ] || { echo "error: no extension selected" >&2; exit 1; }
+first=$1
+for x in "$@"; do
+    [ "$x" = "$first" ] || { echo "error: selection mixes enabled and disabled extensions" >&2; exit 1; }
+done
+
+if [ "$first" = "✓" ]; then mode="off"; else mode="on"; fi
+
+set -- {+1}
+
+tmp=$(mktemp "${TMPDIR:-/tmp}/mm_extensions.XXXXXX")
+trap 'rm -f -- "$tmp"' EXIT
+
+while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+        '#'*)
+            stripped="${line#"# "}"
+            stripped="${stripped#"#"}"
+            ;;
+        *)
+            stripped="$line"
+            ;;
+    esac
+
+    case "$stripped" in
+        '' | *[![:space:]]*) ;;
+        *) printf '%s\n' "$line"; continue ;;
+    esac
+
+    name=$(printf '%s' "${stripped%,}" | jq -r 'if type == "object" then .source else . end' 2>/dev/null || true)
+    [ -n "$name" ] || { printf '%s\n' "$line"; continue; }
+
+    hit=false
+    for n in "$@"; do
+        [ "$n" = "$name" ] && { hit=true; break; }
+    done
+
+    if $hit; then
+        if [ "$mode" = "off" ]; then
+            case "$line" in '#'*) printf '%s\n' "$line" ;; *) printf '# %s\n' "$line" ;; esac
+        else
+            case "$line" in '#'*) printf '%s\n' "$stripped" ;; *) printf '%s\n' "$line" ;; esac
+        fi
+    else
+        printf '%s\n' "$line"
+    fi
+done < "$MMX" > "$tmp"
+
+mv "$tmp" "$MMX"
+echo "toggled $# extension(s) $mode (apply with alt-enter / ctrl-enter)"
+)'''
+
+"@set global" = '''ExecuteOrConfirm("$(dirname -- "$MM_OVERRIDE")"/pi_extensions_set.sh global 2>&1)'''
+
+"@set local" = '''ExecuteOrConfirm("$(dirname -- "$MM_OVERRIDE")"/pi_extensions_set.sh local 2>&1)'''
+
+"@reconcile" = '''ExecuteOrConfirm("$(dirname -- "$MM_OVERRIDE")"/pi_extensions_reconcile.sh 2>&1)'''

@@ -39,7 +39,7 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                 );
                 vars.extend(extra);
                 
-                if let Some(mut child) = Command::from_script(&cmd)
+                if let Some(mut child) = Command::from_script(&cmd, &[])
                 .envs(vars)
                 .stdin(tty_or_inherit())
                 ._spawn()
@@ -135,7 +135,7 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                 );
                 vars.extend(extra);
                 
-                if let Some(mut _child) = Command::from_script(&cmd)
+                if let Some(mut _child) = Command::from_script(&cmd, &[])
                 .envs(vars)
                 .stdin(tty_or_inherit())
                 ._spawn()

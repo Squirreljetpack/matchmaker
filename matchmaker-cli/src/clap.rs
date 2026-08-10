@@ -43,8 +43,8 @@ pub struct Cli {
     #[arg(long, value_name = "FOLDER", num_args = 0..=1, default_missing_value = "")]
     pub download: Option<String>,
 
-    /// Run the populating command directly (see `mm --doc other`).
-    #[arg(long, value_name = "N:TEMPLATE", num_args = 0..=1, default_missing_value = "")]
+    /// Useful for testing presets (see `mm --doc other`).
+    #[arg(long, value_name = "N@ALIAS | N-M | N:TEMPLATE | TEMPLATE", num_args = 0..=1, default_missing_value = "")]
     pub list: Option<String>,
 
     /// Display documentation

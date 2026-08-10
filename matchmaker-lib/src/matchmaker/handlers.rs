@@ -113,7 +113,7 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                 );
                 vars.extend(extra);
 
-                if let Some(mut child) = Command::from_script(&cmd)
+                if let Some(mut child) = Command::from_script(&cmd, &[])
                     .envs(vars)
                     .stdin(maybe_tty())
                     ._spawn()
@@ -147,7 +147,7 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                 );
                 vars.extend(extra);
 
-                if let Some(mut _child) = Command::from_script(&cmd)
+                if let Some(mut _child) = Command::from_script(&cmd, &[])
                     .envs(vars)
                     .stdin(maybe_tty())
                     ._spawn()
@@ -334,7 +334,7 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                 let vars = state.make_env_vars();
                 let clip_cmd = vars.get("CLIPcmd").map(|x| x.to_string());
 
-                if let Some(contents) = Command::from_script(&cmd)
+                if let Some(contents) = Command::from_script(&cmd, &[])
                     .envs(vars)
                     .read_to_string()
                     ._elog()
@@ -361,7 +361,7 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                         } else if let Some(clip_cmd) = clip_cmd {
                             // discriminant 2: use CLIPcmd
                             if !clip_cmd.is_empty() {
-                                let Some(mut child) = Command::from_script(&clip_cmd)
+                                let Some(mut child) = Command::from_script(&clip_cmd, &[])
                                     .stdin(Stdio::piped())
                                     ._spawn()
                                 else {
@@ -407,7 +407,7 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                 vars.extend(extra);
                 debug!("Becoming: {cmd}");
 
-                Command::from_script(&cmd).envs(vars)._exec()
+                Command::from_script(&cmd, &[]).envs(vars)._exec()
             }
         });
         self.register_interrupt_handler(Interrupt::BecomeSilent, move |state| {
@@ -427,7 +427,7 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                 vars.extend(extra);
                 debug!("Becoming: {cmd}");
 
-                Command::from_script(&cmd).envs(vars)._exec()
+                Command::from_script(&cmd, &[]).envs(vars)._exec()
             }
         });
     }

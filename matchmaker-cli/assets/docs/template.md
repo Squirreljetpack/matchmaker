@@ -5,6 +5,10 @@ Templates use `{}` placeholders with various modifiers to inject item data.
 
 > [!NOTE]
 > Only valid keys are replaced, invalid keys are left alone. If you need it, you can also escape `{` like `\{`.
+>
+> Templates are expanded in preview layout commands, bound action scripts, and
+> the `output_template` / accept hooks. They are **not** expanded in
+> `start.command` or `envs` values.
 
 ## Modifiers
 

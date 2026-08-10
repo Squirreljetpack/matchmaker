@@ -96,6 +96,11 @@ pub struct StartConfig {
     /// Override the default mode
     pub mode: Option<String>,
 
+    /// Shell to execute scripts with, e.g. `["bash", "-c"]`. Empty (the
+    /// default) uses `$SHELL` (or `/bin/sh`).
+    #[serde(deserialize_with = "crate::utils::serde::os_strings::deserialize")]
+    pub shell: Vec<OsString>,
+
     /// Don't kill the last populating command when reloading
     pub save_orphans: bool,
     /// If false, aborts program when encountering an invalid utf-8 input line
@@ -745,9 +750,9 @@ pub struct PreviewInitialSetting {
 //     }
 // }
 
-#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct PreviewerConfig {
     pub try_lossy: bool,
     pub delay_clear: bool,
@@ -760,7 +765,8 @@ pub struct PreviewerConfig {
     pub always_trigger: bool,
 
     pub help: HelpDisplayConfig,
-    pub shell: Option<Vec<OsString>>,
+    #[serde(deserialize_with = "crate::utils::serde::os_strings::deserialize")]
+    pub shell: Vec<OsString>,
     pub trim_commands: bool,
 
     /// See [`StartConfig`]
@@ -777,7 +783,7 @@ impl Default for PreviewerConfig {
             max_procs: 4,
             always_trigger: true,
             help: Default::default(),
-            shell: None,
+            shell: Default::default(),
             trim_commands: false,
 
             command_args: Default::default(),

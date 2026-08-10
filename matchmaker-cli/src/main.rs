@@ -69,7 +69,7 @@ async fn main() {
         if l.is_empty() {
             crate::list::list(config)
         } else {
-            crate::list::template(config, l)
+            crate::list::list_arg(config, l)
         }
     }
 

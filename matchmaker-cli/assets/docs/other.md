@@ -64,40 +64,58 @@ Filter a specific column using `%name` or any abbreviation thereof:
 
 ---
 
-## `--list` — non-interactive output
+### Testing presets
 
-Runs the populating command without starting the matcher. Useful for scripting,
-debugging presets and observing what the matcher would receive.
+`--list` is the primary tool for developing and debugging a preset without a TTY.
 
 ### Bare `--list`
 
-Executes `start.command` directly (replacing the `mm` process), so its stdout,
+Runs the populating command (`start.command`) directly, so its stdout,
 stderr and exit code are preserved:
 
 ```sh
 mm --list
 ```
 
-### `--list=<N:TEMPLATE>`
+### `--list=<ARG>` — four modes
 
-Runs the populating command, formats `TEMPLATE` with the N-th item (0-based) and
-executes the formatted result:
+The value after `=` dispatches on its shape (the delimiter only wins when the
+part before it is a number):
+
+| Shape        | Mode                                                                                  |
+| ------------ | ------------------------------------------------------------------------------------- |
+| `N@alias`    | Execute the command actions bound to the semantic alias, formatted with the N-th item |
+| `N-M`        | Run the M-th preview layout's command, formatted with the N-th item                   |
+| `N:TEMPLATE` | Execute `TEMPLATE` formatted with the N-th item                                       |
+| `TEMPLATE`   | Print `TEMPLATE` formatted with the first item (no execution)                         |
 
 ```sh
-mm --list="3:open {path}"   # third item
-mm --list="echo {}"         # first item
+mm --list="3:open {path}"             # execute a template with the 4th item
+mm --list="echo {}"                   # print the template (formatted, not run)
+mm --list="2-0"                       # run preview layout 0 with the 3rd item
+mm --list="0@toggle extension"        # run the alias's Execute/Become actions
 ```
 
-- `N` is **0-based**; omitting `N:` uses the first item.
+- `N` (and the preview index `M`) are 0-based.
 - The value must be joined with `=` — a separate argument after `--list` is parsed
   as a config override.
 - `TEMPLATE` uses the full template syntax: see `mm --doc template`.
 - Items are ordered exactly as the matcher would display them (with an empty query,
   all items are matched), so index `0` is the item Enter would accept first.
 - The executed command inherits the `MM_*` / `FZF_*` environment variables
-  (`MM_POS`, `MM_TOTAL_COUNT`, ...).
+  (`MM_POS`, `MM_TOTAL_COUNT`, ...); preview commands additionally get
+  `MM_PREVIEW_COMMAND`, mirroring the TUI.
+- Alias execution looks at the action array bound to the trigger as-is (nested
+  `@` aliases are **not** followed) and runs `Execute`/`ExecuteAsync`/
+  `ExecuteThen`/`ExecuteSilent`, `Become`/`BecomeSilent`, and the CLI's
+  `ExecuteOrConfirm`/`ExecuteAndQuit`/`BecomeOrConfirm`/`BecomeOrResume` actions
+  in order, stopping at the first failure. Other actions are skipped.
 
 *Note: `--list` never starts the TUI; `sync`, `mode` and `--no-read` are ignored.*
+
+
+Action scripts execute under `$SHELL` unless `start.shell` or `preview.shell` are set.
+Remember to escape any template specifiers, for example: `jq '((map(select(.type == "model_change")) | .[0]) // \{}) as $model | $model'`.
 
 ---
 

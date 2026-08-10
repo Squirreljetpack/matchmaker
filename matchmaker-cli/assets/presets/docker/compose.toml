@@ -38,7 +38,7 @@ command = '"$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} top {source}'
 
 [binds]
 "0,1^^@accept" = "Become(mm -o docker/containers -- {id} {source})"
-"0,1^^@accept2" = ["#lazydocker", "Become(lazydocker -f {id})"]
+"0,1^^@accept_2" = ["#lazydocker", "Become(lazydocker -f {id})"]
 
 "alt-r" = ["@recreate", "Reload"]
 "ctrl-a" = ["@restart_all", "Reload"]

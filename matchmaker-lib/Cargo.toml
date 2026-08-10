@@ -84,5 +84,9 @@ path = "examples/pick_1.rs"
 name = "ripgrep"
 path = "examples/ripgrep.rs"
 
+[[example]]
+name = "overlay"
+path = "examples/overlay.rs"
+
 [lints]
 workspace = true

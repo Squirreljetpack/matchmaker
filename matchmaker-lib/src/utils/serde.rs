@@ -31,6 +31,26 @@ where
     }
 }
 
+
+
+/// Serde helpers for `Vec<OsString>` config fields.
+///
+/// Serde's own `OsString` impls only accept a platform-variant enum form
+/// (`[{ Unix = "..." }]`), so shell/command config is deserialized from plain
+/// strings instead: `["bash", "-c"]`.
+pub mod os_strings {
+    use std::ffi::OsString;
+
+    use serde::{Deserialize, Deserializer};
+
+    pub fn deserialize<'de, D>(d: D) -> Result<Vec<OsString>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Vec::<String>::deserialize(d).map(|v| v.into_iter().map(OsString::from).collect())
+    }
+}
+
 pub fn escaped_opt_string<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
 where
     D: serde::Deserializer<'de>,

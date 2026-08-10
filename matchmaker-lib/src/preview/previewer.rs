@@ -192,16 +192,7 @@ impl Previewer {
             match m {
                 PreviewMessage::Run(cmd, variables) => {
                     self.last = cmd.clone();
-                    let mut cmd_builder = if let Some(s) = &self.config.shell
-                        && !s.is_empty()
-                    {
-                        let mut iter = s.iter();
-                        let mut program = Command::new(iter.next().unwrap());
-                        program.args(iter).arg(&cmd);
-                        program
-                    } else {
-                        Command::from_script(&cmd)
-                    };
+                    let mut cmd_builder = Command::from_script(&cmd, &self.config.shell);
 
                     cmd_builder
                         .envs(variables.iter().cloned())

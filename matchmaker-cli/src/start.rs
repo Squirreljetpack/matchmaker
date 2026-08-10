@@ -4,6 +4,7 @@ use std::{
     io::Read,
     path::Path,
     process::{Command, Stdio, exit},
+    str::FromStr,
     sync::{Arc, Mutex},
 };
 
@@ -31,7 +32,8 @@ use cba::{bo::load_type, broc::CommandExt};
 use log::debug;
 use matchmaker::{
     Action, Either, MatchError, Matchmaker, PickOptions, SSS,
-    binds::{BindMap, BindMapExt},
+    bindmap,
+    binds::{BindMap, BindMapExt, Trigger},
     config::{CommandSetting, EnvValue, MatcherConfig, StartConfig},
     config_mm::{ConfigInjector, ConfigPreprocessedData, OddEnds},
     event::{EventLoop, RenderSender},
@@ -199,9 +201,22 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
     }
 
     // check binds
-    config.binds = BindMap::default_binds()
-        .with_extras()
-        .modify(|x| x.extend(config.binds));
+    // `@next`/`@prev` get their defaults only when there are reload commands to
+    // cycle through; the config or a preset may still override them.
+    let mut defaults: BindMap<MMAction> = BindMap::default_binds().with_extras();
+    if !config.start.additional_commands.is_empty() {
+        defaults.extend(bindmap!(
+            Trigger::from_str("@next").unwrap() => [
+                Action::Custom(MMAction::ReloadNext(None)),
+                Action::ClearQuery,
+            ],
+            Trigger::from_str("@prev").unwrap() => [
+                Action::Custom(MMAction::ReloadPrev),
+                Action::ClearQuery,
+            ],
+        ));
+    }
+    config.binds = defaults.modify(|x| x.extend(config.binds));
     config.binds.check_cycles().map_err(anyhow::Error::msg)?;
     config.binds.retain(|_, actions| !actions.is_empty()); // enables disabling a bind via override
     // there is an additional step of resolve_semantics:
@@ -307,7 +322,7 @@ pub fn process_envs(mut envs: HashMap<String, EnvValue>) -> HashMap<String, Stri
     // Second pass: dynamic envs
     for (k, v) in &envs {
         if !v.value.is_empty() && v.exec && (v.force || std::env::var_os(k).is_none()) {
-            if let Some(output) = Command::from_script(&v.value)
+            if let Some(output) = Command::from_script(&v.value, &[])
                 .envs(&processed_envs)
                 .read_to_string()
                 ._elog()
@@ -343,6 +358,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 preprocess,
                 mut additional_commands,
                 mode,
+                shell,
                 save_orphans,
                 skip_invalid_lines,
                 on_accept,
@@ -393,7 +409,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
 
         let mut failed = false;
         if exec {
-            if let Some(new_d) = Command::from_script(&value)
+            if let Some(new_d) = Command::from_script(&value, &[])
                 .envs(&envs)
                 .read_to_string()
                 ._elog()
@@ -536,7 +552,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             skip_invalid_lines,
         )
     } else if !command.is_empty()
-        && let Some((child, stdout)) = Command::from_script(&command)
+        && let Some((child, stdout)) = Command::from_script(&command, &shell)
             .envs(envs)
             .args(&*COMMAND_ARGS.lock().unwrap())
             .spawn_piped()
@@ -579,6 +595,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let reload_render_tx = render_tx.clone();
     let reload_columns = mm.worker.columns.clone();
     let reload_text_preprocessor = mm.worker.text_preprocessor.clone();
+    let reload_shell = shell.clone();
     let mut cmd = initial_cmd;
     mm.register_interrupt_handler(Interrupt::Reload, move |state| {
         let injector = state.injector();
@@ -606,7 +623,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 child.kill()._elog();
             }
 
-            if let Some((child, stdout)) = Command::from_script(&cmd)
+            if let Some((child, stdout)) = Command::from_script(&cmd, &reload_shell)
                 .envs(vars)
                 .stdin(Stdio::null())
                 .args(&*COMMAND_ARGS.lock().unwrap())
@@ -652,7 +669,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 return vec![];
             } else {
                 let vars = state.make_env_vars();
-                Command::from_script(&cmd).envs(vars)._exec()
+                Command::from_script(&cmd, &shell).envs(vars)._exec()
             }
         }
 

@@ -110,8 +110,10 @@ pub fn take_lines<'a, 'b: 'a>(original: &'a mut Text<'b>, max_lines: u16, from_e
         original.lines.iter().take(max).cloned().collect()
     };
     let style = original.style;
+    let alignment = original.alignment;
     *original = Text::from(new_lines);
     original.style = style;
+    original.alignment = alignment;
     true
 }
 
@@ -165,7 +167,11 @@ pub fn wrap_line<'a>(line: Line<'a>, max_width: u16, indicator: &Span<'a>) -> Ve
         return vec![line];
     }
 
-    let available_width = max_width.saturating_sub(indicator.width() as u16);
+    let (available_width, show_indicator) = if max_width > indicator.width() as u16 {
+        (max_width - indicator.width() as u16, true)
+    } else {
+        (max_width, false)
+    };
 
     let mut wrapped_lines = Vec::new();
     let mut current_spans = Vec::new();
@@ -194,7 +200,9 @@ pub fn wrap_line<'a>(line: Line<'a>, max_width: u16, indicator: &Span<'a>) -> Ve
                 }
 
                 // 2. Append the wrapping indicator and finalize the line
-                current_spans.push(indicator.clone());
+                if show_indicator {
+                    current_spans.push(indicator.clone());
+                }
                 wrapped_lines.push(Line::from(std::mem::take(&mut current_spans)));
 
                 // 3. Reset states for the new line
@@ -230,6 +238,8 @@ pub fn wrap_text<'a>(text: Text<'a>, max_width: u16) -> (Text<'a>, bool) {
 
     let mut new_lines = Vec::new();
     let mut did_wrap_any = false;
+    let style = text.style;
+    let alignment = text.alignment;
 
     for line in text.lines {
         let new = wrap_line(line, max_width, &wrapping_span);
@@ -237,7 +247,10 @@ pub fn wrap_text<'a>(text: Text<'a>, max_width: u16) -> (Text<'a>, bool) {
         new_lines.extend(new);
     }
 
-    (Text::from(new_lines), did_wrap_any)
+    let mut res = Text::from(new_lines);
+    res.style = style;
+    res.alignment = alignment;
+    (res, did_wrap_any)
 }
 
 /// Convenience wrapper around line wrapper
@@ -251,6 +264,8 @@ pub fn wrap_text_static<'a>(text: &Text<'a>, max_width: u16) -> (Text<'static>, 
 
     let mut new_lines = Vec::new();
     let mut did_wrap_any = false;
+    let style = text.style;
+    let alignment = text.alignment;
 
     for line in text.lines {
         let new = wrap_line(line, max_width, &wrapping_span);
@@ -258,7 +273,10 @@ pub fn wrap_text_static<'a>(text: &Text<'a>, max_width: u16) -> (Text<'static>, 
         new_lines.extend(new);
     }
 
-    (Text::from(new_lines), did_wrap_any)
+    let mut res = Text::from(new_lines);
+    res.style = style;
+    res.alignment = alignment;
+    (res, did_wrap_any)
 }
 
 /// Convert `Text` into lines of plain `String`s
@@ -751,5 +769,18 @@ mod tests {
         assert_eq!(sliced.lines[0].spans.len(), 2);
         assert_eq!(sliced.lines[0].spans[0].content, "no");
         assert_eq!(sliced.lines[0].spans[1].content, "tes");
+    }
+
+    #[test]
+    fn test_wrap_line_narrow_width_one() {
+        let line = Line::from("files");
+        let indicator = wrapping_indicator();
+        let wrapped = wrap_line(line, 1, &indicator);
+        assert_eq!(wrapped.len(), 5);
+        assert_eq!(wrapped[0].to_string(), "f");
+        assert_eq!(wrapped[1].to_string(), "i");
+        assert_eq!(wrapped[2].to_string(), "l");
+        assert_eq!(wrapped[3].to_string(), "e");
+        assert_eq!(wrapped[4].to_string(), "s");
     }
 }

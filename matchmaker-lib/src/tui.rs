@@ -1,6 +1,6 @@
 use crate::config::TerminalConfig;
 use anyhow::Result;
-use cba::{_info, bait::ResultExt};
+use cba::{_info, _trace, bait::ResultExt};
 use crossterm::{
     event::{
         DisableMouseCapture, EnableMouseCapture, KeyboardEnhancementFlags,
@@ -108,8 +108,10 @@ where
 
     pub fn enter(&mut self) -> Result<()> {
         let fullscreen = self.is_fullscreen();
+        _trace!("entering tui"; fullscreen);
 
         crossterm::terminal::enable_raw_mode()?;
+
         if fullscreen {
             self.enter_alternate_screen(true)?;
         }
@@ -136,11 +138,15 @@ where
     // call iff self.is_fullscreen
     pub fn enter_alternate_screen(&mut self, clear: bool) -> Result<()> {
         let backend = self.terminal.backend_mut();
-        execute!(backend, EnterAlternateScreen)?;
+        execute!(backend, EnterAlternateScreen)
+            .prefix("EnterAlternateScreen")
+            ._elog();
 
         if clear {
-            execute!(backend, crossterm::terminal::Clear(ClearType::All))?;
-            self.terminal.clear()?;
+            execute!(backend, crossterm::terminal::Clear(ClearType::All))
+                .prefix("Clear Terminal")
+                ._elog();
+            // self.terminal.clear()._elog(); we can just do a full clear
         }
 
         debug!("Entered alternate screen");
@@ -154,13 +160,14 @@ where
     pub fn enter_execute(&mut self) {
         self.exit(None);
         sleep(self.sleep()); // necessary to give resize some time
-        debug!("state: {:?}", crossterm::terminal::is_raw_mode_enabled());
+        _trace!(crossterm::terminal::is_raw_mode_enabled());
         self.in_execute = true;
 
         // do we ever need to scroll up?
     }
 
     pub fn return_execute(&mut self, clear: bool) -> Result<()> {
+        log::trace!("returning from execute");
         if self.config.restore_fullscreen {
             self.config.layout = None;
         }

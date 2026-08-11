@@ -323,7 +323,9 @@ impl ResultsUI {
         // the new preferred widths differ from the current ones, in which
         // case the width limits need to be recomputed.
         if self.changed[1] || self.preferred_widths.is_empty() || wrap_condition {
-            if self.update_preferred_widths() {
+            if self.try_apply_max_widths() {
+                // Applied exact max widths directly to preferred_widths, width_limits, and widths
+            } else if self.update_preferred_widths() {
                 _info!(
                     "[update_preferred]";
                     self.preferred_widths;

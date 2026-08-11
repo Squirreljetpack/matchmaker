@@ -6,13 +6,44 @@ if ! command -v fs >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ -t 0 ]; then
+if [ -t 0 ] ; then
   ob-vaults -g "$@"
 else
   cat
 fi |
-while read -r line
-do
-  FS_OUTPUT="{=}\t{-1.}" fs -t .md --list --no-read "$line" .
+while read -r line; do
+  # This command finds all markdown files, and prints them in a custom format:
+  # {a:b} is a slicing syntax for path components
+  # {-1:} means take all components including and after the last
+  # omitting either end takes the full range in that direction
+  # 3 different delimiters are supported for slicing: `:`, `=` and `.`
+  # `:` targets the current item and adds single quotes around it
+  # `=` targets the current item without single quotes
+  # `.` targets the current working directory without single quotes
+  # `{}` prints the full path.
+  #
+  # Here, the effect is to print alongside each note their containing "vault".
+  fs -t .md --list --format '{=}\t{-1.}' $line .
 done |
-FS_OPTS='opener=ob-open display-batch=[while (($#)); do print ${${1#*/$2/}%.md}; shift 2; done] delim=\t' fs
+# This command browses the results. Note that a bare `fs` call no longer
+# consumes piped input -- browsing a listing is now an explicit `fs :custom`:
+# --opener: use this program to open the selected file
+# --tail-sep: use this delimiter to split each input line into a Path
+#                   and a Context (the tail column)
+# --transform: a lua function (path, tail) -> (path, display, tail). The input path
+#                 is absolute, the input tail is the --tail-sep remainder; a missing
+#                 path omits the entry; missing display/tail keep the current values.
+#                 Note: Files can be supplied with the `@` prefix.
+fs :custom --opener ob-open \
+  --tail-sep $'\t' \
+  --transform '
+return function(path, tail)
+local home = (os.getenv("OBSIDIAN_HOME") or ""):gsub("/+$", "")
+local display = path
+if home ~= "" and display:find(home, 1, true) == 1 then
+    display = display:sub(#home + 2) -- strip "<home>/"
+end
+display = display:gsub("^[^/]+/", "") -- strip the vault directory
+return path, display:gsub("%.md$", ""), tail
+end
+'

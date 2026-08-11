@@ -38,9 +38,9 @@ pub struct State {
     pub(crate) layout: Layout,
     pub(crate) dragging: Option<Result<(Position, usize), Position>>,
     pub(crate) overlay_index: Option<usize>,
-    /// ran, synced, not_stopped.
+    /// ran, synced, stopped.
     /// All start false.
-    /// not_stopped: unset on a frame when picker is running
+    /// stopped: set on a frame when picker is not running
     pub(crate) synced: [bool; 3],
 
     pub(crate) events: Event,
@@ -289,15 +289,13 @@ impl State {
         }
 
         let status = &picker_ui.results.status;
-        if status.running {
-            if !self.synced[2] {
-                _info!("restarted on iteration ": self.iteration);
-                // stopped + running -> running
-                self.synced[2] = true;
-                self.insert(Event::Restarted);
-            }
-        } else {
+        if self.synced[2] && status.changed {
+            _info!("restarted on iteration ": self.iteration);
+            // stopped + running -> running
             self.synced[2] = false;
+            self.insert(Event::Restarted);
+        } else if !status.running {
+            self.synced[2] = true;
         }
 
         if let Some(o) = overlay_ui {
@@ -472,12 +470,12 @@ impl<'a, 'b: 'a, T: SSS, D: 'static> MMState<'a, 'b, T, D> {
 
     pub fn worker_restart(&mut self) {
         self.picker_ui.restart();
-        self.state.synced = [false; 3];
+        self.state.synced = [false, false, true];
     }
     pub fn worker_resort(&mut self) {
         self.picker_ui.worker.nucleo.resort();
         self.synced[1] = false;
-        // self.synced[2] = true;
+        // self.synced[2] = false;
     }
 
     pub fn make_env_vars(&self) -> EnvVars {

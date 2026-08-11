@@ -156,9 +156,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
 
             if !matches!(event, RenderCommand::Tick) {
                 info!("Received {event:?}");
-                if did_tick.is_some() {
-                    did_tick = Some(false);
-                }
+                did_tick = Some(false);
             } else if did_tick.is_none() {
                 did_tick = Some(true);
                 // log::trace!("Recieved {event:?}");
@@ -206,7 +204,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                     picker_ui.results.set_dirty();
                 }
                 RenderCommand::Redraw => {
-                    picker_ui.results.set_dirty();
+                    picker_ui.results.invalidate_widths();
                     tui.flush();
                 }
                 RenderCommand::HeaderTable(columns) => {
@@ -873,7 +871,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                 }
                 Interrupt::Reload => {
                     picker_ui.restart();
-                    state.synced = [false; 3];
+                    state.synced = [false, false, true];
                     did_reload = true;
                 }
                 Interrupt::Become => {
@@ -919,6 +917,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
             tui.flush();
         }
 
+        #[allow(unused)]
         let mut cursor_y_offset = 0;
 
         // 2. Compute layout geometry & update state outside the draw closure

@@ -1,17 +1,9 @@
 # Obsidian vault selector
 
 [envs]
-OBSIDIAN_VAULTS_FILE = { value = 'echo "$(dirname -- "$MM_OVERRIDE")"/__vaults', exec = true }
+OBSIDIAN_VAULTS_FILE = { value = 'echo "$(dirname -- "$MM_OVERRIDE")"/.__vaults', exec = true }
 PATH = { value = 'echo "$(dirname -- "$MM_OVERRIDE"):$PATH"', exec = true, force = true }
-OPENcmd = { value = '''
-if command -v fs >/dev/null 2>&1; then
-  echo fs :o
-elif [ "${OSTYPE#darwin}" = "$OSTYPE" ]; then
-  echo xdg-open
-else
-  echo open
-fi
-''', exec = true }
+OPENcmd = { value = '''if command -v fs >/dev/null 2>&1; then  echo fs :oelif [ "${OSTYPE#darwin}" = "$OSTYPE" ]; then  echo xdg-openelse  echo openfi''', exec = true }
 
 [start]
 command = 'ob-vaults -c'

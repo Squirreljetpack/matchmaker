@@ -120,7 +120,7 @@ impl ResultsUI {
     }
 
     pub fn update_active_column(&mut self, col: usize) {
-        self.changed[0] = self.active_column != col;
+        self.changed[0] |= self.active_column != col;
         self.active_column = col;
     }
 
@@ -331,7 +331,12 @@ impl ResultsUI {
     }
 
     pub fn column_spacing_width(&self) -> u16 {
-        self.config.column_spacing.0 * (self.widths.len().saturating_sub(1) as u16)
+        let cols = if !self.widths.is_empty() {
+            self.widths.len()
+        } else {
+            self.hidden_columns.visible_count()
+        };
+        self.config.column_spacing.0 * (cols.saturating_sub(1) as u16)
     }
 
     pub fn table_width(&self) -> u16 {

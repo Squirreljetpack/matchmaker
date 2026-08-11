@@ -29,11 +29,11 @@ bitflags! {
         /// Preview explicitly set
         const PreviewSet    = 1 << 6;
 
+        const Restarted    = 1 << 7;
         /// First completion of matcher
-        const Synced       = 1 << 7;
+        const Synced       = 1 << 8;
         /// Matcher finished processing current state
-        const Resynced     = 1 << 8;
-        const Restarted     = 1 << 9;
+        const Resynced     = 1 << 9;
 
         /// Window/terminal resize
         const Resize = 1 << 10;

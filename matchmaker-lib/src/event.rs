@@ -68,9 +68,9 @@ impl<A: ActionExt> EventLoop<A> {
         Self {
             txs: vec![],
             tick_interval: time::Duration::from_millis(200),
-            skip_ticks: [false; 2],
+            skip_ticks: [false, true],
             paused: false,
-            dirty: false,
+            dirty: true,
 
             binds: Arc::new(ArcSwap::from_pointee(ResolvedBindMap::new())),
             original_binds: BindMap::new(),
@@ -165,32 +165,32 @@ impl<A: ActionExt> EventLoop<A> {
         debug!("Received event: {e}");
         self.dirty = true;
 
-        match e {
-            Event::Pause => {
-                self.paused = true;
-                self.send(RenderCommand::Ack);
-                self.event_stream = None; // drop because EventStream "buffers" event
+        for flag in e.iter() {
+            match flag {
+                Event::Pause => {
+                    self.paused = true;
+                    self.send(RenderCommand::Ack);
+                    self.event_stream = None; // drop because EventStream "buffers" event
+                }
+                Event::Redraw => {
+                    self.send(RenderCommand::Redraw);
+                }
+                Event::Synced | Event::Resynced => {
+                    self.skip_ticks[0] = true;
+                }
+                Event::PreviewFinished => {
+                    self.skip_ticks[1] = true;
+                }
+                Event::Restarted | Event::Reloaded => {
+                    self.skip_ticks[0] = false;
+                }
+                Event::PreviewStarted => {
+                    self.skip_ticks[1] = false;
+                }
+                _ => {}
             }
-            Event::Redraw => {
-                self.send(RenderCommand::Redraw);
-            }
-            Event::Synced | Event::Resynced => {
-                self.skip_ticks[0] = true;
-            }
-            Event::PreviewFinished => {
-                self.skip_ticks[1] = true;
-            }
-            Event::Restarted | Event::Reloaded => {
-                self.skip_ticks[0] = false;
-            }
-            Event::PreviewStarted => {
-                self.skip_ticks[1] = false;
-            }
-            _ => {}
-        }
 
-        for e in e.iter() {
-            if let Some(actions) = self.get_bind(TriggerKind::Event(e)) {
+            if let Some(actions) = self.get_bind(TriggerKind::Event(flag)) {
                 self.send_actions(actions, None);
             }
         }
@@ -280,7 +280,9 @@ impl<A: ActionExt> EventLoop<A> {
                     if matches!(event, Event::Resume) {
                         debug!("Resumed from pause");
                         self.paused = false;
+                        self.dirty = true;
                         self.send(RenderCommand::Ack);
+                        self.send(RenderCommand::Redraw);
                         self.event_stream = Some(EventStream::new());
                         break;
                     }
@@ -613,5 +615,24 @@ pub fn set_mode(mode: &str) {
             .map(|s| s.into())
             .collect();
         log::trace!("Set mode: {mode}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::action::NullActionExt;
+
+    #[test]
+    fn test_handle_combined_events() {
+        let mut loop_handle = EventLoop::<NullActionExt>::new();
+        assert_eq!(loop_handle.skip_ticks, [false, true]);
+
+        loop_handle.handle_event(Event::CursorChange | Event::Synced);
+        assert_eq!(loop_handle.skip_ticks[0], true);
+
+        loop_handle.handle_event(Event::PreviewFinished);
+        assert_eq!(loop_handle.skip_ticks[1], true);
+        assert!(loop_handle.skip_ticks.iter().all(|x| *x));
     }
 }

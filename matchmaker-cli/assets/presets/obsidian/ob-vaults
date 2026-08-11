@@ -35,7 +35,7 @@ EOF
 }
 
 # === SCRIPT START ===
-CACHE=${OBSIDIAN_VAULTS_FILE:-"$(dirname -- "$0")/__vaults"}
+CACHE=${OBSIDIAN_VAULTS_FILE:-"$(dirname -- "$0")/.__vaults"}
 
 did_regen=false
 

@@ -1,3 +1,37 @@
+## [0.1.4] - 2026-08-12
+
+### 🚀 Features
+
+- Further optimize rendering by skipping frames
+- SortReverse action
+- , instead of ||| for cli sequence value delimiter
+- Parse numeric template specifiers as indices, remove names_from_zero, add 0 as specifier for default column, preset updates
+- Debouncing improvements
+- Change default quit code 1 -> 0
+- Preset updates
+- Update deps
+- Switch nucleo dep from git patch to crates.io matchmaker-nucleo
+- Add --list to run the populating command without starting the matcher
+- Pickeroverlay
+- *(lib)* Inputui border toggle
+- Various improvements
+- Add @ command syntax, move execute_async/become handlers to cli
+- Refactored matchmaker-partial
+
+### 🐛 Bug Fixes
+
+- Available_width computation in width_limits
+- Missed layout update + exclude png,jpg,gif from preset download
+- Various
+
+### 🚜 Refactor
+
+- Move out handler definitions from lib to cli
+
+### 📚 Documentation
+
+- Sync config and action documentation; add preset listing
+
 ## [0.1.3] - 2026-07-03
 
 - Various bugfixes

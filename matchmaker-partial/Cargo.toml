@@ -1,6 +1,6 @@
 [package]
 name = "matchmaker-partial"
-version = "0.0.30"
+version = "0.1.4"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/Squirreljetpack/matchmaker"
@@ -11,9 +11,7 @@ serde = { version = "1.0", features = ["derive"] }
 thiserror = "2.0"
 
 [dev-dependencies]
-matchmaker-partial-macros = { path = "../matchmaker-partial-macros", features = [
-  "partial",
-] }
+matchmaker-partial-macros = { path = "../matchmaker-partial-macros", features = ["partial"] }
 toml = "1.1"
 trybuild = "1"
 

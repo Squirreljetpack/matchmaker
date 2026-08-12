@@ -16,8 +16,8 @@ matchmaker-partial-macros = { path = "./matchmaker-partial-macros" }
 [workspace.dependencies]
 cli_boilerplate_automation = { version = "0.*" }
 matchmaker-lib = { version = "0.1.*" }
-matchmaker-partial = { version = "0.0.*" }
-matchmaker-partial-macros = { version = "0.0.*", default-features = false }
+matchmaker-partial = { version = "0.1.4" }
+matchmaker-partial-macros = { version = "0.1.4", default-features = false }
 nucleo = { package = "matchmaker-nucleo", version = "0.1.*" }
 
 [workspace.lints.clippy]

@@ -1,9 +1,11 @@
 # Full text search
 
-[start]
-command = '''rg --column --line-number --no-heading --color=always --smart-case "$FZF_QUERY"'''
+[matcher]
 ansi = true
 require_column = 1
+
+[start]
+command = '''rg --column --line-number --no-heading --color=always --smart-case "$FZF_QUERY"'''
 output = "{=1}:{=2}"
 
 [columns]

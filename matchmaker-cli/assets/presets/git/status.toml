@@ -28,7 +28,6 @@ while IFS= read -r -d '' entry; do
   printf '%s\0%s\n' "$file" "$st"
 done
 '''
-ansi = true
 output = "{=1}"
 
 [columns]
@@ -37,7 +36,8 @@ max = 2
 default = 1
 
 [matcher]
-sort = 40
+ansi = true
+sort.threshold = 40
 
 # --- UI ---
 # [tui]
@@ -87,13 +87,20 @@ git -c  color.ui=always log --ext-diff -D -p -- {1}
 "ctrl-u" = ["@unstage", "Reload"]
 # "ctrl-c" = "@commit"
 "@show" = "@commit"
-"alt-c" = ["ExecuteOrConfirm(git add . && echo 'All changes staged' || echo 'git add . failed')", "@commit"]
+"alt-c" = [
+    "ExecuteOrConfirm(git add . && echo 'All changes staged' || echo 'git add . failed')",
+    "@commit",
+]
 "ctrl-shift-c" = ["@commit_ai", "Reload"]
 "alt-r" = ["@restore", "Reload"]
 "ctrl-t" = ["@stash", "Reload"]
 "alt-t" = ["@stash_unstaged", "Reload"]
 "@rm" = ["#untrack", "@untrack", "Reload"]
-"ctrl-shift-d" = ["#delete", "ExecuteOrConfirm(git add -- {+1}; git rm -rf -- {+1})", "Reload"]
+"ctrl-shift-d" = [
+    "#delete",
+    "ExecuteOrConfirm(git add -- {+1}; git rm -rf -- {+1})",
+    "Reload",
+]
 "alt-d" = ["#delete from disk", "ExecuteOrConfirm(rm -rf -- {+1})", "Reload"]
 "alt-i" = ["@ignore", "Reload"]
 "ctrl-i" = ["#edit gitignore", "Execute($EDITOR .gitignore)", "Reload"]

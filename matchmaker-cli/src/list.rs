@@ -15,11 +15,15 @@ use cba::{
     broc::CommandExt,
     ebog, ibog, wbog,
 };
+use crate::{
+    config::{MatcherConfig, StartConfig},
+    sort::init_mm_sort,
+};
 use matchmaker::{
     Matchmaker,
     action::{Action, Actions},
     binds::Trigger,
-    config::{CommandSetting, EnvValue, MatcherConfig, StartConfig},
+    config::{CommandSetting, EnvValue},
     config_mm::{ConfigPreprocessedData, OddEnds},
     nucleo::{new_snapshot, nucleo::Matcher},
     render::{MMState, State},
@@ -260,13 +264,12 @@ fn with_item<T>(
     let Config {
         render,
         tui,
-        matcher: MatcherConfig { matcher, worker },
+        matcher: MatcherConfig { matcher, sort, preprocess, .. },
         columns,
         start:
             StartConfig {
                 input_separator,
                 command: CommandSetting { separator, .. },
-                preprocess,
                 skip_invalid_lines,
                 ..
             },
@@ -275,8 +278,14 @@ fn with_item<T>(
     } = config;
 
     // -------- read the command's output into the worker ------------
-    let (mut mm, injector, OddEnds { hidden_columns, .. }) =
-        Matchmaker::new_from_config(render, tui, worker, columns, exit, preprocess);
+    let (mut mm, injector, OddEnds {
+        hidden_columns,
+        ranges_fn,
+        ..
+    }) = Matchmaker::new_from_config(render, tui, columns, exit, preprocess);
+
+    // apply the configured sort settings, mirroring `start::start`.
+    init_mm_sort(&mut mm, &ranges_fn, sort);
 
     // stdout is captured (it provides the items); stderr is inherited so it
     // stays visible.

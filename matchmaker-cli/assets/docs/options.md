@@ -22,8 +22,8 @@ Overrides follow the pattern `path=value` or `path value`.
   - `start.output_template` -> `o`
   - `start.command` -> `x`
   - `start.command` -> `cmd`
-  - `start.ansi` -> `a`
-  - `start.trim` -> `t`
+  - `matcher.ansi` -> `a`
+  - `matcher.trim` -> `t`
   - `columns.split` -> `d`
   - `preview.layout` -> `P`
   - `header.content` -> `h`
@@ -107,12 +107,6 @@ All colors and modifiers come from ratatui:
   - Absolute alias: `o`.
 - `on_accept`: (String) Template to execute on accepted items. Exclusive with output_template, output_separator.
 - `sync`: (bool) Whether to wait for the command to finish before starting.
-- `trim`: (bool) Trim whitespace from input lines.
-  - Absolute alias: `t`.
-- `ansi`: (bool) Parse ansi codes from input.
-  - Absolute alias: `a`.
-- `sanitize`: (bool) Sanitize the input text/string from text_preprocessor.
-  - Absolute alias: `s`.
 - `ax`, `additional_commands`: ([String]) Additional commands that can be cycled through using the ReloadNext action.
 - `mode`: (string) The initial mode of the application. Default values (`tty`, `t0`, `piped`, `t1`) depend on whether stdin and stdout are connected to /dev/tty.
 - `d`, `directory`: (string) Change directory context.
@@ -124,7 +118,6 @@ All colors and modifiers come from ratatui:
 - `save_orphans`: (bool) Don't kill the last populating command when reloading.
 - `skip_invalid_lines`: (bool) If false, aborts program when encountering an invalid utf-8 input line.
 - `shell`: ([string]) Interpreter arguments used to execute start/action scripts, for example `["bash", "-c"]`. An empty list uses `$SHELL` (or `/bin/sh`).
-- `require_column`: (integer, optional) Skip input lines whose specified column is empty.
 
 ### Exit (`exit.`, `e`)
 
@@ -139,13 +132,18 @@ All colors and modifiers come from ratatui:
 - `ignore_case`: (bool) Enable/disable case-insensitive matching.
 - `prefer_prefix`: (bool) Prioritize matches that start with the query.
 - `match_paths`: (bool) Enable path-aware matching.
-
-#### Worker *(flattened)*
-
-- `sort_threshold`, `sort`: (number) Similarity threshold within which item order is preserved (0 to always sort).
-- `raw`: Enable raw mode where non-matching items are also displayed in a dimmed color. (unimplemented)
-- `track`: Track the current selection when the result list is updated. (unimplemented)
-- `reverse`: Reverse the order of the input.
+- `trim`: (bool) Trim whitespace from input lines.
+  - Absolute alias: `t`.
+- `ansi`: (bool) Parse ansi codes from input.
+  - Absolute alias: `a`.
+- `sanitize`: (bool) Sanitize the input text/string from text_preprocessor.
+- `require_column`: (integer, optional) Skip input lines whose specified column is empty.
+- `raw`: (bool) Enable raw mode where non-matching items are also displayed in a dimmed color. (unimplemented)
+- `track`: (bool) Track the current selection when the result list is updated. (unimplemented)
+- `sort.reverse`: (bool) Reverse the order of the input.
+- `sort.mode`: (string) Sort mode: `None` (default), `Lexicographic`, or `Numeric`.
+- `sort.column`: (string) Name of the column to sort by; empty uses the primary column.
+- `sort.threshold`: (number) Similarity threshold within which item order is preserved (0 to always sort).
 
 ### Columns (`columns.`, `c`)
 

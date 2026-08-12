@@ -85,7 +85,7 @@ content = ["extension", "on"]
 prompt = "extensions> "
 
 [matcher]
-sort = 40
+sort.threshold = 40
 
 # --- Preview ---
 [preview]

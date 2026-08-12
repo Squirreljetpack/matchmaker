@@ -1,13 +1,15 @@
 # Find and kill processes
 
+[matcher]
+ansi = false
+trim = true
+
 [start]
 command = "ps -eo pgid,pid,user,%cpu,vsz,rss,etime,stat,command"
 additional_commands = [
     "",
     "lsof -nP -i",
 ]
-ansi = false
-trim = true
 
 [header]
 header_lines = 1

@@ -1,6 +1,8 @@
+[matcher]
+ansi = true
+
 [start]
 command = 'man -k "$@"'
-ansi = true
 
 [envs]
 MANcmd = { value = 'command -v batman >/dev/null && echo batman || echo man', exec = true }

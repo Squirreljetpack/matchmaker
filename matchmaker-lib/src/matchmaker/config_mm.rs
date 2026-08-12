@@ -1,12 +1,11 @@
 use crate::{
+    AcceptHook, Matchmaker,
     config::{
         ColumnsConfig, ExitConfig, PreprocessConfig, RenderConfig, StringOrInt, TerminalConfig,
-        WorkerConfig,
     },
-    nucleo::{injector::WorkerInjector, Column, Worker},
+    nucleo::{Column, Worker, injector::WorkerInjector},
     render::{EventHandlers, InterruptHandlers, MMState},
     utils::text::{self, sanitize_string},
-    AcceptHook, Matchmaker,
 };
 
 use ansi_to_tui::IntoText;
@@ -16,24 +15,18 @@ use std::{borrow::Cow, sync::Arc};
 pub struct OddEnds {
     pub hidden_columns: Vec<usize>,
     pub has_error: bool,
-    /// Factory producing per-column range lookups. Given a column index `n`,
-    /// returns a closure that maps an input `&String` to the `(start, end)`
-    /// byte range of its `n`-th segment. The factory mirrors the trim/ansi
-    /// handling of [`build_columns`]'s preprocessors, so the returned ranges
-    /// align with the bytes a column would render.
     pub ranges_fn: RangesFactory<String>,
 }
 
-/// A closure that, given an input string, returns the extracted substring
-/// for one of its column segments. Returns `Cow::Borrowed` when the segment
-/// can be obtained directly from the input (no ANSI stripping required) and
+/// A closure that, given an input string, returns the rendered value of one
+/// of its columns. Returns `Cow::Borrowed` when the column value can be
+/// obtained directly from the input (no ANSI stripping required) and
 /// `Cow::Owned` when the preprocessor had to materialize a plain copy
 /// (e.g. after stripping ANSI escapes).
 pub type RangesFn<T> = Arc<dyn for<'a> Fn(&'a T) -> Cow<'a, str> + Send + Sync>;
 
 /// A factory: given a column index `n`, returns a [`RangesFn`] for that
-/// column. Cloning the `Arc` is cheap; calling with a new `n` produces a
-/// fresh per-column lookup closure.
+/// column.
 pub type RangesFactory<T> = Arc<dyn Fn(usize) -> RangesFn<T> + Send + Sync>;
 
 pub type ConfigMatchmaker = Matchmaker<String, String, ConfigPreprocessedData>;
@@ -45,7 +38,6 @@ impl ConfigMatchmaker {
     pub fn new_from_config(
         render_config: RenderConfig,
         tui_config: TerminalConfig,
-        worker_config: WorkerConfig,
         columns_config: ColumnsConfig,
         exit_config: ExitConfig,
         preprocess_config: PreprocessConfig,
@@ -68,22 +60,18 @@ impl ConfigMatchmaker {
         let default_index = default_column(&cc, &columns);
 
         let mut worker = Worker::new(columns, default_index, raw_preprocessor, text_preprocessor);
-
-        worker.reverse_items(worker_config.reverse);
-        worker.set_stability(*worker_config.sort_threshold);
         for (i, c) in cc.names.iter().enumerate() {
             worker.set_column_options(i, c.options)
         }
 
         let injector = worker.injector();
 
-        // Build the default accept_hook: returns empty Vec<String> by default.
-        // The CLI overrides this in `start.rs` via the `on_accept`/`output_template`
-        // logic. The hook is just a placeholder for the structural refactor; the
-        // real accept pipeline will replace it.
+        // Build the default accept_hook: outputs the selected (or current)
+        // items. The CLI overrides this in `start.rs` via the
+        // `on_accept`/`output_template` logic.
         let accept_hook = Box::new(
-            |_state: &mut MMState<'_, '_, String, ConfigPreprocessedData>| -> Vec<String> {
-                vec![]
+            |state: &mut MMState<'_, '_, String, ConfigPreprocessedData>| -> Vec<String> {
+                state.map_selected_to_vec(|_, item| item.clone())
             },
         ) as AcceptHook<String, ConfigPreprocessedData, String>;
 
@@ -126,7 +114,7 @@ pub type ConfigInjector = WorkerInjector<String, ConfigPreprocessedData>;
 /// Returns `(columns, raw_preprocessor, text_preprocessor, ranges_fn)`. The
 /// default column is *not* resolved here — call [`default_column`] afterwards
 /// with the returned columns. `ranges_fn` is a factory producing per-column
-/// range lookups (see [`RangesFactory`]) and mirrors the `trim`/`ansi`
+/// value lookups (see [`RangesFactory`]) and mirrors the `trim`/`ansi`
 /// behavior of the other preprocessors.
 pub fn build_columns(
     cc: &ColumnsConfig,

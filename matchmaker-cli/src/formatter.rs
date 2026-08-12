@@ -470,7 +470,6 @@ mod tests {
         let (mm, injector, _misc) = ConfigMatchmaker::new_from_config(
             Default::default(),
             Default::default(),
-            Default::default(),
             columns_config,
             Default::default(),
             Default::default(),
@@ -712,7 +711,6 @@ mod tests {
         let (mut mm, injector, _misc) = ConfigMatchmaker::new_from_config(
             Default::default(),
             Default::default(),
-            Default::default(),
             columns_config,
             Default::default(),
             preprocess,
@@ -753,7 +751,6 @@ mod tests {
         };
 
         let (mut mm, injector, _misc) = ConfigMatchmaker::new_from_config(
-            Default::default(),
             Default::default(),
             Default::default(),
             columns_config,

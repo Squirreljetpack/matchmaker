@@ -53,7 +53,7 @@ command = '''
 '''
 
 [matcher]
-sort = 40
+sort.threshold = 40
 
 [columns]
 split = ','

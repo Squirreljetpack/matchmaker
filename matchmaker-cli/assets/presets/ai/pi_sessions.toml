@@ -15,7 +15,7 @@ for f in **/*.jsonl; do
 
     cwd=$(head -n 1 -- "$f" | jq -r '.cwd')
     printf "%s\t%s\t%s\t%s\n" "$f" "$ts" "${cwd/#$HOME\//~/}" "$session"
-done | sort -t $'\t' -r -k 2,2
+done
 '''
 
 directory = { value = "~/.pi/agent/sessions", force = true }
@@ -37,8 +37,13 @@ split = '\t'
 
 [header]
 content = ["file", "mtime", "dir", "id"]
-[matcher]
-sort = 40
+
+[matcher.sort]
+reverse = true
+mode = "Lexicographic"
+column = "mtime"
+threshold = 40
+
 # --- Preview ---
 [preview]
 show = true
@@ -113,7 +118,10 @@ fi
 "@show" = '''ExecuteOrConfirm(mkdir -p $TMPdir && node "$(dirname -- "$MM_OVERRIDE")"/export-pi-session.mjs -o $TMPdir/session.html $PWD/{file} && eval $OPENcmd /tmp/pi/html/session.html)'''
 "@open_2" = 'ExecuteOrConfirm(fx {1})'
 "0,1^^@accept" = 'Become(cwd={dir}; cd "${cwd/#\~/$HOME}" && pi --session {id})'
-"0,1^^@accept_2" = ['#fork', 'Become(cwd={dir}; cd "${cwd/#\~/$HOME}" && pi --fork {id})']
+"0,1^^@accept_2" = [
+    '#fork',
+    'Become(cwd={dir}; cd "${cwd/#\~/$HOME}" && pi --fork {id})',
+]
 "?" = "SwitchPreview"
 "@rm" = ["ExecuteAsync(rm -- {+file})", "Reload"]
 "@copy" = "CopyAsync(printf '%s\n' {+id})"

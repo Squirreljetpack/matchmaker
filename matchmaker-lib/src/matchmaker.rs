@@ -17,8 +17,8 @@ use crate::{
     ui::{Overlay, OverlayUI, UI},
 };
 
-mod handlers;
-pub use handlers::*;
+mod register;
+pub use register::*;
 pub mod config_mm;
 /// A boxed closure that produces the `Vec<S>` result of a pick.
 ///

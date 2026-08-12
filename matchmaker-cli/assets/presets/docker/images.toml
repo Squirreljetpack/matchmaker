@@ -1,10 +1,12 @@
 # Docker/Podman image viewer
 source = "base.toml"
 
+[matcher]
+trim = true
+
 [start]
 command = '$DOCKERcmd image ls --format "{{.Repository}}	{{.Tag}}	{{.ID}}	{{.CreatedAt}}	{{.Size}}"'
 input_separator = "\n"
-trim = true
 
 [header]
 header_lines = 1

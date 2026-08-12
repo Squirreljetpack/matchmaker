@@ -156,8 +156,6 @@ impl<A: ActionExt> EventLoop<A> {
 
     fn get_bind(&self, kind: TriggerKind) -> Option<Actions<A>> {
         let binds = self.binds.load();
-        // The resolved bindmap is keyed by TriggerKind for O(1) lookups.
-        // Mode filtering was already applied during resolve_semantics.
         binds.get(&kind).cloned()
     }
 

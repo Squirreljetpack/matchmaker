@@ -113,7 +113,7 @@ max = 120
 
 [matcher]
 trim = true
-sort_threshold = 1
+sort.threshold = 1
 
 [columns]
 split = '\s+'

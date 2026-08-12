@@ -23,7 +23,6 @@ command = '''
         }
     '
 '''
-ansi = true
 
 [envs]
 RESOLVE_TARGET = '''
@@ -45,7 +44,8 @@ names = ["pid", "status", "label"]
 default = "label"
 
 [matcher]
-sort = 100
+ansi = true
+sort.threshold = 100
 
 [preview]
 show = true

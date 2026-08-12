@@ -8,6 +8,7 @@ mod logger;
 mod parse;
 mod paths;
 mod register;
+mod sort;
 mod start;
 mod utils;
 

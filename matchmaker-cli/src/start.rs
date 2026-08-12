@@ -11,13 +11,13 @@ use std::{
 use crate::{
     action::{ActionContext, MMAction, MMState, action_handler},
     clap::Cli,
-    config::PartialConfig,
+    config::{Config, MatcherConfig, PartialConfig, StartConfig},
     formatter::format_cli,
-    paths::{last_key_path, presets_path},
+    paths::{default_config_path, last_key_path, presets_path},
     register::MMExt,
+    sort::init_mm_sort,
     utils::{expand_tilde, guess_editor_cmd, guess_pager_cmd},
 };
-use crate::{config::Config, paths::default_config_path};
 use cba::{
     _wbog,
     bait::{OptionExt, ResultExt, TransformExt},
@@ -33,7 +33,7 @@ use log::debug;
 use matchmaker::{
     Action, Either, MatchError, Matchmaker, PickOptions, SSS, bindmap,
     binds::{BindMap, BindMapExt, Trigger},
-    config::{CommandSetting, EnvValue, MatcherConfig, StartConfig},
+    config::{CommandSetting, EnvValue},
     config_mm::{ConfigInjector, ConfigPreprocessedData, OddEnds},
     event::{EventLoop, RenderSender},
     make_previewer,
@@ -343,7 +343,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         render,
         tui,
         previewer,
-        matcher: MatcherConfig { matcher, worker },
+        matcher: MatcherConfig { matcher, sort, preprocess, .. },
         columns,
         binds,
         start:
@@ -354,7 +354,6 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                 sync,
                 output_separator,
                 output_template,
-                preprocess,
                 mut additional_commands,
                 mode,
                 shell,
@@ -454,7 +453,6 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
     let header_lines = render.header.header_lines;
     let print_handle = AppendOnly::new();
     let output_separator = output_separator.clone().unwrap_or("\n".into());
-    let sort_descending = worker.reverse;
 
     if exit.last_key_path.is_none() {
         exit.last_key_path = Some(last_key_path().into())
@@ -493,11 +491,14 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             has_error,
             ranges_fn,
         },
-    ) = Matchmaker::new_from_config(render, tui, worker, columns, exit, preprocess);
+    ) = Matchmaker::new_from_config(render, tui, columns, exit, preprocess);
 
     if has_error {
         return START_ERROR;
     }
+
+    // apply the configured sort settings (reverse/threshold/mode+column) to the worker.
+    init_mm_sort(&mut mm, &ranges_fn, sort.clone());
 
     // make previewer
     if !event_loop.original_binds().check_traces() {
@@ -651,8 +652,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         render_tx: render_tx.clone(),
         additional_commands: (additional_commands, initial_index),
         ranges_fn,
-        sort: None,
-        sort_descending,
+        sort,
         osc52,
     };
 

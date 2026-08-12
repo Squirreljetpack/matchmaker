@@ -559,6 +559,24 @@ impl ResultsUI {
         self.hidden_columns.gap_index(idx)
     }
 
+    /// Maps the `idx`-th displayed column (a column rendered with a nonzero
+    /// width) to its index in the worker's columns. Displayed columns are a
+    /// subset of the non-hidden columns — hidden columns always have width 0.
+    /// Returns `None` when `idx` is out of bounds or widths are not computed
+    /// yet.
+    pub fn get_col_by_display_index(&self, idx: usize) -> Option<usize> {
+        let mut n = 0;
+        for (i, &w) in self.width_limits.iter().enumerate() {
+            if w > 0 {
+                if n == idx {
+                    return Some(i);
+                }
+                n += 1;
+            }
+        }
+        None
+    }
+
     pub fn get_gutter_col_idx(&self, x: u16) -> Option<usize> {
         let mut pos = self.indentation() as u16;
         if self.config.column_spacing.0 == 0 {
@@ -604,6 +622,27 @@ mod tests {
         assert_eq!(results.get_gutter_col_idx(13), Some(0));
         assert_eq!(results.get_gutter_col_idx(14), None);
         assert_eq!(results.get_gutter_col_idx(34), Some(1));
+    }
+
+    #[test]
+    fn test_get_col_by_index() {
+        use crate::collections::HiddenColumns;
+        let config = ResultsConfig::default();
+        let mut results = ResultsUI::new(config);
+        let mut hc = HiddenColumns::new_with_size(4);
+        hc.set(1); // hide column 1
+        results.hidden_columns = hc;
+        // widths: column 0 and 2 displayed, column 3 not (width 0)
+        results.width_limits = vec![10, 0, 20, 0];
+
+        assert_eq!(results.get_col_by_display_index(0), Some(0));
+        assert_eq!(results.get_col_by_display_index(1), Some(2));
+        assert_eq!(results.get_col_by_display_index(2), None); // out of bounds
+        assert_eq!(results.get_col_by_display_index(3), None); // out of bounds
+
+        // Uninitialized widths -> None.
+        results.width_limits = Vec::new();
+        assert_eq!(results.get_col_by_display_index(0), None);
     }
 
     #[test]

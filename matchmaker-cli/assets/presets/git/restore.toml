@@ -32,7 +32,7 @@ max = 3
 default = 1
 
 [matcher]
-sort = 40
+sort.threshold = 40
 
 [envs]
 # --date=human looks better but is less searchable

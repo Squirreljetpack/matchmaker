@@ -1,13 +1,11 @@
-use std::{cmp::Ordering, process::Command, str::FromStr, sync::Arc};
+use std::{process::Command, str::FromStr};
 
-use atoi::FromRadix10;
 use cba::{
-    StringError, bait::ResultExt, bring::split::split_on_delimiter_with_doubled_escape,
-    broc::CommandExt, unwrap,
+    bait::ResultExt, bring::split::split_on_delimiter_with_doubled_escape, broc::CommandExt,
+    unwrap, StringError,
 };
 use log::{debug, error};
 use matchmaker::{
-    Action, Actions,
     binds::Trigger,
     config::PartialRenderConfig,
     config_mm::{ConfigPreprocessedData, RangesFactory},
@@ -15,11 +13,12 @@ use matchmaker::{
     message::{BindDirective, Interrupt, RenderCommand},
     nucleo::Line,
     ui::StatusUI,
+    Action, Actions,
 };
 use matchmaker_partial::{Apply, Set};
 
-/// Sort function type accepted by `nucleo.sort_with` over `String` items.
-type StringSortFn = Arc<dyn Fn((u32, &String), (u32, &String)) -> bool + Send + Sync>;
+use crate::config::SortSetting;
+use crate::sort::{apply_sort, expand_maybe_column, handle_sort_reverse, SortMode};
 
 pub type MMState<'a, 'b> = matchmaker::render::MMState<'a, 'b, String, ConfigPreprocessedData>;
 
@@ -110,12 +109,9 @@ pub struct ActionContext {
     pub additional_commands: (Vec<String>, usize),
     /// Factory producing per-column range lookups. See [`matchmaker::config_mm::RangesFactory`].
     pub ranges_fn: RangesFactory<String>,
-    /// Active custom sort mode, if any. Set by `Sort`/`SortNumeric` and used
-    /// to toggle the sort off when the same mode is re-applied.
-    pub sort: Option<SortMode>,
-    /// Current sort direction. `false` is ascending, `true` is descending.
-    /// Tracked locally so `SortReverse(None)` can toggle it.
-    pub sort_descending: bool,
+    /// Active custom sort settings. Seeded from `matcher.sort` and mutated by
+    /// the `Sort`/`SortNumeric`/`SortReverse` actions.
+    pub sort: SortSetting,
     /// Whether OSC 52 clipboard copying is enabled. Used to select the
     /// `Copy`/`CopyAsync` handler discriminant (1 = host clipboard, 0 = CLIPcmd).
     pub osc52: bool,
@@ -133,7 +129,6 @@ pub fn action_handler(
         additional_commands,
         ranges_fn,
         sort,
-        sort_descending,
         osc52,
     }: &mut ActionContext,
 ) {
@@ -193,15 +188,19 @@ pub fn action_handler(
 
         // sort
         MMAction::Sort(idx) => {
-            let n = expand_maybe_column(state, idx);
-            handle_sort(state, ranges_fn, n, SortMode::Lexicographic, sort);
+            let Some(n) = expand_maybe_column(state, idx) else {
+                return;
+            };
+            apply_sort(state, ranges_fn, n, SortMode::Lexicographic, sort);
         }
         MMAction::SortNumeric(idx) => {
-            let n = expand_maybe_column(state, idx);
-            handle_sort(state, ranges_fn, n, SortMode::Numeric, sort);
+            let Some(n) = expand_maybe_column(state, idx) else {
+                return;
+            };
+            apply_sort(state, ranges_fn, n, SortMode::Numeric, sort);
         }
         MMAction::SortReverse(dir) => {
-            handle_sort_reverse(state, dir, sort_descending);
+            handle_sort_reverse(state, dir, sort);
         }
         MMAction::SortThreshold(threshold) => {
             state
@@ -592,114 +591,6 @@ use enum_from_str_display;
 
 use crate::formatter::format_cli;
 
-/// Sort mode used by `apply_sort`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum SortMode {
-    Lexicographic,
-    Numeric,
-}
-
-impl SortMode {
-    fn compare(self, a: &str, b: &str) -> Ordering {
-        match self {
-            SortMode::Lexicographic => a.cmp(b),
-            SortMode::Numeric => {
-                let fa = parse_float(a.as_bytes());
-                let fb = parse_float(b.as_bytes());
-                match (fa, fb) {
-                    (Some(x), Some(y)) => x.partial_cmp(&y).unwrap_or(Ordering::Equal),
-                    (Some(_), None) => Ordering::Less,
-                    (None, Some(_)) => Ordering::Greater,
-                    (None, None) => a.cmp(b),
-                }
-            }
-        }
-    }
-}
-
-/// Parse a `f64` from a byte slice using `atoi::FromRadix10` for the integer
-/// part. Mirrors the spec: `n` is the integer part, and a trailing `.` triggers
-/// decimal parsing. Returns `None` if the input does not start with a digit.
-fn parse_float(input: &[u8]) -> Option<f64> {
-    let (n, used) = u64::from_radix_10(input);
-    if used == 0 {
-        return None;
-    }
-    let rest = &input[used..];
-    if rest.first() == Some(&b'.') {
-        let (d, used2) = u64::from_radix_10(&rest[1..]);
-        if used2 == 0 {
-            // "3." with no decimal digits — treat as integer.
-            return Some(n as f64);
-        }
-        // Build "<n>.<d>" and let `f64::from_str` handle the float math.
-        let mut buf = String::with_capacity(used + 1 + used2);
-        use std::fmt::Write;
-        let _ = write!(&mut buf, "{n}.{d}");
-        buf.parse().ok()
-    } else {
-        Some(n as f64)
-    }
-}
-
-fn expand_maybe_column(state: &MMState<'_, '_>, idx: Option<usize>) -> usize {
-    match idx {
-        None => state.picker_ui.active_column_index(),
-        Some(i) => state.picker_ui.results.expand_idx(i),
-    }
-}
-
-fn apply_sort(
-    state: &mut MMState<'_, '_>,
-    ranges_fn: &RangesFactory<String>,
-    n: usize,
-    mode: SortMode,
-) {
-    let lookup = ranges_fn(n);
-    let lookup_for_closure = lookup.clone();
-    let sort_fn: StringSortFn =
-        Arc::new(move |(_ia, a): (u32, &String), (_ib, b): (u32, &String)| {
-            let sub_a: &str = &lookup_for_closure(a);
-            let sub_b: &str = &lookup_for_closure(b);
-            mode.compare(sub_a, sub_b) == Ordering::Less
-        });
-
-    // state.picker_ui.worker.nucleo.reverse_items(true);
-    state.picker_ui.worker.nucleo.sort_with(Some(sort_fn));
-    state.picker_ui.worker.nucleo.set_stability(u32::MAX);
-    state.worker_resort();
-}
-
-fn handle_sort(
-    state: &mut MMState<'_, '_>,
-    ranges_fn: &RangesFactory<String>,
-    n: usize,
-    mode: SortMode,
-    sort_discriminant: &mut Option<SortMode>,
-) {
-    if *sort_discriminant == Some(mode) {
-        state.picker_ui.worker.nucleo.sort_with(None);
-        state.picker_ui.worker.nucleo.set_stability(0);
-        state.picker_ui.worker.nucleo.resort();
-        *sort_discriminant = None;
-    } else {
-        apply_sort(state, ranges_fn, n, mode);
-        *sort_discriminant = Some(mode);
-    }
-}
-
-#[allow(unused)]
-fn handle_sort_reverse(state: &mut MMState<'_, '_>, dir: Option<bool>, sort_descending: &mut bool) {
-    let new_dir = match dir {
-        Some(b) => b,
-        None => !*sort_descending,
-    };
-    *sort_descending = new_dir;
-
-    state.picker_ui.worker.nucleo.reverse_items(new_dir);
-    state.picker_ui.worker.nucleo.resort();
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -739,49 +630,5 @@ mod tests {
 
         let (_trigger, action) = parse_push_bind_parts(&push_inner).unwrap();
         assert_eq!(action, Action::Semantic("enter_mm".into()));
-    }
-
-    #[test]
-    fn test_parse_float() {
-        // Integer inputs.
-        assert_eq!(parse_float(b"3"), Some(3.0));
-        assert_eq!(parse_float(b"0"), Some(0.0));
-        assert_eq!(parse_float(b"42"), Some(42.0));
-
-        // Float inputs (using values exactly representable in f64 to avoid
-        // rounding artifacts; the parser is `f64::from_str` under the hood).
-        assert_eq!(parse_float(b"3.5"), Some(3.5));
-        assert_eq!(parse_float(b"0.5"), Some(0.5));
-        assert_eq!(parse_float(b"100.25"), Some(100.25));
-
-        // Trailing dot with no decimals -> integer.
-        assert_eq!(parse_float(b"3."), Some(3.0));
-
-        // Extra text after the number is ignored by atoi.
-        assert_eq!(parse_float(b"42abc"), Some(42.0));
-
-        // Unparseable inputs.
-        assert_eq!(parse_float(b""), None);
-        assert_eq!(parse_float(b"abc"), None);
-        assert_eq!(parse_float(b".5"), None); // no leading digit
-    }
-
-    #[test]
-    fn test_sort_mode_numeric_orders_correctly() {
-        // Numeric mode must put "2" before "10".
-        let mode = SortMode::Numeric;
-        assert_eq!(mode.compare("2", "10"), Ordering::Less);
-        assert_eq!(mode.compare("10", "2"), Ordering::Greater);
-        assert_eq!(mode.compare("3.14", "3.2"), Ordering::Less);
-
-        // Lexicographic mode keeps the wrong order.
-        let lex = SortMode::Lexicographic;
-        assert_eq!(lex.compare("2", "10"), Ordering::Greater);
-
-        // Unparseable falls back to lexicographic.
-        assert_eq!(mode.compare("abc", "abd"), Ordering::Less);
-        // One parseable, one not: parseable sorts first.
-        assert_eq!(mode.compare("10", "abc"), Ordering::Less);
-        assert_eq!(mode.compare("abc", "10"), Ordering::Greater);
     }
 }

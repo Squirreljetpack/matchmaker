@@ -7,13 +7,13 @@ use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     sync::{
-        Arc,
         atomic::{self, AtomicU32},
+        Arc,
     },
 };
 
 use super::{injector::WorkerInjector, query::PickerQuery};
-use crate::{SSS, config::StringOrInt};
+use crate::{config::StringOrInt, SSS};
 
 type ColumnFormatFn<T, D> = Box<dyn for<'a> Fn(&'a T, &'a D) -> Text<'a> + Send + Sync>;
 type ColumnRawFn<T, D> = Box<dyn for<'a> Fn(&'a T, &'a D) -> Cow<'a, str> + Send + Sync>;
@@ -154,6 +154,16 @@ where
         }
 
         self.column_options[index] = options
+    }
+
+    /// Returns the index of the column with the given name. An empty name
+    /// resolves to the primary column. Returns `None` when no column has
+    /// that name.
+    pub fn get_column_index(&self, column: &str) -> Option<usize> {
+        if column.is_empty() {
+            return Some(self.query.primary_column_index());
+        }
+        self.columns.iter().position(|c| c.name.as_ref() == column)
     }
 
     pub fn reverse_items(&mut self, reverse_items: bool) {

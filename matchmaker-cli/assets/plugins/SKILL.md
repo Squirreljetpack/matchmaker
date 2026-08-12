@@ -39,7 +39,7 @@ Use section comments to separate the input, UI, preview, and action portions. Ke
 - Use `start.input_separator` when input items are separated by something other than newlines.
 - Use `[envs]` for stable values shared by commands. An environment entry can also be command-backed with `value = ...`, `exec = true`, and `force = true` when deriving the value or requiring it to exist is intentional.
 - Use `columns.split` (`'\t'`, `csv`, `tsv`, or a regex) when rows contain multiple fields. Give important fields names with `columns.names`; names must be alphanumeric.
-- Set `start.trim`, `start.ansi`, and `start.skip_invalid_lines` deliberately rather than relying on defaults.
+- Set `matcher.trim`, `matcher.ansi`, and `start.skip_invalid_lines` deliberately rather than relying on defaults.
 - Choose an explicit `start.output_template`, `start.output_separator`, or `start.on_accept` when the accepted value should differ from the displayed row.
 - `start.command` and values in `[envs]` are **not** template-expanded. Templates belong in preview commands, bind actions, and output/accept hooks.
 - Treat a preset's input command as a public interface. Quote paths, handle empty output, and return a useful non-zero status when the source cannot be read.

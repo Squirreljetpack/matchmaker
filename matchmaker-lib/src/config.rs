@@ -7,12 +7,12 @@ use matchmaker_partial_macros::partial;
 use ratatui::layout::Rect;
 
 pub use crate::config_types::*;
-pub use crate::utils::{Percentage, serde::StringOrVec};
-
-use crate::{
-    tui::IoStream,
-    utils::serde::{escaped_opt_char, escaped_opt_string, os_strings},
+pub use crate::utils::{
+    Percentage,
+    serde::{StringOrVec, escaped_opt_char, escaped_opt_string, os_strings},
 };
+
+use crate::tui::IoStream;
 
 use cba::serde::transform::{camelcase_normalized, camelcase_normalized_option};
 use ratatui::{
@@ -22,90 +22,6 @@ use ratatui::{
 };
 
 use serde::{Deserialize, Serialize};
-
-/// Settings unrelated to event loop/picker_ui.
-///
-/// Does not deny unknown fields.
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[partial(recurse, path, derive(Debug, Deserialize))]
-pub struct MatcherConfig {
-    #[serde(flatten)]
-    #[partial(skip)]
-    pub matcher: NucleoMatcherConfig,
-    #[serde(flatten)]
-    pub worker: WorkerConfig,
-}
-
-/// "Input/output specific". Configures the matchmaker worker.
-///
-/// Does not deny unknown fields.
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
-pub struct WorkerConfig {
-    /// How "stable" the results are. Higher values prioritize the initial ordering.
-    #[serde(alias = "sort")]
-    pub sort_threshold: SortThreshold,
-    /// TODO: Enable raw mode where non-matching items are also displayed in a dimmed color.
-    #[partial(alias = "r")]
-    pub raw: bool,
-    /// TODO: Track the current selection when the result list is updated.
-    pub track: bool,
-    /// Reverse the order of the input
-    pub reverse: bool,
-}
-
-/// (client-app responsibility). Configures how input is fed to to the worker(s).
-/// Unfortunately, we cannot use deny_unknown_fields if we want to flatten PreprocessConfig
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
-pub struct StartConfig {
-    #[serde(deserialize_with = "escaped_opt_char")]
-    #[partial(alias = "is")]
-    pub input_separator: Option<char>,
-
-    /// Print accepted items as.
-    #[serde(deserialize_with = "escaped_opt_string")]
-    #[partial(alias = "os")]
-    pub output_separator: Option<String>,
-    /// Format string to print accepted items as.
-    #[partial(alias = "ot")]
-    #[serde(alias = "output")]
-    pub output_template: Option<String>,
-    /// Execution template for accepted items. Exclusive with output_template and output_separator.
-    pub on_accept: String,
-
-    /// Default command to execute when stdin is not being read.
-    #[partial(alias = "cmd", alias = "x")]
-    pub command: CommandSetting,
-    /// Additional command which can be cycled through using Action::ReloadNext
-    #[partial(alias = "ax")]
-    pub additional_commands: Vec<String>,
-
-    /// Execution directory
-    #[partial(alias = "d")]
-    pub directory: EnvValue,
-
-    pub sync: bool,
-
-    #[serde(flatten)]
-    #[partial(recurse)]
-    pub preprocess: PreprocessConfig,
-
-    /// Override the default mode
-    pub mode: Option<String>,
-
-    /// Shell to execute scripts with, e.g. `["bash", "-c"]`. Empty (the
-    /// default) uses `$SHELL` (or `/bin/sh`).
-    #[serde(deserialize_with = "os_strings::deserialize")]
-    pub shell: Vec<OsString>,
-
-    /// Don't kill the last populating command when reloading
-    pub save_orphans: bool,
-    /// If false, aborts program when encountering an invalid utf-8 input line
-    pub skip_invalid_lines: bool,
-}
 
 /// Configures how columns/text are preprocessed.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -770,7 +686,7 @@ pub struct PreviewerConfig {
     pub shell: Vec<OsString>,
     pub trim_commands: bool,
 
-    /// See [`StartConfig`]
+    /// Extra arguments passed to preview commands.
     pub command_args: Vec<OsString>,
 }
 

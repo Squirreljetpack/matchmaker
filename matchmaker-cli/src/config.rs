@@ -5,9 +5,10 @@ use matchmaker_partial_macros::partial;
 
 use matchmaker::action::Actions;
 use matchmaker::binds::Trigger;
-use std::collections::HashMap;
+use std::{collections::HashMap, ffi::OsString};
 
 use crate::action::MMAction;
+use crate::sort::SortMode;
 
 #[derive(Clone, PartialEq, Serialize)]
 #[partial(recurse, path)]
@@ -65,6 +66,100 @@ pub struct Config {
     #[serde(default)]
     #[partial(no_recurse)]
     pub source: Option<std::path::PathBuf>,
+}
+
+// -----------------------
+
+/// Settings unrelated to event loop/picker_ui.
+///
+/// Does not deny unknown fields.
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[partial(path, derive(Debug, Deserialize))]
+pub struct MatcherConfig {
+    #[serde(flatten)]
+    #[partial(skip)]
+    pub matcher: NucleoMatcherConfig,
+    /// Configures how input is fed to the worker(s).
+    #[serde(flatten)]
+    #[partial(recurse)]
+    pub preprocess: PreprocessConfig,
+    /// Startup sort settings, applied to the worker on start.
+    #[partial(recurse)]
+    #[serde(default)]
+    pub sort: SortSetting,
+    /// TODO: Enable raw mode where non-matching items are also displayed in a dimmed color.
+    #[partial(alias = "r")]
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub raw: bool,
+    /// TODO: Track the current selection when the result list is updated.
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub track: bool,
+}
+
+/// Startup sort settings, applied to the worker on start and mutated at
+/// runtime by the `Sort`/`SortNumeric`/`SortReverse` actions.
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+#[partial(path, derive(Debug, Deserialize))]
+pub struct SortSetting {
+    /// Reverse the sort direction.
+    pub reverse: bool,
+    /// Sort mode; `None` (the default) keeps the input order.
+    pub mode: SortMode,
+    /// Name of the column to sort by; empty uses the primary column.
+    pub column: String,
+    /// How "stable" the results are. Higher values prioritize the initial ordering.
+    pub threshold: SortThreshold,
+}
+
+/// (client-app responsibility). Configures how input is fed to to the worker(s).
+/// Unfortunately, we cannot use deny_unknown_fields if we want to flatten PreprocessConfig
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
+pub struct StartConfig {
+    #[serde(deserialize_with = "escaped_opt_char")]
+    #[partial(alias = "is")]
+    pub input_separator: Option<char>,
+
+    /// Print accepted items as.
+    #[serde(deserialize_with = "escaped_opt_string")]
+    #[partial(alias = "os")]
+    pub output_separator: Option<String>,
+    /// Format string to print accepted items as.
+    #[partial(alias = "ot")]
+    #[serde(alias = "output")]
+    pub output_template: Option<String>,
+    /// Execution template for accepted items. Exclusive with output_template and output_separator.
+    pub on_accept: String,
+
+    /// Default command to execute when stdin is not being read.
+    #[partial(alias = "cmd", alias = "x")]
+    pub command: CommandSetting,
+    /// Additional command which can be cycled through using Action::ReloadNext
+    #[partial(alias = "ax")]
+    pub additional_commands: Vec<String>,
+
+    /// Execution directory
+    #[partial(alias = "d")]
+    pub directory: EnvValue,
+
+    pub sync: bool,
+
+    /// Override the default mode
+    pub mode: Option<String>,
+
+    /// Shell to execute scripts with, e.g. `["bash", "-c"]`. Empty (the
+    /// default) uses `$SHELL` (or `/bin/sh`).
+    #[serde(deserialize_with = "os_strings::deserialize")]
+    pub shell: Vec<OsString>,
+
+    /// Don't kill the last populating command when reloading
+    pub save_orphans: bool,
+    /// If false, aborts program when encountering an invalid utf-8 input line
+    pub skip_invalid_lines: bool,
 }
 
 // -----------------------

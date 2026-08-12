@@ -73,6 +73,7 @@ always_trigger = true
 
 # --- Misc ---
 [matcher]
+# ansi = false # don't set to true here
 
 [columns]
 
@@ -87,7 +88,6 @@ if (Get-Command fd -ErrorAction SilentlyContinue) {
 separator = "\\0"
 
 [start]
-ansi = false # don't set to true here
 skip_invalid_lines = true # set false to error on encountering invalid utf-8
 
 [exit]

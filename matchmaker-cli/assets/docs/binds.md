@@ -369,9 +369,11 @@ You can mimic `fzf`'s [ripgrep example](https://github.com/junegunn/fzf/blob/mas
 [query]
 prompt_style.fg = "Red"
 
+[matcher]
+ansi = true
+
 [start]
 command = 'rg --column --line-number --no-heading --color=always --smart-case "$FZF_QUERY"'
-ansi = true
 
 [binds]
 "Start" = "@enter_rg"

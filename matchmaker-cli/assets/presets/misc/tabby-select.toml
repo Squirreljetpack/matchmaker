@@ -8,6 +8,9 @@ EMBEDDINGD = { value = 'echo "${LLMdir:-$HOME/models}/embeddings"', exec = true 
 CURL_TABBY = 'curl -s -H "Content-Type: application/json" -H "Authorization: Bearer ${TABBY_API_KEY}"'
 CHECK_API = '[[ -z "$TABBY_API_KEY" ]] && { echo -e "\033[31mError: TABBY_API_KEY is not set\033[0m" >&2; exit 1; }'
 
+[matcher]
+ansi = true
+
 [start]
 command = '''
     eval "$CHECK_API"
@@ -72,7 +75,6 @@ command = '''
         done
     fi
 '''
-ansi = true
 
 [columns]
 split = '\t'

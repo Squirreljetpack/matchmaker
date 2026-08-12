@@ -30,7 +30,7 @@ max = 3
 default = 3
 
 [matcher]
-sort = 40
+sort.threshold = 40
 
 # --- Preview ---
 [previewer]

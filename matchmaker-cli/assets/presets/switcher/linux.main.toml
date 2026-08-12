@@ -1,9 +1,11 @@
 # Linux window switcher
 
+[matcher]
+trim = true
+
 [start]
 command = '"$(dirname -- "$MM_OVERRIDE")"/list.sh'
 input_separator = "\\0"
-trim = true
 
 [columns]
 split = "\\n"

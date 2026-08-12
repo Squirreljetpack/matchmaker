@@ -21,6 +21,8 @@ done
 [start]
 command = '"$(dirname -- "$MM_OVERRIDE")"/list'
 input_separator = "\\0"
+
+[matcher]
 trim = true
 
 [columns]

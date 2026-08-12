@@ -1,9 +1,11 @@
 # Interactive container viewer for a project/pod
 source = "base.toml"
 
+[matcher]
+trim = true
+
 [start]
 command = '"$(dirname -- "$MM_OVERRIDE")"/containers.sh $@'
-trim = true
 
 [columns]
 split = "\\t"

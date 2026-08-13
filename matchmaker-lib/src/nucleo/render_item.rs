@@ -69,6 +69,12 @@ pub fn render_cell<T: SSS>(
         line_graphemes.clear();
         let mut match_idx = None;
 
+        // Container styles (Text/Line) apply to every span. ratatui 0.30
+        // keeps them separate from span styles (`Text::patch_style` no
+        // longer propagates), so `Text::styled(...)` cells would render
+        // unstyled unless patched in here.
+        let base_style = cell.style.patch(line.style);
+
         for span in line {
             // We iterate graphemes but treat them as char indices. Nucleo matches on
             // grapheme boundaries structurally so this mapping remains correct.
@@ -78,9 +84,9 @@ pub fn render_cell<T: SSS>(
                 // Patch the span style with the highlight style if this grapheme is part of the query match.
                 let style = if is_match {
                     next_highlight_idx = indices.next().unwrap_or(u32::MAX);
-                    span.style.patch(highlight_style)
+                    base_style.patch(span.style).patch(highlight_style)
                 } else {
-                    span.style
+                    base_style.patch(span.style)
                 };
 
                 if is_match && (autoscroll.end || match_idx.is_none()) {
@@ -324,6 +330,39 @@ mod tests {
     use ratatui::style::{Color, Style};
     use ratatui::text::Text;
     use std::sync::Arc;
+
+    /// `Text::styled` keeps the style at the container (Text) level in
+    /// ratatui 0.30; `render_cell` must patch it onto the spans, or every
+    /// styled cell renders unstyled.
+    #[test]
+    fn render_cell_preserves_container_style() {
+        let (mut nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("", "hello");
+        nucleo.tick(10);
+        let snapshot = nucleo.snapshot();
+        let item = snapshot.get_item(0).unwrap();
+
+        let cell = Text::styled("hello", Style::default().fg(Color::Red));
+        let (out, _) = render_cell(
+            cell,
+            0,
+            &snapshot,
+            &item,
+            &mut matcher,
+            Style::default(),
+            false,
+            u16::MAX,
+            &mut buffer,
+            AutoscrollSettings::default(),
+            0,
+        );
+        let span = &out.lines[0].spans[0];
+        assert_eq!(span.content, "hello");
+        assert_eq!(
+            span.style.fg,
+            Some(Color::Red),
+            "container fg style must reach the rendered span"
+        );
+    }
 
     /// Sets up the necessary Nucleo state to trigger a match
     fn setup_nucleo_mocks(

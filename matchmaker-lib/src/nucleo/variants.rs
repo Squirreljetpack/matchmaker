@@ -135,6 +135,21 @@ pub trait ColumnIndexable {
     }
 }
 
+// we avoid blanket impls in case they conflict downstream, this is just for nicer examples
+impl ColumnIndexable for (String, String) {
+    fn get_str(&self, i: usize) -> std::borrow::Cow<'_, str> {
+        match i {
+            0 => (&self.0).into(),
+            _ => (&self.1).into(),
+        }
+    }
+}
+// impl<T: AsRef<str>, const N: usize> ColumnIndexable for [T; N] {
+//     fn get_str(&self, i: usize) -> Cow<'_, str> {
+//         self[i].as_ref().into()
+//     }
+// }
+
 impl<T> Worker<T, ()>
 where
     T: ColumnIndexable + SSS,

@@ -41,7 +41,7 @@ impl ConfigMatchmaker {
         exit_config: ExitConfig,
         preprocess_config: PreprocessConfig,
     ) -> (Self, ConfigInjector, OddEnds) {
-        let mut has_error = false;
+        let has_error = false;
 
         let cc = columns_config;
         let hidden_columns = cc

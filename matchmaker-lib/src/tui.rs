@@ -7,10 +7,10 @@ use crossterm::{
         PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
     },
     execute,
-    terminal::{ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode},
+    terminal::{disable_raw_mode, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use log::{debug, error};
-use ratatui::{Terminal, TerminalOptions, Viewport, layout::Rect, prelude::CrosstermBackend};
+use ratatui::{layout::Rect, prelude::CrosstermBackend, Terminal, TerminalOptions, Viewport};
 use serde::{Deserialize, Serialize};
 use std::{
     io::{self, Write},
@@ -39,9 +39,19 @@ where
         let mut options = TerminalOptions::default();
 
         // important for getting cursor
-        crossterm::terminal::enable_raw_mode()?;
+        if config.stream != IoStream::Test {
+            crossterm::terminal::enable_raw_mode()?;
+        }
 
-        let (width, height) = Self::full_size().unwrap_or_default();
+        // In headless environments (e.g. CI) there is no terminal to size;
+        // the test backend falls back to a fixed size so rendering is possible.
+        let (width, height) = Self::full_size().unwrap_or_else(|| {
+            if config.stream == IoStream::Test {
+                (80, 24)
+            } else {
+                (0, 0)
+            }
+        });
         let area = if let Some(ref layout) = config.layout {
             _info!(layout);
 
@@ -64,7 +74,7 @@ where
             let cursor_y = match Self::scroll_up(&mut backend, scroll)._elog() {
                 Some(_) => {
                     cursor_y.saturating_sub(scroll) // the requested cursor doesn't seem updated so we assume it succeeded
-                    // todo: highpri: scroll doesn't actually seem happening tho, erasing buffer
+                                                    // todo: highpri: scroll doesn't actually seem happening tho, erasing buffer
                 }
                 None => cursor_y,
             };
@@ -110,7 +120,9 @@ where
         let fullscreen = self.is_fullscreen();
         _trace!("entering tui"; fullscreen);
 
-        crossterm::terminal::enable_raw_mode()?;
+        if self.config.stream != IoStream::Test {
+            crossterm::terminal::enable_raw_mode()?;
+        }
 
         if fullscreen {
             self.enter_alternate_screen(true)?;
@@ -235,31 +247,35 @@ where
             }
         }
 
-        match clear {
-            Some(true) => {
-                execute!(
-                    backend,
-                    crossterm::cursor::MoveToRow(self.area.y),
-                    crossterm::cursor::MoveToColumn(0),
-                    crossterm::terminal::Clear(ClearType::FromCursorDown)
-                )
-                ._elog();
+        if self.config.stream != IoStream::Test {
+            match clear {
+                Some(true) => {
+                    execute!(
+                        backend,
+                        crossterm::cursor::MoveToRow(self.area.y),
+                        crossterm::cursor::MoveToColumn(0),
+                        crossterm::terminal::Clear(ClearType::FromCursorDown)
+                    )
+                    ._elog();
+                }
+                None => {
+                    execute!(
+                        backend,
+                        crossterm::cursor::MoveUp(0), // todo
+                        crossterm::cursor::MoveToColumn(0),
+                        crossterm::terminal::Clear(ClearType::FromCursorDown)
+                    )
+                    ._elog();
+                }
+                _ => {}
             }
-            None => {
-                execute!(
-                    backend,
-                    crossterm::cursor::MoveUp(0), // todo
-                    crossterm::cursor::MoveToColumn(0),
-                    crossterm::terminal::Clear(ClearType::FromCursorDown)
-                )
-                ._elog();
-            }
-            _ => {}
         }
 
         self.terminal.show_cursor()._wlog();
 
-        disable_raw_mode()._wlog();
+        if self.config.stream != IoStream::Test {
+            disable_raw_mode()._wlog();
+        }
 
         debug!("Terminal exited");
     }
@@ -305,7 +321,7 @@ where
     pub fn scroll_up(backend: &mut CrosstermBackend<W>, lines: u16) -> io::Result<u16> {
         execute!(backend, crossterm::terminal::ScrollUp(lines))?;
         Ok(0) // not used
-        // Self::get_cursor_y() // note: do we want to skip this for speed
+              // Self::get_cursor_y() // note: do we want to skip this for speed
     }
     pub fn size() -> io::Result<(u16, u16)> {
         crossterm::terminal::size()
@@ -350,6 +366,14 @@ pub enum IoStream {
     Stdout,
     #[default]
     BufferedStderr,
+    /// Capture all output into [`crate::test::TEST_BUFFER`].
+    ///
+    /// For tests only: rendering does not depend on a real terminal
+    /// (raw mode and terminal sizing are bypassed). Because there is no
+    /// terminal to read input from, [`crate::Matchmaker::pick`] runs the
+    /// event loop it creates in optional mode (input-less, no crossterm
+    /// event stream); a caller-supplied event loop override is kept as-is.
+    Test,
 }
 
 impl IoStream {
@@ -357,6 +381,7 @@ impl IoStream {
         match self {
             IoStream::Stdout => Box::new(io::stdout()),
             IoStream::BufferedStderr => Box::new(io::LineWriter::new(io::stderr())),
+            IoStream::Test => Box::new(crate::test::TestWriter),
         }
     }
 }
@@ -365,7 +390,7 @@ impl IoStream {
 
 #[cfg(unix)]
 mod utils {
-    use anyhow::{Context, Result, bail};
+    use anyhow::{bail, Context, Result};
     use std::{
         fs::OpenOptions,
         io::{Read, Write},
@@ -377,7 +402,7 @@ mod utils {
     /// Requires raw mode
     pub fn query_cursor_position(timeout: Duration) -> Result<(u16, u16)> {
         use nix::sys::{
-            select::{FdSet, select},
+            select::{select, FdSet},
             time::{TimeVal, TimeValLike},
         };
         use std::os::fd::AsFd;

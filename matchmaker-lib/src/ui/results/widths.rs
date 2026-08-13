@@ -687,7 +687,7 @@ mod tests {
 
     #[test]
     fn test_try_apply_max_widths() {
-        let mut config = ResultsConfig::default();
+        let config = ResultsConfig::default();
 
         let mut results = ResultsUI::new(config);
         results.width = 100;

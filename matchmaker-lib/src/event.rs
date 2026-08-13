@@ -40,6 +40,7 @@ pub struct EventLoop<A: ActionExt> {
     scroll_buffer: Vec<MouseEvent>,
     scroll_deadline: Option<std::pin::Pin<Box<time::Sleep>>>,
     event_stream: Option<EventStream>,
+    optional_stream: bool,
 
     rx: mpsc::UnboundedReceiver<Event>,
     controller_tx: mpsc::UnboundedSender<Event>,
@@ -77,6 +78,7 @@ impl<A: ActionExt> EventLoop<A> {
             combiner,
             fmt,
             event_stream: None, // important not to initialize it too early?
+            optional_stream: false,
             rx: controller_rx,
             controller_tx,
 
@@ -90,6 +92,14 @@ impl<A: ActionExt> EventLoop<A> {
             bind_rx,
             bind_tx,
         }
+    }
+
+    /// Runs the loop without creating a crossterm event stream; input events
+    /// never arrive (the input future never resolves). Intended for headless
+    /// runs (e.g. tests) where there is no terminal to read from.
+    pub fn as_optional(mut self) -> Self {
+        self.optional_stream = true;
+        self
     }
 
     pub fn with_binds(binds: BindMap<A>) -> Self {
@@ -253,7 +263,9 @@ impl<A: ActionExt> EventLoop<A> {
     // todo: should its return type carry info
     pub async fn run(&mut self) {
         // log::trace!("{:?}", self.binds.load());
-        self.event_stream = Some(EventStream::new());
+        if !self.optional_stream {
+            self.event_stream = Some(EventStream::new());
+        }
         let mut interval = time::interval(self.tick_interval);
         interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
 
@@ -281,7 +293,9 @@ impl<A: ActionExt> EventLoop<A> {
                         self.dirty = true;
                         self.send(RenderCommand::Ack);
                         self.send(RenderCommand::Redraw);
-                        self.event_stream = Some(EventStream::new());
+                        if !self.optional_stream {
+                            self.event_stream = Some(EventStream::new());
+                        }
                         break;
                     }
                 } else {
@@ -296,7 +310,9 @@ impl<A: ActionExt> EventLoop<A> {
             // }
 
             let event = if let Some(stream) = &mut self.event_stream {
-                stream.next()
+                futures::future::Either::Left(stream.next())
+            } else if self.optional_stream {
+                futures::future::Either::Right(futures::future::pending())
             } else {
                 continue; // event stream is removed when paused by handle_event
             };

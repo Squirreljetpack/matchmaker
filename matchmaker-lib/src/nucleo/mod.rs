@@ -11,6 +11,7 @@ use std::{
 };
 
 use crate::SSS;
+pub use injector::{Injector, WorkerInjector};
 pub use variants::*;
 pub use worker::*;
 

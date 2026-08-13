@@ -127,6 +127,7 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
             ..
         } = builder;
 
+        let has_event_loop_override = builder.event_loop.is_some();
         let mut event_loop = if let Some(e) = builder.event_loop {
             e
         } else if let Some(binds) = builder.binds {
@@ -137,6 +138,13 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
         } else {
             EventLoop::new()
         };
+
+        // Headless test mode: there is no terminal to read events from, so
+        // run the loop without a crossterm event stream unless the caller
+        // supplied their own event loop.
+        if !has_event_loop_override && self.tui_config.stream == tui::IoStream::Test {
+            event_loop = event_loop.as_optional();
+        }
 
         let mut wait = false;
         if let Some(path) = self.exit_config.last_key_path.clone()

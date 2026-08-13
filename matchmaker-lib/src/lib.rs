@@ -20,6 +20,7 @@ pub use collections::Selector;
 mod matchmaker;
 pub use matchmaker::*;
 pub mod tui;
+pub mod test;
 
 // misc
 mod aliases;

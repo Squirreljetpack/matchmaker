@@ -662,6 +662,18 @@ impl Default for StringOrInt {
     }
 }
 
+impl From<String> for StringOrInt {
+    fn from(value: String) -> Self {
+        Self::String(value)
+    }
+}
+
+impl From<usize> for StringOrInt {
+    fn from(value: usize) -> Self {
+        Self::Int(value)
+    }
+}
+
 impl Serialize for StringOrInt {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

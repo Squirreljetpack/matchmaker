@@ -1,4 +1,5 @@
 ## TODO
+
 - it would be nice to have presets like full, simple, and minimal presets like fzf
 - it would be nice to have color presets too maybe
 - better hr styling (dim etc.)
@@ -17,7 +18,6 @@
   - frecency
   - api
 
-
 - Does render refs (statusUI, overlay?) improve performance?
 
 - toast action:
@@ -25,7 +25,7 @@
     - trigger on cycle
   - (git) toast arguments
 
-- Indentation style setting: active or first or custom? 
+- Indentation style setting: active or first or custom?
 
 - support alternate actions syntax?: execute::content <- use rhai/lua could be cool
 
@@ -73,4 +73,3 @@
 - flicker-free reload: if empty don't update?
 - very very minor perf improvement, prevent duplicate dynamic handler calls somehow? (not planned)
 - just ran into a facepalm due to previewsetting not having deny_unknown_settings, maybe it would be better to actually flatten
-

@@ -166,7 +166,7 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
             .unwrap_or_else(tokio::sync::mpsc::unbounded_channel);
         event_loop.add_tx(render_tx.clone());
 
-        let mut tui =
+        let mut tui: tui::Tui<Box<_>> =
             tui::Tui::new(self.tui_config).map_err(|e| MatchError::TUIError(e.to_string()))?;
         tui.enter()
             .map_err(|e| MatchError::TUIError(e.to_string()))?;
@@ -301,7 +301,7 @@ pub struct PickOptions<'a, T: SSS, D, A: ActionExt = NullActionExt> {
     #[cfg(feature = "bracketed-paste")]
     paste_handler: Option<PasteHandler<T, D>>,
 
-    overlays: Vec<Box<dyn Overlay<A = A>>>,
+    overlays: Vec<Box<dyn Overlay<A, T, D>>>,
     overlay_config: Option<OverlayConfig>,
     previewer: Option<Either<Preview, Previewer>>,
 
@@ -417,7 +417,8 @@ impl<'a, T: SSS, D, A: ActionExt> PickOptions<'a, T, D, A> {
 
     pub fn overlay<O>(mut self, overlay: O) -> Self
     where
-        O: Overlay<A = A> + 'static,
+        O: Overlay<A, T, D> + 'static,
+        D: 'static,
     {
         self.overlays.push(Box::new(overlay));
         self

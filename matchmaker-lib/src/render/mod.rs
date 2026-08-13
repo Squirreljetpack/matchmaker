@@ -54,14 +54,14 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
     mut preview_ui: Option<PreviewUI>,
     mut tui: Tui<W>,
 
-    mut overlay_ui: Option<OverlayUI<A>>,
+    mut overlay_ui: Option<OverlayUI<A, T, D>>,
     mut exit_config: ExitConfig,
 
     mut render_rx: mpsc::UnboundedReceiver<RenderCommand<A>>,
     controller_tx: EventSender,
     bind_tx: BindSender<A>,
 
-    output: AcceptHook<T, D, S>,
+    accept_hook: AcceptHook<T, D, S>,
     mut dynamic_handlers: DynamicHandlers<T, D>,
     mut ext_handler: Option<ActionExtHandler<T, D, A>>,
     mut ext_aliaser: Option<ActionAliaser<T, D, A>>,
@@ -110,7 +110,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                 &mut preview_ui,
                 &controller_tx,
             );
-            let ret = output(&mut dispatcher);
+            let ret = accept_hook(&mut dispatcher);
 
             return Ok(ret);
         }
@@ -147,7 +147,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                     &mut preview_ui,
                     &controller_tx,
                 );
-                let ret = output(&mut dispatcher);
+                let ret = accept_hook(&mut dispatcher);
                 return Ok(ret);
             } else if state.should_quit_nomatch {
                 log::debug!("Exiting due to should_quit_nomatch");
@@ -182,8 +182,15 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                             if let Some(x) = overlay_ui.as_mut()
                                 && x.index().is_some()
                             {
+                                let mut dispatcher = state.dispatcher(
+                                    &mut ui,
+                                    &mut picker_ui,
+                                    &mut footer_ui,
+                                    &mut preview_ui,
+                                    &controller_tx,
+                                );
                                 for c in content.chars() {
-                                    x.handle_input(c);
+                                    x.handle_input(c, &mut dispatcher);
                                 }
                             } else {
                                 picker_ui.query.push_str(&content);
@@ -423,8 +430,26 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                 RenderCommand::Action(action) => {
                     if let Some(x) = overlay_ui.as_mut()
                         && match action {
-                            Action::Char(c) => x.handle_input(c),
-                            _ => x.handle_action(&action),
+                            Action::Char(c) => x.handle_input(
+                                c,
+                                &mut state.dispatcher(
+                                    &mut ui,
+                                    &mut picker_ui,
+                                    &mut footer_ui,
+                                    &mut preview_ui,
+                                    &controller_tx,
+                                ),
+                            ),
+                            _ => x.handle_action(
+                                &action,
+                                &mut state.dispatcher(
+                                    &mut ui,
+                                    &mut picker_ui,
+                                    &mut footer_ui,
+                                    &mut preview_ui,
+                                    &controller_tx,
+                                ),
+                            ),
                         }
                     {
                         continue;
@@ -483,7 +508,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                                 &mut preview_ui,
                                 &controller_tx,
                             );
-                            let ret = output(&mut dispatcher);
+                            let ret = accept_hook(&mut dispatcher);
                             return Ok(ret);
                         }
                         Action::Quit(code) => {
@@ -827,7 +852,18 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                         }
                         Action::Overlay(index) => {
                             if let Some(x) = overlay_ui.as_mut() {
-                                x.enable(index, &ui.area());
+                                let area = ui.area();
+                                x.enable(
+                                    index,
+                                    &area,
+                                    &mut state.dispatcher(
+                                        &mut ui,
+                                        &mut picker_ui,
+                                        &mut footer_ui,
+                                        &mut preview_ui,
+                                        &controller_tx,
+                                    ),
+                                );
                                 tui.flush();
                             };
                         }
@@ -1213,7 +1249,7 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
     footer_ui: &mut DisplayUI,
     mut preview_ui: Option<&mut PreviewUI>,
     ui: &mut UI,
-    overlay_ui: Option<&mut OverlayUI<A>>,
+    overlay_ui: Option<&mut OverlayUI<A, T, D>>,
 ) -> Layout {
     // Calculate layout areas
     let full_width_footer =

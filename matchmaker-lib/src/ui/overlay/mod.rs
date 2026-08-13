@@ -3,7 +3,9 @@ mod picker;
 pub use picker::*;
 
 use crate::action::{Action, ActionExt};
+use crate::aliases::SSS;
 use crate::config::OverlayLayoutSettings;
+use crate::render::MMState;
 use crate::ui::{Frame, Rect};
 
 use crate::config::OverlayConfig;
@@ -15,15 +17,21 @@ pub enum OverlayEffect {
     Disable,
 }
 
-pub trait Overlay {
-    type A: ActionExt;
-    fn on_enable(&mut self, area: &Rect) {
-        let _ = area;
+/// Overlays receive the picker state (`MMState`) at their entry points so
+/// they can read live selections, the cursor item, and the query without
+/// snapshots.
+pub trait Overlay<Act: ActionExt, T: SSS, D: 'static> {
+    fn on_enable(&mut self, area: &Rect, state: &mut MMState<'_, '_, T, D>) {
+        let _ = (area, state);
     }
     fn on_disable(&mut self) {}
-    fn handle_input(&mut self, c: char) -> OverlayEffect;
-    fn handle_action(&mut self, action: &Action<Self::A>) -> OverlayEffect {
-        let _ = action;
+    fn handle_input(&mut self, c: char, state: &mut MMState<'_, '_, T, D>) -> OverlayEffect;
+    fn handle_action(
+        &mut self,
+        action: &Action<Act>,
+        state: &mut MMState<'_, '_, T, D>,
+    ) -> OverlayEffect {
+        let _ = (action, state);
         OverlayEffect::None
     }
 
@@ -62,14 +70,14 @@ impl From<u16> for SizeHint {
 
 // -------- OVERLAY_UI -----------
 
-pub struct OverlayUI<A: ActionExt> {
-    overlays: Box<[Box<dyn Overlay<A = A>>]>,
+pub struct OverlayUI<Act: ActionExt, T: SSS, D: 'static> {
+    overlays: Box<[Box<dyn Overlay<Act, T, D>>]>,
     index: Option<usize>,
     config: OverlayConfig,
 }
 
-impl<A: ActionExt> OverlayUI<A> {
-    pub fn new(overlays: Box<[Box<dyn Overlay<A = A>>]>, config: OverlayConfig) -> Self {
+impl<Act: ActionExt, T: SSS, D: 'static> OverlayUI<Act, T, D> {
+    pub fn new(overlays: Box<[Box<dyn Overlay<Act, T, D>>]>, config: OverlayConfig) -> Self {
         Self {
             overlays,
             index: None,
@@ -81,11 +89,11 @@ impl<A: ActionExt> OverlayUI<A> {
         self.index
     }
 
-    pub fn enable(&mut self, index: usize, ui_area: &Rect) {
+    pub fn enable(&mut self, index: usize, ui_area: &Rect, state: &mut MMState<'_, '_, T, D>) {
         assert!(index < self.overlays.len());
         self.index = Some(index);
         let overlay = &mut self.overlays[index];
-        overlay.on_enable(ui_area);
+        overlay.on_enable(ui_area, state);
         overlay.area(ui_area, &self.config.layout);
     }
 
@@ -96,13 +104,13 @@ impl<A: ActionExt> OverlayUI<A> {
         self.index = None
     }
 
-    pub fn current(&self) -> Option<&dyn Overlay<A = A>> {
+    pub fn current(&self) -> Option<&dyn Overlay<Act, T, D>> {
         self.index
             .and_then(|i| self.overlays.get(i))
             .map(|b| b.as_ref())
     }
 
-    fn current_mut(&mut self) -> Option<&mut Box<dyn Overlay<A = A> + 'static>> {
+    fn current_mut(&mut self) -> Option<&mut Box<dyn Overlay<Act, T, D> + 'static>> {
         if let Some(i) = self.index {
             self.overlays.get_mut(i)
         } else {
@@ -124,9 +132,9 @@ impl<A: ActionExt> OverlayUI<A> {
     }
 
     /// Returns whether the overlay was active (handled the action)
-    pub fn handle_input(&mut self, action: char) -> bool {
+    pub fn handle_input(&mut self, action: char, state: &mut MMState<'_, '_, T, D>) -> bool {
         if let Some(x) = self.current_mut() {
-            match x.handle_input(action) {
+            match x.handle_input(action, state) {
                 OverlayEffect::None => {}
                 OverlayEffect::Disable => self.disable(),
             }
@@ -136,9 +144,9 @@ impl<A: ActionExt> OverlayUI<A> {
         }
     }
 
-    pub fn handle_action(&mut self, action: &Action<A>) -> bool {
+    pub fn handle_action(&mut self, action: &Action<Act>, state: &mut MMState<'_, '_, T, D>) -> bool {
         if let Some(inner) = self.current_mut() {
-            match inner.handle_action(action) {
+            match inner.handle_action(action, state) {
                 OverlayEffect::None => {}
                 OverlayEffect::Disable => self.disable(),
             }

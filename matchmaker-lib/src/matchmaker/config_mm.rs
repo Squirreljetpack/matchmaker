@@ -32,7 +32,6 @@ pub type RangesFactory<T> = Arc<dyn Fn(usize) -> RangesFn<T> + Send + Sync>;
 pub type ConfigMatchmaker = Matchmaker<String, String, ConfigPreprocessedData>;
 
 impl ConfigMatchmaker {
-    #[allow(unused)]
     /// Creates a new Matchmaker from a config::BaseConfig.
     /// Calls [`Matchmaker::prepare`];
     pub fn new_from_config(

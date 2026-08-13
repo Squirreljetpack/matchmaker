@@ -113,7 +113,6 @@ mm --list="0@toggle extension"        # run the alias's Execute/Become actions
 
 *Note: `--list` never starts the TUI; `sync`, `mode` and `--no-read` are ignored.*
 
-
 Action scripts execute under `$SHELL` unless `start.shell` or `preview.shell` are set.
 Remember to escape any template specifiers, for example: `jq '((map(select(.type == "model_change")) | .[0]) // \{}) as $model | $model'`.
 

@@ -258,7 +258,7 @@ impl State {
     pub(crate) fn update<'a, T: SSS, D: 'static, A: ActionExt>(
         &'a mut self,
         picker_ui: &'a mut PickerUI<T, D>,
-        overlay_ui: &'a Option<OverlayUI<A>>,
+        overlay_ui: &'a Option<OverlayUI<A, T, D>>,
     ) {
         if self.iteration == 0 {
             self.insert(Event::Start);

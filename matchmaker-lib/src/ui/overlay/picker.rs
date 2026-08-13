@@ -9,6 +9,7 @@ use crate::{
         RowConnectionStyle,
     },
     nucleo::{Column, Worker},
+    render::MMState,
     ui::{
         utils::{default_area, dim_surroundings},
         Constraint, Direction, Frame, Layout, Overlay, OverlayEffect, QueryUI, Rect, ResultsUI,
@@ -170,10 +171,8 @@ impl<A: ActionExt> PickerOverlay<A> {
     }
 }
 
-impl<A: ActionExt> Overlay for PickerOverlay<A> {
-    type A = A;
-
-    fn on_enable(&mut self, _area: &Rect) {
+impl<A: ActionExt> Overlay<A, (String, String), ()> for PickerOverlay<A> {
+    fn on_enable(&mut self, _area: &Rect, _state: &mut MMState<'_, '_, (String, String), ()>) {
         if self.worker.is_none() {
             self.build_worker();
         }
@@ -185,13 +184,17 @@ impl<A: ActionExt> Overlay for PickerOverlay<A> {
         self.worker = None;
     }
 
-    fn handle_input(&mut self, c: char) -> OverlayEffect {
+    fn handle_input(&mut self, c: char, _state: &mut MMState<'_, '_, (String, String), ()>) -> OverlayEffect {
         self.query.push_char(c);
         self.query_dirty = true;
         OverlayEffect::None
     }
 
-    fn handle_action(&mut self, action: &Action<Self::A>) -> OverlayEffect {
+    fn handle_action(
+        &mut self,
+        action: &Action<A>,
+        _state: &mut MMState<'_, '_, (String, String), ()>,
+    ) -> OverlayEffect {
         match action {
             Action::Up(n) => {
                 for _ in 0..*n {

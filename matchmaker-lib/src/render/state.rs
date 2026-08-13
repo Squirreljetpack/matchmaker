@@ -317,9 +317,9 @@ impl State {
             }
         }
         // spurious
-        // if picker_ui.results.is_dirty() {
-        //     self.insert(Event::DirtyUI)
-        // }
+        if picker_ui.results.is_dirty() {
+            self.insert(Event::DirtyUI)
+        }
         // log::trace!("{self:?}");
     }
 

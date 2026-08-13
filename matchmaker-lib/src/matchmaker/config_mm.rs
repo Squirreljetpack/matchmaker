@@ -1,11 +1,12 @@
 use crate::{
-    AcceptHook, Matchmaker,
+    collections::HiddenColumns,
     config::{
         ColumnsConfig, ExitConfig, PreprocessConfig, RenderConfig, StringOrInt, TerminalConfig,
     },
-    nucleo::{Column, Worker, injector::WorkerInjector},
+    nucleo::{injector::WorkerInjector, Column, Worker},
     render::{EventHandlers, InterruptHandlers, MMState},
     utils::text::{self, sanitize_string},
+    AcceptHook, Matchmaker,
 };
 
 use ansi_to_tui::IntoText;
@@ -13,7 +14,6 @@ use ratatui::text::Text;
 use std::{borrow::Cow, sync::Arc};
 
 pub struct OddEnds {
-    pub hidden_columns: Vec<usize>,
     pub has_error: bool,
     pub ranges_fn: RangesFactory<String>,
 }
@@ -35,7 +35,7 @@ impl ConfigMatchmaker {
     /// Creates a new Matchmaker from a config::BaseConfig.
     /// Calls [`Matchmaker::prepare`];
     pub fn new_from_config(
-        render_config: RenderConfig,
+        mut render_config: RenderConfig,
         tui_config: TerminalConfig,
         columns_config: ColumnsConfig,
         exit_config: ExitConfig,
@@ -44,12 +44,22 @@ impl ConfigMatchmaker {
         let has_error = false;
 
         let cc = columns_config;
-        let hidden_columns = cc
-            .names
-            .iter()
-            .enumerate()
-            .filter_map(|(i, x)| x.hidden.then_some(i))
-            .collect();
+
+        // Initial hidden columns: mask sized to the configured column count,
+        // with bits set where `names[].hidden` is true.
+        let mut hidden_columns = HiddenColumns::new_with_size(cc.names.len().min(64));
+        if cc.names.len() > 64 {
+            log::error!(
+                "columns config has {} columns, hidden-column state capped at 64",
+                cc.names.len()
+            );
+        }
+        for (i, col) in cc.names.iter().take(64).enumerate() {
+            if col.hidden {
+                hidden_columns.set(i);
+            }
+        }
+        render_config.results.hidden_columns = hidden_columns;
 
         // Build columns (also builds and truncates column_names internally).
         let (columns, raw_preprocessor, text_preprocessor, ranges_fn) =
@@ -58,7 +68,7 @@ impl ConfigMatchmaker {
         // Resolve default column from the names attached to the built columns.
         let default_index = default_column(&cc, &columns);
 
-        let mut worker = Worker::new(columns, default_index, raw_preprocessor, text_preprocessor);
+        let mut worker = Worker::new_with_preprocessors(columns, default_index, raw_preprocessor, text_preprocessor);
         for (i, c) in cc.names.iter().enumerate() {
             worker.set_column_options(i, c.options)
         }
@@ -89,7 +99,6 @@ impl ConfigMatchmaker {
         new.prepare();
 
         let misc = OddEnds {
-            hidden_columns,
             has_error,
             ranges_fn,
         };

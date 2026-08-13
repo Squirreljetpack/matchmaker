@@ -2,12 +2,12 @@ use cba::_info;
 
 use super::*;
 use crate::{
-    SSS, Selector,
     collections::HiddenColumns,
     config::AutoscrollSettings,
-    nucleo::{Style, Text, Worker, render_item::render_cell},
+    nucleo::{render_item::render_cell, Style, Text, Worker},
     ui::ResultsUI,
     utils::text::{to_static, truncation_indicator, wrap_text_static},
+    Selector, SSS,
 };
 
 /// Renders a single item into styled table cells.
@@ -257,7 +257,7 @@ impl ResultsUI {
         let stacked = self.config.stacked_columns;
         let (id, item) = worker.get_nth_indexed_item(idx)?;
 
-        let mut row_widths = vec![0u16; self.hidden_columns.visible_count()];
+        let mut row_widths = vec![0u16; self.vcols()];
 
         // check cache
         let cached = if id == u32::MAX {
@@ -290,7 +290,7 @@ impl ResultsUI {
                 &item,
                 worker,
                 &self.width_limits,
-                &self.hidden_columns,
+                &self.config.hidden_columns,
                 stacked,
                 self.config.max_height,
                 self.config.wrap,
@@ -358,6 +358,7 @@ impl ResultsUI {
         let mut row_texts = vec![];
 
         for (i, (col_idx, mut col)) in self
+            .config
             .hidden_columns
             .iter()
             .filter_map(|(i, h)| (!h && self.width_limits[i] > 0).then_some(i))

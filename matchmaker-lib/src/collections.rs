@@ -28,7 +28,7 @@ impl Selector {
         self.extend(indices);
     }
 }
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HiddenColumns {
     /// Bitfield where bit `i` is 1 if hidden, 0 if visible.
     mask: u64,
@@ -50,6 +50,25 @@ impl HiddenColumns {
             order: Vec::with_capacity(size),
             len: size as u8,
         }
+    }
+
+    /// Resizes the number of tracked columns, preserving the hidden state of
+    /// columns that remain in range. Growing adds visible columns; truncating
+    /// drops hidden flags and order entries beyond the new size. The size is
+    /// silently clamped to 64.
+    pub fn resize(&mut self, new_size: usize) {
+        let new_size = new_size.min(64) as u8;
+        if new_size == self.len {
+            return;
+        }
+
+        if new_size < self.len {
+            // new_size <= 63 here, so the shift cannot overflow.
+            self.mask &= (1u64 << new_size) - 1;
+            self.order.retain(|&i| (i as usize) < new_size as usize);
+        }
+
+        self.len = new_size;
     }
 
     #[inline]
@@ -222,6 +241,62 @@ impl HiddenColumns {
 
     #[inline]
     fn mask_below(n: usize) -> u64 {
-        if n >= 64 { !0 } else { (1u64 << n) - 1 }
+        if n >= 64 {
+            !0
+        } else {
+            (1u64 << n) - 1
+        }
+    }
+}
+
+impl Default for HiddenColumns {
+    fn default() -> Self {
+        Self::new_with_size(3)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_is_new_with_size_3() {
+        assert_eq!(HiddenColumns::default(), HiddenColumns::new_with_size(3));
+    }
+
+    #[test]
+    fn resize_grows_and_truncates() {
+        let mut hc = HiddenColumns::new_with_size(4);
+        hc.set(1);
+        hc.set(3);
+        hc.pop();
+        hc.set(3);
+
+        hc.resize(2);
+        assert_eq!(hc.mask_len(), 2);
+        assert_eq!(hc.mask(), vec![false, true]);
+
+        hc.resize(5);
+        assert_eq!(hc.mask_len(), 5);
+        assert_eq!(hc.mask(), vec![false, true, false, false, false]);
+        // In-range hidden column survives a grow-truncate round trip.
+        hc.resize(2);
+        assert_eq!(hc.mask(), vec![false, true]);
+    }
+
+    #[test]
+    fn resize_noop_on_same_size() {
+        let mut hc = HiddenColumns::new_with_size(3);
+        hc.set(2);
+        hc.resize(3);
+        assert_eq!(hc.mask_len(), 3);
+        assert_eq!(hc.mask(), vec![false, false, true]);
+    }
+
+    #[test]
+    fn resize_clamps_to_64() {
+        let mut hc = HiddenColumns::new_with_size(1);
+        hc.resize(100);
+        assert_eq!(hc.mask_len(), 64);
     }
 }

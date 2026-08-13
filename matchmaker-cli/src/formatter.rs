@@ -482,7 +482,7 @@ mod tests {
         mm: ConfigMatchmaker,
         matcher: &'a mut Matcher,
     ) -> (UI, PickerUI<'a, String, ConfigPreprocessedData>) {
-        UI::new_offline(mm.render_config, matcher, mm.worker, vec![])
+        UI::new_offline(mm.render_config, matcher, mm.worker)
     }
 
     /// Pushes items and waits until the worker has indexed `expected` of them.

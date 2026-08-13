@@ -126,7 +126,7 @@ mod tests {
             })
             .with_raw(|item: &(String, String), _: &()| item.1.clone().into()),
         ];
-        Worker::new(columns, 0, raw_preprocessor, text_preprocessor)
+        Worker::new_with_preprocessors(columns, 0, raw_preprocessor, text_preprocessor)
     }
 
     #[test]
@@ -136,12 +136,8 @@ mod tests {
         // The overlay trait methods take an MMState; build a minimal offline one
         // around a dummy two-column picker.
         let mut matcher = nucleo::Matcher::new(nucleo::Config::DEFAULT);
-        let (mut ui, mut picker) = UI::new_offline(
-            RenderConfig::default(),
-            &mut matcher,
-            test_worker(),
-            std::iter::empty::<usize>(),
-        );
+        let (mut ui, mut picker) =
+            UI::new_offline(RenderConfig::default(), &mut matcher, test_worker());
         let mut footer = DisplayUI::default();
         let mut preview: Option<PreviewUI> = None;
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel::<crate::message::Event>();

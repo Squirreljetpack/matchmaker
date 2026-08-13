@@ -279,7 +279,6 @@ fn with_item<T>(
 
     // -------- read the command's output into the worker ------------
     let (mut mm, injector, OddEnds {
-        hidden_columns,
         ranges_fn,
         ..
     }) = Matchmaker::new_from_config(render, tui, columns, exit, preprocess);
@@ -325,8 +324,7 @@ fn with_item<T>(
 
     // -------- build an offline state and move the cursor to item n ------------
     let mut matcher = Matcher::new(matcher.0);
-    let (mut ui, mut picker_ui) =
-        UI::new_offline(mm.render_config, &mut matcher, mm.worker, hidden_columns);
+    let (mut ui, mut picker_ui) = UI::new_offline(mm.render_config, &mut matcher, mm.worker);
     let mut footer_ui = DisplayUI::default();
     let mut preview_ui = None;
     picker_ui.results.status = status;

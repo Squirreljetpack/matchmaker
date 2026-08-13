@@ -122,7 +122,6 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
             #[cfg(feature = "bracketed-paste")]
             paste_handler,
             overlay_config,
-            hidden_columns,
             initializer,
             ..
         } = builder;
@@ -210,7 +209,6 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
             Selector::new(),
             preview,
             &mut tui,
-            hidden_columns,
         );
 
         let ret = render::render_loop(
@@ -313,8 +311,6 @@ pub struct PickOptions<'a, T: SSS, D, A: ActionExt = NullActionExt> {
     overlay_config: Option<OverlayConfig>,
     previewer: Option<Either<Preview, Previewer>>,
 
-    hidden_columns: Vec<usize>,
-
     // Initializing code, i.e. to setup state.
     initializer: Option<Initializer<T, D>>,
     pub channel: Option<(
@@ -338,7 +334,6 @@ impl<'a, T: SSS, D, A: ActionExt> PickOptions<'a, T, D, A> {
             overlay_config: None,
             overlays: Vec::new(),
             channel: None,
-            hidden_columns: vec![],
             initializer: None,
         }
     }
@@ -382,11 +377,6 @@ impl<'a, T: SSS, D, A: ActionExt> PickOptions<'a, T, D, A> {
 
     pub fn matcher(mut self, matcher_config: nucleo::Config) -> Self {
         self.matcher_config = matcher_config;
-        self
-    }
-
-    pub fn hidden_columns(mut self, hidden_columns: Vec<usize>) -> Self {
-        self.hidden_columns = hidden_columns;
         self
     }
 

@@ -487,7 +487,6 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         mut mm,
         injector,
         OddEnds {
-            hidden_columns,
             has_error,
             ranges_fn,
         },
@@ -526,7 +525,6 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
         .event_loop(event_loop)
         .matcher(matcher.0)
         .previewer(previewer)
-        .hidden_columns(hidden_columns)
         .initializer(move |s| {
             s.envs.extend(envs_);
         });

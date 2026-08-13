@@ -110,16 +110,12 @@ impl<T: AsRef<str>> Render for T {
 impl<T: Render + SSS> Worker<T, ()> {
     /// Create a new worker over items which are displayed in the picker as exactly their as_str representation.
     pub fn new_single_column() -> Self {
-        let raw_preprocessor = Arc::new(|_: &T| Some(()));
-        let text_preprocessor = Arc::new(|_: &T| ());
         Self::new(
             [
                 Column::new_boxed("_", Box::new(|item: &T, _: &()| item.as_text()))
                     .with_raw(|item: &T, _: &()| item.as_str()),
             ],
             0,
-            raw_preprocessor,
-            text_preprocessor,
         )
     }
 }
@@ -217,8 +213,6 @@ where
             None => 0,
         };
 
-        let raw_preprocessor = Arc::new(|_: &T| Some(()));
-        let text_preprocessor = Arc::new(|_: &T| ());
-        Self::new(columns, default_index, raw_preprocessor, text_preprocessor)
+        Self::new(columns, default_index)
     }
 }

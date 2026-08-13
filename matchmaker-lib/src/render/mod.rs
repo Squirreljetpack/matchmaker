@@ -746,11 +746,11 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                                 let next_idx = match action {
                                     Action::NextColumn => picker_ui
                                         .results
-                                        .hidden_columns
+                                        .hidden_cols()
                                         .next_gap_wrapping(active_idx + 1),
                                     Action::PrevColumn => picker_ui
                                         .results
-                                        .hidden_columns
+                                        .hidden_cols()
                                         .prev_gap_wrapping(active_idx)
                                         .unwrap_or(active_idx),
                                     _ => unreachable!(),
@@ -785,20 +785,16 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
 
                             log::info!("Hiding col: {idx}");
 
-                            picker_ui.results.hidden_columns.set(idx);
-                            picker_ui.results.invalidate_widths();
-                            picker_ui.results.on_hidden_cols_change();
+                            picker_ui.results.hc_set(idx);
                         }
 
                         Action::UnhideColumn(col_name) => {
                             if let Some(name) = col_name {
                                 let idx = unwrap!(worker.columns.iter().position(|c| *c.name == name); continue);
-                                results.hidden_columns.unset(idx);
+                                results.hc_unset(idx);
                             } else {
-                                results.hidden_columns.pop();
+                                results.hc_pop();
                             }
-                            picker_ui.results.invalidate_widths();
-                            picker_ui.results.on_hidden_cols_change();
                         }
                         Action::ExpandColumn(ref col_idx) | Action::ShrinkColumn(ref col_idx) => {
                             let delta: i16 = if matches!(action, Action::ExpandColumn(_)) {

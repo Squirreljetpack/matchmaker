@@ -45,7 +45,6 @@ impl UI {
         selector: Selector,
         view: Option<Preview>,
         tui: &mut Tui<W>,
-        hidden_columns: impl IntoIterator<Item = usize>,
     ) -> (Self, PickerUI<'a, T, D>, DisplayUI, Option<PreviewUI>) {
         assert!(!worker.columns.is_empty());
 
@@ -75,7 +74,7 @@ impl UI {
             config: config.ui,
         };
 
-        let mut picker = PickerUI::new(
+        let picker = PickerUI::new(
             config.results,
             config.status,
             config.query,
@@ -84,7 +83,6 @@ impl UI {
             worker,
             selector,
         );
-        picker.results.set_hidden_columns(hidden_columns);
 
         let preview = if let Some(view) = view {
             Some(PreviewUI::new(view, config.preview, ui_area))
@@ -108,7 +106,6 @@ impl UI {
         config: RenderConfig,
         matcher: &'a mut nucleo::Matcher,
         worker: Worker<T, D>,
-        hidden_columns: impl IntoIterator<Item = usize>,
     ) -> (Self, PickerUI<'a, T, D>) {
         assert!(!worker.columns.is_empty());
 
@@ -118,7 +115,7 @@ impl UI {
             config: config.ui,
         };
 
-        let mut picker = PickerUI::new(
+        let picker = PickerUI::new(
             config.results,
             config.status,
             config.query,
@@ -127,7 +124,6 @@ impl UI {
             worker,
             Selector::new(),
         );
-        picker.results.set_hidden_columns(hidden_columns);
 
         (ui, picker)
     }

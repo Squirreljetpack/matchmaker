@@ -40,7 +40,8 @@ impl ResultsUI {
         matcher: &mut nucleo::Matcher,
     ) {
         debug_assert!(
-            !worker.columns.is_empty() && (self.hidden_columns.mask_len() == worker.columns.len())
+            !worker.columns.is_empty()
+                && (self.config.hidden_columns.mask_len() == worker.columns.len())
         );
         // Step 0: Refresh the nucleo snapshot and status before rendering
         let (_snapshot, status) = new_snapshot(&mut worker.nucleo);
@@ -346,7 +347,7 @@ impl ResultsUI {
                     "[update_preferred]";
                     self.preferred_widths;
                     self.width_limits;
-                    self.hidden_columns;
+                    self.config.hidden_columns;
                     self.changed[1];
                     self.changed[3];
                 );

@@ -17,6 +17,7 @@ use crate::{
     },
 };
 
+mod hidden;
 mod render;
 mod update;
 mod widths;
@@ -39,9 +40,8 @@ pub struct ResultsUI {
     // Note that the first width include the indentation.
     widths: Vec<u16>,
 
-    // either empty or same len as hidden_columns
+    // either empty or same len as config.hidden_columns
     width_limits: Vec<u16>,
-    pub(crate) hidden_columns: HiddenColumns,
     column_name_widths: Vec<u16>,
     active_column: usize,
     bottom_clip: u16,
@@ -83,7 +83,6 @@ impl ResultsUI {
             height: 0, // uninitialized, so be sure to call update_dimensions
             width: 0,
             widths: Vec::new(),
-            hidden_columns: HiddenColumns::new_with_size(3), // for easy testing
             column_name_widths: Default::default(),
             active_column: 0,
 
@@ -108,11 +107,11 @@ impl ResultsUI {
     pub fn init<T: SSS, D: 'static>(&mut self, worker: &mut Worker<T, D>) {
         // self.preferred_widths.resize(n_cols, 0);
         // self.width_limits.resize(n_cols, 0);
-        self.hidden_columns = HiddenColumns::new_with_size(worker.columns.len());
+        self.config.hidden_columns.resize(worker.columns.len());
         self.column_name_widths = worker
             .columns
             .into_iter()
-            .zip(self.hidden_columns.mask())
+            .zip(self.config.hidden_columns.mask())
             .filter_map(|(col, flag)| {
                 if !flag {
                     Some(col.name.len() as u16)
@@ -138,13 +137,7 @@ impl ResultsUI {
     }
 
     pub fn hidden_cols(&self) -> &HiddenColumns {
-        &self.hidden_columns
-    }
-
-    pub fn set_hidden_columns(&mut self, hidden_columns: impl IntoIterator<Item = usize>) {
-        for i in hidden_columns {
-            self.hidden_columns.set(i);
-        }
+        &self.config.hidden_columns
     }
 
     pub fn update_dimensions(&mut self, area: Rect) {
@@ -368,18 +361,6 @@ impl ResultsUI {
         self.width_limits.clear();
         self.preferred_widths.clear();
         self.row_cache[0].clear(); // empty limits still calls get_row which is invalidated if hidden_columns changed
-    }
-
-    fn vcols(&self) -> usize {
-        self.hidden_columns.visible_count()
-    }
-
-    pub fn on_hidden_cols_change(&mut self) {
-        self.invalidate_widths();
-        self.preferred_widths.resize(self.vcols(), 0);
-        self.config
-            .width_overrides
-            .resize(self.hidden_columns.visible_count(), 0);
     }
 
     // ------- RENDERING ----------

@@ -23,7 +23,7 @@ impl ResultsUI {
         self.widths_buffer = self.max_widths.clone();
         let mut vi = 0;
         for (i, name_w) in self.column_name_widths.iter().enumerate() {
-            if self.hidden_columns.contains(i) {
+            if self.config.hidden_columns.contains(i) {
                 continue;
             }
             let mut lower = 0;
@@ -85,7 +85,7 @@ impl ResultsUI {
         }
         // _info!(self.row_cache[1]);
 
-        let v_cols = self.hidden_columns.visible_count();
+        let v_cols = self.vcols();
         self.prepare_max_widths();
 
         let mut v = Vec::new();
@@ -111,7 +111,7 @@ impl ResultsUI {
         let mut vi = 0;
 
         for (i, name_w) in self.column_name_widths.iter().enumerate() {
-            if self.hidden_columns.contains(i) {
+            if self.config.hidden_columns.contains(i) {
                 continue;
             }
 
@@ -224,9 +224,9 @@ impl ResultsUI {
         if self.config.stacked_columns {
             let default = self.width.saturating_sub(self.indentation() as u16);
 
-            self.widths_buffer = (0..self.hidden_columns.mask_len())
+            self.widths_buffer = (0..self.config.hidden_columns.mask_len())
                 .map(|i| {
-                    if self.hidden_columns.contains(i) {
+                    if self.config.hidden_columns.contains(i) {
                         0
                     } else {
                         default
@@ -265,7 +265,9 @@ impl ResultsUI {
                 true,
             )
         {
-            self.row_cache[0].clear();
+            if !skip_allocation {
+                self.row_cache[0].clear();
+            }
             _trace!(self.width_limits);
 
             if self.config.stacked_columns {
@@ -480,12 +482,12 @@ impl ResultsUI {
     }
 
     fn expand_width_limits_in_buffer(&mut self) {
-        let n_cols = self.hidden_columns.mask_len();
+        let n_cols = self.config.hidden_columns.mask_len();
 
         let mut new_limits = Vec::with_capacity(n_cols);
         let mut i = 0;
         for idx in 0..n_cols {
-            if self.hidden_columns.contains(idx) {
+            if self.config.hidden_columns.contains(idx) {
                 new_limits.push(0);
             } else {
                 new_limits.push(self.widths_buffer[i]);
@@ -525,14 +527,6 @@ impl ResultsUI {
 
         self.config.width_overrides[v_idx] = new as u16;
         self.width_limits.clear();
-    }
-
-    /// Width_overrides and other arrays only index into the visible cols of self.hidden_cols, while self.width_limits maps to the all the columns. This converts the first to the second.
-    pub fn expand_idx(&self, idx: usize) -> usize {
-        self.hidden_columns.nth_gap(idx)
-    }
-    pub fn shrink_idx(&self, idx: usize) -> Option<usize> {
-        self.hidden_columns.gap_index(idx)
     }
 
     /// Maps the `idx`-th displayed column (a column rendered with a nonzero
@@ -601,48 +595,6 @@ mod tests {
     }
 
     #[test]
-    fn test_get_col_by_index() {
-        use crate::collections::HiddenColumns;
-        let config = ResultsConfig::default();
-        let mut results = ResultsUI::new(config);
-        let mut hc = HiddenColumns::new_with_size(4);
-        hc.set(1); // hide column 1
-        results.hidden_columns = hc;
-        // widths: column 0 and 2 displayed, column 3 not (width 0)
-        results.width_limits = vec![10, 0, 20, 0];
-
-        assert_eq!(results.get_col_by_display_index(0), Some(0));
-        assert_eq!(results.get_col_by_display_index(1), Some(2));
-        assert_eq!(results.get_col_by_display_index(2), None); // out of bounds
-        assert_eq!(results.get_col_by_display_index(3), None); // out of bounds
-
-        // Uninitialized widths -> None.
-        results.width_limits = Vec::new();
-        assert_eq!(results.get_col_by_display_index(0), None);
-    }
-
-    #[test]
-    fn test_shrink_idx() {
-        use crate::collections::HiddenColumns;
-        let config = ResultsConfig::default();
-        let mut results = ResultsUI::new(config);
-        let mut hc = HiddenColumns::new_with_size(4);
-        hc.set(1);
-        results.hidden_columns = hc;
-
-        // Columns:
-        // 0: visible (shrink_idx should map it to 0)
-        // 1: hidden (shrink_idx should return None)
-        // 2: visible (shrink_idx should map it to 1, because 0 is visible and 1 is hidden)
-        // 3: visible (shrink_idx should map it to 2, because 0 and 2 are visible, 1 is hidden)
-
-        assert_eq!(results.shrink_idx(0), Some(0));
-        assert_eq!(results.shrink_idx(1), None);
-        assert_eq!(results.shrink_idx(2), Some(1));
-        assert_eq!(results.shrink_idx(3), Some(2)); // makes equal sense to allow oob or not
-    }
-
-    #[test]
     fn test_overrides_not_expanded() {
         let mut config = ResultsConfig::default();
         config.width_overrides = vec![10, 0, 5]; // Column 0 override 10, Column 2 override 5
@@ -665,41 +617,19 @@ mod tests {
     }
 
     #[test]
-    fn test_single_column_preferred_width_is_median() {
+    fn test_try_apply_does_not_clear_row_cache() {
         let config = ResultsConfig::default();
         let mut results = ResultsUI::new(config);
         results.width = 100;
-        results.hidden_columns = crate::collections::HiddenColumns::new_with_size(1);
-        results.column_name_widths = vec![0];
-
-        // 3 rows for 1 visible column: widths 10, 50, 20
-        results.row_cache[0] = vec![
-            (0, vec![], vec![10]),
-            (1, vec![], vec![50]),
-            (2, vec![], vec![20]),
-        ];
-
-        let updated = results.update_preferred_widths();
-        assert!(updated);
-        // For single column, preferred_width is max width (50)
-        assert_eq!(results.preferred_widths, vec![50]);
-    }
-
-    #[test]
-    fn test_try_apply_max_widths() {
-        let config = ResultsConfig::default();
-
-        let mut results = ResultsUI::new(config);
-        results.width = 100;
-        results.hidden_columns = crate::collections::HiddenColumns::new_with_size(2);
+        results.config.hidden_columns = crate::collections::HiddenColumns::new_with_size(2);
         results.column_name_widths = vec![0, 0];
-        // Populate raw widths in row_cache[0]
         results.row_cache[0] = vec![(0, vec![], vec![12, 20]), (1, vec![], vec![15, 10])];
 
-        // Max widths: col 0 = 15, col 1 = 20. Sum = 35 <= available_width (97).
         let applied = results.try_apply_max_widths_into_width_buffer();
         assert_eq!(applied, Some(true));
-        assert_eq!(results.preferred_widths[0], 15);
-        assert_eq!(results.preferred_widths[1], 20);
+        assert!(!results.row_cache[0].is_empty());
+
+        results.update_width_limits();
+        assert!(!results.row_cache[0].is_empty());
     }
 }

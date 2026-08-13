@@ -113,12 +113,34 @@ bitflags! {
     }
 }
 
+impl<T> Worker<T, ()>
+where
+    T: SSS,
+{
+    /// Column names must be distinct!
+    ///
+    /// Identity preprocessors: no raw preprocessing (`Some(())`) and no
+    /// text preprocessing. Use [`Worker::new_with_preprocessors`] when the
+    /// worker needs a custom `D` (row data for the column formatters).
+    pub fn new(
+        columns: impl IntoIterator<Item = Column<T, ()>>,
+        default_column: usize,
+    ) -> Self {
+        Self::new_with_preprocessors(
+            columns,
+            default_column,
+            Arc::new(|_: &T| Some(())),
+            Arc::new(|_: &T| ()),
+        )
+    }
+}
+
 impl<T, D> Worker<T, D>
 where
     T: SSS,
 {
     /// Column names must be distinct!
-    pub fn new(
+    pub fn new_with_preprocessors(
         columns: impl IntoIterator<Item = Column<T, D>>,
         default_column: usize,
         raw_preprocessor: Arc<dyn Fn(&T) -> Option<D> + Send + Sync>,

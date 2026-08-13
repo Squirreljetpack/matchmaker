@@ -12,6 +12,7 @@ pub use crate::utils::{
     serde::{StringOrVec, escaped_opt_char, escaped_opt_string, os_strings},
 };
 
+use crate::collections::HiddenColumns;
 use crate::tui::IoStream;
 
 use cba::serde::transform::{camelcase_normalized, camelcase_normalized_option};
@@ -389,6 +390,16 @@ pub struct ResultsConfig {
     /// eagerly; larger values reduce flicker. Defaults to `[4, 4]`.
     #[partial(alias = "rct")]
     pub resize_col_thresholds: [u16; 2],
+
+    /// Hidden columns state (mask + unhide order). Library users set the
+    /// initial state here, e.g. `HiddenColumns::default()` with `set(2)` to
+    /// hide the third column; the config-driven path initializes it from
+    /// `columns.names[].hidden`. Updated at runtime by hide/unhide actions.
+    /// Skipped by serde (not part of the serialized config) and by the
+    /// partial mirror.
+    #[partial(skip)]
+    #[serde(skip)]
+    pub hidden_columns: HiddenColumns,
 }
 
 impl Default for ResultsConfig {
@@ -450,6 +461,7 @@ impl Default for ResultsConfig {
             width_overrides: vec![],
             resize_col_thresholds: [4, 4],
             uniformly_truncate_columns: true,
+            hidden_columns: HiddenColumns::default(),
         }
     }
 }

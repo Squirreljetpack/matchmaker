@@ -51,6 +51,8 @@ bitflags! {
         // requires connecting [`EventLoop`] to [`Previewer`]
         const PreviewStarted = 1 << 15;
         const PreviewFinished = 1 << 16;
+
+        const DirtyUI = 1 << 17;
     }
 }
 // ---------------------------------------------------------------------

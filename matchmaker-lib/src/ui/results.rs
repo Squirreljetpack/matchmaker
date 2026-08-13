@@ -48,9 +48,12 @@ pub struct ResultsUI {
 
     // used to compute width_limits
     // valid after calling update_preferred_widths
-    // same len as hidden_columns
+    // either empty or same length as non-hidden cols (v_cols)
     preferred_widths: Vec<u16>,
+    // either empty or same length as non-hidden cols (v_cols)
+    max_widths: Vec<u16>,
     // transient buffer for use within compute functions
+    // either empty or same length as non-hidden cols (v_cols)
     widths_buffer: Vec<u16>,
     col_indices_buffer: Vec<u32>,
 
@@ -58,7 +61,8 @@ pub struct ResultsUI {
     pub status: Status,
 
     row_cache: [Vec<(u32, Vec<Text<'static>>, Vec<u16>)>; 2],
-    pub(crate) changed: [bool; 4], // need redraw, need new preferred_widths, need new width_limits, cache miss. We use bools instead of clearing so that we can support threshold growing.
+    /// Need redraw, new preferred widths, new width limits, cache miss
+    pub(crate) changed: [bool; 4],
     /// Visual-order row metadata from the most recent successful build.
     /// Each entry is `(item_idx, height)`; `u32::MAX` marks separator rows.
     /// Kept around so click positions can be mapped back to absolute
@@ -85,6 +89,7 @@ impl ResultsUI {
 
             width_limits: Vec::new(),
             preferred_widths: Vec::new(),
+            max_widths: Vec::new(),
             widths_buffer: Vec::new(),
             col_indices_buffer: Vec::new(),
 
@@ -331,12 +336,7 @@ impl ResultsUI {
     }
 
     pub fn column_spacing_width(&self) -> u16 {
-        let cols = if !self.widths.is_empty() {
-            self.widths.len()
-        } else {
-            self.hidden_columns.visible_count()
-        };
-        self.config.column_spacing.0 * (cols.saturating_sub(1) as u16)
+        self.config.column_spacing.0 * (self.widths.len().saturating_sub(1) as u16)
     }
 
     pub fn table_width(&self) -> u16 {
@@ -368,6 +368,18 @@ impl ResultsUI {
         self.width_limits.clear();
         self.preferred_widths.clear();
         self.row_cache[0].clear(); // empty limits still calls get_row which is invalidated if hidden_columns changed
+    }
+
+    fn vcols(&self) -> usize {
+        self.hidden_columns.visible_count()
+    }
+
+    pub fn on_hidden_cols_change(&mut self) {
+        self.invalidate_widths();
+        self.preferred_widths.resize(self.vcols(), 0);
+        self.config
+            .width_overrides
+            .resize(self.hidden_columns.visible_count(), 0);
     }
 
     // ------- RENDERING ----------

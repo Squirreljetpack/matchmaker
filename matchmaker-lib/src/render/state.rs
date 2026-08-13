@@ -316,6 +316,10 @@ impl State {
                 self.insert(Event::CursorLost);
             }
         }
+        // spurious
+        // if picker_ui.results.is_dirty() {
+        //     self.insert(Event::DirtyUI)
+        // }
         // log::trace!("{self:?}");
     }
 

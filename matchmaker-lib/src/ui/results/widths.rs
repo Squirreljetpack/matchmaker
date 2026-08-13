@@ -4,136 +4,107 @@ use crate::ui::ResultsUI;
 impl ResultsUI {
     /// Try to directly set preferred_widths, width_limits, and widths to exact max column widths
     /// if the total sum of max widths fits within available_width.
-    /// Returns `true` if max widths were applied immediately.
-    pub(super) fn try_apply_max_widths(&mut self) -> bool {
-        if self.row_cache[1].is_empty() || self.config.stacked_columns {
-            return false;
+    /// Returns:
+    /// Some(true) if max widths were applied immediately,
+    /// Some(false) if they don't fit,
+    /// None if updates should be skipped.
+    pub(super) fn try_apply_max_widths_into_width_buffer(&mut self) -> Option<bool> {
+        if self.row_cache[0].is_empty() || self.config.stacked_columns {
+            self.widths_buffer.clear();
+            return None;
         }
 
-        let v_cols = self.hidden_columns.visible_count();
-        let mut max_widths = vec![0u16; v_cols];
-        for (_, _, row_widths) in &self.row_cache[1] {
-            for (i, &w) in row_widths.iter().enumerate() {
-                if i < v_cols {
-                    max_widths[i] = max_widths[i].max(w);
-                }
-            }
+        self.max_widths.clear();
+        self.prepare_max_widths();
+        if self.preferred_widths == self.max_widths {
+            return None;
         }
 
+        self.widths_buffer = self.max_widths.clone();
         let mut vi = 0;
         for (i, name_w) in self.column_name_widths.iter().enumerate() {
             if self.hidden_columns.contains(i) {
                 continue;
             }
             let mut lower = 0;
-            if max_widths[vi] > 0 {
+            if self.widths_buffer[vi] > 0 {
                 lower = lower.max(if self.config.min_width_from_cols {
                     *name_w
                 } else {
                     self.config.min_width
                 });
             }
-            max_widths[vi] = max_widths[vi].max(lower);
+            self.widths_buffer[vi] = self.widths_buffer[vi].max(lower);
             vi += 1;
         }
 
-        let available_width = self.available_width();
-        let sum: u16 = max_widths.iter().sum();
-
-        if sum > available_width {
-            return false;
-        }
-
-        let overrides = &self.config.width_overrides;
-        let remaining = available_width - sum;
-        if remaining > 0 && self.config.right_align_last {
-            let unoverridden: Vec<usize> = (0..v_cols)
-                .filter(|&i| max_widths[i] > 0 && overrides.get(i).copied().unwrap_or(0) == 0)
-                .collect();
-
-            if let Some(&last_i) = unoverridden.last() {
-                max_widths[last_i] += remaining;
+        // Apply column width overrides directly (1:1 mapping with widths_buffer)
+        for (w, &override_w) in self
+            .widths_buffer
+            .iter_mut()
+            .zip(&self.config.width_overrides)
+        {
+            if override_w > 0 {
+                *w = override_w;
             }
         }
 
-        self.preferred_widths = max_widths;
-
-        let n_cols = self.hidden_columns.mask_len();
-        self.width_limits.clear();
-        self.width_limits.reserve(n_cols);
-        let mut v_idx = 0;
-        for idx in 0..n_cols {
-            if self.hidden_columns.contains(idx) {
-                self.width_limits.push(0);
-            } else {
-                self.width_limits.push(self.preferred_widths[v_idx]);
-                v_idx += 1;
-            }
-        }
-
-        if self.config.stacked_columns {
-            self.widths = vec![self.width];
+        let sum: u16 = self.widths_buffer.iter().sum();
+        if sum > self.available_width() {
+            self.widths_buffer.clear();
+            Some(false)
         } else {
-            self.widths = self
-                .width_limits
-                .iter()
-                .cloned()
-                .filter(|x| *x != 0)
-                .collect();
+            _info!(self.max_widths);
+            self.preferred_widths = self.max_widths.clone();
+            _info!(self.widths_buffer);
+            Some(true)
+        }
+    }
 
-            if !self.widths.is_empty() {
-                self.widths[0] += self.indentation() as u16;
-            }
+    fn prepare_max_widths(&mut self) {
+        if !self.max_widths.is_empty() {
+            return;
         }
 
-        _info!(
-            "[try_apply_max_widths]";
-            self.preferred_widths;
-            self.width_limits;
-            self.widths;
-            self.hidden_columns;
-        );
-
-        true
+        self.max_widths.resize(self.vcols(), 0);
+        for (_, _, row_widths) in &self.row_cache[0] {
+            // guaranteed row len == vcols
+            for (i, &w) in row_widths.iter().enumerate() {
+                self.max_widths[i] = self.max_widths[i].max(w);
+            }
+        }
     }
 
     /// Update self.preferred_widths from collected raw_widths and max_widths, then clear them. Additionally, swap the read/write row caches.
     /// Every nonempty column is assigned a nonzero width.
-    /// Noop if row_cache is empty or stacked_columns
+    /// Noop if row_cache is empty or stacked_columns.
+    /// Widths buffer is cleared if it ran.
     pub(super) fn update_preferred_widths(&mut self) -> bool {
-        if self.row_cache[1].is_empty() || self.config.stacked_columns {
+        if self.row_cache[0].is_empty() || self.config.stacked_columns {
             return false;
         }
         // _info!(self.row_cache[1]);
 
         let v_cols = self.hidden_columns.visible_count();
-        self.widths_buffer.clear();
-        self.widths_buffer.reserve(v_cols);
-        self.preferred_widths.resize(v_cols, 0);
+        self.prepare_max_widths();
 
-        // Compute max_widths on the fly for the adjustment phase
-        let mut max_widths = vec![0u16; v_cols];
-        for (_, _, row_widths) in &self.row_cache[1] {
-            for (i, &w) in row_widths.iter().enumerate() {
-                if i < v_cols {
-                    max_widths[i] = max_widths[i].max(w);
-                }
-            }
-        }
+        let mut v = Vec::new();
 
         for col_idx in 0..v_cols {
-            let mut v: Vec<u16> = self.row_cache[1]
-                .iter()
-                .map(|(_, _, row_widths)| row_widths.get(col_idx).copied().unwrap_or(0))
-                .collect();
+            v.clear();
+            v.extend(
+                self.row_cache[0]
+                    .iter()
+                    .filter_map(|(_, _, row_widths)| row_widths.get(col_idx).copied()),
+            );
 
-            let median = if !v.is_empty() {
-                v.sort_unstable();
-                v[v.len() / 2]
-            } else {
+            let v = if v.is_empty() {
                 0
+            } else {
+                let mid = v.len() / 2;
+                *v.select_nth_unstable(mid).1
             };
-            self.widths_buffer.push(median);
+            self.widths_buffer.push(v);
         }
 
         // 2. Adjust the values in place based on config.min_width and v_max_widths
@@ -144,7 +115,7 @@ impl ResultsUI {
                 continue;
             }
 
-            let mut lower = max_widths[vi];
+            let mut lower = self.max_widths[vi];
             if lower > 0 {
                 lower = lower.max(if self.config.min_width_from_cols {
                     *name_w
@@ -158,6 +129,7 @@ impl ResultsUI {
             vi += 1;
         }
 
+        let empty_before = self.preferred_widths.is_empty();
         let grew = self
             .preferred_widths
             .iter()
@@ -173,18 +145,21 @@ impl ResultsUI {
         let sum: u16 = self.preferred_widths.iter().sum();
 
         let condition = sum <= self.width && !(grew && shrank);
+        _info!(condition);
 
         // 3.
-        if self.preferred_widths.is_empty() || condition {
+        if empty_before || condition {
             self.preferred_widths = std::mem::take(&mut self.widths_buffer);
-            grew || shrank
+            empty_before || grew || shrank
         } else {
-            Self::apply_width_thresholds(
+            let ret = Self::apply_width_thresholds(
                 &mut self.preferred_widths,
                 &self.widths_buffer,
                 self.config.resize_col_thresholds,
                 false,
-            )
+            );
+            self.widths_buffer.clear();
+            ret
         }
     }
 
@@ -243,8 +218,9 @@ impl ResultsUI {
 
     /// Set self.width_limits using self.preferred_widths.
     /// Also sets self.widths: the rendered table column widths
-    /// no-op: if row_cache[1] or preferred_widths are not populated
+    /// no-op: if row_cache[0] or preferred_widths are not populated
     pub(super) fn update_width_limits(&mut self) {
+        let skip_allocation = !self.widths_buffer.is_empty();
         if self.config.stacked_columns {
             let default = self.width.saturating_sub(self.indentation() as u16);
 
@@ -258,7 +234,8 @@ impl ResultsUI {
                 })
                 .collect();
         } else {
-            self.update_width_limits_into_width_buffer();
+            self.update_width_limits_into_width_buffer(skip_allocation);
+            self.max_widths.clear();
             if self.widths_buffer.is_empty() {
                 return;
             }
@@ -272,15 +249,22 @@ impl ResultsUI {
 
         if self.width_limits != self.widths_buffer {
             _info!("applying width buffer"; self.width_limits; self.widths_buffer);
+            if skip_allocation {
+                self.width_limits = std::mem::take(&mut self.widths_buffer);
+            }
+        } else {
+            return;
         }
 
         // using apply_width_thresholds has unexpected effect of transitioning instead of preventing small resizes
-        if Self::apply_width_thresholds(
-            &mut self.width_limits,
-            &self.widths_buffer,
-            self.config.resize_col_thresholds,
-            true,
-        ) {
+        if skip_allocation
+            || Self::apply_width_thresholds(
+                &mut self.width_limits,
+                &self.widths_buffer,
+                self.config.resize_col_thresholds,
+                true,
+            )
+        {
             self.row_cache[0].clear();
             _trace!(self.width_limits);
 
@@ -295,8 +279,16 @@ impl ResultsUI {
                     .collect();
 
                 if !self.widths.is_empty() {
+                    // we only grow up to max widths which might < sum
+                    let remaining = self
+                        .available_width()
+                        .saturating_sub(self.widths.iter().sum::<u16>());
+                    if self.config.right_align_last && remaining > 0 {
+                        *self.widths.last_mut().unwrap() += remaining;
+                    }
                     self.widths[0] += self.indentation() as u16;
                 }
+
                 _info!(self.widths);
             }
         }
@@ -322,132 +314,129 @@ impl ResultsUI {
     /// - Hidden columns have width 0
     /// - Non-hidden columns have width >= min_width (when feasible)
     /// - User overrides are respected when feasible
-    fn update_width_limits_into_width_buffer(&mut self) {
+    fn update_width_limits_into_width_buffer(&mut self, skip_allocation: bool) {
+        // assert (when nonempty), self.vcols() = self.preferred_widths.len() = self.widths_buffer.len()
         if self.row_cache[0].is_empty() || self.preferred_widths.is_empty() {
             _info!(
                 "skipped width_limits update, either is empty: row cache or preferred":
                 self.preferred_widths
             );
+            // invalidated, width buffer override no longer applies
             self.widths_buffer.clear();
+
             return;
         }
 
-        let v_cols = self.preferred_widths.len();
-        let mut max_widths = vec![0u16; v_cols];
-        for (_, _, row_widths) in &self.row_cache[0] {
-            for (i, &w) in row_widths.iter().enumerate() {
-                if i < v_cols {
-                    max_widths[i] = max_widths[i].max(w);
-                }
-            }
-        }
-
-        _info!(max_widths; self.preferred_widths);
+        let v_cols = self.vcols();
+        self.prepare_max_widths();
 
         // Identify only the columns that have a preferred width > 0
         let active_cols: Vec<usize> = (0..v_cols)
             .filter(|&i| self.preferred_widths[i] > 0)
             .collect();
 
-        // statistics are available iff max_widths is populated (which mirrors active_cols)
         if active_cols.is_empty() {
-            self.widths_buffer.clear();
             return;
         }
 
         // update temporarily for accurate available_width
-        let new: Vec<_> = max_widths.iter().cloned().filter(|x| *x != 0).collect();
+        let new: Vec<_> = self
+            .max_widths
+            .iter()
+            .cloned()
+            .filter(|x| *x != 0)
+            .collect();
         if new.len() != self.widths.len() {
             self.widths = new;
         }
         let available_width = self.available_width();
-
-        // Prepare width buffers
         let overrides = &mut self.config.width_overrides;
         overrides.resize(v_cols, 0); // it should already be
 
-        // We clear and resize to ensure any inactive columns are initialized to 0
-        self.widths_buffer.clear();
-        self.widths_buffer.resize(v_cols, 0);
+        if !skip_allocation {
+            self.widths_buffer.resize(v_cols, 0);
 
-        // Step 2: Validate width overrides fit within available space
-        // Constraint: sum(overrides) + count(unoverridden) * min_width <= available_width
-        // If violated, drop overrides from right-to-left until satisfied
-        let mut current_override_sum: u16 = active_cols.iter().map(|&i| overrides[i]).sum();
-        let mut unoverridden_count =
-            active_cols.iter().filter(|&&i| overrides[i] == 0).count() as u16;
+            // Step 2: Validate width overrides fit within available space
+            // Constraint: sum(overrides) + count(unoverridden) * min_width <= available_width
+            // If violated, drop overrides from right-to-left until satisfied
+            let mut current_override_sum: u16 = active_cols.iter().map(|&i| overrides[i]).sum();
+            let mut unoverridden_count =
+                active_cols.iter().filter(|&&i| overrides[i] == 0).count() as u16;
 
-        while current_override_sum + unoverridden_count * self.config.min_width > available_width {
-            // Find the rightmost active column with an override
-            let Some(&i) = active_cols.iter().rev().find(|&&i| overrides[i] > 0) else {
-                break;
-            };
+            while current_override_sum + unoverridden_count * self.config.min_width
+                > available_width
+            {
+                // Find the rightmost active column with an override
+                let Some(&i) = active_cols.iter().rev().find(|&&i| overrides[i] > 0) else {
+                    break;
+                };
 
-            current_override_sum -= overrides[i];
-            overrides[i] = 0;
-            unoverridden_count += 1;
-        }
+                current_override_sum -= overrides[i];
+                overrides[i] = 0;
+                unoverridden_count += 1;
+            }
 
-        // Step 3: Fallback to even distribution if overrides still infeasible
-        if current_override_sum + unoverridden_count * self.config.min_width > available_width {
-            let avg = available_width / active_cols.len() as u16;
-            let rem = available_width % active_cols.len() as u16;
+            // Step 3: Fallback to even distribution if overrides still infeasible
+            if current_override_sum + unoverridden_count * self.config.min_width > available_width {
+                let avg = available_width / active_cols.len() as u16;
+                let rem = available_width % active_cols.len() as u16;
 
+                for &i in &active_cols {
+                    self.widths_buffer[i] = avg;
+                }
+
+                if let Some(&last_i) = active_cols.last() {
+                    self.widths_buffer[last_i] += rem;
+                }
+
+                return;
+            }
+
+            // Step 4: Lock in validated overrides
+            let mut remaining_width = available_width;
+            let mut unassigned_cols = vec![];
             for &i in &active_cols {
-                self.widths_buffer[i] = avg;
-            }
-
-            if let Some(&last_i) = active_cols.last() {
-                self.widths_buffer[last_i] += rem;
-            }
-
-            return;
-        }
-
-        // Step 4: Lock in validated overrides
-        let mut remaining_width = available_width;
-        let mut unassigned_cols = vec![];
-        for &i in &active_cols {
-            if overrides[i] > 0 {
-                self.widths_buffer[i] = overrides[i];
-                remaining_width = remaining_width.saturating_sub(overrides[i]);
-            } else {
-                unassigned_cols.push(i);
-            }
-        }
-
-        // Step 5: Iterative preferred-width allocation
-        while !unassigned_cols.is_empty() {
-            let avg = remaining_width / unassigned_cols.len() as u16;
-            let mut newly_assigned = false;
-            let mut next = Vec::with_capacity(unassigned_cols.len());
-
-            for &i in &unassigned_cols {
-                if self.preferred_widths[i] <= avg {
-                    self.widths_buffer[i] = self.preferred_widths[i];
-                    remaining_width -= self.preferred_widths[i];
-                    newly_assigned = true;
+                if overrides[i] > 0 {
+                    self.widths_buffer[i] = overrides[i];
+                    remaining_width = remaining_width.saturating_sub(overrides[i]);
                 } else {
-                    next.push(i);
+                    unassigned_cols.push(i);
                 }
             }
-            unassigned_cols = next;
 
-            if !newly_assigned {
-                break;
+            // Step 5: Iterative preferred-width allocation
+            while !unassigned_cols.is_empty() {
+                let avg = remaining_width / unassigned_cols.len() as u16;
+                let mut newly_assigned = false;
+                let mut next = Vec::with_capacity(unassigned_cols.len());
+
+                for &i in &unassigned_cols {
+                    if self.preferred_widths[i] <= avg {
+                        self.widths_buffer[i] = self.preferred_widths[i];
+                        remaining_width -= self.preferred_widths[i];
+                        newly_assigned = true;
+                    } else {
+                        next.push(i);
+                    }
+                }
+                unassigned_cols = next;
+
+                if !newly_assigned {
+                    break;
+                }
             }
-        }
 
-        // Step 6: Equal distribution for oversized columns
-        if !unassigned_cols.is_empty() {
-            let avg = remaining_width / unassigned_cols.len() as u16;
-            let rem = remaining_width % unassigned_cols.len() as u16;
-            let last_unassigned = *unassigned_cols.last().unwrap();
+            // Step 6: Equal distribution for oversized columns
+            if !unassigned_cols.is_empty() {
+                let avg = remaining_width / unassigned_cols.len() as u16;
+                let rem = remaining_width % unassigned_cols.len() as u16;
+                let last_unassigned = *unassigned_cols.last().unwrap();
 
-            for &i in &unassigned_cols {
-                self.widths_buffer[i] = avg;
+                for &i in &unassigned_cols {
+                    self.widths_buffer[i] = avg;
+                }
+                self.widths_buffer[last_unassigned] += rem;
             }
-            self.widths_buffer[last_unassigned] += rem;
         }
 
         // Step 7: Final expansion pass
@@ -459,7 +448,7 @@ impl ResultsUI {
                     if overrides[i] > 0 {
                         None
                     } else {
-                        let max_w = max_widths.get(i).copied().unwrap_or(0);
+                        let max_w = self.max_widths.get(i).copied().unwrap_or(0);
                         let gap = max_w.saturating_sub(self.widths_buffer[i]);
                         (gap > 0).then_some((i, gap))
                     }
@@ -478,19 +467,6 @@ impl ResultsUI {
                     remaining -= add;
                     *gap > 0
                 });
-            }
-
-            // we only grow up to max widths which might < sum
-            if remaining > 0 && self.config.right_align_last {
-                let unoverridden: Vec<usize> = active_cols
-                    .iter()
-                    .copied()
-                    .filter(|&i| overrides[i] == 0)
-                    .collect();
-
-                if let Some(&last_i) = unoverridden.last() {
-                    self.widths_buffer[last_i] += remaining;
-                }
             }
         }
 
@@ -697,7 +673,7 @@ mod tests {
         results.column_name_widths = vec![0];
 
         // 3 rows for 1 visible column: widths 10, 50, 20
-        results.row_cache[1] = vec![
+        results.row_cache[0] = vec![
             (0, vec![], vec![10]),
             (1, vec![], vec![50]),
             (2, vec![], vec![20]),
@@ -710,47 +686,20 @@ mod tests {
     }
 
     #[test]
-    fn test_right_align_last_expands_last_column() {
-        let mut config = ResultsConfig::default();
-        config.right_align_last = true;
-
-        let mut results = ResultsUI::new(config);
-        results.width = 100;
-        results.preferred_widths = vec![10, 15];
-        results.hidden_columns = crate::collections::HiddenColumns::new_with_size(2);
-        results.column_name_widths = vec![0, 0];
-        results.row_cache[0] = vec![(0, vec![], vec![10, 15])];
-
-        results.update_width_limits();
-
-        // Available width = 100 - indentation(2) - spacing(1) = 97
-        // Column 0 = 10
-        // Column 1 (last column) = 15 + (97 - 25) = 87
-        assert_eq!(results.width_limits[0], 10);
-        assert_eq!(results.width_limits[1], 87);
-    }
-
-    #[test]
     fn test_try_apply_max_widths() {
         let mut config = ResultsConfig::default();
-        config.right_align_last = true;
 
         let mut results = ResultsUI::new(config);
         results.width = 100;
         results.hidden_columns = crate::collections::HiddenColumns::new_with_size(2);
         results.column_name_widths = vec![0, 0];
-        // Populate raw widths in row_cache[1]
-        results.row_cache[1] = vec![(0, vec![], vec![12, 20]), (1, vec![], vec![15, 10])];
+        // Populate raw widths in row_cache[0]
+        results.row_cache[0] = vec![(0, vec![], vec![12, 20]), (1, vec![], vec![15, 10])];
 
         // Max widths: col 0 = 15, col 1 = 20. Sum = 35 <= available_width (97).
-        let applied = results.try_apply_max_widths();
-        assert!(applied);
+        let applied = results.try_apply_max_widths_into_width_buffer();
+        assert_eq!(applied, Some(true));
         assert_eq!(results.preferred_widths[0], 15);
-        // Column 1 absorbs remaining width (82) since right_align_last is true
-        assert_eq!(results.preferred_widths[1], 82);
-        assert_eq!(results.width_limits[0], 15);
-        assert_eq!(results.width_limits[1], 82);
-        // widths[0] includes indentation (+2)
-        assert_eq!(results.widths, vec![17, 82]);
+        assert_eq!(results.preferred_widths[1], 20);
     }
 }

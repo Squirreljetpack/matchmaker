@@ -31,9 +31,6 @@ use tokio::io::AsyncReadExt;
 #[easy_ext::ext(MMExt)]
 impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
     /// Causes [`Action::Execute`] to cause the program to execute the program specified by its payload.
-    /// Note:
-    /// - not intended for direct use.
-    /// - Assumes preview and cmd formatter are the same.
     pub fn register_execute_handler(
         &mut self,
         formatter: AttachmentFormatter<T, D>,

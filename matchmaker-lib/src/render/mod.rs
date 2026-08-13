@@ -762,6 +762,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
 
                             picker_ui.results.hidden_columns.set(idx);
                             picker_ui.results.invalidate_widths();
+                            picker_ui.results.on_hidden_cols_change();
                         }
 
                         Action::UnhideColumn(col_name) => {
@@ -772,6 +773,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
                                 results.hidden_columns.pop();
                             }
                             picker_ui.results.invalidate_widths();
+                            picker_ui.results.on_hidden_cols_change();
                         }
                         Action::ExpandColumn(ref col_idx) | Action::ShrinkColumn(ref col_idx) => {
                             let delta: i16 = if matches!(action, Action::ExpandColumn(_)) {

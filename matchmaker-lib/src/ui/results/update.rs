@@ -24,6 +24,11 @@ impl ResultsUI {
         !dirty
     }
 
+    pub fn is_dirty(&self) -> bool {
+        self.row_cache[0].is_empty() || self.needs_new_width_limits()
+    }
+
+    /// changed[2] || width_limits.is_empty()
     pub(crate) fn needs_new_width_limits(&self) -> bool {
         self.changed[2] || self.width_limits.is_empty()
     }
@@ -317,15 +322,26 @@ impl ResultsUI {
         } else {
             self.changed[3]
         };
+
+        // if we needed redraw table, its because row changed
+        self.row_cache.swap(0, 1);
+        self.row_cache[1].clear();
+
         // Recompute preferred widths when the row layout is known to have
         // changed or when we don't have valid
         // width limits yet (first pass after a resize). Returns `true` if
         // the new preferred widths differ from the current ones, in which
         // case the width limits need to be recomputed.
-        if self.changed[1] || self.preferred_widths.is_empty() || wrap_condition {
-            if self.try_apply_max_widths() {
-                // Applied exact max widths directly to preferred_widths, width_limits, and widths
-            } else if self.update_preferred_widths() {
+        let mut applied = Some(false);
+        if self.changed[3] {
+            applied = self.try_apply_max_widths_into_width_buffer();
+        }
+        if let Some(applied) = applied {
+            if applied || {
+                _info!(self.changed[1]; self.preferred_widths.is_empty(); wrap_condition);
+                (self.changed[1] || self.preferred_widths.is_empty() || wrap_condition)
+                    && self.update_preferred_widths()
+            } {
                 _info!(
                     "[update_preferred]";
                     self.preferred_widths;
@@ -335,13 +351,9 @@ impl ResultsUI {
                     self.changed[3];
                 );
                 self.changed[2] = true;
-            }
+            };
         };
         self.changed[1] = false;
-
-        // if we needed redraw table, its because row changed
-        self.row_cache.swap(0, 1);
-        self.row_cache[1].clear();
 
         if rows.is_empty() || self.needs_new_width_limits() {
             // update rendered table next pass using preferred widths gathered this pass

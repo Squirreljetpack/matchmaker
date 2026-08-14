@@ -123,6 +123,7 @@ impl Previewer {
 
             if let PreviewMessage::Run(cmd, _) = &m {
                 if !self.config.always_trigger && &self.last == cmd {
+                    self.signal_dirty();
                     continue;
                 }
 
@@ -326,8 +327,12 @@ impl Previewer {
                             });
                             self.current = Some((child, handle))
                         } else {
-                            error!("Failed to get stdout of preview command: {cmd}")
+                            error!("Failed to get stdout of preview command: {cmd}");
+                            self.signal_dirty();
                         }
+                    } else {
+                        error!("Failed to spawn preview command: {cmd}");
+                        self.signal_dirty();
                     }
                 }
                 PreviewMessage::Stop => {

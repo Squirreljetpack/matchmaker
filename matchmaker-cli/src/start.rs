@@ -82,10 +82,6 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
         wbog!("'source' field is not supported in the main config.");
     }
 
-    if config.render.status.template.is_empty() {
-        config.render.status.template = r#"\m/\t"#.to_string();
-    }
-
     #[cfg(not(debug_assertions))]
     log::trace!("Initial cfg: {config:?}");
 

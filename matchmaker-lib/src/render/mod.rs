@@ -1264,8 +1264,14 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
     {
         let [preview, mut picker_area] = preview_ui.split(_area);
 
-        if state.iteration == 0 && picker_area.width <= 5 {
-            warn!("UI too narrow, hiding preview");
+        let hide_preview = if preview_ui.is_vertical() {
+            picker_area.width <= crate::ui::RESULTS_MIN_W
+        } else {
+            picker_area.height <= crate::ui::RESULTS_MIN_H
+        };
+
+        if hide_preview {
+            warn!("UI too small, hiding preview");
             preview_ui.show(false);
             [Rect::default(), _area, footer]
         } else {
@@ -1278,7 +1284,31 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
         [Rect::default(), _area, footer]
     };
 
-    let [input, status, header, results] = picker_ui.layout(picker_area);
+    let [input, status, mut header, mut results] = picker_ui.layout(picker_area);
+    let mut footer = footer;
+
+    if results.height <= crate::ui::RESULTS_MIN_H {
+        let mut needed = crate::ui::RESULTS_MIN_H.saturating_sub(results.height);
+        if needed > 0 && footer.height > 0 {
+            let take = needed.min(footer.height);
+            footer.height -= take;
+            if !picker_ui.reverse() {
+                footer.y += take;
+            }
+            results.height += take;
+            needed -= take;
+        }
+        if needed > 0 && header.height > 0 {
+            let take = needed.min(header.height);
+            header.height -= take;
+            if !picker_ui.reverse() {
+                results.y -= take;
+            } else {
+                header.y += take;
+            }
+            results.height += take;
+        }
+    }
 
     let layout = Layout {
         preview,

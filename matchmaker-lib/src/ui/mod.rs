@@ -19,6 +19,9 @@ pub use ratatui::{
 pub use results::*;
 pub use status::*; // reexport for convenience
 
+pub const RESULTS_MIN_W: u16 = 5;
+pub const RESULTS_MIN_H: u16 = 1;
+
 use crate::{
     SSS, Selector,
     config::{

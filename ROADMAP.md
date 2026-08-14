@@ -5,11 +5,13 @@
 - better hr styling (dim etc.)
 - vty to support animated previews/sixel (will that do the trick? otherwise pipe should be more efficient).
 - move preset screenshots into preset directory
+
 - improve restore: exit(clear: Option<bool>)
   - None: move up by input.y-area.y
   - true: move to area.y and clear
   - false: nothing
   - config.clear_on_exit: None -> true
+  - Fix exit_lite
 
 - git/restore has a weird heading bug [history] -> [stash]y], i think its from ratatui tho i have no idea how it happens
 
@@ -24,17 +26,11 @@
   - toast config:
     - trigger on cycle
   - (git) toast arguments
+  - id like to use either the line or table 'niche' of displayui but not sure which one
 
-- Indentation style setting: active or first or custom?
-
-- support alternate actions syntax?: execute::content <- use rhai/lua could be cool
-
+- mla feature?
 - Picker overlay
-
-- builder with intermediate type states for pick options + make state depend on context C and aext A
-
 - replace ansi-2-text for performance and correctness (i.e. man output)
-- Fix exit_lite
 
 # Previewer
 
@@ -47,16 +43,14 @@
   - (what kinds of speed matter?)
   - memory: (800000 items) mac home dir: fzf 137M vs sk 212 vs mm ~~509~~/309/(12-183?) <- btop giving some inaccurate readings
 
+- Adaptive percentages, thresholds/interpolation is obvious but just doesn't feel "easy"
+
 # Columns
 
 - (fist: lowpri): execute: use of {\*} in place of {+}: execute once for each selected
-- constraint: Min/Percent, use header to set min width?
 
 # Bugs
-
-- When the cursor is not near the top (horizontal preview), the cursor doesn't get restored, and the stuff after not cleared
-- if only current is highlighted, and current col is empty, cursor is invisible.. not sure best way to resolve this
-- crossterm (can fail to) detect modifiers on mouse events
+- crossterm cannot detect modifiers on mouse events but we support binding it
 
 ### Low priority
 
@@ -67,9 +61,11 @@
 - nucleo fork
   - more column options (?)
   - Non grapheme aware option to speed up rendering? This would require frizbee (and be required by?).
+- maybe generic context on mmstate so people don't need globals, doubtful tho
 
 - Adaptable preview percentage (higher on smaller)
 - ord field on prev layouts for better composability?
 - flicker-free reload: if empty don't update?
 - very very minor perf improvement, prevent duplicate dynamic handler calls somehow? (not planned)
 - just ran into a facepalm due to previewsetting not having deny_unknown_settings, maybe it would be better to actually flatten
+- Indentation style setting: active or first or custom: decided on active.

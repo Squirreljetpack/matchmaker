@@ -10,6 +10,7 @@ use crate::{
     config::{
         BorderSetting, PreviewConfig, PreviewInitialSetting, PreviewSetting, ShowCondition, Side,
     },
+    ui::{RESULTS_MIN_H, RESULTS_MIN_W},
     preview::Preview,
     utils::text::{trim_text_lines, wrapped_line_height},
 };
@@ -72,10 +73,10 @@ impl PreviewUI {
             }
             ShowCondition::Bool(x) => {
                 x && if let Some(l) = config.layout.first() {
-                    (match l.layout.side {
-                        Side::Bottom | Side::Top => ui_height,
-                        _ => ui_width,
-                    }) > 5 + (l.layout.min.max(0) as u16)
+                    match l.layout.side {
+                        Side::Bottom | Side::Top => ui_height > RESULTS_MIN_H + (l.layout.min.max(0) as u16),
+                        _ => ui_width > RESULTS_MIN_W + (l.layout.min.max(0) as u16),
+                    }
                 } else {
                     false
                 }
@@ -145,10 +146,10 @@ impl PreviewUI {
                 };
                 show = show
                     && if let Some(l) = self.config.layout.first() {
-                        (match l.layout.side {
-                            Side::Bottom | Side::Top => ui_height,
-                            _ => ui_width,
-                        }) > 5 + (l.layout.min.max(0) as u16)
+                        match l.layout.side {
+                            Side::Bottom | Side::Top => ui_height > RESULTS_MIN_H + (l.layout.min.max(0) as u16),
+                            _ => ui_width > RESULTS_MIN_W + (l.layout.min.max(0) as u16),
+                        }
                     } else {
                         false
                     };
@@ -584,6 +585,7 @@ impl PreviewUI {
             && target < rl
         {
             self.offset = self.target_to_offset(target, &results.lines);
+            offset = self.offset;
             self.attained_target = true;
         };
 

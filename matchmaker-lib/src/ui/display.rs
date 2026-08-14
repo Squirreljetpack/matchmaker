@@ -70,14 +70,18 @@ impl DisplayUI {
     pub fn update_width(&mut self, width: u16) {
         let border_w = self.config.border.width();
         let new_w = width.saturating_sub(border_w);
-        self.width = new_w;
-        self.dirty = true;
+        if self.width != new_w {
+            self.width = new_w;
+            self.dirty = true;
+            // self.update_height(); // i think this is not needed?
+        }
     }
 
     pub fn wrap(&mut self, wrap: bool) {
         if self.config.wrap != wrap {
             self.config.wrap = wrap;
             self.dirty = true;
+            self.update_height();
         }
     }
     pub fn is_wrap(&self) -> bool {
@@ -94,12 +98,74 @@ impl DisplayUI {
         height
     }
 
+    pub fn update_height(&mut self) {
+        if self.text.is_empty() && self.lines.is_empty() {
+            self.height = 0;
+            return;
+        }
+
+        let (_result_indentation, _col_spacing, ref widths) = self.cached_result_widths;
+        let use_wrap = self.config.wrap && !widths.is_empty();
+
+        let height = if self.is_single_column() {
+            if self.text.is_empty() {
+                0
+            } else {
+                let text = wrap_text(
+                    self.text[0].clone(),
+                    if use_wrap { self.width } else { 0 },
+                )
+                .0;
+                text.height() as u16
+            }
+        } else {
+            let mut height = 0;
+            for (text, &width) in self.text.iter().zip(widths.iter()) {
+                if width == 0 {
+                    continue;
+                }
+                let ret = wrap_text(text.clone(), if use_wrap { width } else { 0 }).0;
+                height = height.max(ret.height() as u16);
+            }
+            height
+        };
+
+        let mut total_height = height;
+
+        if !self.lines.is_empty() {
+            let mut header_height = 0;
+            for row in &self.lines {
+                let mut row_height = 1;
+                for (i, l) in row.iter().enumerate() {
+                    if widths.get(i).is_none_or(|x| *x == 0) {
+                        continue;
+                    }
+                    let wrapped = wrap_line(
+                        l.clone(),
+                        if use_wrap {
+                            widths.get(i).copied().unwrap_or_default()
+                        } else {
+                            0
+                        },
+                        &wrapping_indicator(),
+                    );
+                    row_height = row_height.max(wrapped.len() as u16);
+                }
+                header_height += row_height;
+            }
+            total_height += header_height;
+        }
+
+        self.height = total_height;
+    }
+
     /// Set text (single column) and show. The base style is applied "under" the text's styling.
     pub fn set(&mut self, text: impl Into<Text<'static>>) {
         self.text = vec![text.into()];
 
         self.show = true;
         self.dirty = true;
+        self.update_height();
     }
 
     /// Add a column and show.
@@ -108,6 +174,7 @@ impl DisplayUI {
 
         self.show = true;
         self.dirty = true;
+        self.update_height();
     }
 
     pub fn clear(&mut self, keep_header: bool) {
@@ -120,6 +187,7 @@ impl DisplayUI {
 
         self.text.clear();
         self.dirty = true;
+        self.update_height();
     }
 
     /// Whether this is table has just one column
@@ -131,6 +199,7 @@ impl DisplayUI {
         self.lines = table;
         self.show = true;
         self.dirty = true;
+        self.update_height();
     }
 
     pub fn make_display(&mut self, result_widths: ResultWidths) -> &Table<'static> {

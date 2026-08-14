@@ -255,6 +255,25 @@ impl Default for HiddenColumns {
     }
 }
 
+impl FromIterator<usize> for HiddenColumns {
+    /// Builds a `HiddenColumns` at max capacity (64 columns) with the given
+    /// column indices hidden, in sequence.
+    ///
+    /// # Panics
+    /// Panics if any index is out of range (`>= 64`).
+    fn from_iter<T: IntoIterator<Item = usize>>(iter: T) -> Self {
+        let mut columns = Self::new_with_size(64);
+        for i in iter {
+            assert!(
+                i < 64,
+                "HiddenColumns index {i} is out of range (must be < 64)"
+            );
+            columns.set(i);
+        }
+        columns
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -298,5 +317,43 @@ mod tests {
         let mut hc = HiddenColumns::new_with_size(1);
         hc.resize(100);
         assert_eq!(hc.mask_len(), 64);
+    }
+
+    #[test]
+    fn from_iter_builds_at_max_capacity() {
+        let hc = HiddenColumns::from_iter([0, 2, 63]);
+        assert_eq!(hc.mask_len(), 64);
+        assert!(hc.contains(0));
+        assert!(hc.contains(2));
+        assert!(hc.contains(63));
+        assert!(!hc.contains(1));
+        assert_eq!(hc.visible_count(), 61);
+    }
+
+    #[test]
+    fn from_iter_preserves_push_order() {
+        let mut hc = HiddenColumns::from_iter([3, 1]);
+        assert_eq!(hc.pop(), Some(1));
+        assert_eq!(hc.pop(), Some(3));
+    }
+
+    #[test]
+    fn from_iter_collect() {
+        let hc: HiddenColumns = vec![2, 5].into_iter().collect();
+        assert!(hc.contains(2));
+        assert!(hc.contains(5));
+        assert_eq!(hc.mask_len(), 64);
+    }
+
+    #[test]
+    #[should_panic(expected = "out of range")]
+    fn from_iter_panics_on_index_64() {
+        let _ = HiddenColumns::from_iter([64]);
+    }
+
+    #[test]
+    #[should_panic(expected = "out of range")]
+    fn from_iter_panics_on_index_over_64() {
+        let _ = HiddenColumns::from_iter([1, 65]);
     }
 }

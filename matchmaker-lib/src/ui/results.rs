@@ -146,6 +146,11 @@ impl ResultsUI {
             _info!("results area": area);
             if self.width != new.width {
                 self.width_limits.clear();
+                // The allocated buffer sums to the *previous* available
+                // width; on a shrink the stale sum overshoots the new
+                // one (and the skip-allocation path only expands). Drop
+                // it so the next pass re-allocates at the new width.
+                self.widths_buffer.clear();
             }
             self.width = new.width;
             self.height = new.height;

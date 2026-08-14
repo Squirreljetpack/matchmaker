@@ -18,6 +18,7 @@ uniformly_truncate_columns = false
 max_height = 16
 
 [status]
+template = '\m/\t'
 
 [header]
 

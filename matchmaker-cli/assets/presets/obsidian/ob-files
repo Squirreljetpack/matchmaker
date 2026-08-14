@@ -38,12 +38,7 @@ fs :custom --opener ob-open \
   --tail-sep $'\t' \
   --transform '
 return function(path, tail)
-local home = (os.getenv("OBSIDIAN_HOME") or ""):gsub("/+$", "")
-local display = path
-if home ~= "" and display:find(home, 1, true) == 1 then
-    display = display:sub(#home + 2) -- strip "<home>/"
-end
-display = display:gsub("^[^/]+/", "") -- strip the vault directory
-return path, display:gsub("%.md$", ""), tail
+    local display = (tail and tail ~= "") and ("/" .. path):match("^.-/" .. tail:gsub("%W", "%%%1") .. "/(.*)") or path
+    return path, display:gsub("^/+", ""):gsub("%.md$", ""), tail
 end
 '

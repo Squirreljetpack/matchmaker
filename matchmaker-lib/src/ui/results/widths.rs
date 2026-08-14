@@ -247,27 +247,25 @@ impl ResultsUI {
             );
         }
 
-        if self.width_limits != self.widths_buffer {
+        let changed = if self.width_limits != self.widths_buffer {
             _info!("applying width buffer"; self.width_limits; self.widths_buffer);
             if skip_allocation {
                 self.width_limits = std::mem::take(&mut self.widths_buffer);
+                true
+            } else {
+                Self::apply_width_thresholds(
+                    &mut self.width_limits,
+                    &self.widths_buffer,
+                    self.config.resize_col_thresholds,
+                    true,
+                )
             }
         } else {
-            return;
-        }
+            false
+        };
 
-        // using apply_width_thresholds has unexpected effect of transitioning instead of preventing small resizes
-        if skip_allocation
-            || Self::apply_width_thresholds(
-                &mut self.width_limits,
-                &self.widths_buffer,
-                self.config.resize_col_thresholds,
-                true,
-            )
-        {
-            if !skip_allocation {
-                self.row_cache[0].clear();
-            }
+        if changed {
+            self.row_cache[0].clear();
             _trace!(self.width_limits);
 
             if self.config.stacked_columns {
@@ -617,7 +615,7 @@ mod tests {
     }
 
     #[test]
-    fn test_try_apply_does_not_clear_row_cache() {
+    fn test_try_apply_max_widths() {
         let config = ResultsConfig::default();
         let mut results = ResultsUI::new(config);
         results.width = 100;
@@ -627,8 +625,17 @@ mod tests {
 
         let applied = results.try_apply_max_widths_into_width_buffer();
         assert_eq!(applied, Some(true));
+        assert_eq!(results.preferred_widths, vec![15, 20]);
+        // try_apply itself preserves row_cache
         assert!(!results.row_cache[0].is_empty());
 
+        // When width_limits changes from [] to [15, 20], update_width_limits clears row_cache
+        results.update_width_limits();
+        assert_eq!(results.width_limits, vec![15, 20]);
+        assert!(results.row_cache[0].is_empty());
+
+        // When width_limits does not change on subsequent update, row_cache is preserved
+        results.row_cache[0] = vec![(0, vec![], vec![15, 20])];
         results.update_width_limits();
         assert!(!results.row_cache[0].is_empty());
     }

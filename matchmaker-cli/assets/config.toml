@@ -11,6 +11,8 @@ max = 120
 [query]
 prompt_style.fg = "Gray"
 prompt_style.modifier = "ITALIC"
+# word movement stops at these characters in addition to whitespace
+# word_boundaries = ['.', '/']
 
 [results]
 # wrap = true

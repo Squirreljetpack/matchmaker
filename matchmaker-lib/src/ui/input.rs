@@ -19,6 +19,8 @@ pub struct InputUI {
     graphemes: Vec<(usize, u16)>,
     before: usize, // index into graphemes of the first visible grapheme
     width: u16,    // only relevant to cursor scrolling
+    /// Word movement stops at these characters in addition to whitespace.
+    word_boundaries: Vec<char>,
 }
 
 impl InputUI {
@@ -189,6 +191,12 @@ impl InputUI {
         }
     }
 
+    /// Whether the grapheme counts as a word boundary for word movement.
+    fn is_separator(&self, g: &str) -> bool {
+        g.chars()
+            .all(|c| c.is_whitespace() || self.word_boundaries.contains(&c))
+    }
+
     pub fn forward_word(&mut self) {
         let mut in_word = false;
         while self.cursor < self.graphemes.len() {
@@ -200,7 +208,7 @@ impl InputUI {
                 .unwrap_or(self.input.len());
             let g = &self.input[byte_start..byte_end];
 
-            if g.chars().all(|c| c.is_whitespace()) {
+            if self.is_separator(g) {
                 if in_word {
                     break;
                 }
@@ -222,7 +230,7 @@ impl InputUI {
                 .unwrap_or(self.input.len());
             let g = &self.input[byte_start..byte_end];
 
-            if g.chars().all(|c| c.is_whitespace()) {
+            if self.is_separator(g) {
                 if in_word {
                     break;
                 }
@@ -340,6 +348,8 @@ impl QueryUI {
             show_border: true,
         };
 
+        ui.state.word_boundaries = ui.config.word_boundaries.clone();
+
         if !ui.config.initial.is_empty() {
             ui.input = ui.config.initial.clone();
             ui.recompute_graphemes();
@@ -424,5 +434,58 @@ impl QueryUI {
         }
 
         self.prompt = prompt;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ui_with_word_boundaries() -> InputUI {
+        let mut ui = InputUI::new();
+        ui.word_boundaries = vec!['.', '/'];
+        ui.set("foo.bar/baz qux".to_string(), u16::MAX);
+        ui
+    }
+
+    #[test]
+    fn forward_word_stops_at_word_boundaries_and_whitespace() {
+        let mut ui = ui_with_word_boundaries();
+        ui.set("foo.bar/baz qux".to_string(), 0);
+        ui.forward_word();
+        assert_eq!(ui.cursor(), 3); // on '.'
+        ui.forward_word();
+        assert_eq!(ui.cursor(), 7); // on '/'
+        ui.forward_word();
+        assert_eq!(ui.cursor(), 11); // on the space
+        ui.forward_word();
+        assert_eq!(ui.cursor(), 15); // end
+    }
+
+    #[test]
+    fn backward_word_stops_at_word_boundaries_and_whitespace() {
+        let mut ui = ui_with_word_boundaries();
+        ui.backward_word();
+        assert_eq!(ui.cursor(), 12); // start of "qux"
+        ui.backward_word();
+        assert_eq!(ui.cursor(), 8); // start of "baz"
+        ui.backward_word();
+        assert_eq!(ui.cursor(), 4); // start of "bar"
+        ui.backward_word();
+        assert_eq!(ui.cursor(), 0); // start of "foo"
+    }
+
+    #[test]
+    fn default_word_movement_treats_only_whitespace_as_separator() {
+        let mut ui = InputUI::new();
+        ui.set("foo.bar/baz".to_string(), u16::MAX);
+        ui.forward_word();
+        assert_eq!(ui.cursor(), 11);
+        ui.set("foo.bar/baz".to_string(), 0);
+        ui.forward_word();
+        assert_eq!(ui.cursor(), 11);
+        ui.set("foo.bar/baz".to_string(), 11);
+        ui.backward_word();
+        assert_eq!(ui.cursor(), 0);
     }
 }

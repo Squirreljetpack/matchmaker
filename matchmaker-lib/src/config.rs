@@ -8,8 +8,8 @@ use ratatui::layout::Rect;
 
 pub use crate::config_types::*;
 pub use crate::utils::{
+    serde::{escaped_opt_char, escaped_opt_string, os_strings, StringOrVec},
     Percentage,
-    serde::{StringOrVec, escaped_opt_char, escaped_opt_string, os_strings},
 };
 
 use crate::collections::HiddenColumns;
@@ -187,6 +187,9 @@ pub struct QueryConfig {
     /// Maintain padding when moving the cursor in the bar.
     pub scroll_padding: bool,
 
+    /// Word movement stops at these characters in addition to whitespace.
+    pub word_boundaries: Vec<char>,
+
     // experimental
     pub reset_cursor_on_query_change: bool,
 }
@@ -205,6 +208,7 @@ impl Default for QueryConfig {
             initial: Default::default(),
 
             scroll_padding: true,
+            word_boundaries: Vec::new(),
             reset_cursor_on_query_change: false,
         }
     }
@@ -1105,8 +1109,21 @@ mod tests {
             sides: Some(Borders::ALL),
             ..Default::default()
         };
-        let outer = Rect { x: 2, y: 3, width: 80, height: 24 };
-        assert_eq!(b.inner_of(outer), Rect { x: 3, y: 4, width: 78, height: 22 });
+        let outer = Rect {
+            x: 2,
+            y: 3,
+            width: 80,
+            height: 24,
+        };
+        assert_eq!(
+            b.inner_of(outer),
+            Rect {
+                x: 3,
+                y: 4,
+                width: 78,
+                height: 22
+            }
+        );
     }
 
     #[test]
@@ -1115,8 +1132,21 @@ mod tests {
             sides: Some(Borders::TOP | Borders::BOTTOM),
             ..Default::default()
         };
-        let outer = Rect { x: 2, y: 3, width: 80, height: 24 };
-        assert_eq!(b.inner_of(outer), Rect { x: 2, y: 4, width: 80, height: 22 });
+        let outer = Rect {
+            x: 2,
+            y: 3,
+            width: 80,
+            height: 24,
+        };
+        assert_eq!(
+            b.inner_of(outer),
+            Rect {
+                x: 2,
+                y: 4,
+                width: 80,
+                height: 22
+            }
+        );
     }
 
     #[test]
@@ -1125,8 +1155,21 @@ mod tests {
             padding: Padding(ratatui::widgets::Padding::left(1)),
             ..Default::default()
         };
-        let outer = Rect { x: 2, y: 3, width: 80, height: 24 };
-        assert_eq!(b.inner_of(outer), Rect { x: 3, y: 3, width: 79, height: 24 });
+        let outer = Rect {
+            x: 2,
+            y: 3,
+            width: 80,
+            height: 24,
+        };
+        assert_eq!(
+            b.inner_of(outer),
+            Rect {
+                x: 3,
+                y: 3,
+                width: 79,
+                height: 24
+            }
+        );
     }
 
     #[test]
@@ -1135,7 +1178,20 @@ mod tests {
             sides: Some(Borders::ALL),
             ..Default::default()
         };
-        let tiny = Rect { x: 0, y: 0, width: 1, height: 1 };
-        assert_eq!(b.inner_of(tiny), Rect { x: 1, y: 1, width: 0, height: 0 });
+        let tiny = Rect {
+            x: 0,
+            y: 0,
+            width: 1,
+            height: 1,
+        };
+        assert_eq!(
+            b.inner_of(tiny),
+            Rect {
+                x: 1,
+                y: 1,
+                width: 0,
+                height: 0
+            }
+        );
     }
 }

@@ -11,6 +11,7 @@ max = 120
 [query]
 prompt_style.fg = "Gray"
 prompt_style.modifier = "ITALIC"
+word_boundaries = ['.', '/']
 
 [results]
 wrap = true

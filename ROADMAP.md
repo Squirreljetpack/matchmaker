@@ -62,6 +62,7 @@
   - more column options (?)
   - Non grapheme aware option to speed up rendering? This would require frizbee (and be required by?).
 - maybe generic context on mmstate so people don't need globals, doubtful tho
+- README images should be unformly sized :(
 
 - Adaptable preview percentage (higher on smaller)
 - ord field on prev layouts for better composability?

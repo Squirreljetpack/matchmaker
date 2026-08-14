@@ -31,6 +31,10 @@ pub struct Cli {
     #[arg(long)]
     pub no_read: bool,
 
+    /// Context lines rolled into each item.
+    #[arg(short = 'C', value_name = "N", default_value_t = 0)]
+    pub context: u16,
+
     /// args passed to the populating command.
     #[arg(last = true)]
     pub args: Vec<OsString>,
@@ -42,7 +46,7 @@ pub struct Cli {
     #[clap(short, conflicts_with("quiet"), action = ArgAction::Count)]
     pub verbose: u8,
 
-    /// Download all presets from GitHub. Use `--download=<FOLDER>` to download only a subfolder.
+    /// Download all presets from GitHub. Use `--download=<FOLDER>` (no space) to download a subfolder.
     #[arg(long, value_name = "FOLDER", num_args = 0..=1, default_missing_value = "")]
     pub download: Option<String>,
 
@@ -123,6 +127,7 @@ impl Cli {
             try_parse!("d", "-");
             try_parse!("override", "--");
             try_parse!("o", "-");
+            try_parse!("C", "-");
 
             // Flags
             if [

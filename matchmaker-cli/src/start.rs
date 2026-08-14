@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     env::set_current_dir,
     io::Read,
     path::Path,
@@ -232,21 +232,40 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
 
 /// Spawns a tokio task mapping f to reader segments.
 /// Read aborts on error. Read errors are logged.
+///
+/// With `context > 0`, each item passed to `f` is a rolling window of
+/// `2*context+1` consecutive lines joined with newlines; a stream with
+/// fewer lines than the window forwards them as one item.
 pub fn map_reader<E: SSS + std::fmt::Display>(
     reader: impl Read + SSS,
     f: impl FnMut(String) -> Result<(), E> + SSS,
     input_separator: Option<char>,
+    context: usize,
     render_tx: RenderSender<MMAction>,
     abort_empty: bool,
     skip_invalid_lines: bool,
 ) -> tokio::task::JoinHandle<Result<usize, MapReaderError<E>>> {
     tokio::task::spawn_blocking(move || {
-        let ret = if let Some(delim) = input_separator {
-            map_chunks::<E>(read_to_chunks(reader, delim), f, skip_invalid_lines)
-        } else {
-            map_reader_lines::<E>(reader, f, skip_invalid_lines)
+        let mut window = RollingWindow::new(f, context);
+        // The adapter closure borrows `window`, so the read happens inside a
+        // scope; after it, the window is free for the end-of-stream flush.
+        let ret = {
+            let mut push = |line: String| window.push(line);
+            if let Some(delim) = input_separator {
+                map_chunks::<E>(read_to_chunks(reader, delim), &mut push, skip_invalid_lines)
+            } else {
+                map_reader_lines::<E>(reader, &mut push, skip_invalid_lines)
+            }
         }
         .elog();
+        let ret = match ret {
+            Ok(count) => window
+                .finish()
+                .map(|_| count)
+                .map_err(MapReaderError::Custom)
+                .elog(),
+            ret => ret,
+        };
 
         match &ret {
             Ok(0) => {
@@ -266,6 +285,67 @@ pub fn map_reader<E: SSS + std::fmt::Display>(
         log::trace!("All items pushed");
         ret
     })
+}
+
+/// Rolling line window used by [`map_reader`]: lines are buffered until the
+/// window is full (`2*context+1` lines, its preallocated capacity), then the
+/// window is joined with newlines and forwarded to `f`; each further line
+/// dequeues the first line so the window slides forward by one.
+struct RollingWindow<F> {
+    f: F,
+    buffer: VecDeque<String>,
+    context: usize,
+}
+
+impl<F: FnMut(String) -> Result<(), E>, E> RollingWindow<F> {
+    fn new(f: F, context: usize) -> Self {
+        Self {
+            f,
+            buffer: VecDeque::with_capacity(context * 2 + 1),
+            context,
+        }
+    }
+
+    fn push(&mut self, line: String) -> Result<(), E> {
+        if self.context == 0 {
+            return (self.f)(line);
+        }
+        if self.buffer.len() == self.buffer.capacity() {
+            self.buffer.pop_front();
+        }
+        self.buffer.push_back(line);
+        if self.buffer.len() == self.buffer.capacity() {
+            let item = self.join();
+            (self.f)(item)?;
+        }
+        Ok(())
+    }
+
+    /// Forwards the buffered lines as a single item when the stream ended
+    /// before the window filled.
+    fn finish(&mut self) -> Result<(), E> {
+        if !self.buffer.is_empty() && self.buffer.len() < self.buffer.capacity() {
+            let item = self.join();
+            self.buffer.clear();
+            (self.f)(item)?;
+        }
+        Ok(())
+    }
+
+    /// Joins the buffered lines into a single newline-separated item.
+    fn join(&self) -> String {
+        let mut item = String::with_capacity(
+            self.buffer.iter().map(String::len).sum::<usize>()
+                + self.buffer.len().saturating_sub(1),
+        );
+        for (i, line) in self.buffer.iter().enumerate() {
+            if i > 0 {
+                item.push('\n');
+            }
+            item.push_str(line);
+        }
+        item
+    }
 }
 
 pub static COMMAND_ARGS: Mutex<Vec<std::ffi::OsString>> = Mutex::new(Vec::new());
@@ -334,7 +414,7 @@ pub fn process_envs(mut envs: HashMap<String, EnvValue>) -> HashMap<String, Stri
 
 const START_ERROR: Result<(), MatchError> = Err(MatchError::Abort(11));
 
-pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
+pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), MatchError> {
     let Config {
         render,
         tui,
@@ -542,6 +622,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             stdin,
             push_fn,
             input_separator,
+            context,
             render_tx.clone(),
             abort_empty,
             skip_invalid_lines,
@@ -558,6 +639,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
             stdout,
             push_fn,
             separator.or(input_separator),
+            context,
             render_tx.clone(),
             abort_empty,
             skip_invalid_lines,
@@ -630,6 +712,7 @@ pub async fn start(config: Config, no_read: bool) -> Result<(), MatchError> {
                     stdout,
                     push_fn,
                     separator.or(input_separator),
+                    context,
                     reload_render_tx.clone(),
                     abort_empty,
                     skip_invalid_lines,
@@ -768,5 +851,74 @@ fn inject_line(
         } else {
             injector.push(line)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn run_window(lines: &[&str], context: usize) -> Vec<String> {
+        let mut injected = Vec::new();
+        let mut window = RollingWindow::new(
+            |item: String| {
+                injected.push(item);
+                Ok::<(), std::convert::Infallible>(())
+            },
+            context,
+        );
+        for line in lines {
+            window.push(line.to_string()).unwrap();
+        }
+        window.finish().unwrap();
+        injected
+    }
+
+    #[test]
+    fn context_1_injects_full_three_line_windows() {
+        assert_eq!(
+            run_window(&["a", "b", "c", "d", "e"], 1),
+            ["a\nb\nc", "b\nc\nd", "c\nd\ne"]
+        );
+    }
+
+    #[test]
+    fn context_2_injects_full_five_line_windows() {
+        assert_eq!(
+            run_window(&["a", "b", "c", "d", "e", "f"], 2),
+            ["a\nb\nc\nd\ne", "b\nc\nd\ne\nf"]
+        );
+    }
+
+    #[test]
+    fn stream_shorter_than_window_is_flushed_once_on_finish() {
+        assert_eq!(run_window(&["a"], 1), ["a"]);
+        assert_eq!(run_window(&["a", "b"], 1), ["a\nb"]);
+        assert_eq!(run_window(&["a", "b"], 2), ["a\nb"]);
+        assert_eq!(run_window(&["a", "b", "c"], 2), ["a\nb\nc"]);
+    }
+
+    #[test]
+    fn full_windows_inject_once_each_without_tail_flush() {
+        assert_eq!(run_window(&["1", "2", "3", "4"], 1), ["1\n2\n3", "2\n3\n4"]);
+        assert_eq!(run_window(&["a", "b", "c"], 1), ["a\nb\nc"]);
+    }
+
+    #[test]
+    fn empty_stream_injects_nothing() {
+        assert!(run_window(&[], 3).is_empty());
+    }
+
+    #[test]
+    fn context_0_forwards_each_line_as_is() {
+        assert_eq!(run_window(&["a", "b", "c"], 0), ["a", "b", "c"]);
+    }
+
+    #[test]
+    fn error_propagates_from_injection() {
+        let mut window = RollingWindow::new(|_: String| Err::<(), &str>("nope"), 1);
+        window.push("a".into()).unwrap(); // buffered
+        window.push("b".into()).unwrap(); // window not full yet
+        assert_eq!(window.push("c".into()), Err("nope")); // full window injected
     }
 }

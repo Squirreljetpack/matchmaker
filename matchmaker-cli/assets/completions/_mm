@@ -18,7 +18,8 @@ _mm() {
 '--config=[]:PATH:_files' \
 '*-o+[Paths without a toml extension refer to a preset]:PATH:_files' \
 '*--override=[Paths without a toml extension refer to a preset]:PATH:_files' \
-'--download=[Download all presets from GitHub. Use \`--download=<FOLDER>\` to download only a subfolder]::FOLDER:_default' \
+'-C+[Context lines rolled into each item]:N:_default' \
+'--download=[Download all presets from GitHub. Use \`--download=<FOLDER>\` (no space) to download a subfolder]::FOLDER:_default' \
 '--list=[Useful for testing presets (see \`mm --doc other\`)]::N@ALIAS | N-M | N:TEMPLATE | TEMPLATE:_default' \
 '-d+[Display documentation]:DOC:(options binds template other)' \
 '--doc=[Display documentation]:DOC:(options binds template other)' \

@@ -25,6 +25,7 @@ It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and
 - Bind keys to multiple actions, bind actions to mouse triggers, bind actions to event triggers, bind keys to rebind keys, bind keys to modify the configuration, bind keys to run a shell script and use its output to execute actions and bind more keys, bind keys to set the header, footer, status, input, bind semantic triggers to actions, bind keys to semantic triggers, bind keys to -- wait nope thats about it.
 - Comprehensive logging in case you need to debug applications.
 - oh yeah, and `mm --last-key` gives you the last key that was pressed in a previous run of the program.[^13]
+- `-C` (context) flag!
 - a *[panoply](#presets)* of amazing presets which manifest as *dashing* TUIs to boost your productivity.
 - Available as a rust library to use in your own code!
 
@@ -77,7 +78,6 @@ npm install -g @squirreljetpack/matchmaker
 ##### Cargo
 
 ```sh
-# requires cargo and does not come with certain features patched into dependencies, better to build from source with cargo build --release -F experimental.
 cargo install matchmaker-cli
 ```
 
@@ -178,7 +178,7 @@ mm --config ~/.config/matchmaker/presets/rg.toml
 
 ### Presets
 
-Matchmaker is really good for creating workflows. It's like a swiss army knife for building and sharing great TUIs -- check out the [collection](https://github.com/Squirreljetpack/matchmaker/tree/main/matchmaker-cli/assets/presets)![^50]
+Matchmaker is really good for creating workflows. It's like a swiss army knife for building and sharing great TUIs -- check out the [collection](https://github.com/Squirreljetpack/matchmaker/tree/main/matchmaker-cli/assets/presets)[^50]!
 
 ```shell
 # download a preset (collection)
@@ -193,7 +193,8 @@ mm -o rg
 ```
 
 <img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/git-restore.png" alt="git-restore" style="width:416px;" /> <img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/git-grep-help.png" alt="git-help" style="width:416px;" />
-<img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/ps.png" alt="procs" style="width:416px;" /> <img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/docker-containers.png" alt="docker-containers" style="width:416px;" />
+<img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/ps.png" alt="procs" style="width:416px;" /> <img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/context.png" alt="image-20260814151029456" style="width:416px" />
+<img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/docker-containers.png" alt="docker-containers" style="width:416px;" /> <img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/extra/unicode.png?raw=true" alt="emoji" style="width:416px" />
 
 <video src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/webm/git.mp4" controls width="416"></video>
 

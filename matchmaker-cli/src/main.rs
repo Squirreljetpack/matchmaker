@@ -50,7 +50,10 @@ async fn main() {
     if let Some(download) = &cli.download {
         // Empty string here means "download all"; a non-empty value is a
         // folder name or a file preset (with or without `.toml`).
-        handle_download(download, &["jpg", "png", "gif"]);
+        handle_download(
+            download,
+            &["jpg", "png", "gif", "gitignore", "gitattributes"],
+        );
     }
 
     if cli.presets {
@@ -85,6 +88,7 @@ async fn main() {
 
     let no_read = cli.no_read;
     let list = cli.list.clone();
+    let context = cli.context as usize;
     // get config
     let config = enter(cli, partial).__ebog();
 
@@ -98,7 +102,7 @@ async fn main() {
     }
 
     // begin
-    match start(config, no_read).await {
+    match start(config, no_read, context).await {
         Ok(_) => {
             log::debug!("Execution Complete");
         }

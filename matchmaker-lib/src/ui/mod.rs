@@ -25,7 +25,7 @@ pub const RESULTS_MIN_H: u16 = 1;
 use crate::{
     SSS, Selector,
     config::{
-        DisplayConfig, QueryConfig, RenderConfig, ResultsConfig, StatusConfig,
+        BorderSetting, DisplayConfig, QueryConfig, RenderConfig, ResultsConfig, StatusConfig,
         TerminalLayoutSettings, UiConfig,
     },
     nucleo::Worker,
@@ -36,6 +36,8 @@ use crate::{
 pub struct UI {
     pub layout: Option<TerminalLayoutSettings>,
     area: Rect, // unused
+    /// Full picker pane rect including its border, set by update_layout_and_state.
+    picker_area: Rect,
     pub config: UiConfig,
 }
 
@@ -60,13 +62,13 @@ impl UI {
         }
 
         let ui_area = [
-            tui.area.width.saturating_sub(config.ui.border.width()),
-            tui.area.height.saturating_sub(config.ui.border.height()),
+            tui.area.width.saturating_sub(config.ui.outer_border.width()),
+            tui.area.height.saturating_sub(config.ui.outer_border.height()),
         ];
 
         let area = Rect {
-            x: tui.area.x + config.ui.border.left(),
-            y: tui.area.y + config.ui.border.top(),
+            x: tui.area.x + config.ui.outer_border.left(),
+            y: tui.area.y + config.ui.outer_border.top(),
             width: ui_area[0],
             height: ui_area[1],
         };
@@ -74,6 +76,7 @@ impl UI {
         let ui = Self {
             layout: tui.config.layout.clone(),
             area,
+            picker_area: area,
             config: config.ui,
         };
 
@@ -115,6 +118,7 @@ impl UI {
         let ui = Self {
             layout: None,
             area: Rect::default(),
+            picker_area: Rect::default(),
             config: config.ui,
         };
 
@@ -132,39 +136,40 @@ impl UI {
     }
 
     pub fn update_dimensions(&mut self, area: Rect) {
-        let border = &self.config.border;
-
-        self.area = Rect {
-            x: area.x + border.left(),
-            y: area.y + border.top(),
-            width: area.width.saturating_sub(border.width()),
-            height: area.height.saturating_sub(border.height()),
-        };
+        self.area = self.outer_border().inner_of(area);
     }
 
     pub fn make_ui(&self) -> ratatui::widgets::Block<'_> {
-        self.config.border.as_block()
+        self.config.outer_border.as_block()
+    }
+
+    pub fn outer_border(&self) -> &BorderSetting {
+        &self.config.outer_border
+    }
+
+    pub fn border(&self) -> &BorderSetting {
+        &self.config.border
+    }
+
+    pub fn picker_area(&self) -> Rect {
+        self.picker_area
+    }
+
+    pub fn update_picker_area(&mut self, area: Rect) {
+        self.picker_area = area;
     }
 
     pub fn area(&self) -> Rect {
         self.area
     }
 
-    pub fn compute_area(&self, area: &Rect) -> Rect {
-        Rect {
-            x: area.x + self.config.border.left(),
-            y: area.y + self.config.border.top(),
-            width: area.width.saturating_sub(self.config.border.width()),
-            height: area.height.saturating_sub(self.config.border.height()),
-        }
-    }
-
     pub fn full_area(&self) -> Rect {
+        let outer_border = &self.config.outer_border;
         Rect {
-            x: self.area.x - self.config.border.left(),
-            y: self.area.y - self.config.border.top(),
-            width: self.area.width + self.config.border.width(),
-            height: self.area.height + self.config.border.height(),
+            x: self.area.x - outer_border.left(),
+            y: self.area.y - outer_border.top(),
+            width: self.area.width + outer_border.width(),
+            height: self.area.height + outer_border.height(),
         }
     }
 }
@@ -294,5 +299,95 @@ impl<'a, T: SSS, D: 'static> PickerUI<'a, T, D> {
     // creation from UI ensures Some
     pub fn reverse(&self) -> bool {
         self.results.reverse()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nucleo::Matcher;
+    use ratatui::{
+        Terminal,
+        backend::TestBackend,
+        widgets::Borders,
+    };
+
+    fn test_ui<'a>(
+        config: RenderConfig,
+        matcher: &'a mut Matcher,
+    ) -> (UI, PickerUI<'a, &'static str, ()>) {
+        let worker = Worker::<&'static str, ()>::new_single_column();
+        UI::new_offline(config, matcher, worker)
+    }
+
+    #[test]
+    fn full_area_roundtrips_outer_area() {
+        let mut config = RenderConfig::default();
+        config.ui.outer_border = BorderSetting {
+            sides: Some(Borders::ALL),
+            ..Default::default()
+        };
+        config.ui.border = BorderSetting {
+            sides: Some(Borders::ALL),
+            ..Default::default()
+        };
+        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
+        let (mut ui, _picker) = test_ui(config, &mut matcher);
+
+        let area = Rect { x: 0, y: 0, width: 80, height: 24 };
+        ui.update_dimensions(area);
+        assert_eq!(ui.full_area(), area);
+    }
+
+    #[test]
+    fn make_ui_renders_outer_border() {
+        let mut config = RenderConfig::default();
+        config.ui.outer_border = BorderSetting {
+            sides: Some(Borders::ALL),
+            ..Default::default()
+        };
+        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
+        let (ui, _picker) = test_ui(config, &mut matcher);
+
+        let block = ui.make_ui();
+        let mut terminal = Terminal::new(TestBackend::new(10, 4)).unwrap();
+        terminal
+            .draw(|frame| frame.render_widget(block, frame.area()))
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        assert_eq!(buffer[(0, 0)].symbol(), "┌");
+        assert_eq!(buffer[(9, 3)].symbol(), "┘");
+    }
+
+    #[test]
+    fn picker_layout_stacks_sections() {
+        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
+        let (_ui, picker) = test_ui(RenderConfig::default(), &mut matcher);
+
+        let area = Rect { x: 0, y: 0, width: 80, height: 24 };
+        let [input, status, header, results] = picker.layout(area);
+
+        assert_eq!(input, Rect { x: 0, y: 0, width: 80, height: 1 });
+        assert_eq!(status, Rect { x: 0, y: 1, width: 80, height: 1 });
+        assert_eq!(header, Rect { x: 0, y: 2, width: 80, height: 0 });
+        assert_eq!(results, Rect { x: 0, y: 2, width: 80, height: 22 });
+    }
+
+    #[test]
+    fn picker_layout_reversed() {
+        let mut config = RenderConfig::default();
+        config.results.reverse = Some(true);
+        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
+        let (_ui, picker) = test_ui(config, &mut matcher);
+
+        let area = Rect { x: 0, y: 0, width: 80, height: 24 };
+        let [input, status, header, results] = picker.layout(area);
+
+        // reversed: results at the top, input at the bottom
+        assert_eq!(results, Rect { x: 0, y: 0, width: 80, height: 22 });
+        assert_eq!(header, Rect { x: 0, y: 22, width: 80, height: 0 });
+        assert_eq!(status, Rect { x: 0, y: 22, width: 80, height: 1 });
+        assert_eq!(input, Rect { x: 0, y: 23, width: 80, height: 1 });
     }
 }

@@ -985,10 +985,9 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
             // 3. Pure rendering phase
             tui.terminal
                 .draw(|frame| {
-                    let mut area = frame.area();
+                    let area = frame.area();
 
-                    // Mutates area for container rendering
-                    render_ui(frame, &mut area, &ui);
+                    render_ui(frame, area, &ui);
 
                     cursor_y_offset = render_input(frame, layout.input, &mut picker_ui.query).y;
 
@@ -1202,11 +1201,11 @@ fn render_display(frame: &mut Frame, area: Rect, ui: &mut DisplayUI, results_ui:
     }
 }
 
-// a bit weird, do we want mutable, do we want &mut ui, whatever this is simplest
-fn render_ui(frame: &mut Frame, area: &mut Rect, ui: &UI) {
-    let widget = ui.make_ui();
-    frame.render_widget(widget, *area);
-    *area = ui.compute_area(area);
+fn render_ui(frame: &mut Frame, area: Rect, ui: &UI) {
+    // outer container border, drawn over the whole terminal area
+    frame.render_widget(ui.make_ui(), area);
+    // picker pane border, drawn over the picker pane (including its border area)
+    frame.render_widget(ui.border().as_block(), ui.picker_area());
 }
 
 fn split(rect: &mut Rect, height: u16, cut_top: bool) -> Rect {
@@ -1251,7 +1250,9 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
     let full_width_footer =
         footer_ui.is_single_column() && footer_ui.config.row_connection == RowConnectionStyle::Full;
 
-    let mut _area = area;
+    // The layout sits inside the outer border; the picker pane is additionally
+    // inset by the picker border.
+    let mut _area = ui.outer_border().inner_of(area);
 
     let mut footer = if full_width_footer || preview_ui.as_ref().is_none_or(|p| !p.visible()) {
         split(&mut _area, footer_ui.height(), picker_ui.reverse())
@@ -1259,10 +1260,11 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
         Rect::default()
     };
 
-    let [preview, picker_area, footer] = if let Some(preview_ui) = preview_ui.as_mut()
+    let [preview, picker, picker_area, footer] = if let Some(preview_ui) = preview_ui.as_mut()
         && preview_ui.visible()
     {
-        let [preview, mut picker_area] = preview_ui.split(_area);
+        let [preview, picker] = preview_ui.split(_area);
+        let mut picker_area = ui.border().inner_of(picker);
 
         let hide_preview = if preview_ui.is_vertical() {
             picker_area.width <= crate::ui::RESULTS_MIN_W
@@ -1273,15 +1275,15 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
         if hide_preview {
             warn!("UI too small, hiding preview");
             preview_ui.show(false);
-            [Rect::default(), _area, footer]
+            [Rect::default(), _area, ui.border().inner_of(_area), footer]
         } else {
             if !full_width_footer {
                 footer = split(&mut picker_area, footer_ui.height(), picker_ui.reverse());
             }
-            [preview, picker_area, footer]
+            [preview, picker, picker_area, footer]
         }
     } else {
-        [Rect::default(), _area, footer]
+        [Rect::default(), _area, ui.border().inner_of(_area), footer]
     };
 
     let [input, status, mut header, mut results] = picker_ui.layout(picker_area);
@@ -1318,6 +1320,8 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
         results,
         footer,
     };
+
+    ui.update_picker_area(picker);
 
     // Update state layout
     if state.update_layout(layout) {
@@ -1368,7 +1372,314 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
 // }
 
 #[cfg(test)]
-mod test {}
+mod test {
+    use super::*;
+    use crate::{
+        action::NullActionExt,
+        config::{
+            BorderSetting, DisplayConfig, PreviewConfig, PreviewLayout, PreviewSetting,
+            RenderConfig, ShowCondition, Side, StringOrVec,
+        },
+        nucleo::Worker,
+        preview::{AppendOnly, Preview},
+        utils::Percentage,
+    };
+    use nucleo::Matcher;
+    use ratatui::{
+        Terminal,
+        backend::TestBackend,
+        text::Text,
+        widgets::Borders,
+    };
+    use std::sync::atomic::AtomicBool;
+    use std::sync::{Arc, Mutex};
+
+    fn rect(width: u16, height: u16) -> Rect {
+        Rect {
+            x: 0,
+            y: 0,
+            width,
+            height,
+        }
+    }
+
+    fn setup<'a>(
+        config: RenderConfig,
+        matcher: &'a mut Matcher,
+    ) -> (UI, PickerUI<'a, &'static str, ()>, State, DisplayUI) {
+        let worker = Worker::<&'static str, ()>::new_single_column();
+        let (ui, picker) = UI::new_offline(config, matcher, worker);
+        (ui, picker, State::new(), DisplayUI::default())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn layout_of(
+        ui: &mut UI,
+        picker: &mut PickerUI<'_, &'static str, ()>,
+        state: &mut State,
+        footer: &mut DisplayUI,
+        preview: Option<&mut PreviewUI>,
+        area: Rect,
+    ) -> Layout {
+        update_layout_and_state::<&'static str, (), NullActionExt>(area, state, picker, footer, preview, ui, None)
+    }
+
+    fn test_preview() -> PreviewUI {
+        let config = PreviewConfig {
+            show: ShowCondition::Bool(true),
+            layout: vec![PreviewSetting {
+                layout: PreviewLayout {
+                    side: Side::Right,
+                    percentage: Percentage::new(60),
+                    min: 15,
+                    max: 50,
+                },
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        PreviewUI::new(
+            Preview::new(
+                AppendOnly::new(),
+                Arc::new(Mutex::new(Some(Text::raw("preview")))),
+                Arc::new(AtomicBool::new(false)),
+            ),
+            config,
+            [80, 24],
+        )
+    }
+
+    #[test]
+    fn split_cut_top() {
+        let mut rect = rect(80, 24);
+        let offshoot = split(&mut rect, 5, true);
+        assert_eq!(offshoot, Rect { x: 0, y: 0, width: 80, height: 5 });
+        assert_eq!(rect, Rect { x: 0, y: 5, width: 80, height: 19 });
+    }
+
+    #[test]
+    fn split_bottom() {
+        let mut rect = rect(80, 24);
+        let offshoot = split(&mut rect, 5, false);
+        assert_eq!(offshoot, Rect { x: 0, y: 19, width: 80, height: 5 });
+        assert_eq!(rect, Rect { x: 0, y: 0, width: 80, height: 19 });
+    }
+
+    #[test]
+    fn split_height_capped_at_rect_height() {
+        let mut rect = rect(80, 24);
+        let offshoot = split(&mut rect, 100, false);
+        assert_eq!(offshoot, Rect { x: 0, y: 0, width: 80, height: 24 });
+        assert_eq!(rect.height, 0);
+    }
+
+    #[test]
+    fn split_zero_height() {
+        let mut rect = Rect {
+            x: 5,
+            y: 5,
+            width: 80,
+            height: 24,
+        };
+        let offshoot = split(&mut rect, 0, false);
+        assert_eq!(offshoot, Rect { x: 5, y: 29, width: 80, height: 0 });
+        assert_eq!(rect, Rect { x: 5, y: 5, width: 80, height: 24 });
+    }
+
+    #[test]
+    fn layout_no_preview_default() {
+        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
+        let (mut ui, mut picker, mut state, mut footer) = setup(RenderConfig::default(), &mut matcher);
+        let area = rect(80, 24);
+
+        let layout = layout_of(&mut ui, &mut picker, &mut state, &mut footer, None, area);
+
+        // without borders the picker pane is the whole area
+        assert_eq!(ui.picker_area(), area);
+        // default DisplayUI has no content, so the footer is a zero-height bar
+        // at the bottom edge
+        assert_eq!(layout.footer, Rect { x: 0, y: 24, width: 80, height: 0 });
+
+        assert_eq!(layout.input, Rect { x: 0, y: 0, width: 80, height: 1 });
+        assert_eq!(layout.status, Rect { x: 0, y: 1, width: 80, height: 1 });
+        assert_eq!(layout.header, Rect { x: 0, y: 2, width: 80, height: 0 });
+        assert_eq!(layout.results, Rect { x: 0, y: 2, width: 80, height: 22 });
+        assert_eq!(ui.area(), area);
+    }
+
+    #[test]
+    fn layout_insets_by_outer_and_picker_borders() {
+        let mut config = RenderConfig::default();
+        config.ui.border = BorderSetting {
+            sides: Some(Borders::ALL),
+            ..Default::default()
+        };
+        config.ui.outer_border = BorderSetting {
+            sides: Some(Borders::ALL),
+            ..Default::default()
+        };
+        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
+        let (mut ui, mut picker, mut state, mut footer) = setup(config, &mut matcher);
+        let area = rect(80, 24);
+
+        let layout = layout_of(&mut ui, &mut picker, &mut state, &mut footer, None, area);
+
+        // the picker pane sits inside the outer border
+        assert_eq!(ui.picker_area(), Rect { x: 1, y: 1, width: 78, height: 22 });
+        // content sits inside the picker border
+        assert_eq!(layout.input, Rect { x: 2, y: 2, width: 76, height: 1 });
+        assert_eq!(layout.status, Rect { x: 2, y: 3, width: 76, height: 1 });
+        assert_eq!(layout.results, Rect { x: 2, y: 4, width: 76, height: 18 });
+        // the ui area is inset by the outer border only (not the picker border)
+        assert_eq!(ui.area(), Rect { x: 1, y: 1, width: 78, height: 22 });
+    }
+
+    #[test]
+    fn layout_with_preview() {
+        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
+        let (mut ui, mut picker, mut state, mut footer) = setup(RenderConfig::default(), &mut matcher);
+        let mut preview = test_preview();
+        let area = rect(80, 24);
+
+        let layout = layout_of(
+            &mut ui,
+            &mut picker,
+            &mut state,
+            &mut footer,
+            Some(&mut preview),
+            area,
+        );
+
+        assert!(preview.visible());
+        // side Right, 60% of 80 = 48, clamped to [15, 50] (+2 border padding)
+        assert_eq!(layout.preview, Rect { x: 32, y: 0, width: 48, height: 24 });
+        assert_eq!(ui.picker_area(), Rect { x: 0, y: 0, width: 32, height: 24 });
+        assert_eq!(layout.results, Rect { x: 0, y: 2, width: 32, height: 22 });
+    }
+
+    #[test]
+    fn layout_hides_preview_when_too_small() {
+        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
+        let (mut ui, mut picker, mut state, mut footer) = setup(RenderConfig::default(), &mut matcher);
+        let mut preview = test_preview();
+        let area = rect(10, 24);
+
+        let layout = layout_of(
+            &mut ui,
+            &mut picker,
+            &mut state,
+            &mut footer,
+            Some(&mut preview),
+            area,
+        );
+
+        // the preview pane would be wider than the results area, so it is hidden
+        assert!(!preview.visible());
+        assert_eq!(layout.preview, Rect::default());
+        assert_eq!(ui.picker_area(), area);
+    }
+
+    #[test]
+    fn layout_full_width_footer_spans_outer_area() {
+        let mut config = RenderConfig::default();
+        config.ui.border = BorderSetting {
+            sides: Some(Borders::ALL),
+            ..Default::default()
+        };
+        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
+        let (mut ui, mut picker, mut state, _footer) = setup(config, &mut matcher);
+        let mut footer = DisplayUI::new(DisplayConfig {
+            content: Some(StringOrVec::String("footer".into())),
+            ..Default::default()
+        });
+        let area = rect(80, 24);
+
+        let layout = layout_of(
+            &mut ui,
+            &mut picker,
+            &mut state,
+            &mut footer,
+            None,
+            area,
+        );
+
+        // the full-width footer is split off the outer area, below the picker pane
+        assert_eq!(layout.footer, Rect { x: 0, y: 23, width: 80, height: 1 });
+        assert_eq!(ui.picker_area(), Rect { x: 0, y: 0, width: 80, height: 23 });
+        assert_eq!(layout.input, Rect { x: 1, y: 1, width: 78, height: 1 });
+    }
+
+    #[test]
+    fn render_ui_draws_outer_and_picker_borders() {
+        let mut config = RenderConfig::default();
+        config.ui.border = BorderSetting {
+            sides: Some(Borders::ALL),
+            ..Default::default()
+        };
+        config.ui.outer_border = BorderSetting {
+            sides: Some(Borders::ALL),
+            ..Default::default()
+        };
+        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
+        let (mut ui, _picker, _state, _footer) = setup(config, &mut matcher);
+
+        let area = rect(80, 24);
+        ui.update_picker_area(Rect { x: 1, y: 1, width: 78, height: 22 });
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        terminal
+            .draw(|frame| render_ui(frame, area, &ui))
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        // outer border corners at the terminal edges
+        assert_eq!(buffer[(0, 0)].symbol(), "┌");
+        assert_eq!(buffer[(79, 0)].symbol(), "┐");
+        assert_eq!(buffer[(0, 23)].symbol(), "└");
+        assert_eq!(buffer[(79, 23)].symbol(), "┘");
+        assert_eq!(buffer[(40, 0)].symbol(), "─");
+        assert_eq!(buffer[(0, 12)].symbol(), "│");
+        // the picker border is drawn around a pane that does not cover the
+        // whole area, separating it from the preview side
+        ui.update_picker_area(Rect { x: 0, y: 0, width: 32, height: 24 });
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        terminal
+            .draw(|frame| render_ui(frame, area, &ui))
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        // outer border corners at the terminal edges
+        assert_eq!(buffer[(0, 0)].symbol(), "┌");
+        assert_eq!(buffer[(79, 0)].symbol(), "┐");
+        assert_eq!(buffer[(0, 23)].symbol(), "└");
+        assert_eq!(buffer[(79, 23)].symbol(), "┘");
+        assert_eq!(buffer[(40, 0)].symbol(), "─");
+        assert_eq!(buffer[(0, 12)].symbol(), "│");
+        // picker border corners at the picker pane edges
+        assert_eq!(buffer[(0, 0)].symbol(), "┌");
+        assert_eq!(buffer[(31, 0)].symbol(), "┐");
+        assert_eq!(buffer[(0, 23)].symbol(), "└");
+        assert_eq!(buffer[(31, 23)].symbol(), "┘");
+        // the picker border's right edge separates the panes
+        assert_eq!(buffer[(31, 12)].symbol(), "│");
+    }
+
+    #[test]
+    fn render_ui_without_borders_draws_nothing() {
+        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
+        let (mut ui, _picker, _state, _footer) = setup(RenderConfig::default(), &mut matcher);
+
+        let area = rect(80, 24);
+        ui.update_picker_area(area);
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        terminal
+            .draw(|frame| render_ui(frame, area, &ui))
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        assert_eq!(buffer[(0, 0)].symbol(), " ");
+        assert_eq!(buffer[(79, 23)].symbol(), " ");
+    }
+}
 
 // #[cfg(test)]
 // async fn send_every_second(tx: mpsc::UnboundedSender<RenderCommand>) {

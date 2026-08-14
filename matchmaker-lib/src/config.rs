@@ -132,6 +132,10 @@ pub struct UiConfig {
     #[partial(recurse)]
     #[partial(alias = "b")]
     pub border: BorderSetting,
+    /// Border drawn around the entire ui, outside the picker pane.
+    #[partial(recurse)]
+    #[partial(alias = "ob")]
+    pub outer_border: BorderSetting,
     pub tick_rate: u8, // separate from render, but best place ig
     pub mouse_events: bool,
     /// Debounce interval for mouse scroll events in milliseconds.
@@ -145,6 +149,7 @@ impl Default for UiConfig {
     fn default() -> Self {
         Self {
             border: Default::default(),
+            outer_border: Default::default(),
             tick_rate: 60,
             mouse_events: true,
             mouse_scroll_debounce_ms: 0,
@@ -1087,5 +1092,50 @@ impl<'de> Deserialize<'de> for NucleoMatcherConfig {
         }
 
         Ok(NucleoMatcherConfig(config))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn inner_of_all_sides() {
+        let b = BorderSetting {
+            sides: Some(Borders::ALL),
+            ..Default::default()
+        };
+        let outer = Rect { x: 2, y: 3, width: 80, height: 24 };
+        assert_eq!(b.inner_of(outer), Rect { x: 3, y: 4, width: 78, height: 22 });
+    }
+
+    #[test]
+    fn inner_of_partial_sides() {
+        let b = BorderSetting {
+            sides: Some(Borders::TOP | Borders::BOTTOM),
+            ..Default::default()
+        };
+        let outer = Rect { x: 2, y: 3, width: 80, height: 24 };
+        assert_eq!(b.inner_of(outer), Rect { x: 2, y: 4, width: 80, height: 22 });
+    }
+
+    #[test]
+    fn inner_of_padding() {
+        let b = BorderSetting {
+            padding: Padding(ratatui::widgets::Padding::left(1)),
+            ..Default::default()
+        };
+        let outer = Rect { x: 2, y: 3, width: 80, height: 24 };
+        assert_eq!(b.inner_of(outer), Rect { x: 3, y: 3, width: 79, height: 24 });
+    }
+
+    #[test]
+    fn inner_of_saturates_at_zero() {
+        let b = BorderSetting {
+            sides: Some(Borders::ALL),
+            ..Default::default()
+        };
+        let tiny = Rect { x: 0, y: 0, width: 1, height: 1 };
+        assert_eq!(b.inner_of(tiny), Rect { x: 1, y: 1, width: 0, height: 0 });
     }
 }

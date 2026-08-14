@@ -623,3 +623,90 @@ impl PreviewUI {
         preview
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        config::PreviewLayout,
+        preview::AppendOnly,
+        utils::Percentage,
+    };
+    use std::sync::atomic::AtomicBool;
+    use std::sync::{Arc, Mutex};
+
+    fn test_preview(side: Side) -> PreviewUI {
+        let config = PreviewConfig {
+            show: ShowCondition::Bool(true),
+            layout: vec![PreviewSetting {
+                layout: PreviewLayout {
+                    side,
+                    percentage: Percentage::new(60),
+                    min: 15,
+                    max: 50,
+                },
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        PreviewUI::new(
+            Preview::new(
+                AppendOnly::new(),
+                Arc::new(Mutex::new(Some(ratatui::text::Text::raw("preview")))),
+                Arc::new(AtomicBool::new(false)),
+            ),
+            config,
+            [80, 24],
+        )
+    }
+
+    #[test]
+    fn split_right() {
+        let preview = test_preview(Side::Right);
+        let area = Rect { x: 0, y: 0, width: 80, height: 24 };
+        let [preview_rect, picker_rect] = preview.split(area);
+
+        // 60% of 80 = 48, clamped to [15, 50] (+ 2 border padding)
+        assert_eq!(preview_rect, Rect { x: 32, y: 0, width: 48, height: 24 });
+        assert_eq!(picker_rect, Rect { x: 0, y: 0, width: 32, height: 24 });
+    }
+
+    #[test]
+    fn split_bottom() {
+        let preview = test_preview(Side::Bottom);
+        let area = Rect { x: 0, y: 0, width: 80, height: 24 };
+        let [preview_rect, picker_rect] = preview.split(area);
+
+        // 60% of 24 = 14, clamped up to the 15 minimum
+        assert_eq!(preview_rect, Rect { x: 0, y: 9, width: 80, height: 15 });
+        assert_eq!(picker_rect, Rect { x: 0, y: 0, width: 80, height: 9 });
+    }
+
+    #[test]
+    fn split_respects_current_dimension() {
+        let mut preview = test_preview(Side::Right);
+        preview.update_dimensions(&Rect { x: 0, y: 0, width: 80, height: 24 });
+        preview.shrink(10);
+
+        let area = Rect { x: 0, y: 0, width: 80, height: 24 };
+        let [preview_rect, picker_rect] = preview.split(area);
+
+        // initial size is 80 (78 inner + 2 border padding); shrunk by 10
+        assert_eq!(preview_rect, Rect { x: 10, y: 0, width: 70, height: 24 });
+        assert_eq!(picker_rect, Rect { x: 0, y: 0, width: 10, height: 24 });
+    }
+
+    #[test]
+    fn split_expand_resets_current_dimension() {
+        let mut preview = test_preview(Side::Right);
+        preview.update_dimensions(&Rect { x: 0, y: 0, width: 80, height: 24 });
+        preview.shrink(10);
+        preview.expand(0);
+
+        let area = Rect { x: 0, y: 0, width: 80, height: 24 };
+        let [preview_rect, _picker_rect] = preview.split(area);
+
+        // expand(0) resets the custom dimension, back to the 60% default
+        assert_eq!(preview_rect, Rect { x: 32, y: 0, width: 48, height: 24 });
+    }
+}

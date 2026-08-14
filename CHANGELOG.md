@@ -1,3 +1,19 @@
+## [0.1.5] - 2026-08-14
+
+### 🚀 Features
+
+- Fully configurable initial sorting + move PreprocessOptions to [matcher]
+- Minor width algo refactor
+- *(overlay)* Pass MMState to on_enable/handle_input/handle_action
+- Test backend
+- Cleaner api for setting hidden columns by reading from ResultsConfig
+- Picker area border
+- Word boundaries
+
+### 🐛 Bug Fixes
+
+- Various
+
 ## [0.1.4] - 2026-08-12
 
 ### 🚀 Features

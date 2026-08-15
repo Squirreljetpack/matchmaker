@@ -165,6 +165,14 @@ where
         }
     }
 
+    /// Applies the matching config to the worker and its per-thread matchers.
+    ///
+    /// The config is cloned into every rayon thread's matcher via
+    /// `nucleo::Nucleo::update_config`, so it takes effect on the next match.
+    pub fn set_config(&mut self, config: nucleo::Config) {
+        self.nucleo.update_config(config);
+    }
+
     pub fn set_column_options(&mut self, index: usize, options: ColumnOptions) {
         if options.contains(ColumnOptions::Optional) {
             self.nucleo

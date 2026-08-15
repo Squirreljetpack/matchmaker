@@ -84,7 +84,7 @@ impl ConfigMatchmaker {
         // items. The CLI overrides this in `start.rs` via the
         // `on_accept`/`output_template` logic.
         let accept_hook = Box::new(
-            |state: &mut MMState<'_, '_, String, ConfigPreprocessedData>| -> Vec<String> {
+            |state: &mut MMState<'_, String, ConfigPreprocessedData>| -> Vec<String> {
                 state.map_selected_to_vec(|_, item| item.clone())
             },
         ) as AcceptHook<String, ConfigPreprocessedData, String>;
@@ -97,6 +97,7 @@ impl ConfigMatchmaker {
             render_config,
             tui_config,
             exit_config,
+            matcher_config: nucleo::Config::DEFAULT,
             output: accept_hook,
             event_handlers,
             interrupt_handlers,

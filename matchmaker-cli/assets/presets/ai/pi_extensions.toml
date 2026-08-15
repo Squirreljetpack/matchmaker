@@ -84,23 +84,18 @@ sort.threshold = 40
 [preview]
 show = true
 
-[previewer]
-shell = ['python', '-c']
-
 [[preview.layout]]
 command = '''
-import os, shlex, subprocess, sys
-args = shlex.split(r"""{1}""")
-if args:
-    subprocess.run([sys.executable, os.path.join(os.path.dirname(os.environ["MM_OVERRIDE"]), "pi_extensions_preview.py"), args[0]])
+base="$(dirname -- "$MM_OVERRIDE")"
+if [ -n "{1}" ]; then
+    "$base"/pi_extensions_preview.py "{1}"
+fi
 '''
 
 [[preview.layout]]
 command = '''
-import subprocess
-subprocess.run(
-    ["bat", "--wrap=never", "--color=always", "-pp", "-l", "md"],
-    input="""Usage:
+bat --wrap=never --color=always -pp -l md <<'EOF'
+Usage:
 
 This preset reads `~/.pi/agent/mm_extensions` (`MM_EXTENSIONS_FILE`) for your desired extension setup.
 The rows shown may not reflect your current pi settings! Trigger `@reconcile` (ctrl-r) to update the file to reflect your current extension settings for this project.
@@ -108,28 +103,22 @@ Trigger `@accept` to toggle extensions.
 `@set global` or `@set local` to apply the shown configuration local/global pi settings.
 Trigger `@rm` to remove the selected extension (deletes its line, then `pi uninstall`).
 Press `ctrl-n` and enter a source to `pi install`; on success it is added to the list.
-""",
-    text=True,
-)
+EOF
 '''
 
 [[preview.layout]]
 command = '''
-import os, shlex, subprocess, sys
-args = shlex.split(r"""{1}""")
-if args:
-    base = os.path.dirname(os.environ["MM_OVERRIDE"])
-    r = subprocess.run(
-        [sys.executable, os.path.join(base, "pi_extensions_preview.py"), "--dir", args[0]],
-        capture_output=True, text=True,
-    )
-    if r.returncode == 0:
-        d = r.stdout.strip()
-        for readme in ("README.md", "readme.md"):
-            p = os.path.join(d, readme)
-            if os.path.isfile(p):
-                subprocess.run(["bat", "--wrap=never", "--color=always", "-pp", "-l", "md", "--", p])
+base="$(dirname -- "$MM_OVERRIDE")"
+if [ -n "{1}" ]; then
+    if d="$("$base"/pi_extensions_preview.py --dir "{1}" 2>/dev/null)" && [ -n "$d" ]; then
+        for readme in README.md readme.md; do
+            if [ -f "$d/$readme" ]; then
+                bat --wrap=never --color=always -pp -l md -- "$d/$readme"
                 break
+            fi
+        done
+    fi
+fi
 '''
 
 # --- Binds ---
@@ -142,9 +131,41 @@ if args:
 "@accept" = ["@toggle extension", "Reload"]
 "ctrl-n" = ["@install", "Reload"]
 "@rm" = ["@uninstall", "Reload"]
+"@open" = '''Execute(
+import os, subprocess, shlex
+from pathlib import Path
 
-"@set global" = 'ExecuteOrConfirm(@pi_extensions_set.py global)'
-"@set local" = 'ExecuteOrConfirm(@pi_extensions_set.py local)'
+editor = os.environ.get("EDITOR", "nano")
+target = Path("~/.pi/agent/settings.json").expanduser()
+subprocess.run([*shlex.split(editor), str(target)])
+)'''
+"@open_2" = '''Execute(
+import os, subprocess, shlex
+from pathlib import Path
+
+editor = os.environ.get("EDITOR", "nano")
+target = Path(".pi/agent/settings.json").resolve()
+subprocess.run([*shlex.split(editor), str(target)])
+)'''
+
+"@set global" = [
+    'ExecuteOrConfirm(@pi_extensions_set.py global)',
+    'RunPreview(cat ~/.pi/agent/settings.json)',
+]
+"@set local" = [
+    'ExecuteOrConfirm(@pi_extensions_set.py local)',
+    'RunPreview(cat .pi/settings.json)',
+]
+
+# show the project-local pi settings followed by the global pi settings
+"@show" = '''RunPreview(
+    for f in .pi/settings.json "$HOME/.pi/agent/settings.json"; do
+        [[ -e "$f" ]] &&
+        echo "===== $f =====" &&
+        cat -- "$f" 2>/dev/null
+        echo
+    done
+)'''
 "@reconcile" = 'ExecuteOrConfirm(@pi_extensions_reconcile.py)'
 "@toggle extension" = '''ExecuteOrConfirm(
 import json, os, shlex, subprocess, sys, tempfile

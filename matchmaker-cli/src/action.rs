@@ -20,7 +20,7 @@ use matchmaker_partial::{Apply, Set};
 use crate::config::SortSetting;
 use crate::sort::{SortMode, apply_sort, expand_maybe_column, handle_sort_reverse};
 
-pub type MMState<'a, 'b> = matchmaker::render::MMState<'a, 'b, String, ConfigPreprocessedData>;
+pub type MMState<'a> = matchmaker::render::MMState<'a, String, ConfigPreprocessedData>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MMAction {
@@ -122,7 +122,7 @@ pub struct ActionContext {
 
 pub fn action_handler(
     a: MMAction,
-    state: &mut MMState<'_, '_>,
+    state: &mut MMState<'_,>,
     ActionContext {
         bind_tx,
         render_tx,

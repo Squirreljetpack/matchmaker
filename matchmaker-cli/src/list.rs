@@ -26,7 +26,7 @@ use matchmaker::{
     binds::Trigger,
     config::{CommandSetting, EnvValue},
     config_mm::{ConfigPreprocessedData, OddEnds},
-    nucleo::{new_snapshot, nucleo::Matcher},
+    nucleo::new_snapshot,
     render::{MMState, State},
     ui::{DisplayUI, UI},
 };
@@ -253,7 +253,7 @@ fn parse_index(s: &str) -> Option<usize> {
 fn with_item<T>(
     config: Config,
     n: usize,
-    f: impl FnOnce(&MMState<'_, '_, String, ConfigPreprocessedData>) -> anyhow::Result<T>,
+    f: impl FnOnce(&MMState<'_, String, ConfigPreprocessedData>) -> anyhow::Result<T>,
 ) -> anyhow::Result<T> {
     let (command, envs, shell) = setup(&config)?;
 
@@ -262,7 +262,6 @@ fn with_item<T>(
         tui,
         matcher:
             MatcherConfig {
-                matcher,
                 sort,
                 preprocess,
                 ..
@@ -323,8 +322,7 @@ fn with_item<T>(
     let matched_count = status.matched_count;
 
     // -------- build an offline state and move the cursor to item n ------------
-    let mut matcher = Matcher::new(matcher.0);
-    let (mut ui, mut picker_ui) = UI::new_offline(mm.render_config, &mut matcher, mm.worker);
+    let (mut ui, mut picker_ui) = UI::new_offline(mm.render_config, mm.worker);
     let mut footer_ui = DisplayUI::default();
     let mut preview_ui = None;
     picker_ui.results.status = status;

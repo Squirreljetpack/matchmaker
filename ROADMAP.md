@@ -50,7 +50,10 @@
 - (fist: lowpri): execute: use of {\*} in place of {+}: execute once for each selected
 
 # Bugs
+
 - crossterm cannot detect modifiers on mouse events but we support binding it
+- Setting the custom shell in a patch makes base cfg executes invalid
+  - idea: support mlua in the binary
 
 ### Low priority
 

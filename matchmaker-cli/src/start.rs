@@ -580,6 +580,8 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
 
     // apply the configured sort settings (reverse/threshold/mode+column) to the worker.
     init_mm_sort(&mut mm, &ranges_fn, sort.clone());
+    // apply the configured matcher config to the worker and scoring matcher.
+    mm.config_matcher(matcher.0);
 
     // make previewer
     if !event_loop.original_binds().check_traces() {
@@ -587,7 +589,7 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
     }
     let cli_formatter = Either::Right(
         crate::formatter::format_cli
-            as for<'a, 'b, 'c> fn(&'a MMState<'b, 'c>, &'a str, Option<&dyn Fn(String)>) -> String,
+            as for<'a, 'b> fn(&'a MMState<'b>, &'a str, Option<&dyn Fn(String)>) -> String,
     );
     let binds_ptr = event_loop.get_binds_ptr();
     let mut previewer = make_previewer(
@@ -605,7 +607,6 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
     let envs_ = envs.clone();
     let mut options = PickOptions::new()
         .event_loop(event_loop)
-        .matcher(matcher.0)
         .previewer(previewer)
         .initializer(move |s| {
             s.envs.extend(envs_);
@@ -746,7 +747,7 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
 
     // TODO: accept logic is in render/mod.rs is todo!() - this closure is
     // currently unreachable until the accept pipeline is restored.
-    mm.output = Box::new(move |state: &mut MMState<'_, '_>| {
+    mm.output = Box::new(move |state: &mut MMState<'_,>| {
         if !on_accept.is_empty() {
             let cmd = format_cli(state, &on_accept, None);
             if cmd.is_empty() {

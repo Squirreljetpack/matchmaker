@@ -186,7 +186,7 @@ pub enum Action<A: ActionExt = NullActionExt> {
 ///     use matchmaker::{action::{Action, Actions, acs}, render::MMState};
 ///     pub fn fsaction_aliaser(
 ///         a: Action,
-///         state: &MMState<'_, '_, String, String>,
+///         state: &MMState<'_, String, String>,
 ///     ) -> Actions {
 ///         match a {
 ///             Action::Custom(_) => {

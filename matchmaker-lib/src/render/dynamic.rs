@@ -9,8 +9,8 @@ use crate::{
 // note: a handler whose mask intersects multiple set bits in the event is
 // only called once per propagation, not once per set bit.
 // We choose not to return a Option<Result<S, E>> to simplify defining handlers, but will rather expose some mechanisms on state later on if a use case arises
-pub type DynamicMethod<T, D, E> = Box<dyn Fn(&mut MMState<'_, '_, T, D>, &E)>;
-pub type BoxedHandler<T, D> = Box<dyn FnMut(&mut MMState<'_, '_, T, D>)>;
+pub type DynamicMethod<T, D, E> = Box<dyn Fn(&mut MMState<'_, T, D>, &E)>;
+pub type BoxedHandler<T, D> = Box<dyn FnMut(&mut MMState<'_, T, D>)>;
 
 pub type DynamicHandlers<T, D> = (EventHandlers<T, D>, InterruptHandlers<T, D>);
 

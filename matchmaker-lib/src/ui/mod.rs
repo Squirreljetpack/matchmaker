@@ -43,14 +43,13 @@ pub struct UI {
 
 // requires columns > 1
 impl UI {
-    pub fn new<'a, T: SSS, D: 'static, W: std::io::Write>(
+    pub fn new<T: SSS, D: 'static, W: std::io::Write>(
         mut config: RenderConfig,
-        matcher: &'a mut nucleo::Matcher,
         worker: Worker<T, D>,
         selector: Selector,
         view: Option<Preview>,
         tui: &mut Tui<W>,
-    ) -> (Self, PickerUI<'a, T, D>, DisplayUI, Option<PreviewUI>) {
+    ) -> (Self, PickerUI<T, D>, DisplayUI, Option<PreviewUI>) {
         assert!(!worker.columns.is_empty());
 
         if config.results.reverse.is_none() {
@@ -89,7 +88,6 @@ impl UI {
             config.status,
             config.query,
             config.header,
-            matcher,
             worker,
             selector,
         );
@@ -112,11 +110,10 @@ impl UI {
     /// returned: the display UI is not used (callers pass a
     /// `DisplayUI::default()` and `None` preview to the dispatcher), there is
     /// no preview, and no reverse detection happens.
-    pub fn new_offline<'a, T: SSS, D: 'static>(
+    pub fn new_offline<T: SSS, D: 'static>(
         config: RenderConfig,
-        matcher: &'a mut nucleo::Matcher,
         worker: Worker<T, D>,
-    ) -> (Self, PickerUI<'a, T, D>) {
+    ) -> (Self, PickerUI<T, D>) {
         assert!(!worker.columns.is_empty());
 
         let ui = Self {
@@ -131,7 +128,6 @@ impl UI {
             config.status,
             config.query,
             config.header,
-            matcher,
             worker,
             Selector::new(),
         );
@@ -178,18 +174,17 @@ impl UI {
     }
 }
 
-pub struct PickerUI<'a, T: SSS, D> {
+pub struct PickerUI<T: SSS, D> {
     pub results: ResultsUI,
     pub status: StatusUI,
     pub query: QueryUI,
     pub header: DisplayUI,
-    pub matcher: &'a mut nucleo::Matcher,
     pub selector: Selector,
     pub worker: Worker<T, D>,
     pub filtering: bool,
 }
 
-impl<'a, T: SSS, D: 'static> PickerUI<'a, T, D> {
+impl<T: SSS, D: 'static> PickerUI<T, D> {
     /// The nucleo item index and a reference to the data of the item currently
     /// under the cursor, if any.
     pub fn current_indexed(&self) -> Option<(u32, &T)> {
@@ -201,7 +196,6 @@ impl<'a, T: SSS, D: 'static> PickerUI<'a, T, D> {
         status_config: StatusConfig,
         input_config: QueryConfig,
         header_config: DisplayConfig,
-        matcher: &'a mut nucleo::Matcher,
         mut worker: Worker<T, D>,
         selector: Selector,
     ) -> Self {
@@ -213,7 +207,6 @@ impl<'a, T: SSS, D: 'static> PickerUI<'a, T, D> {
             status: StatusUI::new(status_config),
             query: QueryUI::new(input_config),
             header: DisplayUI::new(header_config),
-            matcher,
             selector,
             worker,
             filtering: true,
@@ -290,7 +283,7 @@ impl<'a, T: SSS, D: 'static> PickerUI<'a, T, D> {
     }
 }
 
-impl<'a, T: SSS, D: 'static> PickerUI<'a, T, D> {
+impl<T: SSS, D: 'static> PickerUI<T, D> {
     pub fn update(&mut self) {
         if self.filtering {
             self.worker.find(&self.query.input());
@@ -309,15 +302,13 @@ impl<'a, T: SSS, D: 'static> PickerUI<'a, T, D> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nucleo::Matcher;
     use ratatui::{Terminal, backend::TestBackend, widgets::Borders};
 
-    fn test_ui<'a>(
+    fn test_ui(
         config: RenderConfig,
-        matcher: &'a mut Matcher,
-    ) -> (UI, PickerUI<'a, &'static str, ()>) {
+    ) -> (UI, PickerUI<&'static str, ()>) {
         let worker = Worker::<&'static str, ()>::new_single_column();
-        UI::new_offline(config, matcher, worker)
+        UI::new_offline(config, worker)
     }
 
     #[test]
@@ -331,8 +322,7 @@ mod tests {
             sides: Some(Borders::ALL),
             ..Default::default()
         };
-        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
-        let (mut ui, _picker) = test_ui(config, &mut matcher);
+        let (mut ui, _picker) = test_ui(config);
 
         let area = Rect {
             x: 0,
@@ -351,8 +341,7 @@ mod tests {
             sides: Some(Borders::ALL),
             ..Default::default()
         };
-        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
-        let (ui, _picker) = test_ui(config, &mut matcher);
+        let (ui, _picker) = test_ui(config);
 
         let block = ui.make_ui();
         let mut terminal = Terminal::new(TestBackend::new(10, 4)).unwrap();
@@ -367,8 +356,7 @@ mod tests {
 
     #[test]
     fn picker_layout_stacks_sections() {
-        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
-        let (_ui, picker) = test_ui(RenderConfig::default(), &mut matcher);
+        let (_ui, picker) = test_ui(RenderConfig::default());
 
         let area = Rect {
             x: 0,
@@ -420,8 +408,7 @@ mod tests {
     fn picker_layout_reversed() {
         let mut config = RenderConfig::default();
         config.results.reverse = Some(true);
-        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
-        let (_ui, picker) = test_ui(config, &mut matcher);
+        let (_ui, picker) = test_ui(config);
 
         let area = Rect {
             x: 0,

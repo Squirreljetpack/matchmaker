@@ -27,13 +27,13 @@ define_either! {
 
 pub type AttachmentFormatter<T, D> = Either<
     Arc<RenderFn<T>>,
-    for<'a, 'b, 'c> fn(&'a MMState<'b, 'c, T, D>, &'a str, Option<&dyn Fn(String)>) -> String,
+    for<'a, 'b> fn(&'a MMState<'b, T, D>, &'a str, Option<&dyn Fn(String)>) -> String,
 >;
 
 // we could check if template is empty here to avoid allocating but feels like it might be a footgun
 pub fn use_formatter<T: SSS, D: 'static>(
     formatter: &AttachmentFormatter<T, D>,
-    state: &MMState<'_, '_, T, D>,
+    state: &MMState<'_, T, D>,
     template: &str,
     repeat: Option<&dyn Fn(String)>,
 ) -> String {

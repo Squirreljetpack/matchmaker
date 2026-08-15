@@ -325,14 +325,14 @@ impl State {
 
     // ---------- flush -----------
     // public for tests only!
-    pub fn dispatcher<'a, 'b: 'a, T: SSS, D>(
+    pub fn dispatcher<'a, T: SSS, D>(
         &'a mut self,
         ui: &'a mut UI,
-        picker_ui: &'a mut PickerUI<'b, T, D>,
+        picker_ui: &'a mut PickerUI<T, D>,
         footer_ui: &'a mut DisplayUI,
         preview_ui: &'a mut Option<PreviewUI>,
         event_controller: &'a EventSender,
-    ) -> MMState<'a, 'b, T, D> {
+    ) -> MMState<'a, T, D> {
         MMState {
             state: self,
             ui,
@@ -353,18 +353,18 @@ impl State {
 }
 
 // ----------------------------------------------------------------------
-pub struct MMState<'a, 'b: 'a, T: SSS, D> {
+pub struct MMState<'a, T: SSS, D> {
     // access through deref/mut
     pub(crate) state: &'a mut State,
 
     pub ui: &'a mut UI,
-    pub picker_ui: &'a mut PickerUI<'b, T, D>,
+    pub picker_ui: &'a mut PickerUI<T, D>,
     pub footer_ui: &'a mut DisplayUI,
     pub preview_ui: &'a mut Option<PreviewUI>,
     pub event_controller: &'a EventSender,
 }
 
-impl<'a, 'b: 'a, T: SSS, D: 'static> MMState<'a, 'b, T, D> {
+impl<'a, T: SSS, D: 'static> MMState<'a, T, D> {
     pub fn previewer_area(&self) -> Option<Rect> {
         self.preview_ui.as_ref().map(|ui| {
             let mut ret = ui.area;
@@ -530,7 +530,7 @@ impl<'a, 'b: 'a, T: SSS, D: 'static> MMState<'a, 'b, T, D> {
 }
 
 // ----- BOILERPLATE -----------
-impl<'a, 'b: 'a, T: SSS, D> std::ops::Deref for MMState<'a, 'b, T, D> {
+impl<'a, T: SSS, D> std::ops::Deref for MMState<'a, T, D> {
     type Target = State;
 
     fn deref(&self) -> &Self::Target {
@@ -538,7 +538,7 @@ impl<'a, 'b: 'a, T: SSS, D> std::ops::Deref for MMState<'a, 'b, T, D> {
     }
 }
 
-impl<'a, 'b: 'a, T: SSS, D> std::ops::DerefMut for MMState<'a, 'b, T, D> {
+impl<'a, T: SSS, D> std::ops::DerefMut for MMState<'a, T, D> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.state
     }

@@ -20,6 +20,7 @@ use crate::PasteHandler;
 use crate::action::{Action, ActionExt};
 use crate::config::{CursorSetting, ExitConfig, RowConnectionStyle};
 use crate::event::{BindSender, EventSender};
+use crate::matcher::matcher;
 use crate::message::{BindDirective, Event, Interrupt, RenderCommand};
 use crate::tui::Tui;
 use crate::ui::{DisplayUI, OverlayUI, PickerUI, PreviewUI, QueryUI, ResultsUI, StatusUI, UI};
@@ -28,7 +29,7 @@ use crate::{AcceptHook, ActionAliaser, ActionExtHandler, Initializer, MatchError
 fn apply_aliases<T: SSS, D, A: ActionExt>(
     buffer: &mut Vec<RenderCommand<A>>,
     aliaser: &mut ActionAliaser<T, D, A>,
-    dispatcher: &mut MMState<'_, '_, T, D>,
+    dispatcher: &mut MMState<'_, T, D>,
 ) {
     let mut out = Vec::new();
 
@@ -47,9 +48,9 @@ fn apply_aliases<T: SSS, D, A: ActionExt>(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionExt>(
+pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
     mut ui: UI,
-    mut picker_ui: PickerUI<'a, T, D>,
+    mut picker_ui: PickerUI<T, D>,
     mut footer_ui: DisplayUI,
     mut preview_ui: Option<PreviewUI>,
     mut tui: Tui<W>,
@@ -976,7 +977,7 @@ pub(crate) async fn render_loop<'a, W: Write, T: SSS, D: 'static, S, A: ActionEx
         picker_ui.results.update_table(
             &mut picker_ui.worker,
             &picker_ui.selector,
-            picker_ui.matcher,
+            &mut *matcher(),
         );
 
         state.update(&mut picker_ui, &overlay_ui);
@@ -1386,7 +1387,6 @@ mod test {
         preview::{AppendOnly, Preview},
         utils::Percentage,
     };
-    use nucleo::Matcher;
     use ratatui::{Terminal, backend::TestBackend, text::Text, widgets::Borders};
     use std::sync::atomic::AtomicBool;
     use std::sync::{Arc, Mutex};
@@ -1400,19 +1400,18 @@ mod test {
         }
     }
 
-    fn setup<'a>(
+    fn setup(
         config: RenderConfig,
-        matcher: &'a mut Matcher,
-    ) -> (UI, PickerUI<'a, &'static str, ()>, State, DisplayUI) {
+    ) -> (UI, PickerUI<&'static str, ()>, State, DisplayUI) {
         let worker = Worker::<&'static str, ()>::new_single_column();
-        let (ui, picker) = UI::new_offline(config, matcher, worker);
+        let (ui, picker) = UI::new_offline(config, worker);
         (ui, picker, State::new(), DisplayUI::default())
     }
 
     #[allow(clippy::too_many_arguments)]
     fn layout_of(
         ui: &mut UI,
-        picker: &mut PickerUI<'_, &'static str, ()>,
+        picker: &mut PickerUI<&'static str, ()>,
         state: &mut State,
         footer: &mut DisplayUI,
         preview: Option<&mut PreviewUI>,
@@ -1543,9 +1542,8 @@ mod test {
 
     #[test]
     fn layout_no_preview_default() {
-        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
         let (mut ui, mut picker, mut state, mut footer) =
-            setup(RenderConfig::default(), &mut matcher);
+            setup(RenderConfig::default());
         let area = rect(80, 24);
 
         let layout = layout_of(&mut ui, &mut picker, &mut state, &mut footer, None, area);
@@ -1614,8 +1612,7 @@ mod test {
             sides: Some(Borders::ALL),
             ..Default::default()
         };
-        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
-        let (mut ui, mut picker, mut state, mut footer) = setup(config, &mut matcher);
+        let (mut ui, mut picker, mut state, mut footer) = setup(config);
         let area = rect(80, 24);
 
         let layout = layout_of(&mut ui, &mut picker, &mut state, &mut footer, None, area);
@@ -1672,9 +1669,8 @@ mod test {
 
     #[test]
     fn layout_with_preview() {
-        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
         let (mut ui, mut picker, mut state, mut footer) =
-            setup(RenderConfig::default(), &mut matcher);
+            setup(RenderConfig::default());
         let mut preview = test_preview();
         let area = rect(80, 24);
 
@@ -1720,9 +1716,8 @@ mod test {
 
     #[test]
     fn layout_hides_preview_when_too_small() {
-        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
         let (mut ui, mut picker, mut state, mut footer) =
-            setup(RenderConfig::default(), &mut matcher);
+            setup(RenderConfig::default());
         let mut preview = test_preview();
         let area = rect(10, 24);
 
@@ -1748,8 +1743,7 @@ mod test {
             sides: Some(Borders::ALL),
             ..Default::default()
         };
-        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
-        let (mut ui, mut picker, mut state, _footer) = setup(config, &mut matcher);
+        let (mut ui, mut picker, mut state, _footer) = setup(config);
         let mut footer = DisplayUI::new(DisplayConfig {
             content: Some(StringOrVec::String("footer".into())),
             ..Default::default()
@@ -1799,8 +1793,7 @@ mod test {
             sides: Some(Borders::ALL),
             ..Default::default()
         };
-        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
-        let (mut ui, _picker, _state, _footer) = setup(config, &mut matcher);
+        let (mut ui, _picker, _state, _footer) = setup(config);
 
         let area = rect(80, 24);
         ui.update_picker_area(Rect {
@@ -1850,8 +1843,7 @@ mod test {
 
     #[test]
     fn render_ui_without_borders_draws_nothing() {
-        let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
-        let (mut ui, _picker, _state, _footer) = setup(RenderConfig::default(), &mut matcher);
+        let (mut ui, _picker, _state, _footer) = setup(RenderConfig::default());
 
         let area = rect(80, 24);
         ui.update_picker_area(area);

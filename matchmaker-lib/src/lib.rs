@@ -10,6 +10,7 @@ pub mod event;
 mod mode_filter;
 
 pub mod message;
+pub mod matcher;
 pub mod render;
 pub mod ui;
 // picker

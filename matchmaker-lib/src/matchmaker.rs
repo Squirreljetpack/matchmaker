@@ -25,7 +25,7 @@ pub mod config_mm;
 /// The closure receives a &mut [`MMState<T, D>`] and may inspect the selector
 /// and current item to build the result.
 pub type AcceptHook<T, D, S> =
-    Box<dyn FnOnce(&mut MMState<'_, '_, T, D>) -> Vec<S> + Send + Sync + 'static>;
+    Box<dyn FnOnce(&mut MMState<'_, T, D>) -> Vec<S> + Send + Sync + 'static>;
 
 /// The main entrypoint of the library. To use:
 /// 1. create your worker (T -> Columns)
@@ -38,6 +38,7 @@ pub struct Matchmaker<T: SSS, S, D = ()> {
     pub render_config: RenderConfig,
     pub tui_config: TerminalConfig,
     pub exit_config: ExitConfig,
+    pub matcher_config: nucleo::Config,
     pub output: AcceptHook<T, D, S>,
     pub event_handlers: EventHandlers<T, D>,
     pub interrupt_handlers: InterruptHandlers<T, D>,
@@ -48,13 +49,14 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
     /// Construct a `Matchmaker` with default config and the given accept hook.
     pub fn new<F>(worker: Worker<T, D>, accept_hook: F) -> Self
     where
-        F: FnOnce(&mut MMState<'_, '_, T, D>) -> Vec<S> + Send + Sync + 'static,
+        F: FnOnce(&mut MMState<'_, T, D>) -> Vec<S> + Send + Sync + 'static,
     {
         Matchmaker {
             worker,
             render_config: RenderConfig::default(),
             tui_config: TerminalConfig::default(),
             exit_config: ExitConfig::default(),
+            matcher_config: nucleo::Config::DEFAULT,
             output: Box::new(accept_hook),
             event_handlers: EventHandlers::new(),
             interrupt_handlers: InterruptHandlers::new(),
@@ -76,10 +78,17 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
         self.exit_config = exit;
         self
     }
+    /// Configure the scoring matcher
+    ///
+    /// A matcher is a scratch space that needs to be configured ber thread. This config will be used to configure the Matchers used by the worker (for sorting and filtering), and the Matcher used in the UI thread (to compute the highlight characters within each item).
+    pub fn config_matcher(&mut self, matcher_config: nucleo::Config) -> &mut Self {
+        self.matcher_config = matcher_config;
+        self
+    }
     /// Register a handler to listen on [`Event`]s
     pub fn register_event_handler<F>(&mut self, event: Event, handler: F)
     where
-        F: Fn(&mut MMState<'_, '_, T, D>, &Event) + 'static,
+        F: Fn(&mut MMState<'_, T, D>, &Event) + 'static,
     {
         let boxed = Box::new(handler);
         self.register_boxed_event_handler(event, boxed);
@@ -95,7 +104,7 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
     /// Register a handler to listen on [`Interrupt`]s
     pub fn register_interrupt_handler<F>(&mut self, interrupt: Interrupt, handler: F)
     where
-        F: FnMut(&mut MMState<'_, '_, T, D>) + 'static,
+        F: FnMut(&mut MMState<'_, T, D>) + 'static,
     {
         let boxed = Box::new(handler);
         self.register_boxed_interrupt_handler(interrupt, boxed);
@@ -114,7 +123,7 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
     }
 
     /// The main method of the Matchmaker. It starts listening for events and renders the TUI with ratatui. It successfully returns with all the selected items selected when the Accept action is received.
-    pub async fn pick<A: ActionExt>(self, builder: PickOptions<'_, T, D, A>) -> Result<Vec<S>> {
+    pub async fn pick<A: ActionExt>(mut self, builder: PickOptions<T, D, A>) -> Result<Vec<S>> {
         let PickOptions {
             previewer,
             ext_handler,
@@ -196,15 +205,14 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
             ))
         };
 
-        let matcher = if let Some(matcher) = builder.matcher {
-            matcher
-        } else {
-            &mut nucleo::Matcher::new(nucleo::Config::DEFAULT)
-        };
+        // The matcher config is applied to both halves of the pipeline: the
+        // worker (ordering) and the process-wide scoring matcher (highlights).
+        let matcher_config = self.matcher_config.clone();
+        self.worker.set_config(matcher_config.clone());
+        crate::matcher::set_matcher_config(matcher_config);
 
         let (ui, picker, footer, preview) = UI::new(
             self.render_config,
-            matcher,
             self.worker,
             Selector::new(),
             preview,
@@ -284,21 +292,18 @@ impl<T> Result<T> {
 
 /// Returns what should be pushed to input
 pub type PasteHandler<T, D> =
-    Box<dyn FnMut(String, &MMState<'_, '_, T, D>) -> String + Send + Sync + 'static>;
+    Box<dyn FnMut(String, &MMState<'_, T, D>) -> String + Send + Sync + 'static>;
 
 pub type ActionExtHandler<T, D, A> =
-    Box<dyn FnMut(A, &mut MMState<'_, '_, T, D>) + Send + Sync + 'static>;
+    Box<dyn FnMut(A, &mut MMState<'_, T, D>) + Send + Sync + 'static>;
 
 pub type ActionAliaser<T, D, A> =
-    Box<dyn FnMut(Action<A>, &mut MMState<'_, '_, T, D>) -> Actions<A> + Send + Sync + 'static>;
+    Box<dyn FnMut(Action<A>, &mut MMState<'_, T, D>) -> Actions<A> + Send + Sync + 'static>;
 
-pub type Initializer<T, D> = Box<dyn FnOnce(&mut MMState<'_, '_, T, D>) + Send + Sync + 'static>;
+pub type Initializer<T, D> = Box<dyn FnOnce(&mut MMState<'_, T, D>) + Send + Sync + 'static>;
 
 /// Used to configure [`Matchmaker::pick`] with additional options.
-pub struct PickOptions<'a, T: SSS, D, A: ActionExt = NullActionExt> {
-    matcher: Option<&'a mut nucleo::Matcher>,
-    matcher_config: nucleo::Config,
-
+pub struct PickOptions<T: SSS, D, A: ActionExt = NullActionExt> {
     event_loop: Option<EventLoop<A>>,
     binds: Option<BindMap<A>>,
 
@@ -319,14 +324,12 @@ pub struct PickOptions<'a, T: SSS, D, A: ActionExt = NullActionExt> {
     )>,
 }
 
-impl<'a, T: SSS, D, A: ActionExt> PickOptions<'a, T, D, A> {
+impl<T: SSS, D, A: ActionExt> PickOptions<T, D, A> {
     pub fn new() -> Self {
         Self {
-            matcher: None,
             event_loop: None,
             previewer: None,
             binds: None,
-            matcher_config: nucleo::Config::DEFAULT,
             ext_handler: None,
             ext_aliaser: None,
             #[cfg(feature = "bracketed-paste")]
@@ -341,12 +344,6 @@ impl<'a, T: SSS, D, A: ActionExt> PickOptions<'a, T, D, A> {
     pub fn with_binds(binds: BindMap<A>) -> Self {
         let mut ret = Self::new();
         ret.binds = Some(binds);
-        ret
-    }
-
-    pub fn with_matcher(matcher: &'a mut nucleo::Matcher) -> Self {
-        let mut ret = Self::new();
-        ret.matcher = Some(matcher);
         ret
     }
 
@@ -375,14 +372,9 @@ impl<'a, T: SSS, D, A: ActionExt> PickOptions<'a, T, D, A> {
         self
     }
 
-    pub fn matcher(mut self, matcher_config: nucleo::Config) -> Self {
-        self.matcher_config = matcher_config;
-        self
-    }
-
     pub fn ext_handler<F>(mut self, handler: F) -> Self
     where
-        F: FnMut(A, &mut MMState<'_, '_, T, D>) + Send + Sync + 'static,
+        F: FnMut(A, &mut MMState<'_, T, D>) + Send + Sync + 'static,
     {
         self.ext_handler = Some(Box::new(handler));
         self
@@ -390,7 +382,7 @@ impl<'a, T: SSS, D, A: ActionExt> PickOptions<'a, T, D, A> {
 
     pub fn ext_aliaser<F>(mut self, aliaser: F) -> Self
     where
-        F: FnMut(Action<A>, &mut MMState<'_, '_, T, D>) -> Actions<A> + Send + Sync + 'static,
+        F: FnMut(Action<A>, &mut MMState<'_, T, D>) -> Actions<A> + Send + Sync + 'static,
     {
         self.ext_aliaser = Some(Box::new(aliaser));
         self
@@ -398,7 +390,7 @@ impl<'a, T: SSS, D, A: ActionExt> PickOptions<'a, T, D, A> {
 
     pub fn initializer<F>(mut self, handler: F) -> Self
     where
-        F: FnOnce(&mut MMState<'_, '_, T, D>) + Send + Sync + 'static,
+        F: FnOnce(&mut MMState<'_, T, D>) + Send + Sync + 'static,
     {
         self.initializer = Some(Box::new(handler));
         self
@@ -407,7 +399,7 @@ impl<'a, T: SSS, D, A: ActionExt> PickOptions<'a, T, D, A> {
     #[cfg(feature = "bracketed-paste")]
     pub fn paste_handler<F>(mut self, handler: F) -> Self
     where
-        F: FnMut(String, &MMState<'_, '_, T, D>) -> String + Send + Sync + 'static,
+        F: FnMut(String, &MMState<'_, T, D>) -> String + Send + Sync + 'static,
     {
         self.paste_handler = Some(Box::new(handler));
         self
@@ -439,7 +431,7 @@ impl<'a, T: SSS, D, A: ActionExt> PickOptions<'a, T, D, A> {
     }
 }
 
-impl<'a, T: SSS, D, A: ActionExt> Default for PickOptions<'a, T, D, A> {
+impl<T: SSS, D, A: ActionExt> Default for PickOptions<T, D, A> {
     fn default() -> Self {
         Self::new()
     }

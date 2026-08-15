@@ -22,15 +22,15 @@ pub enum OverlayEffect {
 /// they can read live selections, the cursor item, and the query without
 /// snapshots.
 pub trait Overlay<Act: ActionExt, T: SSS, D: 'static> {
-    fn on_enable(&mut self, area: &Rect, state: &mut MMState<'_, '_, T, D>) {
+    fn on_enable(&mut self, area: &Rect, state: &mut MMState<'_, T, D>) {
         let _ = (area, state);
     }
     fn on_disable(&mut self) {}
-    fn handle_input(&mut self, c: char, state: &mut MMState<'_, '_, T, D>) -> OverlayEffect;
+    fn handle_input(&mut self, c: char, state: &mut MMState<'_, T, D>) -> OverlayEffect;
     fn handle_action(
         &mut self,
         action: &Action<Act>,
-        state: &mut MMState<'_, '_, T, D>,
+        state: &mut MMState<'_, T, D>,
     ) -> OverlayEffect {
         let _ = (action, state);
         OverlayEffect::None
@@ -112,7 +112,7 @@ impl<Act: ActionExt, T: SSS, D: 'static> OverlayUI<Act, T, D> {
         self.index
     }
 
-    pub fn enable(&mut self, index: usize, ui_area: &Rect, state: &mut MMState<'_, '_, T, D>) {
+    pub fn enable(&mut self, index: usize, ui_area: &Rect, state: &mut MMState<'_, T, D>) {
         assert!(index < self.overlays.len());
         self.index = Some(index);
         let overlay = &mut self.overlays[index];
@@ -155,7 +155,7 @@ impl<Act: ActionExt, T: SSS, D: 'static> OverlayUI<Act, T, D> {
     }
 
     /// Returns whether the overlay was active (handled the action)
-    pub fn handle_input(&mut self, action: char, state: &mut MMState<'_, '_, T, D>) -> bool {
+    pub fn handle_input(&mut self, action: char, state: &mut MMState<'_, T, D>) -> bool {
         if let Some(x) = self.current_mut() {
             match x.handle_input(action, state) {
                 OverlayEffect::None => {}
@@ -170,7 +170,7 @@ impl<Act: ActionExt, T: SSS, D: 'static> OverlayUI<Act, T, D> {
     pub fn handle_action(
         &mut self,
         action: &Action<Act>,
-        state: &mut MMState<'_, '_, T, D>,
+        state: &mut MMState<'_, T, D>,
     ) -> bool {
         if let Some(inner) = self.current_mut() {
             match inner.handle_action(action, state) {

@@ -44,7 +44,7 @@ use crate::{
 /// };
 ///
 /// // The host picker's item type is unrelated to the overlay's.
-/// let opts: PickOptions<'_, String, (), NullActionExt> = PickOptions::new()
+/// let opts: PickOptions<String, (), NullActionExt> = PickOptions::new()
 ///     .overlay(PickerOverlay::new(
 ///         ["name", "description"],
 ///         None,
@@ -64,7 +64,6 @@ pub struct PickerOverlay<L: ColumnIndexable + SSS = (String, String)> {
     /// Lazily built on enable; `None` while inactive.
     worker: Option<Worker<L, ()>>,
     selector: Selector,
-    matcher: nucleo::Matcher,
     /// Called with the worker's injector on each enable to fill the overlay.
     items: Box<dyn FnMut(&WorkerInjector<L>) + Send + Sync>,
     column_names: Vec<Arc<str>>,
@@ -135,9 +134,7 @@ mod tests {
 
         // The overlay trait methods take an MMState; build a minimal offline one
         // around a dummy two-column picker.
-        let mut matcher = nucleo::Matcher::new(nucleo::Config::DEFAULT);
-        let (mut ui, mut picker) =
-            UI::new_offline(RenderConfig::default(), &mut matcher, test_worker());
+        let (mut ui, mut picker) = UI::new_offline(RenderConfig::default(), test_worker());
         let mut footer = DisplayUI::default();
         let mut preview: Option<PreviewUI> = None;
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel::<crate::message::Event>();
@@ -178,9 +175,7 @@ mod tests {
     fn match_highlights_render() {
         let mut overlay = test_overlay();
 
-        let mut matcher = nucleo::Matcher::new(nucleo::Config::DEFAULT);
-        let (mut ui, mut picker) =
-            UI::new_offline(RenderConfig::default(), &mut matcher, test_worker());
+        let (mut ui, mut picker) = UI::new_offline(RenderConfig::default(), test_worker());
         let mut footer = DisplayUI::default();
         let mut preview: Option<PreviewUI> = None;
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel::<crate::message::Event>();
@@ -253,9 +248,7 @@ mod tests {
             QueryConfig::default(),
         );
 
-        let mut matcher = nucleo::Matcher::new(nucleo::Config::DEFAULT);
-        let (mut ui, mut picker) =
-            UI::new_offline(RenderConfig::default(), &mut matcher, test_worker());
+        let (mut ui, mut picker) = UI::new_offline(RenderConfig::default(), test_worker());
         let mut footer = DisplayUI::default();
         let mut preview: Option<PreviewUI> = None;
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel::<crate::message::Event>();
@@ -340,7 +333,6 @@ impl<L: ColumnIndexable + SSS> PickerOverlay<L> {
             results: ResultsUI::new(results_config),
             worker: None,
             selector: Selector::new(),
-            matcher: nucleo::Matcher::new(nucleo::Config::DEFAULT),
             items: Box::new(items),
             column_names: column_names.into_iter().map(Into::into).collect(),
             default_column,
@@ -375,7 +367,7 @@ where
     T: SSS,
     D: 'static,
 {
-    fn on_enable(&mut self, _area: &Rect, _state: &mut MMState<'_, '_, T, D>) {
+    fn on_enable(&mut self, _area: &Rect, _state: &mut MMState<'_, T, D>) {
         if self.worker.is_none() {
             self.build_worker();
         }
@@ -388,7 +380,7 @@ where
         self.worker = None;
     }
 
-    fn handle_input(&mut self, c: char, _state: &mut MMState<'_, '_, T, D>) -> OverlayEffect {
+    fn handle_input(&mut self, c: char, _state: &mut MMState<'_, T, D>) -> OverlayEffect {
         self.query.push_char(c);
         self.query_dirty = true;
         self.results.set_dirty();
@@ -398,7 +390,7 @@ where
     fn handle_action(
         &mut self,
         action: &Action<Act>,
-        _state: &mut MMState<'_, '_, T, D>,
+        _state: &mut MMState<'_, T, D>,
     ) -> OverlayEffect {
         match action {
             Action::Up(n) => {
@@ -465,7 +457,7 @@ where
         self.results
             .update_active_column(worker.query.active_column_index(cursor_byte));
         self.results
-            .update_table(worker, &self.selector, &mut self.matcher);
+            .update_table(worker, &self.selector, &mut *crate::matcher::matcher());
 
         if self.config.outer_dim {
             dim_surroundings(frame, self.area);

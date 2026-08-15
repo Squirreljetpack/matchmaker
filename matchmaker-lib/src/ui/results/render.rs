@@ -2,12 +2,12 @@ use cba::_info;
 
 use super::*;
 use crate::{
+    SSS, Selector,
     collections::HiddenColumns,
     config::AutoscrollSettings,
-    nucleo::{render_item::render_cell, Style, Text, Worker},
+    nucleo::{Style, Text, Worker, render_item::render_cell},
     ui::ResultsUI,
     utils::text::{to_static, truncation_indicator, wrap_text_static},
-    Selector, SSS,
 };
 
 /// Renders a single item into styled table cells.

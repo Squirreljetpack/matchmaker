@@ -111,11 +111,7 @@ impl DisplayUI {
             if self.text.is_empty() {
                 0
             } else {
-                let text = wrap_text(
-                    self.text[0].clone(),
-                    if use_wrap { self.width } else { 0 },
-                )
-                .0;
+                let text = wrap_text(self.text[0].clone(), if use_wrap { self.width } else { 0 }).0;
                 text.height() as u16
             }
         } else {

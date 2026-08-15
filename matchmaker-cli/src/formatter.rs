@@ -488,7 +488,12 @@ mod tests {
     /// Pushes items and waits until the worker has indexed `expected` of them.
     /// `tick` alone is racy: the worker thread may not have finished processing
     /// the queue, so we sync on the snapshot like the `--list` implementation.
-    fn push_items(mm: &mut ConfigMatchmaker, injector: ConfigInjector, items: &[&str], expected: usize) {
+    fn push_items(
+        mm: &mut ConfigMatchmaker,
+        injector: ConfigInjector,
+        items: &[&str],
+        expected: usize,
+    ) {
         for item in items {
             injector.push(item.to_string()).unwrap();
         }
@@ -739,8 +744,9 @@ mod tests {
             },
         ];
         // Regex with capture groups
-        columns_config.split =
-            matchmaker::config::Split::Delimiter(regex::Regex::new(r"^([a-z]+)-([a-z]+)$").unwrap());
+        columns_config.split = matchmaker::config::Split::Delimiter(
+            regex::Regex::new(r"^([a-z]+)-([a-z]+)$").unwrap(),
+        );
 
         // ansi: false, trim: true, require the first column to be non-empty
         let preprocess = PreprocessConfig {

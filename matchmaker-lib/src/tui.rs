@@ -7,10 +7,10 @@ use crossterm::{
         PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
     },
     execute,
-    terminal::{disable_raw_mode, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode},
 };
 use log::{debug, error};
-use ratatui::{layout::Rect, prelude::CrosstermBackend, Terminal, TerminalOptions, Viewport};
+use ratatui::{Terminal, TerminalOptions, Viewport, layout::Rect, prelude::CrosstermBackend};
 use serde::{Deserialize, Serialize};
 use std::{
     io::{self, Write},
@@ -74,7 +74,7 @@ where
             let cursor_y = match Self::scroll_up(&mut backend, scroll)._elog() {
                 Some(_) => {
                     cursor_y.saturating_sub(scroll) // the requested cursor doesn't seem updated so we assume it succeeded
-                                                    // todo: highpri: scroll doesn't actually seem happening tho, erasing buffer
+                    // todo: highpri: scroll doesn't actually seem happening tho, erasing buffer
                 }
                 None => cursor_y,
             };
@@ -321,7 +321,7 @@ where
     pub fn scroll_up(backend: &mut CrosstermBackend<W>, lines: u16) -> io::Result<u16> {
         execute!(backend, crossterm::terminal::ScrollUp(lines))?;
         Ok(0) // not used
-              // Self::get_cursor_y() // note: do we want to skip this for speed
+        // Self::get_cursor_y() // note: do we want to skip this for speed
     }
     pub fn size() -> io::Result<(u16, u16)> {
         crossterm::terminal::size()
@@ -390,7 +390,7 @@ impl IoStream {
 
 #[cfg(unix)]
 mod utils {
-    use anyhow::{bail, Context, Result};
+    use anyhow::{Context, Result, bail};
     use std::{
         fs::OpenOptions,
         io::{Read, Write},
@@ -402,7 +402,7 @@ mod utils {
     /// Requires raw mode
     pub fn query_cursor_position(timeout: Duration) -> Result<(u16, u16)> {
         use nix::sys::{
-            select::{select, FdSet},
+            select::{FdSet, select},
             time::{TimeVal, TimeValLike},
         };
         use std::os::fd::AsFd;

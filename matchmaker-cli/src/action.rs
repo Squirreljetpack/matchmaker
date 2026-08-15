@@ -1,11 +1,12 @@
 use std::{process::Command, str::FromStr};
 
 use cba::{
-    bait::ResultExt, bring::split::split_on_delimiter_with_doubled_escape, broc::CommandExt,
-    unwrap, StringError,
+    StringError, bait::ResultExt, bring::split::split_on_delimiter_with_doubled_escape,
+    broc::CommandExt, unwrap,
 };
 use log::{debug, error};
 use matchmaker::{
+    Action, Actions,
     binds::Trigger,
     config::PartialRenderConfig,
     config_mm::{ConfigPreprocessedData, RangesFactory},
@@ -13,12 +14,11 @@ use matchmaker::{
     message::{BindDirective, Interrupt, RenderCommand},
     nucleo::Line,
     ui::StatusUI,
-    Action, Actions,
 };
 use matchmaker_partial::{Apply, Set};
 
 use crate::config::SortSetting;
-use crate::sort::{apply_sort, expand_maybe_column, handle_sort_reverse, SortMode};
+use crate::sort::{SortMode, apply_sort, expand_maybe_column, handle_sort_reverse};
 
 pub type MMState<'a, 'b> = matchmaker::render::MMState<'a, 'b, String, ConfigPreprocessedData>;
 

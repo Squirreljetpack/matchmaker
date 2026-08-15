@@ -6,6 +6,7 @@ use crate::action::{Action, ActionExt};
 use crate::aliases::SSS;
 use crate::config::OverlayLayoutSettings;
 use crate::render::MMState;
+use crate::ui::utils::AdaptivePercentage;
 use crate::ui::{Frame, Rect};
 
 use crate::config::OverlayConfig;
@@ -54,17 +55,39 @@ pub trait Overlay<Act: ActionExt, T: SSS, D: 'static> {
     fn area(&mut self, ui_area: &Rect, layout: &OverlayLayoutSettings);
 }
 
-/// If Exact(0), the default computed dimension is used (see [`OverlayConfig`] and [`crate::ui::utils::default_area`]).
+/// A size constraint for one axis of an overlay: the base size is interpolated
+/// from `adaptive_percentage` against the axis size, or falls back to the
+/// layout percentage when empty, then is clamped to `[min, max]` where `0`
+/// means no clamp (see [`crate::ui::utils::default_area`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SizeHint {
-    Min(u16),
-    Max(u16),
-    Exact(u16),
+pub struct SizeHint {
+    /// Percentage points keyed by axis size, in ascending order.
+    pub adaptive_percentage: &'static AdaptivePercentage,
+    /// Lower clamp; `0` = no clamp.
+    pub min: u16,
+    /// Upper clamp; `0` = no clamp.
+    pub max: u16,
 }
 
 impl From<u16> for SizeHint {
+    /// Exact size: both clamps equal to `value`.
     fn from(value: u16) -> Self {
-        SizeHint::Exact(value)
+        Self {
+            adaptive_percentage: &[],
+            min: value,
+            max: value,
+        }
+    }
+}
+
+impl From<[u16; 2]> for SizeHint {
+    /// `[min, max]` clamps over the computed base size.
+    fn from([min, max]: [u16; 2]) -> Self {
+        Self {
+            adaptive_percentage: &[],
+            min,
+            max,
+        }
     }
 }
 
@@ -144,7 +167,11 @@ impl<Act: ActionExt, T: SSS, D: 'static> OverlayUI<Act, T, D> {
         }
     }
 
-    pub fn handle_action(&mut self, action: &Action<Act>, state: &mut MMState<'_, '_, T, D>) -> bool {
+    pub fn handle_action(
+        &mut self,
+        action: &Action<Act>,
+        state: &mut MMState<'_, '_, T, D>,
+    ) -> bool {
         if let Some(inner) = self.current_mut() {
             match inner.handle_action(action, state) {
                 OverlayEffect::None => {}

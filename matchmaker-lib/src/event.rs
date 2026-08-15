@@ -26,6 +26,8 @@ pub type BindSender<A> = mpsc::UnboundedSender<BindDirective<A>>;
 pub struct EventLoop<A: ActionExt> {
     txs: Vec<RenderSender<A>>,
     tick_interval: time::Duration,
+    tick_rate_override: Option<u8>,
+    interval_dirty: bool,
     paused: bool,
     skip_ticks: [bool; 2],
     dirty: bool,
@@ -69,6 +71,8 @@ impl<A: ActionExt> EventLoop<A> {
         Self {
             txs: vec![],
             tick_interval: time::Duration::from_millis(200),
+            tick_rate_override: None,
+            interval_dirty: false,
             skip_ticks: [false, true],
             paused: false,
             dirty: true,
@@ -121,6 +125,14 @@ impl<A: ActionExt> EventLoop<A> {
     pub fn with_tick_rate(mut self, tick_rate: u8) -> Self {
         self.tick_interval = time::Duration::from_secs_f64(1.0 / tick_rate as f64);
         self
+    }
+
+    /// Tick interval in effect: the tick rate override when set, the base
+    /// tick rate otherwise.
+    fn effective_tick_interval(&self) -> time::Duration {
+        self.tick_rate_override
+            .map(|rate| time::Duration::from_secs_f64(1.0 / rate.max(1) as f64))
+            .unwrap_or(self.tick_interval)
     }
 
     pub fn get_binds_ptr(&self) -> Arc<ArcSwap<ResolvedBindMap<A>>> {
@@ -249,6 +261,12 @@ impl<A: ActionExt> EventLoop<A> {
                 }
             }
 
+            BindDirective::OverrideTickrate(rate) => {
+                self.tick_rate_override = rate;
+                self.interval_dirty = true;
+                return;
+            }
+
             BindDirective::Action(action) => {
                 self.send_actions(std::iter::once(action), None);
                 return;
@@ -282,6 +300,15 @@ impl<A: ActionExt> EventLoop<A> {
             if self.txs.is_empty() {
                 log::trace!("Event loop completed");
                 break;
+            }
+
+            // Recreate the tick interval when the override changed. A fresh
+            // tokio interval resolves its first tick immediately, so this
+            // yields one prompt tick at the new rate instead of looping.
+            if self.interval_dirty {
+                interval = time::interval(self.effective_tick_interval());
+                interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
+                self.interval_dirty = false;
             }
 
             // wait for resume signal
@@ -321,7 +348,10 @@ impl<A: ActionExt> EventLoop<A> {
                 biased;
 
                 _ = interval.tick() => {
-                    if !self.skip_ticks.iter().all(|x| *x) || self.dirty {
+                    if self.tick_rate_override.is_some()
+                        || !self.skip_ticks.iter().all(|x| *x)
+                        || self.dirty
+                    {
                         _info!("event tick": self.dirty);
                         self.send(RenderCommand::Tick)
                     }
@@ -648,5 +678,19 @@ mod tests {
         loop_handle.handle_event(Event::PreviewFinished);
         assert_eq!(loop_handle.skip_ticks[1], true);
         assert!(loop_handle.skip_ticks.iter().all(|x| *x));
+    }
+
+    #[test]
+    fn override_tickrate_sets_fields_and_interval() {
+        let mut loop_handle = EventLoop::<NullActionExt>::new();
+        assert!(loop_handle.tick_rate_override.is_none());
+        assert!(!loop_handle.interval_dirty);
+
+        loop_handle.handle_rebind(BindDirective::OverrideTickrate(Some(20)));
+        assert_eq!(loop_handle.tick_rate_override, Some(20));
+        assert!(loop_handle.interval_dirty);
+
+        loop_handle.handle_rebind(BindDirective::OverrideTickrate(None));
+        assert_eq!(loop_handle.tick_rate_override, None);
     }
 }

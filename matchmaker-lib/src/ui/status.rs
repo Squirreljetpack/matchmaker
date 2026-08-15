@@ -157,19 +157,17 @@ impl StatusUI {
                 continue;
             }
 
-            if !fg_set
-                && let Ok(color) = Color::from_str(token) {
-                    style = style.fg(color);
-                    fg_set = true;
-                    continue;
-                }
+            if !fg_set && let Ok(color) = Color::from_str(token) {
+                style = style.fg(color);
+                fg_set = true;
+                continue;
+            }
 
-            if !bg_set
-                && let Ok(color) = Color::from_str(token) {
-                    style = style.bg(color);
-                    bg_set = true;
-                    continue;
-                }
+            if !bg_set && let Ok(color) = Color::from_str(token) {
+                style = style.bg(color);
+                bg_set = true;
+                continue;
+            }
 
             match token.to_lowercase().as_str() {
                 "bold" => {

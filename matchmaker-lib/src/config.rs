@@ -8,8 +8,8 @@ use ratatui::layout::Rect;
 
 pub use crate::config_types::*;
 pub use crate::utils::{
-    serde::{escaped_opt_char, escaped_opt_string, os_strings, StringOrVec},
     Percentage,
+    serde::{StringOrVec, escaped_opt_char, escaped_opt_string, os_strings},
 };
 
 use crate::collections::HiddenColumns;

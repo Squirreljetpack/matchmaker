@@ -6,19 +6,20 @@ use std::{
     process::{Command, Stdio},
 };
 
-use anyhow::{Context, bail};
-use cba::{
-    bait::ResultExt,
-    broc::EnvVars,
-    bo::{map_chunks, map_reader_lines, read_to_chunks},
-    bog::BogOkExt,
-    broc::CommandExt,
-    ebog, ibog, wbog,
-};
 use crate::{
     config::{MatcherConfig, StartConfig},
     sort::init_mm_sort,
 };
+use anyhow::{Context, bail};
+use cba::{
+    bait::ResultExt,
+    bo::{map_chunks, map_reader_lines, read_to_chunks},
+    bog::BogOkExt,
+    broc::CommandExt,
+    broc::EnvVars,
+    ebog, ibog, wbog,
+};
+use matchmaker::nucleo::injector::Injector;
 use matchmaker::{
     Matchmaker,
     action::{Action, Actions},
@@ -29,7 +30,6 @@ use matchmaker::{
     render::{MMState, State},
     ui::{DisplayUI, UI},
 };
-use matchmaker::nucleo::injector::Injector;
 use tokio::sync::mpsc;
 
 use crate::{
@@ -228,11 +228,7 @@ fn run_commands(commands: &[(String, EnvVars)], shell: &[OsString]) -> anyhow::R
 fn command_payload(action: &Action<MMAction>) -> Option<&str> {
     use Action::*;
     Some(match action {
-        Execute(s)
-        | ExecuteAsync(s)
-        | ExecuteThen(s)
-        | ExecuteSilent(s)
-        | Become(s)
+        Execute(s) | ExecuteAsync(s) | ExecuteThen(s) | ExecuteSilent(s) | Become(s)
         | BecomeSilent(s) => s,
         Custom(MMAction::ExecuteOrConfirm(s))
         | Custom(MMAction::ExecuteAndQuit(s))
@@ -264,7 +260,13 @@ fn with_item<T>(
     let Config {
         render,
         tui,
-        matcher: MatcherConfig { matcher, sort, preprocess, .. },
+        matcher:
+            MatcherConfig {
+                matcher,
+                sort,
+                preprocess,
+                ..
+            },
         columns,
         start:
             StartConfig {
@@ -278,10 +280,8 @@ fn with_item<T>(
     } = config;
 
     // -------- read the command's output into the worker ------------
-    let (mut mm, injector, OddEnds {
-        ranges_fn,
-        ..
-    }) = Matchmaker::new_from_config(render, tui, columns, exit, preprocess);
+    let (mut mm, injector, OddEnds { ranges_fn, .. }) =
+        Matchmaker::new_from_config(render, tui, columns, exit, preprocess);
 
     // apply the configured sort settings, mirroring `start::start`.
     init_mm_sort(&mut mm, &ranges_fn, sort);

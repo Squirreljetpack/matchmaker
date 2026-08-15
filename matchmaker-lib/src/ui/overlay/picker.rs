@@ -3,6 +3,7 @@ use std::sync::Arc;
 use ratatui::widgets::Clear;
 
 use crate::{
+    SSS, Selector,
     action::{Action, ActionExt},
     config::{
         CursorSetting, OverlayConfig, OverlayLayoutSettings, QueryConfig, ResultsConfig,
@@ -11,11 +12,10 @@ use crate::{
     nucleo::{ColumnIndexable, Worker, WorkerInjector},
     render::MMState,
     ui::{
-        utils::{default_area, dim_surroundings},
         Constraint, Direction, Frame, Layout, Overlay, OverlayEffect, QueryUI, Rect, ResultsUI,
         SizeHint,
+        utils::{default_area, dim_surroundings},
     },
-    Selector, SSS,
 };
 
 /// A self-contained fuzzy picker overlay.
@@ -84,9 +84,9 @@ mod tests {
     use crate::ui::{DisplayUI, PreviewUI, UI};
     use crate::{
         action::NullActionExt,
-        nucleo::{injector::Injector, Column},
+        nucleo::{Column, injector::Injector},
     };
-    use ratatui::{backend::TestBackend, Terminal};
+    use ratatui::{Terminal, backend::TestBackend};
 
     const UI_AREA: Rect = Rect {
         x: 0,
@@ -171,10 +171,149 @@ mod tests {
             let overlay = &mut overlay as &mut dyn Overlay<NullActionExt, (String, String), ()>;
             overlay.handle_action(&Action::Up(10), &mut mm_state);
         }
-        assert_eq!(overlay.current_item().unwrap().1 .0, "foo");
+        assert_eq!(overlay.current_item().unwrap().1.0, "foo");
+    }
+
+    #[test]
+    fn match_highlights_render() {
+        let mut overlay = test_overlay();
+
+        let mut matcher = nucleo::Matcher::new(nucleo::Config::DEFAULT);
+        let (mut ui, mut picker) =
+            UI::new_offline(RenderConfig::default(), &mut matcher, test_worker());
+        let mut footer = DisplayUI::default();
+        let mut preview: Option<PreviewUI> = None;
+        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel::<crate::message::Event>();
+        let mut state = State::new();
+        let mut mm_state = state.dispatcher(&mut ui, &mut picker, &mut footer, &mut preview, &tx);
+
+        {
+            let overlay = &mut overlay as &mut dyn Overlay<NullActionExt, (String, String), ()>;
+            overlay.on_enable(&UI_AREA, &mut mm_state);
+            overlay.area(&UI_AREA, &OverlayConfig::default().layout);
+            overlay.handle_input('f', &mut mm_state);
+            overlay.handle_input('o', &mut mm_state);
+        }
+
+        // the first draw gathers column widths; the second renders rows
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        for _ in 0..2 {
+            let o = &mut overlay as &mut dyn Overlay<NullActionExt, (String, String), ()>;
+            terminal.draw(|frame| o.draw(frame)).unwrap();
+        }
+
+        // the matched characters of the "foo" row carry the match style
+        // (green italic); the cursor row carries the current style (bold)
+        let buf = terminal.backend().buffer().clone();
+        let area = *buf.area();
+        let mut foo_row = None;
+        for y in area.top()..area.bottom() {
+            let line: String = (area.left()..area.right())
+                .map(|x| buf[(x, y)].symbol())
+                .collect();
+            if let Some(x0) = line.find("foo") {
+                foo_row = Some((y, x0));
+            }
+        }
+        let (y, x0) = foo_row.expect("foo row visible after filtering");
+        let fg = buf[(x0 as u16, y)].fg;
+        let fg_o = buf[(x0 as u16 + 1, y)].fg;
+        let fg_second_o = buf[(x0 as u16 + 2, y)].fg;
+        assert_eq!(fg, ratatui::style::Color::Green, "matched 'f' highlighted");
+        assert_eq!(
+            fg_o,
+            ratatui::style::Color::Green,
+            "matched 'o' highlighted"
+        );
+        assert_ne!(
+            fg_second_o,
+            ratatui::style::Color::Green,
+            "unmatched char not highlighted"
+        );
+    }
+
+    /// Types a query, waits for the nucleo worker thread to catch up, then
+    /// checks that every visible result row carries the match style on its
+    /// matched characters.
+    #[test]
+    fn highlights_after_typing_and_waiting() {
+        let mut overlay = PickerOverlay::new(
+            ["name", "description"],
+            None,
+            |injector: &WorkerInjector<(String, String)>| {
+                let items = [
+                    ("alpha".to_string(), "one".to_string()),
+                    ("beta".to_string(), "two".to_string()),
+                    ("gamma".to_string(), "three".to_string()),
+                ];
+                let _ = injector.extend(items.into_iter());
+            },
+            OverlayConfig::default(),
+            ResultsConfig::default(),
+            QueryConfig::default(),
+        );
+
+        let mut matcher = nucleo::Matcher::new(nucleo::Config::DEFAULT);
+        let (mut ui, mut picker) =
+            UI::new_offline(RenderConfig::default(), &mut matcher, test_worker());
+        let mut footer = DisplayUI::default();
+        let mut preview: Option<PreviewUI> = None;
+        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel::<crate::message::Event>();
+        let mut state = State::new();
+        let mut mm_state = state.dispatcher(&mut ui, &mut picker, &mut footer, &mut preview, &tx);
+
+        {
+            let overlay = &mut overlay as &mut dyn Overlay<NullActionExt, (String, String), ()>;
+            overlay.on_enable(&UI_AREA, &mut mm_state);
+            overlay.area(&UI_AREA, &OverlayConfig::default().layout);
+        }
+
+        // Draw the overlay repeatedly with an empty query (as while it sits
+        // open) until the worker ingests the items and the first table build
+        // caches rows without highlights.
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        for _ in 0..20 {
+            let o = &mut overlay as &mut dyn Overlay<NullActionExt, (String, String), ()>;
+            terminal.draw(|frame| o.draw(frame)).unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+
+        {
+            let overlay = &mut overlay as &mut dyn Overlay<NullActionExt, (String, String), ()>;
+            overlay.handle_input('a', &mut mm_state);
+        }
+
+        // Draw repeatedly, giving the worker thread time to process the query
+        // between frames, then inspect the final buffer.
+        for _ in 0..20 {
+            let o = &mut overlay as &mut dyn Overlay<NullActionExt, (String, String), ()>;
+            terminal.draw(|frame| o.draw(frame)).unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+
+        let buf = terminal.backend().buffer().clone();
+        let area = *buf.area();
+        for item in ["alpha", "beta", "gamma"] {
+            let mut row = None;
+            for y in area.top()..area.bottom() {
+                let line: String = (area.left()..area.right())
+                    .map(|x| buf[(x, y)].symbol())
+                    .collect();
+                if line.contains(item) {
+                    row = Some((y, line));
+                }
+            }
+            let (y, line) = row.unwrap_or_else(|| panic!("{item} row visible"));
+            let highlighted = (area.left()..area.right()).any(|x| {
+                buf[(x, y)].symbol() != " " && buf[(x, y)].fg == ratatui::style::Color::Green
+            });
+            assert!(
+                highlighted,
+                "no highlighted char on the {item} row:\n{line}"
+            );
+        }
     }
 }
-
 impl<L: ColumnIndexable + SSS> PickerOverlay<L> {
     /// # Arguments
     /// - `column_names` — the overlay's columns, indexed in order into the
@@ -241,6 +380,7 @@ where
             self.build_worker();
         }
         self.query_dirty = true;
+        self.results.set_dirty();
     }
 
     fn on_disable(&mut self) {
@@ -251,6 +391,7 @@ where
     fn handle_input(&mut self, c: char, _state: &mut MMState<'_, '_, T, D>) -> OverlayEffect {
         self.query.push_char(c);
         self.query_dirty = true;
+        self.results.set_dirty();
         OverlayEffect::None
     }
 
@@ -305,6 +446,7 @@ where
                 | Action::ClearQuery
         ) {
             self.query_dirty = true;
+            self.results.set_dirty();
         }
         OverlayEffect::None
     }
@@ -360,7 +502,7 @@ where
     }
 
     fn area(&mut self, ui_area: &Rect, layout: &OverlayLayoutSettings) {
-        self.area = default_area([SizeHint::Exact(0), SizeHint::Exact(0)], layout, ui_area);
+        self.area = default_area([SizeHint::from(0), SizeHint::from(0)], layout, ui_area);
 
         let inner = self.config.border.inner_of(self.area);
         let chunks = Layout::default()
@@ -370,6 +512,11 @@ where
         let input = chunks[0];
         let results = chunks[1];
         self.query.update_width(input.width);
+
+        let old = (self.results.width(), self.results.height());
         self.results.update_dimensions(results);
+        if (self.results.width(), self.results.height()) != old {
+            self.results.invalidate_widths();
+        }
     }
 }

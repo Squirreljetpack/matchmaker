@@ -9,7 +9,7 @@ define_restricted_wrapper!(
     Percentage: u16 = 100
 );
 impl Percentage {
-    pub fn new(value: u16) -> Self {
+    pub const fn new(value: u16) -> Self {
         if value <= 100 { Self(value) } else { Self(100) }
     }
 

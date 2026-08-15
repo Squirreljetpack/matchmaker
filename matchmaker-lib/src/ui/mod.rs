@@ -62,8 +62,12 @@ impl UI {
         }
 
         let ui_area = [
-            tui.area.width.saturating_sub(config.ui.outer_border.width()),
-            tui.area.height.saturating_sub(config.ui.outer_border.height()),
+            tui.area
+                .width
+                .saturating_sub(config.ui.outer_border.width()),
+            tui.area
+                .height
+                .saturating_sub(config.ui.outer_border.height()),
         ];
 
         let area = Rect {
@@ -261,7 +265,7 @@ impl<'a, T: SSS, D: 'static> PickerUI<'a, T, D> {
         } = self;
 
         let mut constraints = [
-            Constraint::Length(query.height()), // input
+            Constraint::Length(query.height()),                   // input
             Constraint::Length(status.status_config.show as u16), // status
             Constraint::Length(header.height()),
             Constraint::Fill(1), // results
@@ -306,11 +310,7 @@ impl<'a, T: SSS, D: 'static> PickerUI<'a, T, D> {
 mod tests {
     use super::*;
     use nucleo::Matcher;
-    use ratatui::{
-        Terminal,
-        backend::TestBackend,
-        widgets::Borders,
-    };
+    use ratatui::{Terminal, backend::TestBackend, widgets::Borders};
 
     fn test_ui<'a>(
         config: RenderConfig,
@@ -334,7 +334,12 @@ mod tests {
         let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
         let (mut ui, _picker) = test_ui(config, &mut matcher);
 
-        let area = Rect { x: 0, y: 0, width: 80, height: 24 };
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 24,
+        };
         ui.update_dimensions(area);
         assert_eq!(ui.full_area(), area);
     }
@@ -365,13 +370,50 @@ mod tests {
         let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
         let (_ui, picker) = test_ui(RenderConfig::default(), &mut matcher);
 
-        let area = Rect { x: 0, y: 0, width: 80, height: 24 };
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 24,
+        };
         let [input, status, header, results] = picker.layout(area);
 
-        assert_eq!(input, Rect { x: 0, y: 0, width: 80, height: 1 });
-        assert_eq!(status, Rect { x: 0, y: 1, width: 80, height: 1 });
-        assert_eq!(header, Rect { x: 0, y: 2, width: 80, height: 0 });
-        assert_eq!(results, Rect { x: 0, y: 2, width: 80, height: 22 });
+        assert_eq!(
+            input,
+            Rect {
+                x: 0,
+                y: 0,
+                width: 80,
+                height: 1
+            }
+        );
+        assert_eq!(
+            status,
+            Rect {
+                x: 0,
+                y: 1,
+                width: 80,
+                height: 1
+            }
+        );
+        assert_eq!(
+            header,
+            Rect {
+                x: 0,
+                y: 2,
+                width: 80,
+                height: 0
+            }
+        );
+        assert_eq!(
+            results,
+            Rect {
+                x: 0,
+                y: 2,
+                width: 80,
+                height: 22
+            }
+        );
     }
 
     #[test]
@@ -381,13 +423,50 @@ mod tests {
         let mut matcher = Matcher::new(nucleo::Config::DEFAULT);
         let (_ui, picker) = test_ui(config, &mut matcher);
 
-        let area = Rect { x: 0, y: 0, width: 80, height: 24 };
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 24,
+        };
         let [input, status, header, results] = picker.layout(area);
 
         // reversed: results at the top, input at the bottom
-        assert_eq!(results, Rect { x: 0, y: 0, width: 80, height: 22 });
-        assert_eq!(header, Rect { x: 0, y: 22, width: 80, height: 0 });
-        assert_eq!(status, Rect { x: 0, y: 22, width: 80, height: 1 });
-        assert_eq!(input, Rect { x: 0, y: 23, width: 80, height: 1 });
+        assert_eq!(
+            results,
+            Rect {
+                x: 0,
+                y: 0,
+                width: 80,
+                height: 22
+            }
+        );
+        assert_eq!(
+            header,
+            Rect {
+                x: 0,
+                y: 22,
+                width: 80,
+                height: 0
+            }
+        );
+        assert_eq!(
+            status,
+            Rect {
+                x: 0,
+                y: 22,
+                width: 80,
+                height: 1
+            }
+        );
+        assert_eq!(
+            input,
+            Rect {
+                x: 0,
+                y: 23,
+                width: 80,
+                height: 1
+            }
+        );
     }
 }

@@ -10,8 +10,8 @@ use crate::{
     config::{
         BorderSetting, PreviewConfig, PreviewInitialSetting, PreviewSetting, ShowCondition, Side,
     },
-    ui::{RESULTS_MIN_H, RESULTS_MIN_W},
     preview::Preview,
+    ui::{RESULTS_MIN_H, RESULTS_MIN_W},
     utils::text::{trim_text_lines, wrapped_line_height},
 };
 
@@ -74,7 +74,9 @@ impl PreviewUI {
             ShowCondition::Bool(x) => {
                 x && if let Some(l) = config.layout.first() {
                     match l.layout.side {
-                        Side::Bottom | Side::Top => ui_height > RESULTS_MIN_H + (l.layout.min.max(0) as u16),
+                        Side::Bottom | Side::Top => {
+                            ui_height > RESULTS_MIN_H + (l.layout.min.max(0) as u16)
+                        }
                         _ => ui_width > RESULTS_MIN_W + (l.layout.min.max(0) as u16),
                     }
                 } else {
@@ -147,7 +149,9 @@ impl PreviewUI {
                 show = show
                     && if let Some(l) = self.config.layout.first() {
                         match l.layout.side {
-                            Side::Bottom | Side::Top => ui_height > RESULTS_MIN_H + (l.layout.min.max(0) as u16),
+                            Side::Bottom | Side::Top => {
+                                ui_height > RESULTS_MIN_H + (l.layout.min.max(0) as u16)
+                            }
                             _ => ui_width > RESULTS_MIN_W + (l.layout.min.max(0) as u16),
                         }
                     } else {
@@ -627,11 +631,7 @@ impl PreviewUI {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        config::PreviewLayout,
-        preview::AppendOnly,
-        utils::Percentage,
-    };
+    use crate::{config::PreviewLayout, preview::AppendOnly, utils::Percentage};
     use std::sync::atomic::AtomicBool;
     use std::sync::{Arc, Mutex};
 
@@ -663,50 +663,136 @@ mod tests {
     #[test]
     fn split_right() {
         let preview = test_preview(Side::Right);
-        let area = Rect { x: 0, y: 0, width: 80, height: 24 };
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 24,
+        };
         let [preview_rect, picker_rect] = preview.split(area);
 
         // 60% of 80 = 48, clamped to [15, 50] (+ 2 border padding)
-        assert_eq!(preview_rect, Rect { x: 32, y: 0, width: 48, height: 24 });
-        assert_eq!(picker_rect, Rect { x: 0, y: 0, width: 32, height: 24 });
+        assert_eq!(
+            preview_rect,
+            Rect {
+                x: 32,
+                y: 0,
+                width: 48,
+                height: 24
+            }
+        );
+        assert_eq!(
+            picker_rect,
+            Rect {
+                x: 0,
+                y: 0,
+                width: 32,
+                height: 24
+            }
+        );
     }
 
     #[test]
     fn split_bottom() {
         let preview = test_preview(Side::Bottom);
-        let area = Rect { x: 0, y: 0, width: 80, height: 24 };
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 24,
+        };
         let [preview_rect, picker_rect] = preview.split(area);
 
         // 60% of 24 = 14, clamped up to the 15 minimum
-        assert_eq!(preview_rect, Rect { x: 0, y: 9, width: 80, height: 15 });
-        assert_eq!(picker_rect, Rect { x: 0, y: 0, width: 80, height: 9 });
+        assert_eq!(
+            preview_rect,
+            Rect {
+                x: 0,
+                y: 9,
+                width: 80,
+                height: 15
+            }
+        );
+        assert_eq!(
+            picker_rect,
+            Rect {
+                x: 0,
+                y: 0,
+                width: 80,
+                height: 9
+            }
+        );
     }
 
     #[test]
     fn split_respects_current_dimension() {
         let mut preview = test_preview(Side::Right);
-        preview.update_dimensions(&Rect { x: 0, y: 0, width: 80, height: 24 });
+        preview.update_dimensions(&Rect {
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 24,
+        });
         preview.shrink(10);
 
-        let area = Rect { x: 0, y: 0, width: 80, height: 24 };
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 24,
+        };
         let [preview_rect, picker_rect] = preview.split(area);
 
         // initial size is 80 (78 inner + 2 border padding); shrunk by 10
-        assert_eq!(preview_rect, Rect { x: 10, y: 0, width: 70, height: 24 });
-        assert_eq!(picker_rect, Rect { x: 0, y: 0, width: 10, height: 24 });
+        assert_eq!(
+            preview_rect,
+            Rect {
+                x: 10,
+                y: 0,
+                width: 70,
+                height: 24
+            }
+        );
+        assert_eq!(
+            picker_rect,
+            Rect {
+                x: 0,
+                y: 0,
+                width: 10,
+                height: 24
+            }
+        );
     }
 
     #[test]
     fn split_expand_resets_current_dimension() {
         let mut preview = test_preview(Side::Right);
-        preview.update_dimensions(&Rect { x: 0, y: 0, width: 80, height: 24 });
+        preview.update_dimensions(&Rect {
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 24,
+        });
         preview.shrink(10);
         preview.expand(0);
 
-        let area = Rect { x: 0, y: 0, width: 80, height: 24 };
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 24,
+        };
         let [preview_rect, _picker_rect] = preview.split(area);
 
         // expand(0) resets the custom dimension, back to the 60% default
-        assert_eq!(preview_rect, Rect { x: 32, y: 0, width: 48, height: 24 });
+        assert_eq!(
+            preview_rect,
+            Rect {
+                x: 32,
+                y: 0,
+                width: 48,
+                height: 24
+            }
+        );
     }
 }

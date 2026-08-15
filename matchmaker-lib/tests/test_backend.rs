@@ -39,13 +39,10 @@ async fn test_backend_captures_rendered_output() {
         let _ = render_tx.send(RenderCommand::Action(Action::Accept));
     });
 
-    let picked = tokio::time::timeout(
-        Duration::from_secs(10),
-        mm.pick::<NullActionExt>(opts),
-    )
-    .await
-    .expect("pick timed out")
-    .expect("pick should succeed");
+    let picked = tokio::time::timeout(Duration::from_secs(10), mm.pick::<NullActionExt>(opts))
+        .await
+        .expect("pick timed out")
+        .expect("pick should succeed");
 
     assert_eq!(picked, vec!["item1"]);
 

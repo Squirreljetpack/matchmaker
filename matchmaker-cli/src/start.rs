@@ -419,7 +419,13 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
         render,
         tui,
         previewer,
-        matcher: MatcherConfig { matcher, sort, preprocess, .. },
+        matcher:
+            MatcherConfig {
+                matcher,
+                sort,
+                preprocess,
+                ..
+            },
         columns,
         binds,
         start:

@@ -7,13 +7,13 @@ use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     sync::{
-        atomic::{self, AtomicU32},
         Arc,
+        atomic::{self, AtomicU32},
     },
 };
 
 use super::{injector::WorkerInjector, query::PickerQuery};
-use crate::{config::StringOrInt, SSS};
+use crate::{SSS, config::StringOrInt};
 
 type ColumnFormatFn<T, D> = Box<dyn for<'a> Fn(&'a T, &'a D) -> Text<'a> + Send + Sync>;
 type ColumnRawFn<T, D> = Box<dyn for<'a> Fn(&'a T, &'a D) -> Cow<'a, str> + Send + Sync>;
@@ -122,10 +122,7 @@ where
     /// Identity preprocessors: no raw preprocessing (`Some(())`) and no
     /// text preprocessing. Use [`Worker::new_with_preprocessors`] when the
     /// worker needs a custom `D` (row data for the column formatters).
-    pub fn new(
-        columns: impl IntoIterator<Item = Column<T, ()>>,
-        default_column: usize,
-    ) -> Self {
+    pub fn new(columns: impl IntoIterator<Item = Column<T, ()>>, default_column: usize) -> Self {
         Self::new_with_preprocessors(
             columns,
             default_column,

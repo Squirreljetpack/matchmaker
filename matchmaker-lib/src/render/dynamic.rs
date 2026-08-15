@@ -2,8 +2,8 @@ use std::fmt;
 
 use super::MMState;
 use crate::{
-    message::{Event, Interrupt},
     SSS,
+    message::{Event, Interrupt},
 };
 
 // note: a handler whose mask intersects multiple set bits in the event is

@@ -241,11 +241,7 @@ impl HiddenColumns {
 
     #[inline]
     fn mask_below(n: usize) -> u64 {
-        if n >= 64 {
-            !0
-        } else {
-            (1u64 << n) - 1
-        }
+        if n >= 64 { !0 } else { (1u64 << n) - 1 }
     }
 }
 

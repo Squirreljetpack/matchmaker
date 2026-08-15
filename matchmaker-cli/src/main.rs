@@ -19,7 +19,10 @@ use paths::*;
 use start::*;
 use utils::*;
 
-use std::{io::{self, Write}, process::exit};
+use std::{
+    io::{self, Write},
+    process::exit,
+};
 
 use cba::{
     _dbg, bait::ResultExt, bog::BogOkExt, bring::split::split_on_delimiter_with_doubled_escape,

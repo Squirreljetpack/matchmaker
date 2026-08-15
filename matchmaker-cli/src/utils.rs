@@ -254,9 +254,10 @@ pub fn handle_download(download: &String, folder_exclude_extensions: &[&str]) ->
         // `.gitignore`/`.gitattributes`, which `Path::extension()` reports as
         // having no extension.
         if let Some(ext) = extension_after_first_dot(&item.name)
-            && folder_exclude_extensions.contains(&ext) {
-                continue;
-            }
+            && folder_exclude_extensions.contains(&ext)
+        {
+            continue;
+        }
 
         let download_url = match item.download_url {
             Some(url) => url,
@@ -504,7 +505,10 @@ mod tests {
             Some("gitattributes")
         );
         assert_eq!(extension_after_first_dot("main.toml"), Some("toml"));
-        assert_eq!(extension_after_first_dot("win.foo.tar.gz"), Some("foo.tar.gz"));
+        assert_eq!(
+            extension_after_first_dot("win.foo.tar.gz"),
+            Some("foo.tar.gz")
+        );
         assert_eq!(extension_after_first_dot("noext"), None);
     }
 

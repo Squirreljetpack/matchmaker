@@ -31,8 +31,6 @@ where
     }
 }
 
-
-
 /// Serde helpers for `Vec<OsString>` config fields.
 ///
 /// Serde's own `OsString` impls only accept a platform-variant enum form

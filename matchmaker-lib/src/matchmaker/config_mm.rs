@@ -1,12 +1,12 @@
 use crate::{
+    AcceptHook, Matchmaker,
     collections::HiddenColumns,
     config::{
         ColumnsConfig, ExitConfig, PreprocessConfig, RenderConfig, StringOrInt, TerminalConfig,
     },
-    nucleo::{injector::WorkerInjector, Column, Worker},
+    nucleo::{Column, Worker, injector::WorkerInjector},
     render::{EventHandlers, InterruptHandlers, MMState},
     utils::text::{self, sanitize_string},
-    AcceptHook, Matchmaker,
 };
 
 use ansi_to_tui::IntoText;
@@ -68,7 +68,12 @@ impl ConfigMatchmaker {
         // Resolve default column from the names attached to the built columns.
         let default_index = default_column(&cc, &columns);
 
-        let mut worker = Worker::new_with_preprocessors(columns, default_index, raw_preprocessor, text_preprocessor);
+        let mut worker = Worker::new_with_preprocessors(
+            columns,
+            default_index,
+            raw_preprocessor,
+            text_preprocessor,
+        );
         for (i, c) in cc.names.iter().enumerate() {
             worker.set_column_options(i, c.options)
         }

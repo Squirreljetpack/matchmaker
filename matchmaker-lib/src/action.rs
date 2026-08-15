@@ -6,7 +6,7 @@ use std::{
 use serde::{Deserialize, Serialize, Serializer};
 
 use crate::utils::string::allowed_semantic_char;
-use crate::{utils::serde::StringOrVec, SSS};
+use crate::{SSS, utils::serde::StringOrVec};
 
 /// Bindable actions
 /// # Additional

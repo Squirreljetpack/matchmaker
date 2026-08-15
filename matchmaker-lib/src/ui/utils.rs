@@ -5,6 +5,49 @@ use crate::config::OverlayLayoutSettings;
 use crate::ui::{Frame, Rect, SizeHint};
 use crate::utils::Percentage;
 
+/// Adaptive sizing points: `(axis size, percentage)` pairs in ascending axis
+/// size order.
+pub type AdaptivePercentage = [(u16, Percentage)];
+
+/// Linearly interpolates the percentage at `size` from `points`.
+///
+/// Clamps to the first point's percentage below the first size and to the
+/// last point's percentage past the last size. Returns `0%` for empty input.
+///
+/// # Example
+/// `[(80, 100%), (120, 80%)]` yields `90%` at size 100 and `80%` at size 125.
+pub fn compute_adaptive_percentage(points: &AdaptivePercentage, size: u16) -> Percentage {
+    let Some(&(first_size, first_pct)) = points.first() else {
+        return Percentage::new(0);
+    };
+    if size <= first_size {
+        return first_pct;
+    }
+    let Some(&(last_size, last_pct)) = points.last() else {
+        return first_pct;
+    };
+    if size >= last_size {
+        return last_pct;
+    }
+
+    let (lo_size, lo_pct, hi_size, hi_pct) = points
+        .windows(2)
+        .map(|w| (w[0].0, w[0].1, w[1].0, w[1].1))
+        .find(|(lo, _, hi, _)| *lo <= size && size <= *hi)
+        .unwrap_or((first_size, first_pct, last_size, last_pct));
+
+    let span = hi_size - lo_size;
+    if span == 0 {
+        return hi_pct;
+    }
+    let t = u32::from(size - lo_size);
+    let span = u32::from(span);
+    let lo = u32::from(lo_pct.inner());
+    let hi = u32::from(hi_pct.inner());
+
+    Percentage::new(((lo * (span - t) + hi * t) / span) as u16)
+}
+
 /// Dim the surroundings of the given area.
 pub fn dim_surroundings(frame: &mut Frame, inner: Rect) {
     let full_area = frame.area();
@@ -56,32 +99,42 @@ pub fn dim_surroundings(frame: &mut Frame, inner: Rect) {
 }
 
 pub fn default_area(size: [SizeHint; 2], layout: &OverlayLayoutSettings, ui_area: &Rect) -> Rect {
-    let computed_w =
-        layout.percentage[0].compute_clamped(ui_area.width, layout.min[0], layout.max[0]);
+    let computed_w = if size[0].adaptive_percentage.is_empty() {
+        layout.percentage[0].compute_clamped(ui_area.width, layout.min[0], layout.max[0])
+    } else {
+        compute_adaptive_percentage(size[0].adaptive_percentage, ui_area.width).compute_clamped(
+            ui_area.width,
+            0,
+            0,
+        )
+    };
 
     let computed_h =
-        layout.percentage[1].compute_clamped(ui_area.height, layout.min[1], layout.max[1]);
+        if size[1].adaptive_percentage.is_empty() {
+            layout.percentage[1].compute_clamped(ui_area.height, layout.min[1], layout.max[1])
+        } else {
+            compute_adaptive_percentage(size[1].adaptive_percentage, ui_area.height)
+                .compute_clamped(ui_area.height, 0, 0)
+        };
 
-    let mut w = match size[0] {
-        SizeHint::Exact(v) => v,
-        SizeHint::Min(v) => v.max(computed_w),
-        SizeHint::Max(v) => v.min(computed_w),
+    let mut w = computed_w;
+    if size[0].max != 0 {
+        w = w.min(size[0].max);
     }
-    .min(ui_area.width);
+    if size[0].min != 0 {
+        w = w.max(size[0].min);
+    }
 
-    let mut h = match size[1] {
-        SizeHint::Exact(v) => v,
-        SizeHint::Min(v) => v.max(computed_h),
-        SizeHint::Max(v) => v.min(computed_h),
+    let mut h = computed_h;
+    if size[1].max != 0 {
+        h = h.min(size[1].max);
     }
-    .min(ui_area.height);
+    if size[1].min != 0 {
+        h = h.max(size[1].min);
+    }
 
-    if w == 0 && !matches!(size[0], SizeHint::Max(_)) {
-        w = computed_w;
-    }
-    if h == 0 && !matches!(size[1], SizeHint::Max(_)) {
-        h = computed_h;
-    }
+    w = w.min(ui_area.width);
+    h = h.min(ui_area.height);
 
     let available_h = ui_area.height.saturating_sub(h);
     let offset = if layout.y_offset < Percentage::new(50) {
@@ -124,4 +177,39 @@ pub fn update_area(area: &mut Rect, w: Option<u16>, h: Option<u16>) {
     // preserve the original center
     area.x = center_x.saturating_sub(area.width / 2);
     area.y = center_y.saturating_sub(area.height / 2);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn adaptive_percentage_interpolates_and_clamps() {
+        let points: &AdaptivePercentage = &[(80, Percentage::new(100)), (120, Percentage::new(80))];
+
+        assert_eq!(compute_adaptive_percentage(points, 100).inner(), 90);
+        assert_eq!(compute_adaptive_percentage(&points, 80).inner(), 100);
+        assert_eq!(compute_adaptive_percentage(&points, 60).inner(), 100);
+        assert_eq!(compute_adaptive_percentage(&points, 120).inner(), 80);
+        assert_eq!(compute_adaptive_percentage(&points, 125).inner(), 80);
+        assert_eq!(compute_adaptive_percentage(&[], 100).inner(), 0);
+    }
+
+    #[test]
+    fn single_point_is_constant() {
+        let points: &AdaptivePercentage = &[(40, Percentage::new(50))];
+        assert_eq!(compute_adaptive_percentage(points, 20).inner(), 50);
+        assert_eq!(compute_adaptive_percentage(points, 100).inner(), 50);
+    }
+
+    #[test]
+    fn size_hint_froms_keep_old_behavior() {
+        let exact: SizeHint = 12.into();
+        assert_eq!(exact.min, 12);
+        assert_eq!(exact.max, 12);
+
+        let min_max: SizeHint = [8, 30].into();
+        assert_eq!(min_max.min, 8);
+        assert_eq!(min_max.max, 30);
+    }
 }

@@ -19,8 +19,8 @@ pub mod preview;
 pub use collections::Selector;
 mod matchmaker;
 pub use matchmaker::*;
-pub mod tui;
 pub mod test;
+pub mod tui;
 
 // misc
 mod aliases;

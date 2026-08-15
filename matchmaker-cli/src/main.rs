@@ -5,6 +5,7 @@ mod crokey;
 pub mod formatter;
 mod list;
 mod logger;
+mod lua;
 mod parse;
 mod paths;
 mod register;

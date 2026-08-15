@@ -155,6 +155,15 @@ To get the names of keys, type `mm --test-keys`.
 
 In addition to keys, actions can also be bound to Events and Crossterm events (check your default config for details).
 
+### Lua commands
+
+`Execute`, `ExecuteSilent`, and `ExecuteAsync` payloads support a lua form (enabled by the default `mlua` feature):
+
+- `@file.lua arg...` — the file is read and executed by the embedded lua 5.4 engine, never by the shell. A relative path resolves against the override's directory (`MM_OVERRIDE`); the remaining words are passed to the script as varargs (`...`). `@` payloads skip formatting entirely.
+- `#!lua <code>` — the remainder is executed as inline lua, after normal `{}` formatting.
+
+The command's environment (`MM_OVERRIDE`, `MM_PREVIEW_COMMAND`, …) is exposed as the global `env` table, and `os.exit(code)` stops the script with `code` (a non-zero code fails the action, like a failed shell command). Each execution runs on its own lua VM, so concurrent executions are independent. Build with `--no-default-features` to disable lua support.
+
 ## Examples
 
 Examples can be found [here](https://github.com/Squirreljetpack/matchmaker/tree/main/matchmaker-cli/assets) (toml files), and [here](https://github.com/Squirreljetpack/matchmaker/tree/main/matchmaker-lib/examples) (library use).

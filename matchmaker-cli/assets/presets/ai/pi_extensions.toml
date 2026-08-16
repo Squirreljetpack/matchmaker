@@ -12,6 +12,8 @@
 #                 the global or project settings (creates the file if missing)
 #   @rm           remove the selected extension: delete its line, then `pi uninstall`
 #   ctrl-n        prompt for a source, `pi install` it, and add it to the list
+#   @prune        uninstall what is installed in the global/project git and npm
+#                 folders but not listed in this file (preview with -n)
 #
 # Point MM_EXTENSIONS_FILE elsewhere to use a different mm_extensions file.
 
@@ -103,6 +105,7 @@ Trigger `@accept` to toggle extensions.
 `@set global` or `@set local` to apply the shown configuration local/global pi settings.
 Trigger `@rm` to remove the selected extension (deletes its line, then `pi uninstall`).
 Press `ctrl-n` and enter a source to `pi install`; on success it is added to the list.
+Trigger `@prune` to uninstall extensions found in the global/project git and npm install folders that are not in this list (preview with `pi_extensions_prune.py -n`).
 EOF
 '''
 
@@ -131,6 +134,7 @@ fi
 "@accept" = ["@toggle extension", "Reload"]
 "ctrl-n" = ["@install", "Reload"]
 "@rm" = ["@uninstall", "Reload"]
+"alt-p" = "@prune"
 "@open" = '''Execute(
 import os, subprocess, shlex
 from pathlib import Path
@@ -167,6 +171,11 @@ subprocess.run([*shlex.split(editor), str(target)])
     done
 )'''
 "@reconcile" = 'ExecuteOrConfirm(@pi_extensions_reconcile.py)'
+
+# uninstall what is installed in the global/project git and npm folders but not
+# listed in mm_extensions; execute for real (confirmation prompt) — preview
+# first with `pi_extensions_prune.py -n`
+"@prune" = 'ExecuteOrConfirm(@pi_extensions_prune.py)'
 "@toggle extension" = '''ExecuteOrConfirm(
 import json, os, shlex, subprocess, sys, tempfile
 

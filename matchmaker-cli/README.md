@@ -99,11 +99,12 @@ find . | mm
 To start configuration, write the default configuration to a file:
 
 ```sh
-matchmaker --dump-config
+mm --dump-config
 ```
 
 The default locations are in order:
 
+- `$MATCHMAKER_CONFIG_DIR` (If set and the directory exists).
 - `~/.config/matchmaker/config.toml` (If the folder exists already).
 - `{PLATFORM_SPECIFIC_CONFIG_DIRECTORY}/matchmaker` (Generally the same as above when on linux)
 

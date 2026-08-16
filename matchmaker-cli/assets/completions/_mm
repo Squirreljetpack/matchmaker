@@ -33,6 +33,8 @@ _mm() {
 '--presets[List installed presets]' \
 '-h[Print help]' \
 '--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
 '*::args -- args passed to the populating command:_default' \
 && ret=0
 }

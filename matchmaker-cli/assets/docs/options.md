@@ -108,7 +108,7 @@ All colors and modifiers come from ratatui:
 - `on_accept`: (String) Template to execute on accepted items. Exclusive with output_template, output_separator.
 - `sync`: (bool) Whether to wait for the command to finish before starting.
 - `ax`, `additional_commands`: ([String]) Additional commands that can be cycled through using the ReloadNext action.
-- `mode`: (string) The initial mode of the application. Default values (`tty`, `t0`, `piped`, `t1`) depend on whether stdin and stdout are connected to /dev/tty.
+- `mode`: (string) The initial mode of the application. Default values (`0,1`, `0`, `1`, or `""`) depend on whether stdin and stdout are connected to /dev/tty.
 - `d`, `directory`: (string) Change directory context.
   - `~` is resolved to home directory.
   - If an object:

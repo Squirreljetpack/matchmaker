@@ -105,7 +105,7 @@ abort_empty = true
 # --- Binds ---
 [binds]
 # Essentia
-# "ctrl-c" = "Quit(1)""
+# "ctrl-c" = "Quit(1)"
 # "esc" = "Quit(1)"
 "enter" = "@accept"
 "alt-enter" = "@accept_2"

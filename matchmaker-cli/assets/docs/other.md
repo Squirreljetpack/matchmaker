@@ -124,5 +124,6 @@ Remember to escape any template specifiers, for example: `jq '((map(select(.type
 
 - 125: EventLoopClosed
 - 404: No Match
+- 400: No Match with a chunk error
 - 11: Start Error
 - 100: Signal to resume from BecomeOrConfirm (when emitted by spawned scripts)

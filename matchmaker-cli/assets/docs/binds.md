@@ -151,7 +151,7 @@ In this example, if the mode is `vim`, `h` and `l` will move the cursor horizont
 "0,1^^enter" = "Accept"
 
 # Active in any mode EXCEPT when stdin is a terminal
-"!0^^esc" = "Quit(1)""
+"!0^^esc" = "Quit(1)"
 
 # Active when mode contains "vim" but not "insert"
 "vim,!insert^^h" = "BackwardChar"

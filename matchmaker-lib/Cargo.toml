@@ -10,7 +10,7 @@ repository = "https://github.com/Squirreljetpack/matchmaker"
 description = "A fuzzy finder for the terminal, powered by nucleo"
 
 [dependencies]
-cli_boilerplate_automation = { version = "0.6.0", features = ["serde", "bring"] }
+cli_boilerplate_automation = { version = "0.*", features = ["serde", "bring"] }
 matchmaker-partial = { workspace = true, optional = true }
 matchmaker-partial-macros = { workspace = true, default-features = false }
 

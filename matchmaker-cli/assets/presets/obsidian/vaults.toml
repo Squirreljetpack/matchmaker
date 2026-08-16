@@ -33,7 +33,7 @@ FS_OPTS='opener=ob-open' fs
     "#search",
     '''BecomeOrResume(
   set -- {+path}
-  printf '%s\n' "$@" | fs :rg '^#{1,6} ' --filtering --rebase --no-fixed-strings --query '% '
+  printf '%s\n' "$@" | fs :rg '^#{1,6} ' --read-paths --filtering --rebase --no-fixed-strings --query '% '
 )''',
 ]
 "ctrl-f" = [

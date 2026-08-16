@@ -98,36 +98,34 @@ impl InputUI {
     // right padding is set to <= 1
     pub fn scroll_to_cursor(&mut self, padding: usize) {
         if self.width == 0 {
+            self.before = 0;
             return;
         }
 
-        // when cursor moves behind or on start, display grapheme before cursor as the first visible,
-        if self.before + padding > self.cursor {
+        let width = self.width;
+        let padding = padding.min(width.saturating_sub(1) as usize);
+
+        // 1. If cursor is at or before the visible start (or within left padding), pull start back
+        if self.cursor <= self.before + padding {
             self.before = self.cursor.saturating_sub(padding);
-            return;
         }
 
-        // move start up
-        loop {
-            let visual_dist: u16 = self.graphemes[self.before
-                ..=(self.cursor + padding.min(1)).min(self.graphemes.len().saturating_sub(1))]
+        // 2. Ensure cursor fits within the visible window [before ..).
+        // If cursor is at or beyond the right edge, advance `before`.
+        while self.before < self.cursor {
+            let cursor_incl = (self.cursor + padding.min(1)).min(self.graphemes.len().saturating_sub(1));
+            let span_width: u16 = self.graphemes[self.before..=cursor_incl]
                 .iter()
                 .map(|(_, w)| *w)
                 .sum();
-
-            // ensures visual_start..=cursor is displayed
-            // Padding ensures the following element after cursor if present is displayed.
-            if visual_dist < self.width {
+            if span_width <= width {
                 break;
             }
-
-            if self.before < self.cursor {
-                self.before += 1;
-            } else {
-                // never move before over cursor
-                break;
-            }
+            self.before += 1;
         }
+
+        // 3. Guarantee before never exceeds cursor
+        self.before = self.before.min(self.cursor);
     }
 
     pub fn clear(&mut self) {
@@ -487,5 +485,27 @@ mod tests {
         ui.set("foo.bar/baz".to_string(), 11);
         ui.backward_word();
         assert_eq!(ui.cursor(), 0);
+    }
+
+    #[test]
+    fn scroll_to_cursor_does_not_oscillate_on_small_width() {
+        let mut ui = InputUI::new();
+        ui.width = 2;
+        ui.set("abc".to_string(), 3);
+        // Repeated calls to scroll_to_cursor with padding > width must be idempotent
+        ui.scroll_to_cursor(3);
+        let before_first = ui.before;
+        ui.scroll_to_cursor(3);
+        let before_second = ui.before;
+        assert_eq!(before_first, before_second);
+
+        // Move cursor back 1 to position 2
+        ui.backward_char();
+        assert_eq!(ui.cursor(), 2);
+        ui.scroll_to_cursor(3);
+        let before_back_1 = ui.before;
+        ui.scroll_to_cursor(3);
+        let before_back_2 = ui.before;
+        assert_eq!(before_back_1, before_back_2);
     }
 }

@@ -40,7 +40,7 @@ fn is_valid_content(s: &str) -> bool {
 /// If repeat is Some(f), and the template contains a non-multi replacement, we use state.map_selected_to_vec. For each selected, use that as the get_current() override. Return String::new().
 /// Otherwise, if repeat is None or if the template only consists of non-multi replacement, return a single string, pass the current to process_key. (If state.get_current() is None, return String::new(), which signals no action)
 pub fn format_cli(
-    state: &ConfigMMState<'_,>,
+    state: &ConfigMMState<'_>,
     template: &str,
     repeat: Option<&dyn Fn(String)>,
 ) -> String {
@@ -72,7 +72,7 @@ pub fn format_cli(
 }
 
 fn format_cli_inner(
-    state: &ConfigMMState<'_,>,
+    state: &ConfigMMState<'_>,
     template: &str,
     item_override: Option<(u32, &String)>,
 ) -> String {
@@ -182,7 +182,7 @@ fn any_need_current(template: &str) -> bool {
 
 fn process_key(
     input: &str,
-    state: &ConfigMMState<'_,>,
+    state: &ConfigMMState<'_>,
     item_override: Option<(u32, &String)>,
 ) -> Option<String> {
     let mut key = input;
@@ -265,7 +265,7 @@ fn process_key(
 /// Numeric keys are always treated as column indices (never column names):
 /// `0` resolves to the primary column, `1` to the first column, etc.
 /// Non-numeric keys are looked up by column name.
-fn column_index_for_key(key: &str, state: &ConfigMMState<'_,>) -> Option<usize> {
+fn column_index_for_key(key: &str, state: &ConfigMMState<'_>) -> Option<usize> {
     if let Ok(n) = key.parse::<usize>() {
         if COLUMN_INDICES {
             Some(if n == 0 {
@@ -289,7 +289,7 @@ fn column_index_for_key(key: &str, state: &ConfigMMState<'_,>) -> Option<usize> 
 fn get_val<'a>(
     key: &str,
     (index, item): (u32, &'a String),
-    state: &ConfigMMState<'_,>,
+    state: &ConfigMMState<'_>,
 ) -> Option<Cow<'a, str>> {
     if key == "!" {
         // current column
@@ -324,7 +324,7 @@ fn get_val<'a>(
 
 fn handle_range<'a, 'b>(
     key: &str,
-    state: &ConfigMMState<'_,>,
+    state: &ConfigMMState<'_>,
     quote: bool,
     multi: bool,
     item_override: Option<&String>,
@@ -478,9 +478,7 @@ mod tests {
     }
 
     /// Builds the picker offline (no terminal) for formatting tests.
-    fn offline_ui(
-        mm: ConfigMatchmaker,
-    ) -> (UI, PickerUI<String, ConfigPreprocessedData>) {
+    fn offline_ui(mm: ConfigMatchmaker) -> (UI, PickerUI<String, ConfigPreprocessedData>) {
         UI::new_offline(mm.render_config, mm.worker)
     }
 

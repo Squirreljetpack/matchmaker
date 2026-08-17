@@ -70,7 +70,7 @@ fn parse_float(input: &[u8]) -> Option<f64> {
 /// `None` resolves to the active column. A given index is mapped through
 /// [`ResultsUI::get_col_by_index`]; when it does not correspond to a
 /// displayed column, an error is logged and `None` is returned.
-pub fn expand_maybe_column(state: &MMState<'_,>, idx: Option<usize>) -> Option<usize> {
+pub fn expand_maybe_column(state: &MMState<'_>, idx: Option<usize>) -> Option<usize> {
     match idx {
         None => Some(state.picker_ui.active_column_index()),
         Some(i) => {
@@ -87,7 +87,7 @@ pub fn expand_maybe_column(state: &MMState<'_,>, idx: Option<usize>) -> Option<u
 /// already active on that column; the configured threshold is restored in that
 /// case.
 pub fn apply_sort(
-    state: &mut MMState<'_,>,
+    state: &mut MMState<'_>,
     ranges_fn: &RangesFactory<String>,
     n: usize,
     mode: SortMode,
@@ -128,7 +128,7 @@ pub fn apply_sort(
 }
 
 /// Reverse the current sort direction, or set it explicitly when `dir` is given.
-pub fn handle_sort_reverse(state: &mut MMState<'_,>, dir: Option<bool>, sort: &mut SortSetting) {
+pub fn handle_sort_reverse(state: &mut MMState<'_>, dir: Option<bool>, sort: &mut SortSetting) {
     let new_dir = match dir {
         Some(b) => b,
         None => !sort.reverse,

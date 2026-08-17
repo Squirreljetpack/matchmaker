@@ -260,12 +260,9 @@ fn with_item<T>(
     let Config {
         render,
         tui,
-        matcher:
-            MatcherConfig {
-                sort,
-                preprocess,
-                ..
-            },
+        matcher: MatcherConfig {
+            sort, preprocess, ..
+        },
         columns,
         start:
             StartConfig {

@@ -742,6 +742,7 @@ pub struct HelpDisplayConfig {
     pub event_trigger_prefix: String,
     pub show_events: bool,
     pub sort_fn_last: bool,
+    pub combine_keys: bool,
 }
 
 impl Default for HelpDisplayConfig {
@@ -756,6 +757,7 @@ impl Default for HelpDisplayConfig {
             event_trigger_prefix: "#".to_string(),
             show_events: false,
             sort_fn_last: true,
+            combine_keys: true,
         }
     }
 }

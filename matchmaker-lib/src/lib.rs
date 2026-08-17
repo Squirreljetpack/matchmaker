@@ -9,8 +9,8 @@ mod config_types;
 pub mod event;
 mod mode_filter;
 
-pub mod message;
 pub mod matcher;
+pub mod message;
 pub mod render;
 pub mod ui;
 // picker

@@ -309,9 +309,7 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                                 let rel_y = pos.y.saturating_sub(layout.header.y);
                                 debug!("Header clicked at x: {rel_x}, y: {rel_y}");
 
-                                if let Some(setting) =
-                                    picker_ui.header.config.interactions.get(rel_y as usize)
-                                    && let Some(action) = find_interaction(setting, rel_x)
+                                if let Some(action) = picker_ui.header.get_interaction(rel_x, rel_y)
                                 {
                                     click = Click::Semantic(action);
                                 }
@@ -320,10 +318,7 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                                 let rel_y = pos.y.saturating_sub(layout.footer.y);
                                 debug!("Footer clicked at x: {rel_x}, y: {rel_y}");
 
-                                if let Some(setting) =
-                                    footer_ui.config.interactions.get(rel_y as usize)
-                                    && let Some(action) = find_interaction(setting, rel_x)
-                                {
+                                if let Some(action) = footer_ui.get_interaction(rel_x, rel_y) {
                                     click = Click::Semantic(action);
                                 }
                             }
@@ -974,11 +969,9 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
             state.insert(Event::QueryChange)
         }
 
-        picker_ui.results.update_table(
-            &mut picker_ui.worker,
-            &picker_ui.selector,
-            &mut *matcher(),
-        );
+        picker_ui
+            .results
+            .update_table(&mut picker_ui.worker, &picker_ui.selector, &mut *matcher());
 
         state.update(&mut picker_ui, &overlay_ui);
 
@@ -1115,7 +1108,10 @@ impl Click {
     }
 }
 
-fn find_interaction(setting: &crate::config::InteractionRegionSetting, x: u16) -> Option<String> {
+pub(crate) fn find_interaction(
+    setting: &crate::config::InteractionRegionSetting,
+    x: u16,
+) -> Option<String> {
     setting
         .iter()
         .rev()
@@ -1190,7 +1186,7 @@ fn render_display(frame: &mut Frame, area: Rect, ui: &mut DisplayUI, results_ui:
     }
     let widths = results_ui.width_limits().to_vec();
 
-    let widget = ui.make_display((
+    let (widget, full_width) = ui.make_display((
         results_ui.indentation() as u16 + results_ui.config.border.left(),
         results_ui.config.column_spacing.0,
         widths,
@@ -1198,8 +1194,7 @@ fn render_display(frame: &mut Frame, area: Rect, ui: &mut DisplayUI, results_ui:
 
     frame.render_widget(widget, area);
 
-    if ui.is_single_column() {
-        let widget = ui.make_full_width_row(results_ui.indentation() as u16);
+    if let Some(widget) = full_width {
         frame.render_widget(widget, area);
     }
 }
@@ -1400,9 +1395,7 @@ mod test {
         }
     }
 
-    fn setup(
-        config: RenderConfig,
-    ) -> (UI, PickerUI<&'static str, ()>, State, DisplayUI) {
+    fn setup(config: RenderConfig) -> (UI, PickerUI<&'static str, ()>, State, DisplayUI) {
         let worker = Worker::<&'static str, ()>::new_single_column();
         let (ui, picker) = UI::new_offline(config, worker);
         (ui, picker, State::new(), DisplayUI::default())
@@ -1542,8 +1535,7 @@ mod test {
 
     #[test]
     fn layout_no_preview_default() {
-        let (mut ui, mut picker, mut state, mut footer) =
-            setup(RenderConfig::default());
+        let (mut ui, mut picker, mut state, mut footer) = setup(RenderConfig::default());
         let area = rect(80, 24);
 
         let layout = layout_of(&mut ui, &mut picker, &mut state, &mut footer, None, area);
@@ -1669,8 +1661,7 @@ mod test {
 
     #[test]
     fn layout_with_preview() {
-        let (mut ui, mut picker, mut state, mut footer) =
-            setup(RenderConfig::default());
+        let (mut ui, mut picker, mut state, mut footer) = setup(RenderConfig::default());
         let mut preview = test_preview();
         let area = rect(80, 24);
 
@@ -1716,8 +1707,7 @@ mod test {
 
     #[test]
     fn layout_hides_preview_when_too_small() {
-        let (mut ui, mut picker, mut state, mut footer) =
-            setup(RenderConfig::default());
+        let (mut ui, mut picker, mut state, mut footer) = setup(RenderConfig::default());
         let mut preview = test_preview();
         let area = rect(10, 24);
 

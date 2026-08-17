@@ -283,6 +283,7 @@ All colors and modifiers come from ratatui:
   - `event_trigger_prefix`: (string) Prefix for event triggers (default "#").
   - `show_events`: (bool) Show event triggers in help (default false).
   - `sort_fn_last`: (bool) Put function key (F1, F2, etc.) bindings at the end of the list (default true).
+  - `combine_keys`: (bool) Combine multiple keys triggering the same action into a comma-separated list (default true).
 - `cache`: (number) Reserved for future use.
 
 ### Header & Footer (`header.`, `footer.`, `h`, `f`)

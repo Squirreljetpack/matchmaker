@@ -167,11 +167,7 @@ impl<Act: ActionExt, T: SSS, D: 'static> OverlayUI<Act, T, D> {
         }
     }
 
-    pub fn handle_action(
-        &mut self,
-        action: &Action<Act>,
-        state: &mut MMState<'_, T, D>,
-    ) -> bool {
+    pub fn handle_action(&mut self, action: &Action<Act>, state: &mut MMState<'_, T, D>) -> bool {
         if let Some(inner) = self.current_mut() {
             match inner.handle_action(action, state) {
                 OverlayEffect::None => {}

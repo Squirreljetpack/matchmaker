@@ -743,6 +743,21 @@ pub fn display_help<A: ActionExt + Display>(
         a.1.cmp(&b.1)
     });
 
+    if config.combine_keys {
+        let mut combined: Vec<(String, Vec<String>)> = Vec::new();
+        for (trigger, actions) in entries_processed {
+            if let Some((last_trigger, last_actions)) = combined.last_mut() {
+                if *last_actions == actions {
+                    last_trigger.push_str(", ");
+                    last_trigger.push_str(&trigger);
+                    continue;
+                }
+            }
+            combined.push((trigger, actions));
+        }
+        entries_processed = combined;
+    }
+
     // Build output
     let Some(cfg) = &config.colors else {
         // fallback plain text
@@ -1379,5 +1394,38 @@ mod test {
         let help_hide = display_help(&binds.resolve_semantics(&[]), &cfg);
         let help_str_hide = help_hide.to_string();
         assert!(!help_str_hide.contains("Start"));
+    }
+
+    #[test]
+    fn test_display_help_combine_keys() {
+        let binds: BindMap<NullActionExt> = bindmap!(
+            key!(ctrl-d) => Action::Trace("rm".into()),
+            key!(Delete) => Action::Trace("rm".into()),
+            key!(a) => Action::Print("foo".into()),
+            key!(b) => Action::Print("foo".into()),
+            key!(c) => Action::Print("bar".into()),
+        );
+
+        // Default combine_keys is true
+        let mut cfg = HelpDisplayConfig::default();
+        assert!(cfg.combine_keys);
+
+        let help = display_help(&binds.resolve_semantics(&[]), &cfg);
+        let help_str = help.to_string();
+        let lines: Vec<_> = help_str.lines().filter(|l| !l.is_empty()).collect();
+
+        // Trace items come first when quote_traces is true, followed by Print actions
+        assert!(lines.iter().any(|l| l.contains("Ctrl-d, Delete = \"rm\"") || l.contains("Delete, Ctrl-d = \"rm\"")));
+        assert!(lines.iter().any(|l| l.contains("a, b = Print(foo)") || l.contains("b, a = Print(foo)")));
+        assert!(lines.iter().any(|l| l.contains("c = Print(bar)")));
+
+        // Disable combine_keys
+        cfg.combine_keys = false;
+        let help_no_combine = display_help(&binds.resolve_semantics(&[]), &cfg);
+        let help_no_combine_str = help_no_combine.to_string();
+        let lines_no_combine: Vec<_> = help_no_combine_str.lines().filter(|l| !l.is_empty()).collect();
+
+        assert_eq!(lines_no_combine.len(), 5);
+        assert!(!lines_no_combine.iter().any(|l| l.contains(',')));
     }
 }

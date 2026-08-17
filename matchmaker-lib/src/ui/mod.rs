@@ -304,9 +304,7 @@ mod tests {
     use super::*;
     use ratatui::{Terminal, backend::TestBackend, widgets::Borders};
 
-    fn test_ui(
-        config: RenderConfig,
-    ) -> (UI, PickerUI<&'static str, ()>) {
+    fn test_ui(config: RenderConfig) -> (UI, PickerUI<&'static str, ()>) {
         let worker = Worker::<&'static str, ()>::new_single_column();
         UI::new_offline(config, worker)
     }

@@ -747,7 +747,7 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
 
     // TODO: accept logic is in render/mod.rs is todo!() - this closure is
     // currently unreachable until the accept pipeline is restored.
-    mm.output = Box::new(move |state: &mut MMState<'_,>| {
+    mm.output = Box::new(move |state: &mut MMState<'_>| {
         if !on_accept.is_empty() {
             let cmd = format_cli(state, &on_accept, None);
             if cmd.is_empty() {

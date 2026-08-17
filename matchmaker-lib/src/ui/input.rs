@@ -113,7 +113,8 @@ impl InputUI {
         // 2. Ensure cursor fits within the visible window [before ..).
         // If cursor is at or beyond the right edge, advance `before`.
         while self.before < self.cursor {
-            let cursor_incl = (self.cursor + padding.min(1)).min(self.graphemes.len().saturating_sub(1));
+            let cursor_incl =
+                (self.cursor + padding.min(1)).min(self.graphemes.len().saturating_sub(1));
             let span_width: u16 = self.graphemes[self.before..=cursor_incl]
                 .iter()
                 .map(|(_, w)| *w)

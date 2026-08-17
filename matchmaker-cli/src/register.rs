@@ -4,6 +4,7 @@ use std::{
     process::{Command, ExitStatus, Stdio},
 };
 
+use crate::lua;
 use cba::{
     bait::ResultExt,
     bring::split::split_whitespace_preserve_single_quotes,
@@ -11,7 +12,6 @@ use cba::{
     env_vars, unwrap,
 };
 use log::{debug, info};
-use crate::lua;
 use matchmaker::{
     Action, AttachmentFormatter, Matchmaker, SSS,
     action::ActionExt,
@@ -68,10 +68,8 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
             match payload {
                 Payload::Command(cmd) => {
                     if let Some(mut cmd_builder) = command_from_script(&cmd, &execute_shell, &vars)
-                        && let Some(mut child) = cmd_builder
-                            .envs(vars)
-                            .stdin(tty_or_inherit())
-                            ._spawn()
+                        && let Some(mut child) =
+                            cmd_builder.envs(vars).stdin(tty_or_inherit())._spawn()
                     {
                         match child.wait() {
                             Ok(i) => {
@@ -131,7 +129,8 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                             command_from_script(&cmd, &silent_shell, &vars)
                             && let Some(mut _child) =
                                 cmd_builder.envs(vars).stdin(tty_or_inherit())._spawn()
-                        {}
+                        {
+                        }
                     }
                     Payload::LuaFile { path, args } => {
                         let Some(file) = resolve_at_path(&path, &vars) else {
@@ -214,11 +213,7 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                                     s.success()
                                 }
                                 Err(e) => {
-                                    log::warn!(
-                                        "Failed to wait on async command [{}]: {}",
-                                        cmd,
-                                        e
-                                    );
+                                    log::warn!("Failed to wait on async command [{}]: {}", cmd, e);
                                     return;
                                 }
                             }
@@ -245,10 +240,8 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                             }
                         }
                         Payload::LuaInline(code) => {
-                            match tokio::task::spawn_blocking(move || {
-                                lua::run_inline(&code, &vars)
-                            })
-                            .await
+                            match tokio::task::spawn_blocking(move || lua::run_inline(&code, &vars))
+                                .await
                             {
                                 Ok(Ok(code)) => code == 0,
                                 Ok(Err(e)) => {

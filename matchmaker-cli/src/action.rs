@@ -122,7 +122,7 @@ pub struct ActionContext {
 
 pub fn action_handler(
     a: MMAction,
-    state: &mut MMState<'_,>,
+    state: &mut MMState<'_>,
     ActionContext {
         bind_tx,
         render_tx,

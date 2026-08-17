@@ -78,6 +78,7 @@ always_trigger = true
 # --- Misc ---
 [matcher]
 # ansi = false # don't set to true here
+sort.threshold = 1 # maintain initial ordering
 
 [columns]
 

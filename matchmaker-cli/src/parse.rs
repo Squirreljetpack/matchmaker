@@ -15,7 +15,7 @@ static ALIASES: &[(&str, &str)] = &[
     ("x", "start.command"),
     ("cmd", "start.command"),
     ("a", "matcher.ansi"),
-    ("t", "matcher.trim"),
+    ("t", "matcher.sort_threshold"),
     ("S", "matcher.sort"),
     ("Q", "query.initial"),
     //

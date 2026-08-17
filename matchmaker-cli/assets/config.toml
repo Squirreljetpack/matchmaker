@@ -13,6 +13,7 @@ prompt_style.fg = "Gray"
 prompt_style.modifier = "ITALIC"
 # word movement stops at these characters in addition to whitespace
 # word_boundaries = ['.', '/']
+reset_cursor_on_query_change = true
 
 [results]
 # wrap = true
@@ -78,6 +79,7 @@ always_trigger = true
 # --- Misc ---
 [matcher]
 # ansi = false # don't set to true here
+# sort.threshold = 1 # set to maintain initial ordering
 
 [columns]
 

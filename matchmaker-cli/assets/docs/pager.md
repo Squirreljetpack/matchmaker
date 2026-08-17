@@ -17,8 +17,7 @@ pages an arbitrary template instead of the current preview command.
 
 ### minus keybindings
 
-These are the defaults of minus 5.7 (its `dynamic_output` and `search`
-features are enabled by the `pager` feature). A keybinding table for all of
+These are the defaults of minus 5.7. A keybinding table for all of
 minus's actions lives in the [minus documentation](https://docs.rs/minus/latest/minus/).
 
 | Key                            | Action                                      |

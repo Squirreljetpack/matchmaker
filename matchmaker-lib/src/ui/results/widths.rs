@@ -26,6 +26,7 @@ impl ResultsUI {
             if self.config.hidden_columns.contains(i) {
                 continue;
             }
+            let is_active = i == self.active_column;
             let mut lower = 0;
             if self.widths_buffer[vi] > 0 {
                 lower = lower.max(if self.config.min_width_from_cols {
@@ -33,6 +34,8 @@ impl ResultsUI {
                 } else {
                     self.config.min_width
                 });
+            } else if is_active {
+                lower = 1;
             }
             self.widths_buffer[vi] = self.widths_buffer[vi].max(lower);
             vi += 1;
@@ -115,13 +118,16 @@ impl ResultsUI {
                 continue;
             }
 
+            let is_active = i == self.active_column;
             let mut lower = self.max_widths[vi];
             if lower > 0 {
                 lower = lower.max(if self.config.min_width_from_cols {
                     *name_w
                 } else {
                     self.config.min_width
-                })
+                });
+            } else if is_active {
+                lower = 1;
             }
 
             self.widths_buffer[vi] = self.widths_buffer[vi].max(lower);
@@ -638,5 +644,26 @@ mod tests {
         results.row_cache[0] = vec![(0, vec![], vec![15, 20])];
         results.update_width_limits();
         assert!(!results.row_cache[0].is_empty());
+    }
+
+    #[test]
+    fn test_active_column_min_width_when_empty() {
+        let mut config = ResultsConfig::default();
+        config.min_width = 3;
+        let mut results = ResultsUI::new(config);
+        results.width = 100;
+        results.config.hidden_columns = crate::collections::HiddenColumns::new_with_size(2);
+        results.column_name_widths = vec![0, 0];
+        results.active_column = 0;
+        // Both columns have 0 width in row_cache
+        results.row_cache[0] = vec![(0, vec![], vec![0, 0])];
+
+        let applied = results.try_apply_max_widths_into_width_buffer();
+        assert_eq!(applied, Some(true));
+        // Active column (0) gets min width 1 when empty, non-active column (1) stays 0
+        assert_eq!(results.widths_buffer, vec![1, 0]);
+
+        results.update_width_limits();
+        assert_eq!(results.width_limits, vec![1, 0]);
     }
 }

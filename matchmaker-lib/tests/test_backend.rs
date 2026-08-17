@@ -9,7 +9,7 @@ use matchmaker::{
     action::{Action, NullActionExt},
     config::TerminalConfig,
     message::RenderCommand,
-    nucleo::Worker,
+    nucleo::{Injector, Worker},
     test,
     tui::IoStream,
 };
@@ -58,5 +58,53 @@ async fn test_backend_captures_rendered_output() {
     assert!(
         output.contains("item3"),
         "rendered output should contain item3, got: {output:?}"
+    );
+}
+
+#[tokio::test]
+async fn test_bat_help_reproduction() {
+    let _ = env_logger::try_init();
+    test::clear();
+
+    let (mm, injector, _) = Matchmaker::new_from_config(
+        Default::default(),
+        TerminalConfig {
+            stream: IoStream::Test,
+            ..Default::default()
+        },
+        Default::default(),
+        Default::default(),
+        Default::default(),
+    );
+
+    let help_text = std::process::Command::new("bat")
+        .arg("--help")
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+        .unwrap_or_else(|_| "A cat(1) clone\n\nUsage: bat\n".to_string());
+
+    for line in help_text.lines() {
+        injector.push(line.to_string()).unwrap();
+    }
+
+    let mut opts = PickOptions::new();
+    let render_tx = opts.render_tx();
+
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        let _ = render_tx.send(RenderCommand::Action(Action::Pos(25)));
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        let _ = render_tx.send(RenderCommand::Action(Action::Accept));
+    });
+
+    let _ = tokio::time::timeout(Duration::from_secs(10), mm.pick::<NullActionExt>(opts))
+        .await
+        .expect("pick timed out")
+        .expect("pick should succeed");
+
+    let output = test::contents();
+    assert!(
+        output.contains("Arguments:") || output.contains("Options:"),
+        "rendered output should contain bat help text, got: {output:?}"
     );
 }

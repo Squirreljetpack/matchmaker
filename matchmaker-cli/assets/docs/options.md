@@ -23,7 +23,7 @@ Overrides follow the pattern `path=value` or `path value`.
   - `start.command` -> `x`
   - `start.command` -> `cmd`
   - `matcher.ansi` -> `a`
-  - `matcher.trim` -> `t`
+  - `matcher.sort_threshold` -> `t`
   - `columns.split` -> `d`
   - `preview.layout` -> `P`
   - `header.content` -> `h`

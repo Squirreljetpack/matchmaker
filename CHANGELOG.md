@@ -1,3 +1,12 @@
+## [Unreleased]
+
+### 🚀 Features
+
+- `ShowPreview` action pages the current preview command fullscreen (default
+  `F11` / `ctrl-l`), replacing the old `@look` alias. Enabled by the new
+  `pager` feature (default on); without it the output is piped into
+  `MM_PAGER` → `$PAGER` → `less` → `more`.
+
 ## [0.1.5] - 2026-08-14
 
 ### 🚀 Features

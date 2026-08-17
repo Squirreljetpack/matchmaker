@@ -286,6 +286,21 @@ All colors and modifiers come from ratatui:
   - `combine_keys`: (bool) Combine multiple keys triggering the same action into a comma-separated list (default true).
 - `cache`: (number) Reserved for future use.
 
+### Pager (`pager.`)
+
+Configures the pager used by the `ShowPreview` action (pages the current
+preview command fullscreen and always resumes the picker afterwards). Only
+present when the `pager` feature is enabled; without it `ShowPreview` falls
+back to the external pager chain `MM_PAGER` → `$PAGER` → `less` → `more`,
+displayed on the controlling tty.
+
+- `line_numbers`, `ln`: (bool) Show line numbers in the pager (default false).
+- `follow`: (bool) Start the pager in follow mode, auto-scrolling as new
+  output arrives (default false).
+- `prompt`: (string, optional) Footer prompt text shown by the pager.
+- `horizontal_scroll`: (bool) Always enable horizontal scrolling
+  (default false; `Ctrl+h` still toggles it).
+
 ### Header & Footer (`header.`, `footer.`, `h`, `f`)
 
 - `content`: (string or list) Static content to display.

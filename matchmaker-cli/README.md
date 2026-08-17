@@ -150,6 +150,11 @@ For quick reference, `mm --doc` provides fairly readable and comprehensive guide
 
 Actions can be defined in your `config.toml` or on the command line.
 
+`ShowPreview` (default `F11` / `ctrl-l`) pages the current preview command
+fullscreen in the pager (`pager.` config section, `minus`-powered) and always
+resumes the picker afterwards. Without the `pager` feature it falls back to
+the external pager chain `MM_PAGER` → `$PAGER` → `less` → `more`.
+
 The list of currently supported actions can be found [here](./matchmaker-lib/src/action.rs) and [here](./matchmaker-cli/src/action.rs) or from `mm --doc binds`.
 
 To get the names of keys, type `mm --test-keys`.

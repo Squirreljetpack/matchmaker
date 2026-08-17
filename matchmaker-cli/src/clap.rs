@@ -70,6 +70,7 @@ pub enum Doc {
     Binds,
     Template,
     Other,
+    Pager,
 }
 
 impl Cli {

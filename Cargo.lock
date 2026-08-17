@@ -1285,6 +1285,7 @@ dependencies = [
  "matchmaker-partial",
  "matchmaker-partial-macros",
  "mimalloc",
+ "minus",
  "mlua",
  "regex",
  "serde",
@@ -1414,6 +1415,20 @@ name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
+
+[[package]]
+name = "minus"
+version = "5.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1db1df1b8dd701aa57b41283b50b751b3ebc8fe1406955ec90c53b46b475fa56"
+dependencies = [
+ "crossbeam-channel",
+ "crossterm 0.29.0",
+ "parking_lot",
+ "regex",
+ "textwrap",
+ "thiserror 2.0.20",
+]
 
 [[package]]
 name = "mio"
@@ -2415,6 +2430,15 @@ dependencies = [
  "wezterm-dynamic",
  "wezterm-input-types",
  "winapi",
+]
+
+[[package]]
+name = "textwrap"
+version = "0.16.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c13547615a44dc9c452a8a534638acdf07120d4b6847c8178705da06306a3057"
+dependencies = [
+ "unicode-width 0.2.2",
 ]
 
 [[package]]

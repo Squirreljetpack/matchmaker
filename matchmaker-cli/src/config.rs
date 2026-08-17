@@ -62,6 +62,13 @@ pub struct Config {
     #[serde(default)]
     pub exit: ExitConfig,
 
+    // configure the pager used by ShowPreview (pages the current preview command
+    // fullscreen via `minus`); skipped by the partial macro
+    #[partial(skip)]
+    #[cfg(feature = "pager")]
+    #[serde(default)]
+    pub pager: PagerConfig,
+
     /// imports: only supported on overrides and with one nesting level
     #[serde(default)]
     #[partial(no_recurse)]
@@ -173,6 +180,24 @@ impl Default for Config {
     fn default() -> Self {
         toml::from_str(DEFAULT_CONFIG).unwrap()
     }
+}
+
+/// Knobs for the `ShowPreview` pager (`[pager]` section).
+///
+/// Only present when the `pager` feature is enabled; without it, `ShowPreview`
+/// falls back to the external pager chain `MM_PAGER -> $PAGER -> less -> more`.
+#[cfg_attr(not(feature = "pager"), allow(dead_code))]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct PagerConfig {
+    /// Show line numbers in the pager.
+    pub line_numbers: bool,
+    /// Start the pager in follow mode (auto-scroll as new output arrives).
+    pub follow: bool,
+    /// Footer prompt text shown by the pager.
+    pub prompt: Option<String>,
+    /// Always enable horizontal scrolling (Ctrl+h still toggles it).
+    pub horizontal_scroll: bool,
 }
 
 #[cfg(test)]

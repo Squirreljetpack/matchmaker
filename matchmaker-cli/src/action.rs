@@ -22,6 +22,11 @@ use crate::sort::{SortMode, apply_sort, expand_maybe_column, handle_sort_reverse
 
 pub type MMState<'a> = matchmaker::render::MMState<'a, String, ConfigPreprocessedData>;
 
+/// Discriminant payload for the `ShowPreview` Execute interrupt. The Execute
+/// handler pages the current preview command fullscreen when it sees this
+/// value (must not collide with the other Execute discriminants 0-3).
+pub const DISCRIMINANT_SHOW_PREVIEW: u8 = 4;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum MMAction {
     // binds
@@ -75,8 +80,11 @@ pub enum MMAction {
     SetStatus(Option<String>),
     /// Set status
     SetStyledStatus(String),
-    /// Run a command and display output in preview window (TODO)
+    /// Run a command and display output in preview window
     RunPreview(String),
+    /// Page the current preview command fullscreen (or an arbitrary command)
+    /// in the pager; always resumes the picker afterwards
+    ShowPreview(Option<String>),
 
     // copy
     /// Execute command and copy its output to the clipboard
@@ -283,6 +291,23 @@ pub fn action_handler(
                 state.update_preview_set(Ok(cmd));
             }
         }
+        MMAction::ShowPreview(opt) => {
+            // Page the current preview command (or an arbitrary template)
+            // fullscreen. Payload-less ShowPreview uses whatever the preview
+            // would currently display. The pager branch runs inside the
+            // Execute interrupt handler (discriminant 4).
+            state.discriminant_payload = Some(DISCRIMINANT_SHOW_PREVIEW);
+            if let Some(cmd) = opt {
+                state.set_interrupt(Interrupt::Execute, cmd);
+            } else {
+                let template = state
+                    .preview_set_payload()
+                    .as_ref()
+                    .and_then(|p| p.as_ref().ok().map(|s| s.to_string()))
+                    .unwrap_or_else(|| state.preview_payload().clone());
+                state.set_interrupt(Interrupt::Execute, template);
+            }
+        }
         MMAction::Copy(s) => {
             state.discriminant_payload = Some(if *osc52 { 1 } else { 0 });
             state.set_interrupt(Interrupt::ExecuteSilent, s);
@@ -462,7 +487,7 @@ enum_from_str_display! {
     ;
 
     options:
-    SetPrompt, SetHeader, SetFooter, SetStatus, Filtering, ReloadNext, Sort, SortNumeric, SortReverse, SortThreshold;
+    SetPrompt, SetHeader, SetFooter, SetStatus, Filtering, ReloadNext, Sort, SortNumeric, SortReverse, SortThreshold, ShowPreview;
 
     lossy:
     ;

@@ -4,7 +4,11 @@ use std::{
     process::{Command, ExitStatus, Stdio},
 };
 
-use crate::lua;
+use crate::{
+    action::DISCRIMINANT_SHOW_PREVIEW,
+    config::PagerConfig,
+    lua,
+};
 use cba::{
     bait::ResultExt,
     bring::split::split_whitespace_preserve_single_quotes,
@@ -37,6 +41,10 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
         &mut self,
         formatter: AttachmentFormatter<T, D>,
         shell: Vec<OsString>,
+        preview_shell: Vec<OsString>,
+        pager: PagerConfig,
+        help_factory: matchmaker::HelpFactory,
+        help_config: matchmaker::config::HelpDisplayConfig,
     ) {
         let formatter_ = formatter.clone();
         let execute_shell = shell.clone();
@@ -44,6 +52,18 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
         self.register_interrupt_handler(Interrupt::Execute, move |state| {
             let discriminant = state.discriminant_payload.take();
             let template = state.payload();
+
+            // ShowPreview with a static preview payload pages the text directly
+            // (like the PreviewSet handler's Set branch); no command runs and
+            // no env is needed.
+            if discriminant == Some(DISCRIMINANT_SHOW_PREVIEW)
+                && let Some(Err(text)) = state.preview_set_payload()
+            {
+                let resolved = matchmaker::resolve_static_preview(&text, &help_factory, &help_config);
+                let ansi_text = matchmaker::utils::text_to_ansi(&resolved);
+                crate::pager::page_text(&ansi_text, &pager);
+                return;
+            }
 
             if template.is_empty() {
                 return;
@@ -64,6 +84,38 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                 "MM_PREVIEW_COMMAND" => preview_cmd,
             );
             vars.extend(extra);
+
+            // ShowPreview pages the preview command fullscreen instead of
+            // executing the payload; the picker always resumes afterwards.
+            if discriminant == Some(DISCRIMINANT_SHOW_PREVIEW) {
+                let Some(mut child) = command_from_script(&preview_cmd, &preview_shell, &vars)
+                    .and_then(|mut builder| {
+                        builder
+                            .envs(vars)
+                            .stdin(Stdio::null())
+                            .stdout(Stdio::piped())
+                            .stderr(Stdio::inherit())
+                            ._spawn()
+                    })
+                else {
+                    log::error!("ShowPreview: failed to spawn preview command [{preview_cmd}]");
+                    return;
+                };
+                let Some(stdout) = child.stdout.take() else {
+                    log::error!("ShowPreview: preview command produced no stdout");
+                    return;
+                };
+                // minus renders to stdout, so it needs a tty there; otherwise
+                // the external pager displays on the controlling tty so a
+                // redirected stdout is not polluted with pager UI.
+                let use_minus = cfg!(feature = "pager") && atty::is(atty::Stream::Stdout);
+                if use_minus {
+                    #[cfg(feature = "pager")]
+                    return crate::pager::minus_page(stdout, child, &pager);
+                }
+                crate::pager::external_pager(stdout, child);
+                return;
+            }
 
             match payload {
                 Payload::Command(cmd) => {
@@ -821,7 +873,6 @@ pub fn set_host_clipboard_universal(text: &str) -> io::Result<()> {
 
 pub(crate) fn wait_with_timeout(mut child: Child, timeout: Duration) {
     let start = Instant::now();
-
     let handle = thread::spawn(move || {
         let _ = child.wait();
     });
@@ -988,5 +1039,23 @@ mod tests {
         assert!(lua_pattern("echo hi").is_none());
         assert!(lua_pattern("#!python print(1)").is_none());
         assert!(lua_pattern("@").is_none());
+    }
+
+    #[test]
+    fn test_resolve_static_preview_delegates_to_help_factory() {
+        let help_config = matchmaker::config::HelpDisplayConfig::default();
+        let help_factory = |_: &matchmaker::config::HelpDisplayConfig| {
+            matchmaker::Text::from("Resolved Help Content")
+        };
+
+        // Empty text delegates to help_factory
+        let empty = matchmaker::Text::raw("");
+        let resolved = matchmaker::resolve_static_preview(&empty, &help_factory, &help_config);
+        assert_eq!(resolved.to_string(), "Resolved Help Content");
+
+        // Non-empty static text is preserved
+        let custom = matchmaker::Text::from("Custom Static Text");
+        let resolved_custom = matchmaker::resolve_static_preview(&custom, &help_factory, &help_config);
+        assert_eq!(resolved_custom.to_string(), "Custom Static Text");
     }
 }

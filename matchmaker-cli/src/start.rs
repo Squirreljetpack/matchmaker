@@ -18,6 +18,9 @@ use crate::{
     sort::init_mm_sort,
     utils::{expand_tilde, guess_editor_cmd, guess_pager_cmd},
 };
+
+#[cfg(not(feature = "pager"))]
+use crate::config::PagerConfig;
 use cba::{
     _wbog,
     bait::{OptionExt, ResultExt, TransformExt},
@@ -445,6 +448,8 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
             },
         mut exit,
         mut envs,
+        #[cfg(feature = "pager")]
+        pager,
         source: _,
     } = config;
 
@@ -592,11 +597,16 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
             as for<'a, 'b> fn(&'a MMState<'b>, &'a str, Option<&dyn Fn(String)>) -> String,
     );
     let binds_ptr = event_loop.get_binds_ptr();
+    let binds_ptr_preview = binds_ptr.clone();
+    let binds_ptr_exec = binds_ptr.clone();
+    let previewer_help_config = previewer.help.clone();
+    // the preview command shell, used by ShowPreview to run the preview command
+    let preview_command_shell = previewer.shell.clone();
     let mut previewer = make_previewer(
         &mut mm,
         previewer,
         cli_formatter.clone(),
-        Box::new(move |config| matchmaker::binds::display_help(&binds_ptr.load(), config)),
+        Box::new(move |config| matchmaker::binds::display_help(&binds_ptr_preview.load(), config)),
     );
     previewer.connect_controller(event_loop.controller());
 
@@ -665,7 +675,18 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
     );
 
     // execute handlers
-    mm.register_execute_handler(cli_formatter.clone(), shell.clone());
+    #[cfg(feature = "pager")]
+    let pager_config = pager.clone();
+    #[cfg(not(feature = "pager"))]
+    let pager_config = PagerConfig::default();
+    mm.register_execute_handler(
+        cli_formatter.clone(),
+        shell.clone(),
+        preview_command_shell.clone(),
+        pager_config,
+        Box::new(move |config| matchmaker::binds::display_help(&binds_ptr_exec.load(), config)),
+        previewer_help_config,
+    );
     mm.register_execute_async_handler(cli_formatter.clone(), shell.clone());
     mm.register_copy(
         cli_formatter.clone(),

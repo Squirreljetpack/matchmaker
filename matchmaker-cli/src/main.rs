@@ -8,6 +8,7 @@ mod logger;
 mod lua;
 mod parse;
 mod paths;
+mod pager;
 mod register;
 mod sort;
 mod start;
@@ -175,12 +176,21 @@ fn display_doc(cli: &Cli) {
             Doc::Binds => md.push_str(include_str!("../assets/docs/binds.md")),
             Doc::Template => md.push_str(include_str!("../assets/docs/template.md")),
             Doc::Other => md.push_str(include_str!("../assets/docs/other.md")),
+            Doc::Pager => md.push_str(include_str!("../assets/docs/pager.md")),
         }
     }
 
     if !md.is_empty() {
         let mut skin = MadSkin::default();
         skin.bold.set_fg(Color::Yellow);
+        if cfg!(feature = "pager") && atty::is(atty::Stream::Stdout) {
+            #[cfg(feature = "pager")]
+            crate::pager::minus_text(
+                &skin.text(&md, None).to_string(),
+                &crate::config::PagerConfig::default(),
+            );
+            exit(0);
+        }
         skin.print_text(&md);
         exit(0)
     }

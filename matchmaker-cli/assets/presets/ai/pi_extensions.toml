@@ -89,8 +89,8 @@ show = true
 [[preview.layout]]
 command = '''
 base="$(dirname -- "$MM_OVERRIDE")"
-if [ -n "{1}" ]; then
-    "$base"/pi_extensions_preview.py "{1}"
+if [ -n {1} ]; then
+    "$base"/pi_extensions_preview.py {1}
 fi
 '''
 
@@ -112,8 +112,8 @@ EOF
 [[preview.layout]]
 command = '''
 base="$(dirname -- "$MM_OVERRIDE")"
-if [ -n "{1}" ]; then
-    if d="$("$base"/pi_extensions_preview.py --dir "{1}" 2>/dev/null)" && [ -n "$d" ]; then
+if [ -n {1} ]; then
+    if d="$("$base"/pi_extensions_preview.py --dir {1} 2>/dev/null)" && [ -n "$d" ]; then
         for readme in README.md readme.md; do
             if [ -f "$d/$readme" ]; then
                 bat --wrap=never --color=always -pp -l md -- "$d/$readme"

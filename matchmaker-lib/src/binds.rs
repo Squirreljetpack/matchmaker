@@ -775,7 +775,7 @@ pub fn display_help<A: ActionExt + Display>(
                     inner
                 }
             };
-            text.extend(Text::from(format!("{trigger} = {value}\n")));
+            text.lines.push(Line::from(format!("{trigger} = {value}")));
         }
         return text;
     };
@@ -810,8 +810,7 @@ pub fn display_help<A: ActionExt + Display>(
             ));
         }
 
-        spans.push(Span::raw("\n"));
-        text.extend(Text::from(Line::from(spans)));
+        text.lines.push(Line::from(spans));
     }
 
     text

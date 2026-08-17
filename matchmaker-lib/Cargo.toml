@@ -15,7 +15,7 @@ matchmaker-partial = { workspace = true, optional = true }
 matchmaker-partial-macros = { workspace = true, default-features = false }
 
 ansi-to-tui = "8.0.1"
-ratatui = { version = "0.30.2", features = ["serde"] }
+ratatui = { version = "0.30.2", features = ["serde", "crossterm"] }
 
 unicode-segmentation = "1.13.3"
 unicode-width = "^0.2.2"

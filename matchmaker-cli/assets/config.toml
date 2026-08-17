@@ -192,11 +192,11 @@ abort_empty = true
 "F8" = "@step"
 "F9" = "@toggle"
 "F10" = "@menu"
-"F11" = "@look"
+"F11" = "ShowPreview"
 "F12" = "@save"
 
 # Programmable
-"ctrl-l" = "@look" # "maximize" the preview
+"ctrl-l" = "ShowPreview" # page the preview fullscreen
 "ctrl-o" = "@open"
 "alt-o" = "@open_2"
 "ctrl-r" = "@reload"
@@ -212,7 +212,6 @@ abort_empty = true
 
 "@accept" = "Accept"
 "@accept_2" = "Accept"
-"@look" = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)"
 "@open" = "ExecuteOrConfirm($EDITOR -- {1})"
 "@open_2" = "Become($EDITOR -- {1})"
 "@reload" = "Reload"

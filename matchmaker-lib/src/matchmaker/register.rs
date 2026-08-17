@@ -80,13 +80,29 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
     }
 }
 
+/// Factory closure for producing formatted help text.
+pub type HelpFactory = Box<dyn Fn(&crate::config::HelpDisplayConfig) -> Text<'static> + Send + Sync>;
+
+/// Resolves static preview text: if the text is empty, delegates to `help_factory`.
+pub fn resolve_static_preview(
+    text: &Text<'static>,
+    help_factory: &dyn Fn(&crate::config::HelpDisplayConfig) -> Text<'static>,
+    help_config: &crate::config::HelpDisplayConfig,
+) -> Text<'static> {
+    if is_empty(text) {
+        help_factory(help_config)
+    } else {
+        text.clone()
+    }
+}
+
 /// Causes the program to display a preview of the active result.
 /// The Previewer can be connected to [`Matchmaker`] using [`PickOptions::previewer`]
 pub fn make_previewer<T: SSS, S, D: 'static>(
     mm: &mut Matchmaker<T, S, D>,
     previewer_config: PreviewerConfig, // note: help_str is provided separately so help_colors is ignored
     formatter: AttachmentFormatter<T, D>,
-    help_factory: Box<dyn Fn(&crate::config::HelpDisplayConfig) -> Text<'static> + Send + Sync>,
+    help_factory: HelpFactory,
 ) -> Previewer {
     // initialize previewer
     let (previewer, tx) = Previewer::new(previewer_config.clone());
@@ -100,7 +116,7 @@ pub fn make_previewer<T: SSS, S, D: 'static>(
     mm.register_event_handler(Event::CursorChange | Event::PreviewChange | Event::Synced, move |state, _| {
             // don't clobber previewset events
             if state.contains(Event::PreviewSet) {
-                // code logic-wise, recieve PreviewSet::None semantically => will recieve PreviewMessage::Unset => we should skip anyways (events is immutable), altho semantically such a state should actually trigger a new preview tho it would be niche
+                // recieve PreviewSet::None semantically => will recieve PreviewMessage::Unset => we should skip anyways (events is immutable), altho semantically such a state should actually trigger a new preview tho it would be niche
                 return;
             }
 
@@ -148,11 +164,7 @@ pub fn make_previewer<T: SSS, S, D: 'static>(
             let payload = state.preview_set_payload();
             let msg = match payload {
                 Some(Err(m)) => {
-                    let m = if is_empty(&m) {
-                        help_factory(&help_config)
-                    } else {
-                        m
-                    };
+                    let m = resolve_static_preview(&m, &help_factory, &help_config);
                     PreviewMessage::Set(m)
                 }
                 None => PreviewMessage::Unset,

@@ -54,11 +54,11 @@ _mm() {
                     return 0
                     ;;
                 --doc)
-                    COMPREPLY=($(compgen -W "options binds template other" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "options binds template other pager" -- "${cur}"))
                     return 0
                     ;;
                 -d)
-                    COMPREPLY=($(compgen -W "options binds template other" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "options binds template other pager" -- "${cur}"))
                     return 0
                     ;;
                 *)

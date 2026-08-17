@@ -382,7 +382,10 @@ pub fn scrub_text_styles(text: &mut Text<'_>) {
 }
 
 pub fn is_empty(text: &Text<'_>) -> bool {
-    text.lines.iter().all(|l| l.spans.is_empty())
+    text.lines.is_empty()
+        || text.lines.iter().all(|l| {
+            l.spans.is_empty() || l.spans.iter().all(|s| s.content.is_empty())
+        })
 }
 
 pub fn trim_text_lines(text: &mut Text) {
@@ -782,5 +785,13 @@ mod tests {
         assert_eq!(wrapped[2].to_string(), "l");
         assert_eq!(wrapped[3].to_string(), "e");
         assert_eq!(wrapped[4].to_string(), "s");
+    }
+
+    #[test]
+    fn test_is_empty() {
+        assert!(is_empty(&Text::default()));
+        assert!(is_empty(&Text::raw("")));
+        assert!(is_empty(&Text::from(vec![Line::from(vec![Span::raw("")])])));
+        assert!(!is_empty(&Text::raw("hello")));
     }
 }

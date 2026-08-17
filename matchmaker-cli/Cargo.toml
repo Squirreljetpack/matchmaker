@@ -44,6 +44,7 @@ easy-ext = "1.0.3"
 env_logger = "0.11.11"
 log = "0.4"
 mimalloc = "0.1"
+minus = { version = "5.7.2", features = ["dynamic_output", "search"], optional = true }
 mlua = { version = "0.10", features = ["lua54", "vendored"], optional = true }
 regex = "1"
 serde = "1.0"
@@ -68,8 +69,9 @@ path = "src/main.rs"
 workspace = true
 
 [features]
-default = ["mlua"]
+default = ["mlua", "pager"]
 mlua = ["dep:mlua"]
+pager = ["dep:minus"]
 experimental = [
     "matchmaker-lib/experimental",
     # "log/max_level_debug"

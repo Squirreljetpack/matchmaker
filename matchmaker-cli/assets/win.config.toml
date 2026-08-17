@@ -40,9 +40,7 @@ if (Test-Path -LiteralPath $p -PathType Container) {
     }
 } else {
     if (Get-Command bat -ErrorAction SilentlyContinue) {
-        bat --binary no-printing --color=always $p
-    } elseif ($env:PAGER) {
-        & $env:PAGER $p
+        bat --binary no-printing --color=always --style=-numbers $p
     } else {
         Get-Content -LiteralPath $p -Raw
     }

@@ -198,6 +198,9 @@ pub struct PagerConfig {
     pub prompt: Option<String>,
     /// Always enable horizontal scrolling (Ctrl+h still toggles it).
     pub horizontal_scroll: bool,
+    /// Queries with no uppercase chars match case-insensitively; queries
+    /// with uppercase remain case-sensitive.
+    pub smart_case: bool,
 }
 
 #[cfg(test)]

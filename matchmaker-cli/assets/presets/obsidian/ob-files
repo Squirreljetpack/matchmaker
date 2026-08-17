@@ -34,11 +34,10 @@ done |
 #                 is absolute, the input tail is the --tail-sep remainder; a missing
 #                 path omits the entry; missing display/tail keep the current values.
 #                 Note: Files can be supplied with the `@` prefix.
-fs :custom --opener ob-open \
+dfs :custom  --opener ob-open \
   --tail-sep $'\t' \
   --transform '
-return function(path, tail)
-    local display = (tail and tail ~= "") and ("/" .. path):match("^.-/" .. tail:gsub("%W", "%%%1") .. "/(.*)") or path
-    return path, display:gsub("^/+", ""):gsub("%.md$", ""), tail
-end
-'
+        local path, tail = ...
+        local display = (tail and tail ~= "") and ("/" .. path):match("^.-/" ..
+        tail:gsub("%W", "%%%1") .. "/(.*)") or path
+        return path, display:gsub("^/+", ""):gsub("%.md$", ""), tail'

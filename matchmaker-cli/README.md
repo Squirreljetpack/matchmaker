@@ -153,7 +153,9 @@ Actions can be defined in your `config.toml` or on the command line.
 `ShowPreview` (default `F11` / `ctrl-l`) pages the current preview command
 fullscreen in the pager (`pager.` config section, `minus`-powered) and always
 resumes the picker afterwards. Without the `pager` feature it falls back to
-the external pager chain `MM_PAGER` → `$PAGER` → `less` → `more`.
+the external pager chain `MM_PAGER` → `$PAGER` → `less` → `more`. With the
+feature, the pager draws on stdout when it is a terminal and on the
+controlling tty when stdout is redirected.
 
 The list of currently supported actions can be found [here](./matchmaker-lib/src/action.rs) and [here](./matchmaker-cli/src/action.rs) or from `mm --doc binds`.
 
@@ -336,11 +338,12 @@ async fn main() -> Result<()> {
 
 For more information, check out the [examples](./matchmaker-lib/examples/) and [Architecture.md](./matchmaker-lib/ARCHITECTURE.md)
 
-# See also
+# Credits + See also
 
 - [junegunn/fzf](https://github.com/junegunn/fzf)
 - [helix-editor/nucleo](https://github.com/helix-editor/nucleo)
 - [ratatui](https://github.com/ratatui/ratatui)
+- [minus](https://github.com/AMythicDev/minus)
 - [Canop/crokey](https://github.com/Canop/crokey)
 - [skim-rs/skim](https://github.com/skim-rs/skim)
 - [autobib/nucleo-picker](https://github.com/autobib/nucleo-picker)

@@ -105,10 +105,12 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                     log::error!("ShowPreview: preview command produced no stdout");
                     return;
                 };
-                // minus renders to stdout, so it needs a tty there; otherwise
-                // the external pager displays on the controlling tty so a
-                // redirected stdout is not polluted with pager UI.
-                let use_minus = cfg!(feature = "pager") && atty::is(atty::Stream::Stdout);
+                // minus draws on stdout when it is a terminal, or on the
+                // controlling tty (/dev/tty, via matchmaker-minus's configurable
+                // output sink) when stdout is redirected; otherwise the external
+                // pager chain displays on the controlling tty so a redirected
+                // stdout is not polluted with pager UI.
+                let use_minus = crate::pager::minus_available();
                 if use_minus {
                     #[cfg(feature = "pager")]
                     return crate::pager::minus_page(stdout, child, &pager);

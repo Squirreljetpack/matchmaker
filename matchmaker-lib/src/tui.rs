@@ -231,11 +231,10 @@ where
         }
         let backend = self.terminal.backend_mut();
 
-        execute!(backend, LeaveAlternateScreen, DisableMouseCapture)._wlog();
-
         if self.config.extended_keys {
             execute!(backend, PopKeyboardEnhancementFlags)._elog();
         }
+        execute!(backend, LeaveAlternateScreen, DisableMouseCapture)._wlog();
 
         if clear.is_none() {
             if !self.config.clear_on_exit {

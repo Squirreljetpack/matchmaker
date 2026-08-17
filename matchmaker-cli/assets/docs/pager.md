@@ -2,18 +2,23 @@
 
 `ShowPreview` (default binds: `F11` and `ctrl-l`) pages the current preview fullscreen using [`minus`](https://docs.rs/minus).
 
+minus draws on stdout when it is a terminal; when stdout is redirected (e.g.
+`mm | head`) the pager draws on the controlling tty (`/dev/tty`) instead, so
+piping or redirecting `mm`'s output never mixes pager UI into it.
+
 The pager starts immediately: it does not wait for the preview command to
 finish, and output streams in as the command produces it. `ShowPreview(cmd)`
 pages an arbitrary template instead of the current preview command.
 
 ### `pager.` config section
 
-| Key                       | Type   | Default            | Description                 |
-| ------------------------- | ------ | ------------------ | --------------------------- |
-| `pager.line_numbers`      | bool   | false              | Show line numbers           |
-| `pager.follow`            | bool   | false              | Stick to the newest output  |
-| `pager.prompt`            | string | "/ or ? to search" | Footer prompt text          |
-| `pager.horizontal_scroll` | bool   | false              | Enable horizontal scrolling |
+| Key                       | Type   | Description                 |
+| ------------------------- | ------ | --------------------------- |
+| `pager.line_numbers`      | bool   | Show line numbers           |
+| `pager.follow`            | bool   | Stick to the newest output  |
+| `pager.prompt`            | string | Footer prompt text          |
+| `pager.horizontal_scroll` | bool   | Enable horizontal scrolling |
+| `pager.smart_case`        | bool   | Case-sensitive search unless the query has uppercase |
 
 ### minus keybindings
 

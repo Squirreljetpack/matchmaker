@@ -1282,10 +1282,10 @@ dependencies = [
  "env_logger",
  "log",
  "matchmaker-lib",
+ "matchmaker-minus",
  "matchmaker-partial",
  "matchmaker-partial-macros",
  "mimalloc",
- "minus",
  "mlua",
  "regex",
  "serde",
@@ -1338,6 +1338,18 @@ dependencies = [
  "unicode-segmentation",
  "unicode-width 0.2.2",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "matchmaker-minus"
+version = "5.7.201"
+dependencies = [
+ "crossbeam-channel",
+ "crossterm 0.29.0",
+ "parking_lot",
+ "regex",
+ "textwrap",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1415,18 +1427,6 @@ name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
-
-[[package]]
-name = "minus"
-version = "5.7.2"
-dependencies = [
- "crossbeam-channel",
- "crossterm 0.29.0",
- "parking_lot",
- "regex",
- "textwrap",
- "thiserror 2.0.20",
-]
 
 [[package]]
 name = "mio"

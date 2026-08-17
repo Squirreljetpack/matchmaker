@@ -41,9 +41,7 @@ if [ -d {1} ]; then
     fi
 else
     if command -v bat >/dev/null 2>&1; then
-        bat --binary no-printing --color=always -- {1}
-    elif command -v $PAGER >/dev/null 2>&1; then
-        $PAGER -- {1}
+        bat --binary no-printing --color=always --style=-numbers -- {1}
     else
         cat -- {1}
     fi

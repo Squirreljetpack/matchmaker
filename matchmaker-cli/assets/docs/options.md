@@ -291,8 +291,7 @@ All colors and modifiers come from ratatui:
 Configures the pager used by the `ShowPreview` action (pages the current
 preview command fullscreen and always resumes the picker afterwards). Only
 present when the `pager` feature is enabled; without it `ShowPreview` falls
-back to the external pager chain `MM_PAGER` → `$PAGER` → `less` → `more`,
-displayed on the controlling tty.
+back to the external pager chain `MM_PAGER` → `$PAGER` → `less` → `more`.
 
 - `line_numbers`, `ln`: (bool) Show line numbers in the pager (default false).
 - `follow`: (bool) Start the pager in follow mode, auto-scrolling as new

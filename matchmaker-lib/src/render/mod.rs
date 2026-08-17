@@ -1060,7 +1060,7 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
             // due to control flow, this does nothing, but is anyhow a useful safeguard to guarantee the pause
             while let Some(msg) = render_rx.recv().await {
                 if matches!(msg, RenderCommand::Ack) {
-                    log::debug!("Received ack response to pause");
+                    log::debug!("Received ack response to resume");
                     break;
                 }
             }

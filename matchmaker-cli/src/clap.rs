@@ -69,6 +69,7 @@ pub enum Doc {
     Options,
     Binds,
     Template,
+    Lua,
     Other,
     Pager,
 }

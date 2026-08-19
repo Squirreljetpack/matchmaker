@@ -465,7 +465,7 @@ impl Display for TriggerKind {
 impl Display for Trigger {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if !self.mode.is_empty() {
-            write!(f, "{}^^{}", self.kind, self.mode)
+            write!(f, "{}^^{}", self.mode, self.kind)
         } else {
             write!(f, "{}", self.kind)
         }
@@ -897,6 +897,20 @@ mod test {
     }
 
     #[test]
+    fn trigger_round_trips_through_fmt_str() {
+        // The on-disk / config syntax is `<mode>^^<trigger>`; Display must
+        // match so serialize -> from-str round-trips (e.g. config round-trip).
+        for s in ["0,1^^@accept", "lua^^@open", "vim^^ctrl-a", "!0^^@open"] {
+            let t = Trigger::from_str(s).expect("parse");
+            let again = Trigger::from_str(&t.to_string()).expect("re-parse");
+            assert_eq!(t, again, "display round-trip for {s:?}");
+        }
+        // Exact strings for case-preserving (semantic) triggers.
+        assert_eq!(Trigger::from_str("@accept").unwrap().to_string(), "@accept");
+        assert_eq!(Trigger::from_str("0,1^^@accept").unwrap().to_string(), "0,1^^@accept");
+    }
+
+    #[test]
     fn test_bindmap_trigger() {
         let mut bind_map: BindMap = BindMap::new();
 
@@ -964,7 +978,9 @@ mod test {
         let t = Trigger::from_str("vim^^a").unwrap();
         assert_eq!(t.mode, PrefixFilter::from_str("vim").unwrap());
         assert_eq!(t.kind, TriggerKind::Key(key!(a)));
-        assert_eq!(t.to_string(), "a^^vim");
+        // Display writes the mode filter first, matching the `mode^^trigger`
+        // config syntax, so it round-trips through from_str.
+        assert_eq!(t.to_string(), "vim^^a");
 
         let t2 = Trigger::from_str("a").unwrap();
         assert_eq!(t2.mode, PrefixFilter::default());

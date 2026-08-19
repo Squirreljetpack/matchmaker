@@ -1,13 +1,13 @@
 use std::{
     ffi::{OsStr, OsString},
-    path::{Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
 };
 
 use crate::{
     action::DISCRIMINANT_SHOW_PREVIEW,
     config::PagerConfig,
-    lua,
+    lua::{self, LuaState},
+    script::{self, CommandStrategy},
 };
 use cba::{
     bait::ResultExt,
@@ -21,6 +21,7 @@ use matchmaker::{
     action::ActionExt,
     event::RenderSender,
     message::{Interrupt, RenderCommand},
+    nucleo::Render,
     render::MMState,
     use_formatter,
 };
@@ -35,7 +36,7 @@ use std::{
 use tokio::io::AsyncReadExt;
 
 #[easy_ext::ext(MMExt)]
-impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
+impl<T: SSS + Render, S, D: 'static> Matchmaker<T, S, D> {
     /// Causes [`Action::Execute`] to cause the program to execute the program specified by its payload.
     pub fn register_execute_handler(
         &mut self,
@@ -137,10 +138,10 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                     }
                 }
                 Payload::LuaFile { path, args } => {
-                    let Some(file) = resolve_at_path(&path, &vars) else {
+                    let Some(file) = script::resolve_at_path(&path, &vars) else {
                         return;
                     };
-                    match lua::run_file(&file, args, &vars) {
+                    match lua::run_file(&file, args, &vars, &LuaState::from_mm(state)) {
                         Ok(code) => {
                             handle_exit(state, discriminant, ExitDetails::code(code));
                         }
@@ -150,15 +151,17 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                         }
                     }
                 }
-                Payload::LuaInline(code) => match lua::run_inline(&code, &vars) {
-                    Ok(code) => {
-                        handle_exit(state, discriminant, ExitDetails::code(code));
+                Payload::LuaInline(code) => {
+                    match lua::run_inline(&code, &vars, &LuaState::from_mm(state)) {
+                        Ok(code) => {
+                            handle_exit(state, discriminant, ExitDetails::code(code));
+                        }
+                        Err(e) => {
+                            log::error!("Lua command failed: {e}");
+                            handle_exit(state, discriminant, ExitDetails::error());
+                        }
                     }
-                    Err(e) => {
-                        log::error!("Lua command failed: {e}");
-                        handle_exit(state, discriminant, ExitDetails::error());
-                    }
-                },
+                }
             }
         });
 
@@ -187,18 +190,20 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                         }
                     }
                     Payload::LuaFile { path, args } => {
-                        let Some(file) = resolve_at_path(&path, &vars) else {
+                        let Some(file) = script::resolve_at_path(&path, &vars) else {
                             return;
                         };
+                        let lua_state = LuaState::from_mm(state);
                         std::thread::spawn(move || {
-                            if let Err(e) = lua::run_file(&file, args, &vars) {
+                            if let Err(e) = lua::run_file(&file, args, &vars, &lua_state) {
                                 log::error!("Lua script @{} failed: {e}", file.display());
                             }
                         });
                     }
                     Payload::LuaInline(code) => {
+                        let lua_state = LuaState::from_mm(state);
                         std::thread::spawn(move || {
-                            if let Err(e) = lua::run_inline(&code, &vars) {
+                            if let Err(e) = lua::run_inline(&code, &vars, &lua_state) {
                                 log::error!("Lua command failed: {e}");
                             }
                         });
@@ -239,6 +244,7 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                 vars.extend(extra);
 
                 let shell = shell.clone();
+                let lua_state = LuaState::from_mm(state);
                 tokio::spawn(async move {
                     let success = match kind {
                         Payload::Command(cmd) => {
@@ -273,12 +279,13 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                             }
                         }
                         Payload::LuaFile { path, args } => {
-                            let Some(file) = resolve_at_path(&path, &vars) else {
+                            let Some(file) = script::resolve_at_path(&path, &vars) else {
                                 return;
                             };
                             let file_log = file.to_string_lossy().into_owned();
+                            let st = lua_state.clone();
                             match tokio::task::spawn_blocking(move || {
-                                lua::run_file(&file, args, &vars)
+                                lua::run_file(&file, args, &vars, &st)
                             })
                             .await
                             {
@@ -294,8 +301,11 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                             }
                         }
                         Payload::LuaInline(code) => {
-                            match tokio::task::spawn_blocking(move || lua::run_inline(&code, &vars))
-                                .await
+                            let st = lua_state.clone();
+                            match tokio::task::spawn_blocking(move || {
+                                lua::run_inline(&code, &vars, &st)
+                            })
+                            .await
                             {
                                 Ok(Ok(code)) => code == 0,
                                 Ok(Err(e)) => {
@@ -398,31 +408,84 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                 }
 
                 let vars = state.make_env_vars();
-                let vars_2 = vars.clone();
+                #[cfg_attr(not(feature = "mlua"), allow(unused_variables))]
+                let lua_state = LuaState::from_mm(state);
                 let render_tx = render_tx_1.clone();
 
                 let shell = shell.clone();
 
                 tokio::spawn(async move {
                     let clip_cmd = vars.get("CLIPcmd").map(|x| x.to_string());
-                    let mut child = match unwrap!(tokio_command_from_script(&cmd, &shell, &vars_2))
-                        .envs(vars_2)
-                        .stdin(Stdio::null())
-                        .stdout(Stdio::piped())
-                        .stderr(Stdio::null())
-                        .spawn()
-                    {
-                        Ok(c) => c,
-                        Err(e) => {
-                            log::warn!("Failed to spawn copy command [{}]: {}", cmd, e);
-                            return;
+                    let mut text = match script::classify(&cmd) {
+                        #[cfg(feature = "mlua")]
+                        CommandStrategy::Lua(code) => {
+                            let vs = vars.clone();
+                            let st = lua_state.clone();
+                            match tokio::task::spawn_blocking(move || {
+                                lua::run_inline_value(&code, &vs, &st)
+                            })
+                            .await
+                            {
+                                Ok(Ok(Some(v))) => v,
+                                Ok(Ok(None)) => String::new(),
+                                Ok(Err(e)) => {
+                                    log::error!("Lua command failed: {e}");
+                                    return;
+                                }
+                                Err(e) => {
+                                    log::error!("Lua command panicked: {e}");
+                                    return;
+                                }
+                            }
+                        }
+                        #[cfg(feature = "mlua")]
+                        CommandStrategy::LuaFile { path, args: file_args } => {
+                            let Some(file) = script::resolve_at_path(&path, &vars) else {
+                                return;
+                            };
+                            let vs = vars.clone();
+                            let st = lua_state.clone();
+                            let file_log = file.to_string_lossy().into_owned();
+                            match tokio::task::spawn_blocking(move || {
+                                lua::run_file_value(&file, file_args, &vs, &st)
+                            })
+                            .await
+                            {
+                                Ok(Ok(Some(v))) => v,
+                                Ok(Ok(None)) => String::new(),
+                                Ok(Err(e)) => {
+                                    log::error!("Lua script @{file_log} failed: {e}");
+                                    return;
+                                }
+                                Err(e) => {
+                                    log::error!("Lua script @{file_log} panicked: {e}");
+                                    return;
+                                }
+                            }
+                        }
+                        _ => {
+                            let mut child = match unwrap!(tokio_command_from_script(&cmd, &shell, &vars))
+                                .envs(vars.clone())
+                                .stdin(Stdio::null())
+                                .stdout(Stdio::piped())
+                                .stderr(Stdio::null())
+                                .spawn()
+                            {
+                                Ok(c) => c,
+                                Err(e) => {
+                                    log::warn!("Failed to spawn copy command [{}]: {}", cmd, e);
+                                    return;
+                                }
+                            };
+
+                            let mut text = String::new();
+                            if let Some(mut stdout) = child.stdout.take() {
+                                let _ = stdout.read_to_string(&mut text).await;
+                            }
+                            let _ = child.wait().await;
+                            text
                         }
                     };
-
-                    let mut text = String::new();
-                    if let Some(mut stdout) = child.stdout.take() {
-                        let _ = stdout.read_to_string(&mut text).await;
-                    }
 
                     if !copy_trailing_newline && text.ends_with('\n') {
                         text.pop();
@@ -431,8 +494,6 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
                             text.pop();
                         }
                     }
-
-                    let _ = child.wait().await;
 
                     if !text.is_empty() {
                         if payload == 1 {
@@ -543,6 +604,7 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
 // ------------- HELPERS -----------------
 
 /// A classified payload ready for execution.
+#[cfg_attr(not(feature = "mlua"), allow(dead_code))]
 enum Payload {
     /// Run through the shell / `@` direct-exec path.
     Command(String),
@@ -550,34 +612,6 @@ enum Payload {
     LuaFile { path: OsString, args: Vec<OsString> },
     /// `#!lua …` — formatted inline lua source.
     LuaInline(String),
-}
-
-/// A lua payload in its raw, unformatted form.
-enum LuaPayload {
-    /// `@file.lua …`: the file runs on the lua engine; the remaining words
-    /// (split preserving single quotes) are the script's arguments.
-    File { path: OsString, args: Vec<OsString> },
-    /// `#!lua …`: the remainder is inline lua source.
-    Inline(String),
-}
-
-/// Detect lua payload syntax in a raw template. Returns `None` for every
-/// other template, including `@` direct execution and plain shell commands.
-fn lua_pattern(template: &str) -> Option<LuaPayload> {
-    if let Some(rest) = template.strip_prefix("#!lua ") {
-        return Some(LuaPayload::Inline(rest.to_owned()));
-    }
-    let s = template.strip_prefix('@')?;
-    let mut words = split_whitespace_preserve_single_quotes(s).into_iter();
-    let path = words.next()?;
-    if Path::new(&path).extension().is_some_and(|e| e == "lua") {
-        Some(LuaPayload::File {
-            path: path.into(),
-            args: words.map(OsString::from).collect(),
-        })
-    } else {
-        None
-    }
 }
 
 /// Classify a raw payload template for execution. `@` payloads skip
@@ -589,9 +623,9 @@ fn classify_payload<T: SSS, D: 'static>(
     state: &MMState<'_, T, D>,
     formatter: &AttachmentFormatter<T, D>,
 ) -> Option<Payload> {
-    match lua_pattern(template) {
-        Some(LuaPayload::File { path, args }) => Some(Payload::LuaFile { path, args }),
-        Some(LuaPayload::Inline(code)) => {
+    match script::classify(template) {
+        #[cfg(feature = "mlua")]
+        CommandStrategy::Lua(code) => {
             let code = use_formatter(formatter, state, &code, None);
             if code.is_empty() {
                 None
@@ -599,12 +633,17 @@ fn classify_payload<T: SSS, D: 'static>(
                 Some(Payload::LuaInline(code))
             }
         }
-        None => {
-            let cmd = if template.starts_with('@') {
-                template.to_owned()
+        #[cfg(feature = "mlua")]
+        CommandStrategy::LuaFile { path, args } => Some(Payload::LuaFile { path, args }),
+        CommandStrategy::File => {
+            if template.is_empty() {
+                None
             } else {
-                use_formatter(formatter, state, template, None)
-            };
+                Some(Payload::Command(template.to_owned()))
+            }
+        }
+        CommandStrategy::Shell => {
+            let cmd = use_formatter(formatter, state, template, None);
             if cmd.is_empty() {
                 None
             } else {
@@ -614,26 +653,6 @@ fn classify_payload<T: SSS, D: 'static>(
     }
 }
 
-/// Resolve an `@` path: a relative path resolves against the parent of
-/// `MM_OVERRIDE`. Returns `None` to skip execution (already logged).
-fn resolve_at_path(path: &OsStr, envs: &EnvVars) -> Option<PathBuf> {
-    if Path::new(path).is_absolute() {
-        return Some(Path::new(path).to_path_buf());
-    }
-    let Some(override_path) = envs.get("MM_OVERRIDE") else {
-        log::error!(
-            "MM_OVERRIDE not set; skipping @ command: {}",
-            path.to_string_lossy()
-        );
-        return None;
-    };
-    Some(
-        Path::new(override_path)
-            .parent()
-            .unwrap_or(Path::new(""))
-            .join(path),
-    )
-}
 
 /// Outcome of an executed command, normalized across shell children and lua
 /// scripts for the shared exit → quit/prompt policy.
@@ -823,7 +842,7 @@ fn at_argv(s: &str, shell: &[OsString], envs: &EnvVars) -> Option<Vec<OsString>>
         return None;
     };
 
-    let path = resolve_at_path(OsStr::new(&path), envs)?;
+    let path = script::resolve_at_path(OsStr::new(&path), envs)?;
 
     let mut argv = vec![
         shell
@@ -1020,27 +1039,35 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "mlua")]
     #[test]
-    fn lua_pattern_detects_file_and_inline() {
-        let LuaPayload::File { path, args } = lua_pattern("@clean.lua 'a b' c").unwrap() else {
+    fn classify_detects_lua_file_and_inline() {
+        let CommandStrategy::LuaFile { path, args } =
+            script::classify("@clean.lua 'a b' c")
+        else {
             panic!("expected lua file payload");
         };
         assert_eq!(path, OsString::from("clean.lua"));
         assert_eq!(args, vec![OsString::from("a b"), OsString::from("c")]);
 
-        let LuaPayload::Inline(code) = lua_pattern("#!lua print({q})").unwrap() else {
+        let CommandStrategy::Lua(code) = script::classify("#!lua print({q})") else {
             panic!("expected lua inline payload");
         };
         assert_eq!(code, "print({q})");
     }
 
     #[test]
-    fn lua_pattern_ignores_other_payloads() {
-        assert!(lua_pattern("@script.sh").is_none());
-        assert!(lua_pattern("@script.py arg").is_none());
-        assert!(lua_pattern("echo hi").is_none());
-        assert!(lua_pattern("#!python print(1)").is_none());
-        assert!(lua_pattern("@").is_none());
+    fn classify_detects_direct_exec_and_shell() {
+        assert!(matches!(
+            script::classify("@script.sh"),
+            CommandStrategy::File
+        ));
+        assert!(matches!(
+            script::classify("@script.py arg"),
+            CommandStrategy::File
+        ));
+        assert!(matches!(script::classify("echo hi"), CommandStrategy::Shell));
+        assert!(matches!(script::classify("@"), CommandStrategy::File));
     }
 
     #[test]

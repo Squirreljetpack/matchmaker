@@ -1,12 +1,10 @@
-use std::{process::Command, str::FromStr};
+use std::str::FromStr;
 
 use cba::{
-    StringError, bait::ResultExt, bring::split::split_on_delimiter_with_doubled_escape,
-    broc::CommandExt, unwrap,
+    bait::ResultExt, bring::split::split_on_delimiter_with_doubled_escape, unwrap, StringError,
 };
 use log::{debug, error};
 use matchmaker::{
-    Action, Actions,
     binds::Trigger,
     config::PartialRenderConfig,
     config_mm::{ConfigPreprocessedData, RangesFactory},
@@ -14,11 +12,12 @@ use matchmaker::{
     message::{BindDirective, Interrupt, RenderCommand},
     nucleo::Line,
     ui::StatusUI,
+    Action, Actions,
 };
 use matchmaker_partial::{Apply, Set};
 
 use crate::config::SortSetting;
-use crate::sort::{SortMode, apply_sort, expand_maybe_column, handle_sort_reverse};
+use crate::sort::{apply_sort, expand_maybe_column, handle_sort_reverse, SortMode};
 
 pub type MMState<'a> = matchmaker::render::MMState<'a, String, ConfigPreprocessedData>;
 
@@ -341,10 +340,8 @@ pub fn action_handler(
             let vars = state.make_env_vars();
 
             let render_tx = render_tx.clone();
-            if let Some(contents) = Command::from_script(&cmd, &[])
-                .envs(vars)
-                .read_to_string()
-                ._elog()
+            if let Some(contents) =
+                crate::script::run_value_state(&cmd, &vars, &crate::lua::LuaState::from_mm(state))
             {
                 debug!("Transform output:\n{}", contents);
 
@@ -368,10 +365,8 @@ pub fn action_handler(
             }
             let vars = state.make_env_vars();
 
-            if let Some(contents) = Command::from_script(&cmd, &[])
-                .envs(vars)
-                .read_to_string()
-                ._elog()
+            if let Some(contents) =
+                crate::script::run_value_state(&cmd, &vars, &crate::lua::LuaState::from_mm(state))
             {
                 debug!("TransformConfig output:\n{}", contents);
 

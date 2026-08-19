@@ -232,3 +232,14 @@ abort_empty = true
 "@copy" = "CopyAsync(Write-Output {+0})"
 "@copy_all" = "CopyAsync(Write-Output {})"
 "@copy_active" = "CopyAsync(Write-Output {+!})"
+
+# lua scripts for default actions consistency under different start.shell settings at the expense of negigible overhead
+"lua^^@open" = '''ExecuteOrConfirm(#!lua local p = state.current and state.current[1]
+if p then os.execute(string.format("%q %q", os.getenv("EDITOR") or "notepad", p)) end)'''
+"lua^^@copy" = '''CopyAsync(#!lua local t = {}
+for _, it in ipairs(state.selected) do t[#t + 1] = it[1] end
+return table.concat(t, "\n"))'''
+"lua^^@copy_all" = '''CopyAsync(#!lua return state.raw or "")'''
+"lua^^@copy_active" = '''CopyAsync(#!lua local a = state.active; local t = {}
+for _, it in ipairs(state.selected) do if it[a] then t[#t + 1] = it[a] end end
+return table.concat(t, "\n"))'''

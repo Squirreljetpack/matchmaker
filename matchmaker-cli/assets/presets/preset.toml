@@ -1,6 +1,7 @@
 [start]
 command = 'mm --presets'
 # on_accept = 'mm -o {}'
+directory = { value = 'dirname -- "$MM_OVERRIDE"', exec = true, force = true }
 
 [binds]
 "@accept" = "Become(mm -o {})"

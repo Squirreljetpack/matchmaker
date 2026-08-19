@@ -6,6 +6,7 @@ complete -c mm -l list -d 'Useful for testing presets (see `mm --doc other`)' -r
 complete -c mm -s d -l doc -d 'Display documentation' -r -f -a "options\t''
 binds\t''
 template\t''
+lua\t''
 other\t''
 pager\t''"
 complete -c mm -l dump-config -d 'Write the default configuration to the default location. If piped, writes the current configuration to stdout'

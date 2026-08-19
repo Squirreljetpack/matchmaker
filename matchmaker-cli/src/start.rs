@@ -31,7 +31,7 @@ use cba::{
     bog::BogOkExt,
     ebog, ibog, prints, wbog,
 };
-use cba::{bo::load_type, broc::CommandExt};
+use cba::{bo::load_type, broc::{CommandExt, EnvVars}};
 use log::debug;
 use matchmaker::{
     Action, Either, MatchError, Matchmaker, PickOptions, SSS, bindmap,
@@ -400,11 +400,13 @@ pub fn process_envs(mut envs: HashMap<String, EnvValue>) -> HashMap<String, Stri
     // Second pass: dynamic envs
     for (k, v) in &envs {
         if !v.value.is_empty() && v.exec && (v.force || std::env::var_os(k).is_none()) {
-            if let Some(output) = Command::from_script(&v.value, &[])
-                .envs(&processed_envs)
-                .read_to_string()
-                ._elog()
-            {
+            let envs = EnvVars::from(
+                processed_envs
+                    .iter()
+                    .map(|(a, b)| (a.clone(), b.clone()))
+                    .collect::<Vec<_>>(),
+            );
+            if let Some(output) = crate::script::run_value(&v.value, &envs) {
                 processed_envs.insert(k.clone(), output.trim().to_string());
             } else {
                 _wbog!("Failed to execute env command for {}: {}", k, v.value);
@@ -494,11 +496,12 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
 
         let mut failed = false;
         if exec {
-            if let Some(new_d) = Command::from_script(&value, &[])
-                .envs(&envs)
-                .read_to_string()
-                ._elog()
-            {
+            let envs = EnvVars::from(
+                envs.iter()
+                    .map(|(a, b)| (a.clone(), b.clone()))
+                    .collect::<Vec<_>>(),
+            );
+            if let Some(new_d) = crate::script::run_value(&value, &envs) {
                 let new_d = Path::new(new_d.trim()).to_path_buf();
                 if new_d.exists() {
                     failed = match set_current_dir(&new_d)
@@ -545,7 +548,7 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
         exit.last_key_path = Some(last_key_path().into())
     }
 
-    // set event loop mode
+    // set event loop mode; feature tags gate `lua^^…` / `win^^…` binds
     let mode = if let Some(m) = mode {
         m
     } else {
@@ -560,7 +563,13 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
         }
         .to_string()
     };
-    matchmaker::event::set_mode(&mode);
+    #[allow(unused_mut)]
+    let mut tags: Vec<&str> = mode.split(',').filter(|s| !s.is_empty()).collect();
+    #[cfg(windows)]
+    tags.push("win");
+    #[cfg(feature = "mlua")]
+    tags.push("lua");
+    matchmaker::event::set_mode(tags.join(",").as_str());
 
     let event_loop = EventLoop::with_binds(binds)
         .with_tick_rate(render.ui.tick_rate)
@@ -766,8 +775,6 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
 
     options = options.ext_handler(move |x, y| action_handler(x, y, &mut action_context));
 
-    // TODO: accept logic is in render/mod.rs is todo!() - this closure is
-    // currently unreachable until the accept pipeline is restored.
     mm.output = Box::new(move |state: &mut MMState<'_>| {
         if !on_accept.is_empty() {
             let cmd = format_cli(state, &on_accept, None);

@@ -960,7 +960,7 @@ fn codegen_collection_field(
                         let (key, value): (#key_ty, #val_ty) = matchmaker_partial::deserialize(&combined)?;
                         let _ = #target.insert(key, value);
                     } else {
-                        let key: #key_ty = matchmaker_partial::deserialize(&[key_str.clone()])?;
+                        let key: #key_ty = matchmaker_partial::deserialize(std::slice::from_ref(key_str))?;
                         let item = #target.entry(key).or_insert_with(Default::default);
                         #set_item_logic
                     }
@@ -968,7 +968,7 @@ fn codegen_collection_field(
             } else {
                 quote! {
                     if rest.is_empty() {
-                        let key: #key_ty = matchmaker_partial::deserialize(&[key_str.clone()])?;
+                        let key: #key_ty = matchmaker_partial::deserialize(std::slice::from_ref(key_str))?;
                         let value: #val_ty = matchmaker_partial::deserialize(&val)?;
                         let _ = #target.insert(key, value);
                     } else {

@@ -94,10 +94,7 @@ impl<'de> Deserializer<'de> for &mut SimpleDeserializer<'de> {
     {
         let remaining = self.input.len() - self.start;
 
-        let no_sequences = match self.consuming {
-            Some(Err(_fields)) => true,
-            _ => false,
-        };
+        let no_sequences = matches!(self.consuming, Some(Err(_fields)));
 
         if remaining > 1 && !no_sequences {
             return self.deserialize_seq(visitor);

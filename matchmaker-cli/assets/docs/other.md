@@ -103,8 +103,7 @@ mm --list="0@toggle extension"        # run the alias's Execute/Become actions
 - Items are ordered exactly as the matcher would display them (with an empty query,
   all items are matched), so index `0` is the item Enter would accept first.
 - The executed command inherits the `MM_*` / `FZF_*` environment variables
-  (`MM_POS`, `MM_TOTAL_COUNT`, ...); preview commands additionally get
-  `MM_PREVIEW_COMMAND`, mirroring the TUI.
+  (`MM_POS`, `MM_TOTAL_COUNT`, `MM_PREVIEW_INDEX`, ...).
 - Alias execution looks at the action array bound to the trigger as-is (nested
   `@` aliases are **not** followed) and runs `Execute`/`ExecuteAsync`/
   `ExecuteThen`/`ExecuteSilent`, `Become`/`BecomeSilent`, and the CLI's

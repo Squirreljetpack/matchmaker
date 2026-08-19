@@ -105,7 +105,7 @@ max = 120
 "ctrl-." = "NextColumn"
 
 "ctrl-t" = "Execute(echo ----; read v; echo $v; echo ----)"
-"ctrl-l" = "Execute(eval $MM_PREVIEW_COMMAND | $PAGER)"
+"ctrl-l" = "ShowPreview"
 "ctrl-o" = "Execute(micro {})"
 "alt-o" = "Become(micro {})"
 "ctrl-r" = "Reload(fd -u)"

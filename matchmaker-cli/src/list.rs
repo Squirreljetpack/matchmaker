@@ -3,7 +3,7 @@ use std::{
     env::set_current_dir,
     ffi::OsString,
     path::Path,
-    process::{Command, Stdio},
+    process::{Command, Stdio, exit},
 };
 
 use crate::{
@@ -35,6 +35,7 @@ use tokio::sync::mpsc;
 use crate::{
     action::MMAction,
     config::Config,
+    execute,
     formatter::format_cli,
     start::{COMMAND_ARGS, process_envs},
     utils::expand_tilde,
@@ -48,10 +49,39 @@ use crate::{
 /// - `--list=<ARG>` dispatches on the shape of `ARG`; see [`list_arg`].
 pub fn list(config: Config) -> ! {
     let (command, envs, shell) = setup(&config).__ebog();
-    Command::from_script(&command, &shell)
-        .envs(&envs)
-        .args(&*COMMAND_ARGS.lock().unwrap())
-        ._exec()
+    let vars = EnvVars::from(
+        envs.iter()
+            .map(|(a, b)| (a.clone(), b.clone()))
+            .collect::<Vec<_>>(),
+    );
+    let Some(strategy) = execute::classify(&command).resolve_relative(&vars)._ebog() else {
+        exit(11);
+    };
+    if strategy.is_lua() {
+        #[cfg(feature = "mlua")]
+        let res = {
+            let lua_state = crate::lua::LuaState::empty();
+            crate::execute::run_inject(&strategy, &vars, &lua_state, |line| {
+                println!("{line}");
+                Ok(())
+            })
+        };
+        #[cfg(not(feature = "mlua"))]
+        let res: Result<i32, String> = Err("mlua feature is disabled".into());
+
+        match res {
+            Ok(code) => exit(code),
+            Err(e) => {
+                ebog!("lua command failed: {e}");
+                exit(11);
+            }
+        }
+    } else {
+        let Some(mut cmd) = crate::execute::build_command(&strategy, &shell) else {
+            exit(11);
+        };
+        cmd.envs(&envs).args(&*COMMAND_ARGS.lock().unwrap())._exec()
+    }
 }
 
 /// `--list=<ARG>` modes, all operating on the items the populating command
@@ -148,9 +178,7 @@ fn preview(config: Config, n: usize, m_str: &str) -> anyhow::Result<()> {
             log::debug!("--list: preview command is empty; nothing to execute");
             Ok(Vec::new())
         } else {
-            let mut vars = mm_state.make_env_vars();
-            // mirror the TUI: executed scripts can access the preview command
-            vars.set("MM_PREVIEW_COMMAND", cmd.clone());
+            let vars = mm_state.make_env_vars();
             Ok(vec![(cmd, vars)])
         }
     })?;

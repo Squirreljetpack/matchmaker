@@ -9,11 +9,10 @@ use matchmaker::{
     action::{Action, NullActionExt},
     config::TerminalConfig,
     message::RenderCommand,
-    nucleo::{Injector, Worker},
+    nucleo::Worker,
     test,
     tui::IoStream,
 };
-
 
 // Don't add another like this before restructuring to allow concurrent runs
 #[tokio::test]

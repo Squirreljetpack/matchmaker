@@ -345,7 +345,7 @@ mod tests {
         let (out, _) = render_cell(
             cell,
             0,
-            &snapshot,
+            snapshot,
             &item,
             &mut matcher,
             Style::default(),
@@ -404,7 +404,7 @@ mod tests {
         let (result_text, width) = render_cell(
             cell,
             0,
-            &snapshot,
+            snapshot,
             &item,
             &mut matcher,
             highlight,
@@ -435,7 +435,7 @@ mod tests {
         let (result_text, _) = render_cell(
             cell,
             0,
-            &snapshot,
+            snapshot,
             &item,
             &mut matcher,
             highlight,
@@ -480,7 +480,7 @@ mod tests {
         let (result_text, width) = render_cell(
             cell,
             0,
-            &snapshot,
+            snapshot,
             &item,
             &mut matcher,
             highlight,
@@ -524,7 +524,7 @@ mod tests {
         let (result_text, width) = render_cell(
             cell,
             0,
-            &snapshot,
+            snapshot,
             &item,
             &mut matcher,
             highlight,
@@ -556,7 +556,7 @@ mod tests {
         let (result_text, width) = render_cell(
             cell,
             0,
-            &snapshot,
+            snapshot,
             &item,
             &mut matcher,
             highlight,
@@ -588,7 +588,7 @@ mod tests {
         let (result_text, width) = render_cell(
             cell,
             0,
-            &snapshot,
+            snapshot,
             &item,
             &mut matcher,
             highlight,
@@ -620,7 +620,7 @@ mod tests {
         let (result_text, width) = render_cell(
             cell,
             0,
-            &snapshot,
+            snapshot,
             &item,
             &mut matcher,
             highlight,
@@ -652,7 +652,7 @@ mod tests {
         let (result_text, width) = render_cell(
             cell,
             0,
-            &snapshot,
+            snapshot,
             &item,
             &mut matcher,
             highlight,

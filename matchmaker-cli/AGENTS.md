@@ -27,21 +27,11 @@ correct as of the lua-support work; re-verify before relying on them.
 
 ## Binds & mode tags
 
-- Mode-filtered triggers use the on-disk/formatter convention
-  `<mode_filter>^^<trigger>` (e.g. `0,1^^@accept`, `lua^^@open`) — mode first.
-  `Trigger::from_str` splits on `^^`; `Display`/serialize must emit the same
-  order (a past bug had them reversed, breaking config round-trips, `--dump-config`
-  and runtime re-binds once the first `^^` binds landed).
-- A semantic trigger must only have **one** non-empty-mode alias: `resolve_alias`
-  iterates the bind map in HashMap order and returns the first non-empty-mode
-  match, so two competing mode-filtered aliases (e.g. `0,1^^@accept` next to
-  `lua^^@accept`) pick a nondeterministic winner when both modes match.
-  Bindings with an empty mode filter always act as the deterministic fallback.
+- Mode-filtered triggers use the syntax
+  `<mode_filter>^^<trigger>` (e.g. `0,1^^@accept`, `lua^^@open`).
 - The CLI builds the mode tag stack (matchmaker-lib `MODE`) from TTY detection
   or the `start.mode` override, appending `win` under `#[cfg(windows)]` and
-  `lua` under `#[cfg(feature = "mlua")]`, comma-joined. `set_mode` splits on
-  commas and filters empty segments, so appending tags is safe even for a
-  fully-piped (empty) base. The `lua` tag is what activates `lua^^` bind
+  `lua` under `#[cfg(feature = "mlua")]`. The `lua` tag is what activates `lua^^` bind
   variants; with the mlua feature disabled no `lua` tag exists and those binds
   are simply never active.
 
@@ -60,8 +50,8 @@ correct as of the lua-support work; re-verify before relying on them.
   `os.getenv("EDITOR")` for process env vars.
 - Lua support is return-value only: stdout is never captured, `os.exit` does
   not terminate the host, and shell-safe exec uses lua 5.4 `%q` quoting
-  (no quote helper). This is the documented contract in assets/docs/lua.md
-  (`mm --doc lua`).
+  (no quote helper). This is the documented contract in assets/docs/execute.md
+  (`mm --doc execute`).
 - The mlua dependency is optional behind the default `mlua` feature; every
   feature-gated path must keep `--no-default-features` builds warning-free
   (targeted `#[cfg_attr(...)]` allows on classify/run_value stubs, etc.).

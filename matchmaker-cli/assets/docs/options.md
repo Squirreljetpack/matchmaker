@@ -95,8 +95,12 @@ All colors and modifiers come from ratatui:
 
 ### Start (`start.`, `s`)
 
-- `command`: (string or object) The shell command used to generate items.
+- `command`: (string or object) The command that generates items.
   - Absolute alias: `x`, `cmd`.
+  - The command may be a shell command, an `@file` referenced relative to the
+    preset directory (e.g. `"@list_sessions.sh"`), or a Lua payload
+    (`#!lua …` inline or `@file.lua`) that pushes rows through the `inject`
+    global (see `docs --lua`).
   - If an object:
     - `command`: (string) The shell command.
     - `separator`: (char) Input separator (overrides `start.input_separator` for this command).

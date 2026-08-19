@@ -1025,7 +1025,7 @@ pub struct ColumnsConfig {
 
 impl ColumnsConfig {
     pub fn max_cols(&self) -> usize {
-        self.max_columns.min(16).max(1)
+        self.max_columns.clamp(1, 16)
     }
 }
 

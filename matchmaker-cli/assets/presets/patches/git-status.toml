@@ -3,7 +3,7 @@
     '''
 Execute(
   file={1}
-  [[ "$MM_PREVIEW_COMMAND" == *"cached"* ]] && flags="--cached" || flags=""
+  [[ "$MM_PREVIEW_INDEX" == "1" ]] && flags="--cached" || flags=""
   line=$(git diff --no-ext-diff $flags --unified=0 -- "$file" | sed -n '/^@@/s/^.*+\([0-9]*\).*/\1/p' | head -n 1)
   if [ -n "$line" ]; then
     $EDITOR "+$line" "$file"
@@ -18,7 +18,7 @@ Execute(
 "@open_2" = '''
 Become(
   file={1}
-  [[ "$MM_PREVIEW_COMMAND" == *"cached"* ]] && flags="--cached" || flags=""
+  [[ "$MM_PREVIEW_INDEX" == "1" ]] && flags="--cached" || flags=""
   line=$(git diff --no-ext-diff $flags --unified=0 -- "$file" | sed -n '/^@@/s/^.*+\([0-9]*\).*/\1/p' | head -n 1)
   if [ -n "$line" ]; then
     $EDITOR "+$line" "$file"

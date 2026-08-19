@@ -8,6 +8,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use crate::execute::{self, CommandStrategy};
 use crate::{
     action::{ActionContext, MMAction, MMState, action_handler},
     clap::Cli,
@@ -31,7 +32,10 @@ use cba::{
     bog::BogOkExt,
     ebog, ibog, prints, wbog,
 };
-use cba::{bo::load_type, broc::{CommandExt, EnvVars}};
+use cba::{
+    bo::load_type,
+    broc::{CommandExt, EnvVars},
+};
 use log::debug;
 use matchmaker::{
     Action, Either, MatchError, Matchmaker, PickOptions, SSS, bindmap,
@@ -41,9 +45,8 @@ use matchmaker::{
     event::{EventLoop, RenderSender},
     make_previewer,
     message::Interrupt,
-    nucleo::{Column, Line, Span, Text, injector::Injector},
+    nucleo::{Column, Line, Span, injector::Injector},
     preview::AppendOnly,
-    use_formatter,
 };
 use matchmaker_partial::Apply;
 
@@ -290,6 +293,59 @@ pub fn map_reader<E: SSS + std::fmt::Display>(
     })
 }
 
+/// Spawns a tokio task executing a Lua command strategy and injecting its rows.
+#[cfg_attr(not(feature = "mlua"), allow(unused_variables))]
+pub fn map_lua<E: SSS + std::fmt::Display>(
+    strategy: CommandStrategy,
+    envs: EnvVars,
+    state: Option<&MMState<'_>>,
+    push_fn: impl FnMut(String) -> Result<(), E> + SSS,
+    context: usize,
+    render_tx: RenderSender<MMAction>,
+    abort_empty: bool,
+) -> tokio::task::JoinHandle<Result<usize, MapReaderError<E>>> {
+    #[cfg(feature = "mlua")]
+    let lua_state = state
+        .map(crate::lua::LuaState::from_mm)
+        .unwrap_or_else(crate::lua::LuaState::empty);
+
+    tokio::task::spawn_blocking(move || {
+        let window = std::rc::Rc::new(std::cell::RefCell::new(RollingWindow::new(
+            push_fn, context,
+        )));
+        let win = window.clone();
+        let count = std::rc::Rc::new(std::cell::Cell::new(0usize));
+        let cnt = count.clone();
+
+        #[cfg(feature = "mlua")]
+        let res = {
+            crate::execute::run_lua_inject(&strategy, &envs, &lua_state, move |line| {
+                cnt.set(cnt.get() + 1);
+                win.borrow_mut().push(line).map_err(|e| e.to_string())
+            })
+        };
+        #[cfg(not(feature = "mlua"))]
+        let res: Result<i32, String> = Err("mlua feature is disabled".into());
+
+        if let Err(e) = &res {
+            ebog!("lua inject command failed: {e}");
+        }
+
+        if res.is_ok()
+            && let Err(e) = window.borrow_mut().finish() {
+                ebog!("failed to flush window: {e}");
+            }
+
+        let total = count.get();
+        if total == 0 && abort_empty {
+            let _ = render_tx.send(matchmaker::message::RenderCommand::NoMatch);
+        }
+
+        log::trace!("All items pushed");
+        Ok(total)
+    })
+}
+
 /// Rolling line window used by [`map_reader`]: lines are buffered until the
 /// window is full (`2*context+1` lines, its preallocated capacity), then the
 /// window is joined with newlines and forwarded to `f`; each further line
@@ -380,14 +436,14 @@ pub fn process_envs(mut envs: HashMap<String, EnvValue>) -> HashMap<String, Stri
     //     }
     // }
 
-    if envs.get("PAGER").is_none() && std::env::var("PAGER").ok().is_none_or(|x| x.is_empty()) {
+    if !envs.contains_key("PAGER") && std::env::var("PAGER").ok().is_none_or(|x| x.is_empty()) {
         let ev = EnvValue::new(guess_pager_cmd());
         envs.insert("PAGER".to_string(), ev);
     }
 
-    if envs.get("EDITOR").is_none() && std::env::var("EDITOR").ok().is_none_or(|x| x.is_empty()) {
+    if !envs.contains_key("EDITOR") && std::env::var("EDITOR").ok().is_none_or(|x| x.is_empty()) {
         let ev = EnvValue::new(guess_editor_cmd());
-        envs.insert("PAGER".to_string(), ev);
+        envs.insert("EDITOR".to_string(), ev);
     }
 
     // First pass: static envs
@@ -406,7 +462,16 @@ pub fn process_envs(mut envs: HashMap<String, EnvValue>) -> HashMap<String, Stri
                     .map(|(a, b)| (a.clone(), b.clone()))
                     .collect::<Vec<_>>(),
             );
-            if let Some(output) = crate::script::run_value(&v.value, &envs) {
+            #[cfg(feature = "mlua")]
+            let lua_state = crate::lua::LuaState::empty();
+            if let Some(strategy) = execute::classify(&v.value).resolve_relative(&envs)._elog()
+                && let Some(output) = crate::execute::run_capture(
+                    &strategy,
+                    &envs,
+                    #[cfg(feature = "mlua")]
+                    &lua_state,
+                )
+            {
                 processed_envs.insert(k.clone(), output.trim().to_string());
             } else {
                 _wbog!("Failed to execute env command for {}: {}", k, v.value);
@@ -478,9 +543,11 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
         command
     };
 
-    let initial_cmd = (!command.is_empty() && atty::is(atty::Stream::Stdin) || no_read)
-        .then_some(command.clone())
-        .unwrap_or_default();
+    let initial_cmd = if !command.is_empty() && atty::is(atty::Stream::Stdin) || no_read {
+        command.clone()
+    } else {
+        String::new()
+    };
 
     // -------- set envs/directory -----------
     if !additional_commands.is_empty() {
@@ -501,7 +568,16 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
                     .map(|(a, b)| (a.clone(), b.clone()))
                     .collect::<Vec<_>>(),
             );
-            if let Some(new_d) = crate::script::run_value(&value, &envs) {
+            #[cfg(feature = "mlua")]
+            let lua_state = crate::lua::LuaState::empty();
+            if let Some(strategy) = execute::classify(&value).resolve_relative(&envs)._elog()
+                && let Some(new_d) = crate::execute::run_capture(
+                    &strategy,
+                    &envs,
+                    #[cfg(feature = "mlua")]
+                    &lua_state,
+                )
+            {
                 let new_d = Path::new(new_d.trim()).to_path_buf();
                 if new_d.exists() {
                     failed = match set_current_dir(&new_d)
@@ -549,27 +625,23 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
     }
 
     // set event loop mode; feature tags gate `lua^^…` / `win^^…` binds
-    let mode = if let Some(m) = mode {
-        m
-    } else {
-        match (
-            !initial_cmd.is_empty(), // has command => stdin is terminal
-            atty::is(atty::Stream::Stdout),
-        ) {
-            (true, true) => "0,1", // both stdin and stdout are terminals
-            (true, false) => "0",  // only stdin is a terminal
-            (false, true) => "1",  // only stdout is a terminal
-            (false, false) => "",  // neither is a terminal (piped)
-        }
-        .to_string()
-    };
     #[allow(unused_mut)]
-    let mut tags: Vec<&str> = mode.split(',').filter(|s| !s.is_empty()).collect();
+    let mut mode = mode.unwrap_or_else(|| {
+        match (!initial_cmd.is_empty(), atty::is(atty::Stream::Stdout)) {
+            (true, true) => "0,1",
+            (true, false) => "0",
+            (false, true) => "1",
+            (false, false) => "",
+        }
+        .into()
+    });
+
     #[cfg(windows)]
-    tags.push("win");
+    mode.push_str(",win");
     #[cfg(feature = "mlua")]
-    tags.push("lua");
-    matchmaker::event::set_mode(tags.join(",").as_str());
+    mode.push_str(",lua");
+
+    matchmaker::event::set_mode(&mode);
 
     let event_loop = EventLoop::with_binds(binds)
         .with_tick_rate(render.ui.tick_rate)
@@ -653,23 +725,55 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
             abort_empty,
             skip_invalid_lines,
         )
-    } else if !command.is_empty()
-        && let Some((child, stdout)) = Command::from_script(&command, &shell)
-            .envs(envs)
-            .args(&*COMMAND_ARGS.lock().unwrap())
-            .spawn_piped()
-            ._elog()
-    {
-        last_child = Some(child);
-        map_reader(
-            stdout,
-            push_fn,
-            separator.or(input_separator),
-            context,
-            render_tx.clone(),
-            abort_empty,
-            skip_invalid_lines,
-        )
+    } else if !command.is_empty() {
+        let vars = EnvVars::from(
+            envs.iter()
+                .map(|(a, b)| (a.clone(), b.clone()))
+                .collect::<Vec<_>>(),
+        );
+        let Some(strategy) = execute::classify(&command).resolve_relative(&vars)._ebog() else {
+            return START_ERROR;
+        };
+        if strategy.is_lua() {
+            map_lua(
+                strategy,
+                vars,
+                None,
+                push_fn,
+                context,
+                render_tx.clone(),
+                abort_empty,
+            )
+        } else {
+            let mut cmd = match execute::build_command(&strategy, &shell) {
+                Some(cmd) => cmd,
+                None => {
+                    ebog!("no input detected.");
+                    return START_ERROR;
+                }
+            };
+            cmd.stdin(Stdio::null())
+                .envs(vars.as_strs())
+                .args(&*COMMAND_ARGS.lock().unwrap());
+            match cmd.spawn_piped()._elog() {
+                Some((child, stdout)) => {
+                    last_child = Some(child);
+                    map_reader(
+                        stdout,
+                        push_fn,
+                        separator.or(input_separator),
+                        context,
+                        render_tx.clone(),
+                        abort_empty,
+                        skip_invalid_lines,
+                    )
+                }
+                None => {
+                    ebog!("no input detected.");
+                    return START_ERROR;
+                }
+            }
+        }
     } else {
         ebog!("no input detected.");
         return START_ERROR;
@@ -688,25 +792,24 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
     let pager_config = pager.clone();
     #[cfg(not(feature = "pager"))]
     let pager_config = PagerConfig::default();
-    mm.register_execute_handler(
-        cli_formatter.clone(),
-        shell.clone(),
+    mm.register_show_preview_handler(
         preview_command_shell.clone(),
         pager_config,
         Box::new(move |config| matchmaker::binds::display_help(&binds_ptr_exec.load(), config)),
         previewer_help_config,
     );
-    mm.register_execute_async_handler(cli_formatter.clone(), shell.clone());
+    mm.register_execute_handler(
+        shell.clone(),
+    );
+    mm.register_execute_async_handler(shell.clone());
     mm.register_copy(
-        cli_formatter.clone(),
         copy_trailing_newline,
         Some(render_tx.clone()),
         shell.clone(),
     );
-    mm.register_become_handler(cli_formatter.clone(), shell.clone());
+    mm.register_become_handler(shell.clone());
 
     // reload handler
-    let reload_formatter = cli_formatter.clone();
     let reload_render_tx = render_tx.clone();
     let reload_columns = mm.worker.columns.clone();
     let reload_text_preprocessor = mm.worker.text_preprocessor.clone();
@@ -715,7 +818,8 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
     mm.register_interrupt_handler(Interrupt::Reload, move |state| {
         let injector = state.injector();
 
-        let push_fn = inject_line(
+        #[allow(unused_mut)]
+        let mut push_fn = inject_line(
             state.picker_ui.header.config.header_lines,
             reload_render_tx.clone(),
             injector,
@@ -724,8 +828,8 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
         );
 
         if !state.payload().is_empty() {
-            cmd = use_formatter(&reload_formatter, state, state.payload(), None);
-        };
+            cmd = state.payload().to_owned();
+        }
 
         if !cmd.is_empty() {
             let vars = state.make_env_vars();
@@ -738,23 +842,39 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
                 child.kill()._elog();
             }
 
-            if let Some((child, stdout)) = Command::from_script(&cmd, &reload_shell)
-                .envs(vars)
-                .stdin(Stdio::null())
-                .args(&*COMMAND_ARGS.lock().unwrap())
-                .spawn_piped()
-                ._elog()
-            {
-                map_reader(
-                    stdout,
+            let Some(strategy) = execute::classify(&cmd)
+                .template(state)
+                .and_then(|s| s.resolve_relative(&vars)._elog())
+            else {
+                return;
+            };
+
+            if strategy.is_lua() {
+                map_lua(
+                    strategy,
+                    vars,
+                    Some(state),
                     push_fn,
-                    separator.or(input_separator),
                     context,
                     reload_render_tx.clone(),
                     abort_empty,
-                    skip_invalid_lines,
                 );
-                last_child = Some(child);
+            } else if let Some(mut cmd) = execute::build_command(&strategy, &reload_shell) {
+                cmd.stdin(Stdio::null())
+                    .envs(vars.as_strs())
+                    .args(&*COMMAND_ARGS.lock().unwrap());
+                if let Some((child, stdout)) = cmd.spawn_piped()._elog() {
+                    map_reader(
+                        stdout,
+                        push_fn,
+                        separator.or(input_separator),
+                        context,
+                        reload_render_tx.clone(),
+                        abort_empty,
+                        skip_invalid_lines,
+                    );
+                    last_child = Some(child);
+                }
             }
         }
     });
@@ -821,22 +941,6 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
     ret.map(|_| {})
 }
 
-/// Convert the first line of a `Text<'_>` to an owned `Line<'static>`.
-/// Mirrors `matchmaker_lib::utils::text::to_static` for a single line, but only for the
-/// first row. We can't reuse the lib helper because `utils` is a private module.
-fn first_line_to_static(text: &Text<'_>) -> Line<'static> {
-    if let Some(line) = text.lines.first() {
-        Line::from(
-            line.spans
-                .iter()
-                .map(|s| Span::styled(s.content.clone().into_owned(), s.style))
-                .collect::<Vec<_>>(),
-        )
-    } else {
-        Line::default()
-    }
-}
-
 /// Remove trailing empty `Line`s from a row (lines whose spans are all empty).
 /// This collapses columns that the user did not fill in the source row.
 fn trim_trailing_empty(mut row: Vec<Line<'static>>) -> Vec<Line<'static>> {
@@ -873,7 +977,26 @@ fn inject_line(
                         trim_trailing_empty(
                             columns
                                 .iter()
-                                .map(|col| first_line_to_static(&col.format(&item, &d)))
+                                .map(|col| {
+                                    // get the first line with static spans
+                                    Line::from(
+                                        col.format(&item, &d)
+                                            .lines
+                                            .first()
+                                            .map(|line| {
+                                                line.spans
+                                                    .iter()
+                                                    .map(|s| {
+                                                        Span::styled(
+                                                            s.content.clone().into_owned(),
+                                                            s.style,
+                                                        )
+                                                    })
+                                                    .collect::<Vec<_>>()
+                                            })
+                                            .unwrap_or_default(),
+                                    )
+                                })
                                 .collect(),
                         )
                     })

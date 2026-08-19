@@ -207,6 +207,10 @@ impl PreviewUI {
         self.setting().is_some_and(|s| s.layout.side.is_vertical())
     }
 
+    pub fn layout_idx(&self) -> usize {
+        self.layout_idx
+    }
+
     // -------- Layout -----------
     pub fn cycle_layout(&mut self, rev: bool) {
         let len = self.config.layout.len();

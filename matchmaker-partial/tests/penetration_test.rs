@@ -26,10 +26,11 @@ pub struct UnwrappedOuter {
 #[test]
 fn test_penetration() {
     // Should compile if types are correct
-    let mut p = PartialOuter::default();
-    p.opt_inner = Some(PartialInner { x: Some(10) });
-    p.opt_vec = Some(vec![PartialInner { x: Some(20) }]);
-    p.o_vec = Some(vec![PartialInner { x: Some(20) }]);
+    let p = PartialOuter {
+        opt_inner: Some(PartialInner { x: Some(10) }),
+        opt_vec: Some(vec![PartialInner { x: Some(20) }]),
+        o_vec: Some(vec![PartialInner { x: Some(20) }]),
+    };
 
     let mut base = Outer::default();
     base.apply(p);
@@ -40,10 +41,11 @@ fn test_penetration() {
 #[test]
 fn test_unwrap_option() {
     // Should compile if types are correct
-    let mut p = PartialUnwrappedOuter::default();
     // These should NOT be Options in PartialUnwrappedOuter
-    p.opt_inner = Inner { x: 10 };
-    p.opt_vec = vec![Inner { x: 20 }];
+    let p = PartialUnwrappedOuter {
+        opt_inner: Inner { x: 10 },
+        opt_vec: vec![Inner { x: 20 }],
+    };
 
     let mut base = UnwrappedOuter::default();
     base.apply(p);

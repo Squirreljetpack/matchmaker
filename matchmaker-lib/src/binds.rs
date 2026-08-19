@@ -167,7 +167,8 @@ impl<A: ActionExt> BindMap<A> {
 
         for action in actions.iter() {
             if let Action::Semantic(alias) = action {
-                if let Some(alias_actions) = self.resolve_alias(alias, mode) {
+                {
+                    let alias_actions = self.resolve_alias(alias, mode)?;
                     let has_nested_aliases = alias_actions
                         .iter()
                         .any(|a| matches!(a, Action::Semantic(_)));
@@ -186,9 +187,6 @@ impl<A: ActionExt> BindMap<A> {
                     } else {
                         resolved.extend(flat_actions);
                     }
-                } else {
-                    // If any alias is unresolvable, the whole sequence is invalid
-                    return None;
                 }
             } else {
                 if let Action::Trace(s) = action {
@@ -746,13 +744,12 @@ pub fn display_help<A: ActionExt + Display>(
     if config.combine_keys {
         let mut combined: Vec<(String, Vec<String>)> = Vec::new();
         for (trigger, actions) in entries_processed {
-            if let Some((last_trigger, last_actions)) = combined.last_mut() {
-                if *last_actions == actions {
+            if let Some((last_trigger, last_actions)) = combined.last_mut()
+                && *last_actions == actions {
                     last_trigger.push_str(", ");
                     last_trigger.push_str(&trigger);
                     continue;
                 }
-            }
             combined.push((trigger, actions));
         }
         entries_processed = combined;
@@ -1323,8 +1320,10 @@ mod test {
         );
 
         // With semantic help
-        let mut cfg = HelpDisplayConfig::default();
-        cfg.hide_semantic = false;
+        let cfg = HelpDisplayConfig {
+            hide_semantic: false,
+            ..Default::default()
+        };
 
         let help_show = display_help(&binds.resolve_semantics(&[]), &cfg);
         let help_show_str = help_show.to_string();
@@ -1332,8 +1331,10 @@ mod test {
         assert!(help_show_str.contains("@foo = Print(foo)"));
 
         // Without semantic help
-        let mut cfg_hide = HelpDisplayConfig::default();
-        cfg_hide.hide_semantic = true;
+        let cfg_hide = HelpDisplayConfig {
+            hide_semantic: true,
+            ..Default::default()
+        };
         let help_hide = display_help(&binds.resolve_semantics(&[]), &cfg_hide);
         let help_hide_str = help_hide.to_string();
         assert!(help_hide_str.contains("a = Print(a)"));
@@ -1349,8 +1350,10 @@ mod test {
             key!(b) => Action::Print("b".into()),
         );
 
-        let mut cfg = HelpDisplayConfig::default();
-        cfg.sort_fn_last = true;
+        let mut cfg = HelpDisplayConfig {
+            sort_fn_last: true,
+            ..Default::default()
+        };
         let help = display_help(&binds.resolve_semantics(&[]), &cfg);
         let help_str = help.to_string();
 
@@ -1398,9 +1401,11 @@ mod test {
             } => Action::Print("start".into()),
         );
 
-        let mut cfg = HelpDisplayConfig::default();
-        cfg.event_trigger_prefix = "EV:".to_string();
-        cfg.show_events = true;
+        let mut cfg = HelpDisplayConfig {
+            event_trigger_prefix: "EV:".to_string(),
+            show_events: true,
+            ..Default::default()
+        };
         let help_show = display_help(&binds.resolve_semantics(&[]), &cfg);
         let help_str = help_show.to_string();
         assert!(help_str.contains("EV:Start"));

@@ -1,10 +1,11 @@
 use std::str::FromStr;
 
 use cba::{
-    bait::ResultExt, bring::split::split_on_delimiter_with_doubled_escape, unwrap, StringError,
+    StringError, bait::ResultExt, bring::split::split_on_delimiter_with_doubled_escape, unwrap,
 };
 use log::{debug, error};
 use matchmaker::{
+    Action, Actions,
     binds::Trigger,
     config::PartialRenderConfig,
     config_mm::{ConfigPreprocessedData, RangesFactory},
@@ -12,19 +13,13 @@ use matchmaker::{
     message::{BindDirective, Interrupt, RenderCommand},
     nucleo::Line,
     ui::StatusUI,
-    Action, Actions,
 };
 use matchmaker_partial::{Apply, Set};
 
 use crate::config::SortSetting;
-use crate::sort::{apply_sort, expand_maybe_column, handle_sort_reverse, SortMode};
+use crate::sort::{SortMode, apply_sort, expand_maybe_column, handle_sort_reverse};
 
 pub type MMState<'a> = matchmaker::render::MMState<'a, String, ConfigPreprocessedData>;
-
-/// Discriminant payload for the `ShowPreview` Execute interrupt. The Execute
-/// handler pages the current preview command fullscreen when it sees this
-/// value (must not collide with the other Execute discriminants 0-3).
-pub const DISCRIMINANT_SHOW_PREVIEW: u8 = 4;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MMAction {
@@ -295,7 +290,7 @@ pub fn action_handler(
             // fullscreen. Payload-less ShowPreview uses whatever the preview
             // would currently display. The pager branch runs inside the
             // Execute interrupt handler (discriminant 4).
-            state.discriminant_payload = Some(DISCRIMINANT_SHOW_PREVIEW);
+            state.discriminant_payload = Some(4);
             if let Some(cmd) = opt {
                 state.set_interrupt(Interrupt::Execute, cmd);
             } else {
@@ -332,17 +327,24 @@ pub fn action_handler(
             state.set_interrupt(Interrupt::Execute, s);
         }
         MMAction::Transform(payload) => {
-            let cmd = format_cli(state, &payload, None);
-            if cmd.is_empty() {
-                error!("Failed to format transform command: {payload}");
-                return;
-            }
             let vars = state.make_env_vars();
+            let Some(strategy) = crate::execute::classify(&payload)
+                .template(state)
+                .and_then(|s| s.resolve_relative(&vars)._elog())
+            else {
+                return;
+            };
+            #[cfg(feature = "mlua")]
+            let lua_state = crate::lua::LuaState::from_mm(state);
+            let contents = crate::execute::run_capture(
+                &strategy,
+                &vars,
+                #[cfg(feature = "mlua")]
+                &lua_state,
+            );
 
             let render_tx = render_tx.clone();
-            if let Some(contents) =
-                crate::script::run_value_state(&cmd, &vars, &crate::lua::LuaState::from_mm(state))
-            {
+            if let Some(contents) = contents {
                 debug!("Transform output:\n{}", contents);
 
                 for line in contents.lines() {
@@ -358,16 +360,23 @@ pub fn action_handler(
             }
         }
         MMAction::TransformConfig(payload) => {
-            let cmd = format_cli(state, &payload, None);
-            if cmd.is_empty() {
-                error!("Failed to format transform-config command: {payload}");
-                return;
-            }
             let vars = state.make_env_vars();
+            let Some(strategy) = crate::execute::classify(&payload)
+                .template(state)
+                .and_then(|s| s.resolve_relative(&vars)._elog())
+            else {
+                return;
+            };
+            #[cfg(feature = "mlua")]
+            let lua_state = crate::lua::LuaState::from_mm(state);
+            let contents = crate::execute::run_capture(
+                &strategy,
+                &vars,
+                #[cfg(feature = "mlua")]
+                &lua_state,
+            );
 
-            if let Some(contents) =
-                crate::script::run_value_state(&cmd, &vars, &crate::lua::LuaState::from_mm(state))
-            {
+            if let Some(contents) = contents {
                 debug!("TransformConfig output:\n{}", contents);
 
                 let words: Vec<String> = contents.lines().map(|s| s.to_string()).collect();
@@ -608,8 +617,6 @@ macro_rules! enum_from_str_display {
     };
 }
 use enum_from_str_display;
-
-use crate::formatter::format_cli;
 
 #[cfg(test)]
 mod tests {

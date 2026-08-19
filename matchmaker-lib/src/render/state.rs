@@ -170,15 +170,12 @@ impl State {
         actions: Actions<A>,
         bind_tx: BindSender<A>,
     ) -> Option<u8> {
-        let Some((idx, slot)) = self
+        let (idx, slot) = self
             .async_actions
             .iter_mut()
             .enumerate()
             .skip(1)
-            .find(|(_, x)| x.is_none())
-        else {
-            return None;
-        };
+            .find(|(_, x)| x.is_none())?;
 
         let closure = move || {
             for a in actions {
@@ -419,10 +416,10 @@ impl<'a, T: SSS, D: 'static> MMState<'a, T, D> {
             .collect()
     }
 
-    /// Retains only the selection items specified by the predicate `f`.
-    ///
-    /// Iterates over selection indices, gets `&T` using `get_by_idx()`,
-    /// and keeps only those items for which `f(&T)` evaluates to `true`.
+    // Retains only the selection items specified by the predicate `f`.
+    //
+    // Iterates over selection indices, gets `&T` using `get_by_idx()`,
+    // and keeps only those items for which `f(&T)` evaluates to `true`.
     // pub fn retain_selections(&mut self, mut f: impl FnMut(&T) -> bool) {
     //     self.picker_ui.selector.retain(|&idx| {
     //         self.picker_ui
@@ -507,6 +504,10 @@ impl<'a, T: SSS, D: 'static> MMState<'a, T, D> {
                 .lock()
                 .map(|m| m.iter().map(|s| s.as_ref()).collect::<Vec<_>>().join(","))
                 .unwrap_or_default(),
+            "MM_PREVIEW_INDEX" => self
+                .preview_ui
+                .as_ref()
+                .map_or("".to_string(), |p| p.layout_idx().to_string()),
         };
 
         vars.extend(self.envs.clone());

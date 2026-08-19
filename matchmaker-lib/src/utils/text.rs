@@ -279,7 +279,7 @@ pub fn wrap_text_static<'a>(text: &Text<'a>, max_width: u16) -> (Text<'static>, 
     (res, did_wrap_any)
 }
 
-/// Convert `Text` into lines of plain `String`s
+// Convert `Text` into lines of plain `String`s
 // pub fn text_to_lines(text: &Text) -> Vec<String> {
 //     text.iter()
 //         .map(|spans| {
@@ -291,7 +291,7 @@ pub fn wrap_text_static<'a>(text: &Text<'a>, max_width: u16) -> (Text<'static>, 
 //         .collect()
 // }
 
-/// Convert `Text` into a single `String` with newlines
+// Convert `Text` into a single `String` with newlines
 // pub fn text_to_string(text: &Text) -> String {
 //     text_to_lines(text).join("\n")
 // }

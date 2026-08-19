@@ -223,10 +223,10 @@ pub fn build_columns(
 
                     if let Some(caps) = rg.captures(s) {
                         for (group_idx, col_idx_opt) in capture_to_idx.iter().enumerate().skip(1) {
-                            if let Some(col_idx) = col_idx_opt {
-                                if let Some(m) = caps.get(group_idx) {
-                                    ranges[*col_idx] = (m.start() as u32, m.end() as u32);
-                                }
+                            if let Some(col_idx) = col_idx_opt
+                                && let Some(m) = caps.get(group_idx)
+                            {
+                                ranges[*col_idx] = (m.start() as u32, m.end() as u32);
                             }
                         }
                     }
@@ -278,14 +278,14 @@ pub fn build_columns(
                 let mut last_end = 0;
 
                 for re in rgs.iter().take(col_count) {
-                    if last_end <= s.len() {
-                        if let Some(m) = re.find(&s[last_end..]) {
-                            let start = last_end + m.start();
-                            let end = last_end + m.end();
-                            ranges.push((start as u32, end as u32));
-                            last_end = end;
-                            continue;
-                        }
+                    if last_end <= s.len()
+                        && let Some(m) = re.find(&s[last_end..])
+                    {
+                        let start = last_end + m.start();
+                        let end = last_end + m.end();
+                        ranges.push((start as u32, end as u32));
+                        last_end = end;
+                        continue;
                     }
                     ranges.push((0, 0));
                 }
@@ -549,7 +549,7 @@ pub fn default_column(
                 0
             }),
         StringOrInt::Int(i) => {
-            let i = i.saturating_sub(offset) as usize;
+            let i = i.saturating_sub(offset);
             if i < column_names.len() {
                 i
             } else {

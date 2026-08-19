@@ -395,11 +395,10 @@ impl<A: ActionExt> EventLoop<A> {
                                     kind: crossterm::event::MouseEventKind::Moved,
                                     ..
                                 })
-                            ) {
-                                if matches!(event,  CrosstermEvent::Key {..}) {
+                            )
+                                && matches!(event,  CrosstermEvent::Key {..}) {
                                     info!("Event {event:?}");
                                 }
-                            }
                             match event {
                                 CrosstermEvent::Key(k) => {
                                     if let Some(key) = self.combiner.transform(k) {
@@ -518,7 +517,7 @@ impl<A: ActionExt> EventLoop<A> {
         self.current_task = Some(handle);
     }
 
-    fn send_actions<'a>(
+    fn send_actions(
         &mut self,
         actions: impl IntoIterator<Item = Action<A>>,
         key: Option<String>,
@@ -673,10 +672,10 @@ mod tests {
         assert_eq!(loop_handle.skip_ticks, [false, true]);
 
         loop_handle.handle_event(Event::CursorChange | Event::Synced);
-        assert_eq!(loop_handle.skip_ticks[0], true);
+        assert!(loop_handle.skip_ticks[0]);
 
         loop_handle.handle_event(Event::PreviewFinished);
-        assert_eq!(loop_handle.skip_ticks[1], true);
+        assert!(loop_handle.skip_ticks[1]);
         assert!(loop_handle.skip_ticks.iter().all(|x| *x));
     }
 

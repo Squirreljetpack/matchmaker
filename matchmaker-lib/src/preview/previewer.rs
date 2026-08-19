@@ -196,7 +196,7 @@ impl Previewer {
                     let mut cmd_builder = Command::from_script(&cmd, &self.config.shell);
 
                     cmd_builder
-                        .envs(variables.iter().cloned())
+                        .envs(variables)
                         .stdout(Stdio::piped())
                         .stdin(Stdio::null())
                         .stderr(Stdio::null());

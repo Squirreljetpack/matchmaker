@@ -1,3 +1,23 @@
+## [0.1.6] - 2026-08-19
+
+### 🚀 Features
+
+- *(cli)* Context + --download fix
+- *(lib)* Picker overlay improvements
+- *(lib)* Store matcher in global to simplify lifetimes in API
+- *(lib)* new BindDirective variant: OverrideTick(u8)
+- *(presets)* Pi_extensions @prune
+- *(cli)* Add tty redirect to pager using minus fork
+- *(presets)* Zellij preset
+- *(cli)* Experimental lua support v1 (under default feature mlua)
+
+### 🐛 Bug Fixes
+
+- Scroll_to_cursor bug on degenerate widths
+- Documentation
+- Indentation regions robust to wrapping
+- Active_column maintains min width of 1 to guard against unintuitive empty display
+
 ## [Unreleased]
 
 ### 🚀 Features

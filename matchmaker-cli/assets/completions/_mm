@@ -21,8 +21,8 @@ _mm() {
 '-C+[Context lines rolled into each item]:N:_default' \
 '--download=[Download all presets from GitHub. Use \`--download=<FOLDER>\` (no space) to download a subfolder]::FOLDER:_default' \
 '--list=[Useful for testing presets (see \`mm --doc other\`)]::N@ALIAS | N-M | N:TEMPLATE | TEMPLATE:_default' \
-'-d+[Display documentation]:DOC:(options binds template lua other pager)' \
-'--doc=[Display documentation]:DOC:(options binds template lua other pager)' \
+'-d+[Display documentation]:DOC:(options binds template execute other pager)' \
+'--doc=[Display documentation]:DOC:(options binds template execute other pager)' \
 '--dump-config[Write the default configuration to the default location. If piped, writes the current configuration to stdout]' \
 '-F[Run in fullscreen]' \
 '--test-keys[]' \

@@ -48,7 +48,7 @@ impl<T: SSS, D: 'static> Worker<T, D> {
                                         let d = raw_preprocessor(item)?;
                                         Some(col.raw(item, &d).into_owned().into())
                                     })
-                                    .unwrap_or_else(|| Cow::Borrowed("")),
+                                    .unwrap_or(Cow::Borrowed("")),
                             };
 
                             if QUOTE {
@@ -203,13 +203,8 @@ where
                 .iter()
                 .position(|name| name.as_ref() == s)
                 .unwrap_or(0),
-            Some(crate::config_types::StringOrInt::Int(i)) => {
-                if i < columns_vec.len() {
-                    i as usize
-                } else {
-                    0
-                }
-            }
+            Some(crate::config_types::StringOrInt::Int(i)) if i < columns_vec.len() => i,
+            Some(crate::config_types::StringOrInt::Int(_)) => 0,
             None => 0,
         };
 

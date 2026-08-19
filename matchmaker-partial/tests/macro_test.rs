@@ -5,6 +5,12 @@ macro_rules! vec_ {
     };
 }
 
+macro_rules! slice_ {
+    ($($elem:expr),* $(,)?) => {
+        &[$($elem.into()),*]
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use matchmaker_partial::*;
@@ -272,8 +278,10 @@ mod tests {
         };
 
         // 2. Create first partial (name update)
-        let mut p1 = PartialCharacter::default();
-        p1.name = Some("King Arthur".into());
+        let p1 = PartialCharacter {
+            name: Some("King Arthur".into()),
+            ..Default::default()
+        };
 
         // 3. Create second partial (stats update)
         let mut p2 = PartialCharacter::default();
@@ -281,6 +289,7 @@ mod tests {
 
         // 4. Merge p2 into p1
         // After this, p1 should have both the new name and the new HP
+        let mut p1 = p1;
         p1.merge(p2);
 
         assert_eq!(p1.name, Some("King Arthur".into()));
@@ -295,9 +304,13 @@ mod tests {
         assert_eq!(hero.stats.mana, 50); // Mana preserved from original
 
         // 6. Test clear
-        let mut p3 = PartialCharacter::default();
-        p3.name = Some("Temporary".into());
-        p3.stats.mana = Some(100);
+        let mut p3 = PartialCharacter {
+            name: Some("Temporary".into()),
+            stats: PartialStats {
+                mana: Some(100),
+                ..Default::default()
+            },
+        };
 
         p3.clear();
 
@@ -329,12 +342,12 @@ mod tests {
 
         // 1. Test setting a top-level leaf
         let path_a = vec_!["a"];
-        p_ex.set(&path_a, &vec_!["42"]).expect("Should set a");
+        p_ex.set(&path_a, slice_!["42"]).expect("Should set a");
         assert_eq!(p_ex.a, Some(42));
 
         // 2. Test setting a nested leaf
         let path_c_d = vec_!["c", "d"];
-        p_ex.set(&path_c_d, &vec_!["100"]).expect("Should set c.d");
+        p_ex.set(&path_c_d, slice_!["100"]).expect("Should set c.d");
         assert_eq!(p_ex.c.d, Some(100));
     }
 
@@ -344,12 +357,12 @@ mod tests {
 
         // 1. Missing Field
         let path_err = vec_!["unknown"];
-        let res = p_ex.set(&path_err, &vec_!["1"]);
+        let res = p_ex.set(&path_err, slice_!["1"]);
         assert_eq!(res, Err(PartialSetError::Missing("unknown".to_string())));
 
         // 2. Extra Paths (trying to go deeper than 'a' allows)
         let path_extra = vec_!["a", "too_deep"];
-        let res_extra = p_ex.set(&path_extra, &vec_!["1"]);
+        let res_extra = p_ex.set(&path_extra, slice_!["1"]);
         assert_eq!(
             res_extra,
             Err(PartialSetError::ExtraPaths(vec_!["too_deep"]))
@@ -357,7 +370,7 @@ mod tests {
 
         // 3. Missing Paths (stopping at 'c' which is recursive)
         let path_short = vec_!["c"];
-        let res_short = p_ex.set(&path_short, &vec_!["1"]);
+        let res_short = p_ex.set(&path_short, slice_!["1"]);
         assert_eq!(res_short, Err(PartialSetError::EarlyEnd("c".to_string())));
     }
 
@@ -375,8 +388,8 @@ mod tests {
         let mut p_ex = PartialEx::default();
 
         // Update partial via string paths (e.g., from a CLI or API)
-        p_ex.set(&vec_!["a"], &vec_!["2"]).unwrap();
-        p_ex.set(&vec_!["c", "d"], &vec_!["20"]).unwrap();
+        p_ex.set(slice_!["a"], slice_!["2"]).unwrap();
+        p_ex.set(slice_!["c", "d"], slice_!["20"]).unwrap();
 
         // Apply partial to original
         original.apply(p_ex);
@@ -501,17 +514,17 @@ mod tests {
 
         // set singleton on unwrapped Vec (unwrap) -> extend
         p_path
-            .set(&["unwrap".into()], &vec_!["d", "99", "e", ""])
+            .set(&["unwrap".into()], slice_!["d", "99", "e", ""])
             .unwrap();
         assert_eq!(p_path.unwrap.len(), 1);
         assert_eq!(p_path.unwrap[0].d, 99);
 
         // set singleton on wrapped Vec (neither) -> initialize then push
         p_path
-            .set(&["neither".into()], &vec_!["d", "88", "e", ""])
+            .set(&["neither".into()], slice_!["d", "88", "e", ""])
             .unwrap();
         p_path
-            .set(&["neither".into()], &vec_!["d", "88", "e", "88"])
+            .set(&["neither".into()], slice_!["d", "88", "e", "88"])
             .unwrap();
         assert_eq!(
             p_path.neither,
@@ -528,13 +541,13 @@ mod tests {
         );
 
         p_path
-            .set(&["recurse_unwrap".into()], &vec_!["d", "99"])
+            .set(&["recurse_unwrap".into()], slice_!["d", "99"])
             .unwrap();
         assert_eq!(p_path.recurse_unwrap.len(), 1);
         assert_eq!(p_path.recurse_unwrap[0].d.unwrap(), 99);
 
         // set singleton on recurse Vec -> extend
-        p_path.set(&["recurse".into()], &vec_!["d", "99"]).unwrap();
+        p_path.set(&["recurse".into()], slice_!["d", "99"]).unwrap();
         assert_eq!(
             p_path.recurse.as_ref().map(|s| s.len()).unwrap_or_default(),
             1
@@ -614,7 +627,7 @@ mod tests {
         assert_eq!(w.list, Some(vec![10, 20]));
 
         // Sequence set on wrapped Vec -> overwrite
-        w.set(&["seq".to_string()], &vec_!["1", "2", "3"]).unwrap();
+        w.set(&["seq".to_string()], slice_!["1", "2", "3"]).unwrap();
         assert_eq!(w.seq, Some(vec![1, 2, 3]));
     }
 

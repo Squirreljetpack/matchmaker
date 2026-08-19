@@ -2,28 +2,25 @@
 //! Each execution owns its VM, so concurrent executions (ExecuteAsync tasks,
 //! detached ExecuteSilent threads) never share or serialize on VM state.
 
-#![cfg_attr(not(feature = "mlua"), allow(dead_code))]
-
 mod formatter;
 
 pub(crate) use formatter::LuaState;
 
-use std::{ffi::OsString, path::Path};
+use std::{
+    cell::{Cell, RefCell},
+    ffi::OsString,
+    path::Path,
+    rc::Rc,
+};
 
 use cba::broc::EnvVars;
-
-#[cfg(feature = "mlua")]
-use std::{cell::Cell, rc::Rc};
-
-#[cfg(feature = "mlua")]
 use mlua::{Function, Lua, MultiValue, Table, Value, Variadic};
 
 /// Run the lua file at `path` with `args` as varargs. The command's
-/// environment (`MM_OVERRIDE`, `MM_PREVIEW_COMMAND`, …) is exposed as the
+/// environment (`MM_OVERRIDE`, `MM_PREVIEW_INDEX`, …) is exposed as the
 /// global `env` table, the snapshot state as the global `state` table, and an
 /// `os.exit(code)` that stops the script with `code` without terminating the
 /// process.
-#[cfg(feature = "mlua")]
 pub(crate) fn run_file(
     path: &Path,
     args: Vec<OsString>,
@@ -38,7 +35,6 @@ pub(crate) fn run_file(
 
 /// Like [`run_file`], but returns the script's first value (converted to a
 /// string) instead of its exit code. `None` means the script returned nothing.
-#[cfg(feature = "mlua")]
 pub(crate) fn run_file_value(
     path: &Path,
     args: Vec<OsString>,
@@ -54,7 +50,6 @@ pub(crate) fn run_file_value(
 /// Run inline lua source. Same VM, env, state, and exit semantics as
 /// [`run_file`]; inline payloads receive no varargs — the item is read from
 /// the `state` table.
-#[cfg(feature = "mlua")]
 pub(crate) fn run_inline(code: &str, env: &EnvVars, state: &LuaState) -> Result<i32, String> {
     let exit = Rc::new(Cell::new(None));
     let lua = new_vm(env, state, &exit)?;
@@ -64,7 +59,6 @@ pub(crate) fn run_inline(code: &str, env: &EnvVars, state: &LuaState) -> Result<
 
 /// Like [`run_inline`], but returns the script's first value (converted to a
 /// string) instead of its exit code. `None` means the script returned nothing.
-#[cfg(feature = "mlua")]
 pub(crate) fn run_inline_value(
     code: &str,
     env: &EnvVars,
@@ -74,44 +68,6 @@ pub(crate) fn run_inline_value(
     let lua = new_vm(env, state, &exit)?;
     let f = load_inline(&lua, code)?;
     value(f.call::<MultiValue>(()), exit.get())
-}
-
-#[cfg(not(feature = "mlua"))]
-pub(crate) fn run_file(
-    _path: &Path,
-    _args: Vec<OsString>,
-    _env: &EnvVars,
-    _state: &LuaState,
-) -> Result<i32, String> {
-    Err("the mlua feature is disabled; cannot run @*.lua commands".into())
-}
-
-#[cfg(not(feature = "mlua"))]
-pub(crate) fn run_inline(
-    _code: &str,
-    _env: &EnvVars,
-    _state: &LuaState,
-) -> Result<i32, String> {
-    Err("the mlua feature is disabled; cannot run #!lua commands".into())
-}
-
-#[cfg(not(feature = "mlua"))]
-pub(crate) fn run_file_value(
-    _path: &Path,
-    _args: Vec<OsString>,
-    _env: &EnvVars,
-    _state: &LuaState,
-) -> Result<Option<String>, String> {
-    Err("the mlua feature is disabled; cannot run @*.lua commands".into())
-}
-
-#[cfg(not(feature = "mlua"))]
-pub(crate) fn run_inline_value(
-    _code: &str,
-    _env: &EnvVars,
-    _state: &LuaState,
-) -> Result<Option<String>, String> {
-    Err("the mlua feature is disabled; cannot run #!lua commands".into())
 }
 
 /// The exit code a completed script reports: the `os.exit` code when set,
@@ -170,6 +126,62 @@ fn load_inline(lua: &Lua, code: &str) -> Result<Function, String> {
         .set_name("#!lua")
         .into_function()
         .map_err(|e| e.to_string())
+}
+
+/// Run a lua file whose `inject` global pushes lines into the picker. Used for
+/// `start.command`/reload `@file.lua` payloads: the script supplies rows via
+/// `inject(line)` instead of stdout. The push returns `Err` to fail the script
+/// when the picker rejects a row.
+#[cfg(feature = "mlua")]
+pub(crate) fn run_file_inject<F>(
+    path: &Path,
+    args: Vec<OsString>,
+    env: &EnvVars,
+    state: &LuaState,
+    push: F,
+) -> Result<i32, String>
+where
+    F: FnMut(String) -> Result<(), String> + 'static,
+{
+    let exit = Rc::new(Cell::new(None));
+    let lua = new_vm(env, state, &exit)?;
+    set_inject(&lua, push)?;
+    let f = load_file(&lua, path)?;
+    exit_code(f.call::<()>(Variadic::from(to_args(args))), exit.get())
+}
+
+/// Inline counterpart of [`run_file_inject`], with the same `inject` global.
+#[cfg(feature = "mlua")]
+pub(crate) fn run_inline_inject<F>(
+    code: &str,
+    env: &EnvVars,
+    state: &LuaState,
+    push: F,
+) -> Result<i32, String>
+where
+    F: FnMut(String) -> Result<(), String> + 'static,
+{
+    let exit = Rc::new(Cell::new(None));
+    let lua = new_vm(env, state, &exit)?;
+    set_inject(&lua, push)?;
+    let f = load_inline(&lua, code)?;
+    exit_code(f.call::<()>(()), exit.get())
+}
+
+/// Expose an `inject(line)` global that feeds lines to the picker. Errors from
+/// the push fail the running script.
+#[cfg(feature = "mlua")]
+fn set_inject<F>(lua: &Lua, push: F) -> Result<(), String>
+where
+    F: FnMut(String) -> Result<(), String> + 'static,
+{
+    let push = RefCell::new(push);
+    let f = lua
+        .create_function(move |_, line: String| {
+            push.borrow_mut()(line).map_err(mlua::Error::RuntimeError)
+        })
+        .map_err(|e| e.to_string())?;
+    lua.globals().set("inject", f).map_err(|e| e.to_string())
 }
 
 /// Create the per-run VM: all safe stdlibs, the `env` table, the `state`
@@ -262,7 +274,7 @@ fn columns_table(lua: &Lua, columns: &[(String, String)]) -> mlua::Result<Table>
     Ok(t)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "mlua"))]
 mod tests {
     use super::*;
     use cba::env_vars;
@@ -335,6 +347,57 @@ assert(state.total == 0, 'state table present')"#,
             Some("hello".into())
         );
         std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn run_file_inject_pushes_lines_and_returns_exit_code() {
+        let path = std::env::temp_dir().join("mm_lua_engine_inject_test.lua");
+        std::fs::write(
+            &path,
+            "inject(env.MM_OVERRIDE); inject('a\\tb'); os.exit(7)",
+        )
+        .unwrap();
+        let env = env_vars!("MM_OVERRIDE" => "/x");
+        let lines = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let out = lines.clone();
+        assert_eq!(
+            run_file_inject(&path, vec![], &env, &LuaState::empty(), {
+                move |l| {
+                    out.borrow_mut().push(l.to_string());
+                    Ok(())
+                }
+            })
+            .unwrap(),
+            7
+        );
+        assert_eq!(*lines.borrow(), vec!["/x", "a\tb"]);
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn run_inline_inject_pushes_lines() {
+        let env = EnvVars::default();
+        let state = LuaState::empty();
+        let lines = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let out = lines.clone();
+        let code = "inject('a'); inject('b'); inject('c\\nd')";
+        let _ = run_inline_inject(code, &env, &state, move |l| {
+            out.borrow_mut().push(l.to_string());
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(*lines.borrow(), vec!["a", "b", "c\nd"]);
+    }
+
+    #[test]
+    fn inject_errors_fail_the_script() {
+        let env = EnvVars::default();
+        let state = LuaState::empty();
+        let err = run_inline_inject("inject('x')", &env, &state, |_| {
+            Err("picker closed".into())
+        })
+        .unwrap_err();
+        assert!(err.contains("picker closed"), "unexpected error: {err}");
     }
 
     #[test]

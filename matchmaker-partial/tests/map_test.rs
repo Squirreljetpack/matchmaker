@@ -22,7 +22,7 @@ fn test_map_set_path() {
     let mut p = PartialMapStruct::default();
 
     // Test 1: Setting a key via path (head="binds", tail=["ctrl-c"])
-    let res = p.set(&vec_!["binds", "ctrl-c"], &vec_!["Quit(1)"]);
+    let res = p.set(&["binds".into(), "ctrl-c".into()], &["Quit(1)".into()]);
     assert!(
         res.is_ok(),
         "Setting map key via path should succeed, got {:?}",
@@ -32,7 +32,7 @@ fn test_map_set_path() {
 
     // Test 2: Setting whole map via field (head="binds", tail=[])
     let mut p2 = PartialMapStruct::default();
-    let res2 = p2.set(&vec_!["binds"], &vec_!["ctrl-q", "Exit"]);
+    let res2 = p2.set(&["binds".into()], &["ctrl-q".into(), "Exit".into()]);
     assert!(
         res2.is_ok(),
         "Setting map field directly should succeed, got {:?}",
@@ -68,14 +68,9 @@ fn test_map_apply_overwrite_vs_extend() {
     ext.map.insert("a".to_string(), Val { x: 1 });
 
     let mut p_ext = PartialExtendStruct::default();
-    let mut p_val = PartialVal::default();
-    p_val.x = Some(2);
+    let p_val = PartialVal { x: Some(2) };
     p_ext.map.insert("a".to_string(), p_val);
-    p_ext.map.insert("b".to_string(), {
-        let mut v = PartialVal::default();
-        v.x = Some(3);
-        v
-    });
+    p_ext.map.insert("b".to_string(), PartialVal { x: Some(3) });
 
     ext.apply(p_ext);
     assert_eq!(ext.map.get("a").unwrap().x, 2);
@@ -92,8 +87,7 @@ fn test_map_apply_overwrite_vs_extend() {
 
     let mut p_ovr = PartialOverwriteStruct::default();
     let mut p_map = HashMap::new();
-    let mut p_val = PartialVal::default();
-    p_val.x = Some(2);
+    let p_val = PartialVal { x: Some(2) };
     p_map.insert("b".to_string(), p_val);
     p_ovr.map = Some(p_map);
 

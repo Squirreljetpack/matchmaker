@@ -69,7 +69,8 @@ pub enum Doc {
     Options,
     Binds,
     Template,
-    Lua,
+    #[value(alias = "lua")]
+    Execute,
     Other,
     Pager,
 }

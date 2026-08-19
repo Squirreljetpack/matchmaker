@@ -153,7 +153,7 @@ impl InputUI {
         }
 
         self.recompute_graphemes();
-        self.cursor = (self.cursor as usize).min(self.graphemes.len());
+        self.cursor = self.cursor.min(self.graphemes.len());
     }
 
     /// Set cursor to a visual offset relative to start position

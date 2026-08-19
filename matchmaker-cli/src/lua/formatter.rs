@@ -1,5 +1,3 @@
-#![cfg_attr(not(feature = "mlua"), allow(dead_code))]
-
 //! Build the `state` table handed to the lua engine from matchmaker state.
 //!
 //! Column values are resolved exactly like the template keys `{1}`, `{2}`, …:

@@ -313,9 +313,7 @@ Sort the results by one of the columns in the active row.
 | `@name`                | Execute the actions associated with semantic trigger `name`.                                                                        |
 | `#description`         | Add a description-only trace action for help/debug output.                                                                          |
 
-- `ToggleExitFirst([bool])`: Toggle or set the exit-on-one-match behavior.
-
-Note: Commands executed via these actions have access to various [environment variables](template.md#environment-variables). CLI command actions use the configured `start.shell`; an empty shell uses `$SHELL` (falling back to `/bin/sh`). A command beginning with `@` for `Execute`, `ExecuteAsync`, `ExecuteThen`, `ExecuteSilent`, `Become`, or `BecomeSilent` treats the first word as a script path relative to the parent of `MM_OVERRIDE` (absolute paths are also accepted) and passes the remaining words as arguments without shell parsing.
+Note: Commands executed via these actions have access to various [environment variables](template.md#environment-variables) and multiple execution models (shell, `@file`, `#!lua`, `@file.lua`). See [Execution Models](execute.md) (`mm --doc execute`) for full execution strategy and lifecycle details. CLI command actions use the configured `start.shell`; an empty shell uses `$SHELL` (falling back to `/bin/sh`). A command beginning with `@` treats the first word as a script path relative to the parent of `MM_OVERRIDE` (absolute paths are also accepted) and passes the remaining words as arguments without shell parsing.
 
 ### UI & Display
 

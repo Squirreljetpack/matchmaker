@@ -322,7 +322,7 @@ fn get_val<'a>(
     }
 }
 
-fn handle_range<'a, 'b>(
+fn handle_range(
     key: &str,
     state: &ConfigMMState<'_>,
     quote: bool,
@@ -420,13 +420,12 @@ fn handle_range<'a, 'b>(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use matchmaker::config::{ColumnsConfig, PreprocessConfig};
     use matchmaker::config_mm::{ConfigInjector, ConfigMatchmaker};
     use matchmaker::nucleo::injector::Injector;
     use matchmaker::nucleo::new_snapshot;
-    use matchmaker::nucleo::nucleo::Config as NucleoConfig;
     use matchmaker::render::State;
     use matchmaker::ui::{DisplayUI, PickerUI, UI};
     use std::sync::Mutex;
@@ -434,7 +433,7 @@ mod tests {
 
     static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
-    fn setup_test_mm() -> (
+    pub(crate) fn setup_test_mm() -> (
         ConfigMatchmaker,
         ConfigInjector,
         Result<
@@ -478,14 +477,14 @@ mod tests {
     }
 
     /// Builds the picker offline (no terminal) for formatting tests.
-    fn offline_ui(mm: ConfigMatchmaker) -> (UI, PickerUI<String, ConfigPreprocessedData>) {
+    pub(crate) fn offline_ui(mm: ConfigMatchmaker) -> (UI, PickerUI<String, ConfigPreprocessedData>) {
         UI::new_offline(mm.render_config, mm.worker)
     }
 
     /// Pushes items and waits until the worker has indexed `expected` of them.
     /// `tick` alone is racy: the worker thread may not have finished processing
     /// the queue, so we sync on the snapshot like the `--list` implementation.
-    fn push_items(
+    pub(crate) fn push_items(
         mm: &mut ConfigMatchmaker,
         injector: ConfigInjector,
         items: &[&str],
@@ -517,7 +516,7 @@ mod tests {
         let (event_tx, _event_rx) = mpsc::unbounded_channel();
 
         {
-            let mut mm_state = state_obj.dispatcher(
+            let mm_state = state_obj.dispatcher(
                 &mut ui,
                 &mut picker_ui,
                 &mut footer_ui,
@@ -525,19 +524,19 @@ mod tests {
                 &event_tx,
             );
 
-            let result = format_cli(&mut mm_state, "echo {col1} {=col2} {col3}", None);
+            let result = format_cli(&mm_state, "echo {col1} {=col2} {col3}", None);
             assert_eq!(result, "echo 'a' b 'c'");
 
-            let result = format_cli(&mut mm_state, "echo {} {=}", None);
+            let result = format_cli(&mm_state, "echo {} {=}", None);
             assert_eq!(result, "echo 'a,b,c' a,b,c");
 
-            let result = format_cli(&mut mm_state, "echo {{col1}} {{=col2}}", None);
+            let result = format_cli(&mm_state, "echo {{col1}} {{=col2}}", None);
             assert_eq!(result, "echo {'a'} {b}");
 
-            let result = format_cli(&mut mm_state, "echo {col1 } {col1:val}", None);
+            let result = format_cli(&mm_state, "echo {col1 } {col1:val}", None);
             assert_eq!(result, "echo {col1 } {col1:val}");
 
-            let result = format_cli(&mut mm_state, "echo { {} }", None);
+            let result = format_cli(&mm_state, "echo { {} }", None);
             assert_eq!(result, "echo { 'a,b,c' }");
         }
     }
@@ -555,7 +554,7 @@ mod tests {
         let (event_tx, _event_rx) = mpsc::unbounded_channel();
 
         {
-            let mut mm_state = state_obj.dispatcher(
+            let mm_state = state_obj.dispatcher(
                 &mut ui,
                 &mut picker_ui,
                 &mut footer_ui,
@@ -563,11 +562,11 @@ mod tests {
                 &event_tx,
             );
 
-            let result = format_cli(&mut mm_state, "echo {..} {col2..} {..col2}", None);
+            let result = format_cli(&mm_state, "echo {..} {col2..} {..col2}", None);
             // ..col2 is exclusive
             assert_eq!(result, "echo 'a b c' 'b c' 'a'");
 
-            let result = format_cli(&mut mm_state, "echo {=col2..} {-..col2}", None);
+            let result = format_cli(&mm_state, "echo {=col2..} {-..col2}", None);
             // ..col2 is exclusive
             assert_eq!(result, "echo b c a");
         }
@@ -593,7 +592,7 @@ mod tests {
         let (event_tx, _event_rx) = mpsc::unbounded_channel();
 
         {
-            let mut mm_state = state_obj.dispatcher(
+            let mm_state = state_obj.dispatcher(
                 &mut ui,
                 &mut picker_ui,
                 &mut footer_ui,
@@ -605,7 +604,7 @@ mod tests {
             mm_state.picker_ui.query.set(Some("%col2 ".to_string()), 6);
             mm_state.picker_ui.update();
 
-            let result = format_cli(&mut mm_state, "echo {+} {-col1} {-!} {+!}", None);
+            let result = format_cli(&mm_state, "echo {+} {-col1} {-!} {+!}", None);
             dbg!(picker_ui.selector);
             // {+} -> 'a,b,c' '1,2,3'
             // {-col1} -> a 1
@@ -628,7 +627,7 @@ mod tests {
         let (event_tx, _event_rx) = mpsc::unbounded_channel();
 
         {
-            let mut mm_state = state_obj.dispatcher(
+            let mm_state = state_obj.dispatcher(
                 &mut ui,
                 &mut picker_ui,
                 &mut footer_ui,
@@ -636,7 +635,7 @@ mod tests {
                 &event_tx,
             );
 
-            let result = format_cli(&mut mm_state, "echo {missing} {=also_invalid}", None);
+            let result = format_cli(&mm_state, "echo {missing} {=also_invalid}", None);
             assert_eq!(result, "echo {missing} {=also_invalid}");
         }
     }
@@ -661,7 +660,7 @@ mod tests {
         let (event_tx, _event_rx) = mpsc::unbounded_channel();
 
         {
-            let mut mm_state = state_obj.dispatcher(
+            let mm_state = state_obj.dispatcher(
                 &mut ui,
                 &mut picker_ui,
                 &mut footer_ui,
@@ -669,10 +668,10 @@ mod tests {
                 &event_tx,
             );
 
-            let result = format_cli(&mut mm_state, "echo {$0} {=$0}", None);
+            let result = format_cli(&mm_state, "echo {$0} {=$0}", None);
             assert_eq!(result, "echo 'arg1' 'arg with space' arg1 arg with space");
 
-            let result = format_cli(&mut mm_state, "echo {$1} {=$2} {$3}", None);
+            let result = format_cli(&mm_state, "echo {$1} {=$2} {$3}", None);
             assert_eq!(result, "echo 'arg1' arg with space ");
         }
     }

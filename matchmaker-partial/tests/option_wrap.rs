@@ -30,13 +30,15 @@ fn test_collection_set_recursion() {
     let mut p_path = PartialCollectionStruct::default();
 
     p_path
-        .set(&["recurse_unwrap".into()], &vec_!["d", "99"])
+        .set(&["recurse_unwrap".into()], &["d".into(), "99".into()])
         .unwrap();
     assert_eq!(p_path.recurse_unwrap.len(), 1);
     assert_eq!(p_path.recurse_unwrap[0].d.unwrap(), 99);
 
     // set singleton on recurse Vec -> extend
-    p_path.set(&["recurse".into()], &vec_!["d", "99"]).unwrap();
+    p_path
+        .set(&["recurse".into()], &["d".into(), "99".into()])
+        .unwrap();
     assert_eq!(
         p_path.recurse.as_ref().map(|s| s.len()).unwrap_or_default(),
         1
@@ -60,10 +62,10 @@ pub struct Outer {
 #[test]
 fn test_option_recurse_behavior() {
     let mut outer = Outer::default();
-    let mut p = PartialOuter::default();
-
-    // Test recursion into Option<Inner>
-    p.opt_inner = Some(PartialInner { val: Some(10) });
+    let p = PartialOuter {
+        opt_inner: Some(PartialInner { val: Some(10) }),
+        ..Default::default()
+    };
 
     Apply::apply(&mut outer, p);
 

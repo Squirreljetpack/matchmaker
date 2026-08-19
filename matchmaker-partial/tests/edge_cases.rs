@@ -304,12 +304,13 @@ fn test_btree_collections() {
     base.map.insert("a".into(), Val { x: 1 });
     base.set.insert(10);
 
-    let mut p = PartialBTreeStruct::default();
-    p.map = Some(BTreeMap::from([
-        ("a".into(), PartialVal { x: Some(2) }),
-        ("b".into(), PartialVal { x: Some(3) }),
-    ]));
-    p.set = Some(BTreeSet::from([20]));
+    let p = PartialBTreeStruct {
+        map: Some(BTreeMap::from([
+            ("a".into(), PartialVal { x: Some(2) }),
+            ("b".into(), PartialVal { x: Some(3) }),
+        ])),
+        set: Some(BTreeSet::from([20])),
+    };
 
     base.apply(p);
 
@@ -329,13 +330,15 @@ struct MergeColl {
 
 #[test]
 fn test_collection_merge_and_clear() {
-    let mut p1 = PartialMergeColl::default();
-    p1.list = vec![1, 2];
-    p1.map = Some(HashMap::from([("a".into(), 10)]));
+    let mut p1 = PartialMergeColl {
+        list: vec![1, 2],
+        map: Some(HashMap::from([("a".into(), 10)])),
+    };
 
-    let mut p2 = PartialMergeColl::default();
-    p2.list = vec![3];
-    p2.map = Some(HashMap::from([("b".into(), 20)]));
+    let p2 = PartialMergeColl {
+        list: vec![3],
+        map: Some(HashMap::from([("b".into(), 20)])),
+    };
 
     p1.merge(p2);
     assert_eq!(p1.list, vec![1, 2, 3]);
@@ -365,17 +368,20 @@ struct MergeOpt {
 #[test]
 fn test_recursive_option_merge() {
     // Both sides present: merge recursively.
-    let mut p1 = PartialMergeOpt::default();
-    p1.inner = Some(PartialInnerVal { x: Some(1) });
-    let mut p2 = PartialMergeOpt::default();
-    p2.inner = Some(PartialInnerVal { x: Some(2) });
+    let mut p1 = PartialMergeOpt {
+        inner: Some(PartialInnerVal { x: Some(1) }),
+    };
+    let p2 = PartialMergeOpt {
+        inner: Some(PartialInnerVal { x: Some(2) }),
+    };
     p1.merge(p2);
     assert_eq!(p1.inner.unwrap().x, Some(2));
 
     // One side missing: adopt the other.
     let mut p3 = PartialMergeOpt::default();
-    let mut p4 = PartialMergeOpt::default();
-    p4.inner = Some(PartialInnerVal { x: Some(5) });
+    let p4 = PartialMergeOpt {
+        inner: Some(PartialInnerVal { x: Some(5) }),
+    };
     p3.merge(p4);
     assert_eq!(p3.inner.unwrap().x, Some(5));
 }

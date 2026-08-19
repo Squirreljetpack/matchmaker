@@ -273,10 +273,7 @@ impl Side {
     }
 
     pub fn is_vertical(&self) -> bool {
-        match self {
-            Side::Left | Side::Right => true,
-            _ => false,
-        }
+        matches!(self, Side::Left | Side::Right)
     }
 }
 

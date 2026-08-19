@@ -93,7 +93,7 @@ border.padding = [2, 0]
 "alt-1" = "Pos(0)"
 
 # Programmable
-"ctrl-l" = "Execute(%MM_PREVIEW_COMMAND% | %PAGER%)" # "maximize" the preview
+"ctrl-l" = "ShowPreview" # page the preview fullscreen
 "ctrl-o" = "Execute(%EDITOR% {})"
 "alt-o" = "Become(%EDITOR% {})"
 "ctrl-r" = "Reload"

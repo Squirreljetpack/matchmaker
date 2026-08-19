@@ -2,15 +2,16 @@ mod action;
 mod clap;
 mod config;
 mod crokey;
+mod execute;
 pub mod formatter;
 mod list;
 mod logger;
+#[cfg(feature = "mlua")]
 mod lua;
 mod parse;
 mod paths;
 mod pager;
 mod register;
-mod script;
 mod sort;
 mod start;
 mod utils;
@@ -176,7 +177,7 @@ fn display_doc(cli: &Cli) {
             Doc::Options => md.push_str(include_str!("../assets/docs/options.md")),
             Doc::Binds => md.push_str(include_str!("../assets/docs/binds.md")),
             Doc::Template => md.push_str(include_str!("../assets/docs/template.md")),
-            Doc::Lua => md.push_str(include_str!("../assets/docs/lua.md")),
+            Doc::Execute => md.push_str(include_str!("../assets/docs/execute.md")),
             Doc::Other => md.push_str(include_str!("../assets/docs/other.md")),
             Doc::Pager => md.push_str(include_str!("../assets/docs/pager.md")),
         }

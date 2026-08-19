@@ -150,27 +150,19 @@ For quick reference, `mm --doc` provides fairly readable and comprehensive guide
 
 Actions can be defined in your `config.toml` or on the command line.
 
-`ShowPreview` (default `F11` / `ctrl-l`) pages the current preview command
-fullscreen in the pager (`pager.` config section, `minus`-powered) and always
-resumes the picker afterwards. Without the `pager` feature it falls back to
-the external pager chain `MM_PAGER` → `$PAGER` → `less` → `more`. With the
-feature, the pager draws on stdout when it is a terminal and on the
-controlling tty when stdout is redirected.
-
 The list of currently supported actions can be found [here](./matchmaker-lib/src/action.rs) and [here](./matchmaker-cli/src/action.rs) or from `mm --doc binds`.
 
 To get the names of keys, type `mm --test-keys`.
 
 In addition to keys, actions can also be bound to Events and Crossterm events (check your default config for details).
 
-### Lua commands
+##### Execute
 
-`Execute`, `ExecuteSilent`, and `ExecuteAsync` payloads support a lua form (enabled by the default `mlua` feature):
+A subset of actions handle various execution flows that are useful to for making mini-apps such as `Execute` (run then return), `ExecuteOrConfirm` (await user input after erroring out), `Become` (transform into the process directly), `ExecuteAsync` (chain actions in the background), `ExecuteThen` (chain conditional background actions), `Copy` (copy the output of the command to your clipboard -- by default, this uses the `osc52` protocol so that copying through ssh works).
 
-- `@file.lua arg...` — the file is read and executed by the embedded lua 5.4 engine, never by the shell. A relative path resolves against the override's directory (`MM_OVERRIDE`); the remaining words are passed to the script as varargs (`...`). `@` payloads skip formatting entirely.
-- `#!lua <code>` — the remainder is executed as inline lua, after normal `{}` formatting.
+By default, their payloads are passed to your current shell (i.e. `Execute(eval $EDITOR)`), though this too, can be overridden, so you can write your scripts in any language. In [presets](#preset), payloads can even be specified as files using `@path/to/file`. Relative paths are resolved with respect to the folder containing the preset. [Templates](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md) in the payloads are injected with values from the current picker state such as selected items, current active cell, and positional arguments passed to the cli.
 
-The command's environment (`MM_OVERRIDE`, `MM_PREVIEW_COMMAND`, …) is exposed as the global `env` table, and `os.exit(code)` stops the script with `code` (a non-zero code fails the action, like a failed shell command). Each execution runs on its own lua VM, so concurrent executions are independent. Build with `--no-default-features` to disable lua support.
+With the default build, matchmaker also supports lua scripts: files with `.lua` extension, and scripts prefixed with `#!lua` are executed directly using the [internal lua runtime](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/execute.md).
 
 ## Examples
 

@@ -971,7 +971,7 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
 
         picker_ui
             .results
-            .update_table(&mut picker_ui.worker, &picker_ui.selector, &mut *matcher());
+            .update_table(&mut picker_ui.worker, &picker_ui.selector, &mut matcher());
 
         state.update(&mut picker_ui, &overlay_ui);
 
@@ -1002,10 +1002,10 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                     );
                     render_display(frame, layout.footer, &mut footer_ui, &picker_ui.results);
 
-                    if let Some(preview_ui) = preview_ui.as_mut() {
-                        if preview_ui.visible() {
-                            render_preview(frame, layout.preview, preview_ui);
-                        }
+                    if let Some(preview_ui) = preview_ui.as_mut()
+                        && preview_ui.visible()
+                    {
+                        render_preview(frame, layout.preview, preview_ui);
                     }
 
                     if let Some(x) = overlay_ui.as_mut() {
@@ -1352,8 +1352,8 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
 
 // -----------------------------------------------------------------------------------
 
-/// Collects selected items in match order. Scans `snapshot.get_matched_item(n)`
-/// for each n and yields (nucleo_idx, &T) for matches present in the selector.
+// Collects selected items in match order. Scans `snapshot.get_matched_item(n)`
+// for each n and yields (nucleo_idx, &T) for matches present in the selector.
 // pub fn get_selected<'a, T: SSS, D>(picker_ui: &'a PickerUI<'_, T, D>) -> Vec<(u32, &'a T)> {
 //     let snapshot = picker_ui.worker.nucleo.snapshot();
 //     let mc = snapshot.matched_item_count();

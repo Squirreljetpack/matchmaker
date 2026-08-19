@@ -529,7 +529,7 @@ impl ResultsUI {
             self.config.width_overrides
         );
 
-        self.config.width_overrides[v_idx] = new as u16;
+        self.config.width_overrides[v_idx] = new;
         self.width_limits.clear();
     }
 
@@ -600,9 +600,11 @@ mod tests {
 
     #[test]
     fn test_overrides_not_expanded() {
-        let mut config = ResultsConfig::default();
-        config.width_overrides = vec![10, 0, 5]; // Column 0 override 10, Column 2 override 5
-        config.min_width = 2;
+        let config = ResultsConfig {
+            width_overrides: vec![10, 0, 5], // Column 0 override 10, Column 2 override 5
+            min_width: 2,
+            ..Default::default()
+        };
 
         let mut results = ResultsUI::new(config);
         results.width = 100;
@@ -648,8 +650,10 @@ mod tests {
 
     #[test]
     fn test_active_column_min_width_when_empty() {
-        let mut config = ResultsConfig::default();
-        config.min_width = 3;
+        let config = ResultsConfig {
+            min_width: 3,
+            ..Default::default()
+        };
         let mut results = ResultsUI::new(config);
         results.width = 100;
         results.config.hidden_columns = crate::collections::HiddenColumns::new_with_size(2);

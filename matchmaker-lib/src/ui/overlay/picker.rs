@@ -75,6 +75,212 @@ pub struct PickerOverlay<L: ColumnIndexable + SSS = (String, String)> {
     query_dirty: bool,
 }
 
+impl<L: ColumnIndexable + SSS> PickerOverlay<L> {
+    /// # Arguments
+    /// - `column_names` — the overlay's columns, indexed in order into the
+    ///   item's [`ColumnIndexable`] implementation.
+    /// - `default_column` — the initially active column (see
+    ///   [`Worker::new_indexable`]).
+    /// - `items` — called with the worker's injector on each enable; push the
+    ///   overlay's items into it.
+    pub fn new<F, I, S>(
+        column_names: I,
+        default_column: Option<StringOrInt>,
+        items: F,
+        config: OverlayConfig,
+        results_config: ResultsConfig,
+        query_config: QueryConfig,
+    ) -> Self
+    where
+        F: FnMut(&WorkerInjector<L>) + Send + Sync + 'static,
+        I: IntoIterator<Item = S>,
+        S: Into<Arc<str>>,
+    {
+        Self {
+            query: QueryUI::new(query_config),
+            results: ResultsUI::new(results_config),
+            worker: None,
+            selector: Selector::new(),
+            items: Box::new(items),
+            column_names: column_names.into_iter().map(Into::into).collect(),
+            default_column,
+            area: Rect::default(),
+            config,
+            query_dirty: true,
+        }
+    }
+
+    /// The nucleo index and data of the item currently under the cursor, if any.
+    pub fn current_item(&self) -> Option<(u32, &L)> {
+        let worker = self.worker.as_ref()?;
+        worker.get_nth_indexed(self.results.index())
+    }
+
+    fn build_worker(&mut self) {
+        debug_assert!(self.worker.is_none());
+        let mut worker = Worker::new_indexable(
+            self.column_names.iter().cloned(),
+            self.default_column.clone(),
+        );
+        (self.items)(&worker.injector());
+        self.results.init(&mut worker);
+        self.worker = Some(worker);
+    }
+}
+
+impl<L, Act, T, D> Overlay<Act, T, D> for PickerOverlay<L>
+where
+    L: ColumnIndexable + SSS,
+    Act: ActionExt,
+    T: SSS,
+    D: 'static,
+{
+    fn on_enable(&mut self, _area: &Rect, _state: &mut MMState<'_, T, D>) {
+        if self.worker.is_none() {
+            self.build_worker();
+        }
+        self.query_dirty = true;
+        self.results.set_dirty();
+    }
+
+    fn on_disable(&mut self) {
+        // Stops the matcher thread; the worker is rebuilt on the next enable.
+        self.worker = None;
+    }
+
+    fn handle_input(&mut self, c: char, _state: &mut MMState<'_, T, D>) -> OverlayEffect {
+        self.query.push_char(c);
+        self.query_dirty = true;
+        self.results.set_dirty();
+        OverlayEffect::None
+    }
+
+    fn handle_action(
+        &mut self,
+        action: &Action<Act>,
+        _state: &mut MMState<'_, T, D>,
+    ) -> OverlayEffect {
+        match action {
+            Action::Up(n) => {
+                for _ in 0..*n {
+                    self.results.cursor_prev();
+                }
+            }
+            Action::Down(n) => {
+                for _ in 0..*n {
+                    self.results.cursor_next();
+                }
+            }
+            Action::Accept => {
+                // Access the current item: the index into the matched snapshot
+                // plus the item data. This is the placeholder accept path.
+                let Some((idx, item)) = self.current_item() else {
+                    return OverlayEffect::Disable;
+                };
+                todo!("accept {idx}: {}", item.get_str(0));
+            }
+            Action::Quit(_) => return OverlayEffect::Disable,
+
+            // Edit actions, mirrored from the main dispatch (render/mod.rs)
+            Action::SetQuery(context) => self.query.set(context.clone(), u16::MAX),
+            Action::InsertQuery(context) => self.query.insert_str(context),
+            Action::ForwardChar => self.query.forward_char(),
+            Action::BackwardChar => self.query.backward_char(),
+            Action::ForwardWord => self.query.forward_word(),
+            Action::BackwardWord => self.query.backward_word(),
+            Action::DeleteChar => self.query.delete(),
+            Action::DeleteWord => self.query.delete_word(),
+            Action::DeleteLineStart => self.query.delete_line_start(),
+            Action::DeleteLineEnd => self.query.delete_line_end(),
+            Action::ClearQuery => self.query.clear(),
+            _ => return OverlayEffect::None,
+        }
+        if matches!(
+            action,
+            Action::SetQuery(_)
+                | Action::InsertQuery(_)
+                | Action::DeleteChar
+                | Action::DeleteWord
+                | Action::DeleteLineStart
+                | Action::DeleteLineEnd
+                | Action::ClearQuery
+        ) {
+            self.query_dirty = true;
+            self.results.set_dirty();
+        }
+        OverlayEffect::None
+    }
+
+    fn draw(&mut self, frame: &mut Frame) {
+        let Some(worker) = self.worker.as_mut() else {
+            return;
+        };
+
+        // Same update pipeline as the main picker: find -> active column -> table.
+        if self.query_dirty {
+            worker.find(&self.query.input());
+            self.query_dirty = false;
+        }
+        let cursor_byte = self.query.byte_index(self.query.cursor() as usize);
+        self.results
+            .update_active_column(worker.query.active_column_index(cursor_byte));
+        self.results
+            .update_table(worker, &self.selector, &mut crate::matcher::matcher());
+
+        if self.config.outer_dim {
+            dim_surroundings(frame, self.area);
+        }
+
+        frame.render_widget(Clear, self.area);
+        frame.render_widget(self.config.border.as_block(), self.area);
+
+        let inner = self.config.border.inner_of(self.area);
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(self.query.height()), Constraint::Fill(1)])
+            .split(inner);
+        let input = chunks[0];
+        let results = chunks[1];
+
+        // Query input (mirrors render::render_input)
+        let p = self.query.cursor_offset(&input);
+        if let CursorSetting::Default = self.query.config.cursor {
+            frame.set_cursor_position(p);
+        }
+        frame.render_widget(self.query.make_input(), input);
+
+        // Results (mirrors render::render_results)
+        let (table, width) = self.results.get_table();
+        let mut results_area = results;
+        if matches!(
+            self.results.config.row_connection,
+            RowConnectionStyle::Capped
+        ) {
+            results_area.width = results_area.width.min(width);
+        }
+        frame.render_widget(table, results_area);
+    }
+
+    fn area(&mut self, ui_area: &Rect, layout: &OverlayLayoutSettings) {
+        self.area = default_area([SizeHint::from(0), SizeHint::from(0)], layout, ui_area);
+
+        let inner = self.config.border.inner_of(self.area);
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(self.query.height()), Constraint::Fill(1)])
+            .split(inner);
+        let input = chunks[0];
+        let results = chunks[1];
+        self.query.update_width(input.width);
+
+        let old = (self.results.width(), self.results.height());
+        self.results.update_dimensions(results);
+        if (self.results.width(), self.results.height()) != old {
+            self.results.invalidate_widths();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -304,211 +510,6 @@ mod tests {
                 highlighted,
                 "no highlighted char on the {item} row:\n{line}"
             );
-        }
-    }
-}
-impl<L: ColumnIndexable + SSS> PickerOverlay<L> {
-    /// # Arguments
-    /// - `column_names` — the overlay's columns, indexed in order into the
-    ///   item's [`ColumnIndexable`] implementation.
-    /// - `default_column` — the initially active column (see
-    ///   [`Worker::new_indexable`]).
-    /// - `items` — called with the worker's injector on each enable; push the
-    ///   overlay's items into it.
-    pub fn new<F, I, S>(
-        column_names: I,
-        default_column: Option<StringOrInt>,
-        items: F,
-        config: OverlayConfig,
-        results_config: ResultsConfig,
-        query_config: QueryConfig,
-    ) -> Self
-    where
-        F: FnMut(&WorkerInjector<L>) + Send + Sync + 'static,
-        I: IntoIterator<Item = S>,
-        S: Into<Arc<str>>,
-    {
-        Self {
-            query: QueryUI::new(query_config),
-            results: ResultsUI::new(results_config),
-            worker: None,
-            selector: Selector::new(),
-            items: Box::new(items),
-            column_names: column_names.into_iter().map(Into::into).collect(),
-            default_column,
-            area: Rect::default(),
-            config,
-            query_dirty: true,
-        }
-    }
-
-    /// The nucleo index and data of the item currently under the cursor, if any.
-    pub fn current_item(&self) -> Option<(u32, &L)> {
-        let worker = self.worker.as_ref()?;
-        worker.get_nth_indexed(self.results.index())
-    }
-
-    fn build_worker(&mut self) {
-        debug_assert!(self.worker.is_none());
-        let mut worker = Worker::new_indexable(
-            self.column_names.iter().cloned(),
-            self.default_column.clone(),
-        );
-        (self.items)(&worker.injector());
-        self.results.init(&mut worker);
-        self.worker = Some(worker);
-    }
-}
-
-impl<L, Act, T, D> Overlay<Act, T, D> for PickerOverlay<L>
-where
-    L: ColumnIndexable + SSS,
-    Act: ActionExt,
-    T: SSS,
-    D: 'static,
-{
-    fn on_enable(&mut self, _area: &Rect, _state: &mut MMState<'_, T, D>) {
-        if self.worker.is_none() {
-            self.build_worker();
-        }
-        self.query_dirty = true;
-        self.results.set_dirty();
-    }
-
-    fn on_disable(&mut self) {
-        // Stops the matcher thread; the worker is rebuilt on the next enable.
-        self.worker = None;
-    }
-
-    fn handle_input(&mut self, c: char, _state: &mut MMState<'_, T, D>) -> OverlayEffect {
-        self.query.push_char(c);
-        self.query_dirty = true;
-        self.results.set_dirty();
-        OverlayEffect::None
-    }
-
-    fn handle_action(
-        &mut self,
-        action: &Action<Act>,
-        _state: &mut MMState<'_, T, D>,
-    ) -> OverlayEffect {
-        match action {
-            Action::Up(n) => {
-                for _ in 0..*n {
-                    self.results.cursor_prev();
-                }
-            }
-            Action::Down(n) => {
-                for _ in 0..*n {
-                    self.results.cursor_next();
-                }
-            }
-            Action::Accept => {
-                // Access the current item: the index into the matched snapshot
-                // plus the item data. This is the placeholder accept path.
-                let Some((idx, item)) = self.current_item() else {
-                    return OverlayEffect::Disable;
-                };
-                todo!("accept {idx}: {}", item.get_str(0));
-            }
-            Action::Quit(_) => return OverlayEffect::Disable,
-
-            // Edit actions, mirrored from the main dispatch (render/mod.rs)
-            Action::SetQuery(context) => self.query.set(context.clone(), u16::MAX),
-            Action::InsertQuery(context) => self.query.insert_str(context),
-            Action::ForwardChar => self.query.forward_char(),
-            Action::BackwardChar => self.query.backward_char(),
-            Action::ForwardWord => self.query.forward_word(),
-            Action::BackwardWord => self.query.backward_word(),
-            Action::DeleteChar => self.query.delete(),
-            Action::DeleteWord => self.query.delete_word(),
-            Action::DeleteLineStart => self.query.delete_line_start(),
-            Action::DeleteLineEnd => self.query.delete_line_end(),
-            Action::ClearQuery => self.query.clear(),
-            _ => return OverlayEffect::None,
-        }
-        if matches!(
-            action,
-            Action::SetQuery(_)
-                | Action::InsertQuery(_)
-                | Action::DeleteChar
-                | Action::DeleteWord
-                | Action::DeleteLineStart
-                | Action::DeleteLineEnd
-                | Action::ClearQuery
-        ) {
-            self.query_dirty = true;
-            self.results.set_dirty();
-        }
-        OverlayEffect::None
-    }
-
-    fn draw(&mut self, frame: &mut Frame) {
-        let Some(worker) = self.worker.as_mut() else {
-            return;
-        };
-
-        // Same update pipeline as the main picker: find -> active column -> table.
-        if self.query_dirty {
-            worker.find(&self.query.input());
-            self.query_dirty = false;
-        }
-        let cursor_byte = self.query.byte_index(self.query.cursor() as usize);
-        self.results
-            .update_active_column(worker.query.active_column_index(cursor_byte));
-        self.results
-            .update_table(worker, &self.selector, &mut *crate::matcher::matcher());
-
-        if self.config.outer_dim {
-            dim_surroundings(frame, self.area);
-        }
-
-        frame.render_widget(Clear, self.area);
-        frame.render_widget(self.config.border.as_block(), self.area);
-
-        let inner = self.config.border.inner_of(self.area);
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Length(self.query.height()), Constraint::Fill(1)])
-            .split(inner);
-        let input = chunks[0];
-        let results = chunks[1];
-
-        // Query input (mirrors render::render_input)
-        let p = self.query.cursor_offset(&input);
-        if let CursorSetting::Default = self.query.config.cursor {
-            frame.set_cursor_position(p);
-        }
-        frame.render_widget(self.query.make_input(), input);
-
-        // Results (mirrors render::render_results)
-        let (table, width) = self.results.get_table();
-        let mut results_area = results;
-        if matches!(
-            self.results.config.row_connection,
-            RowConnectionStyle::Capped
-        ) {
-            results_area.width = results_area.width.min(width);
-        }
-        frame.render_widget(table, results_area);
-    }
-
-    fn area(&mut self, ui_area: &Rect, layout: &OverlayLayoutSettings) {
-        self.area = default_area([SizeHint::from(0), SizeHint::from(0)], layout, ui_area);
-
-        let inner = self.config.border.inner_of(self.area);
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Length(self.query.height()), Constraint::Fill(1)])
-            .split(inner);
-        let input = chunks[0];
-        let results = chunks[1];
-        self.query.update_width(input.width);
-
-        let old = (self.results.width(), self.results.height());
-        self.results.update_dimensions(results);
-        if (self.results.width(), self.results.height()) != old {
-            self.results.invalidate_widths();
         }
     }
 }

@@ -188,10 +188,10 @@ mod tests {
         let points: &AdaptivePercentage = &[(80, Percentage::new(100)), (120, Percentage::new(80))];
 
         assert_eq!(compute_adaptive_percentage(points, 100).inner(), 90);
-        assert_eq!(compute_adaptive_percentage(&points, 80).inner(), 100);
-        assert_eq!(compute_adaptive_percentage(&points, 60).inner(), 100);
-        assert_eq!(compute_adaptive_percentage(&points, 120).inner(), 80);
-        assert_eq!(compute_adaptive_percentage(&points, 125).inner(), 80);
+        assert_eq!(compute_adaptive_percentage(points, 80).inner(), 100);
+        assert_eq!(compute_adaptive_percentage(points, 60).inner(), 100);
+        assert_eq!(compute_adaptive_percentage(points, 120).inner(), 80);
+        assert_eq!(compute_adaptive_percentage(points, 125).inner(), 80);
         assert_eq!(compute_adaptive_percentage(&[], 100).inner(), 0);
     }
 

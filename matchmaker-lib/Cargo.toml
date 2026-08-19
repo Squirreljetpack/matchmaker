@@ -80,10 +80,6 @@ name = "pick_1"
 path = "examples/pick_1.rs"
 
 [[example]]
-name = "ripgrep"
-path = "examples/ripgrep.rs"
-
-[[example]]
 name = "overlay"
 path = "examples/overlay.rs"
 

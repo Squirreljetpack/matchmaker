@@ -164,11 +164,9 @@ impl ResultsUI {
 
             if idx > 0 {
                 idx -= 1;
-                if idx == 0 {
-                    if self.bottom_clip > 0 {
-                        _info!(self.bottom_clip);
-                        max_h = self.bottom_clip
-                    }
+                if idx == 0 && self.bottom_clip > 0 {
+                    _info!(self.bottom_clip);
+                    max_h = self.bottom_clip;
                 }
             } else if before_height < scroll_padding && self.bottom > 0 {
                 self.bottom -= 1;
@@ -337,23 +335,24 @@ impl ResultsUI {
         if self.changed[3] {
             applied = self.try_apply_max_widths_into_width_buffer();
         }
-        if let Some(applied) = applied {
-            if applied || {
-                _info!(self.changed[1]; self.preferred_widths.is_empty(); wrap_condition);
-                (self.changed[1] || self.preferred_widths.is_empty() || wrap_condition)
-                    && self.update_preferred_widths()
-            } {
-                _info!(
-                    "[update_preferred]";
-                    self.preferred_widths;
-                    self.width_limits;
-                    self.config.hidden_columns;
-                    self.changed[1];
-                    self.changed[3];
-                );
-                self.changed[2] = true;
-            };
-        };
+        if let Some(applied) = applied
+            && (applied
+                || {
+                    _info!(self.changed[1]; self.preferred_widths.is_empty(); wrap_condition);
+                    (self.changed[1] || self.preferred_widths.is_empty() || wrap_condition)
+                        && self.update_preferred_widths()
+                })
+        {
+            _info!(
+                "[update_preferred]";
+                self.preferred_widths;
+                self.width_limits;
+                self.config.hidden_columns;
+                self.changed[1];
+                self.changed[3];
+            );
+            self.changed[2] = true;
+        }
         self.changed[1] = false;
 
         if rows.is_empty() || self.needs_new_width_limits() {

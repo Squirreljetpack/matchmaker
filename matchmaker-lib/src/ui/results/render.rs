@@ -237,9 +237,8 @@ impl ResultsUI {
     ///
     /// ### Returns:
     /// - `Some(height)` if rows were successfully pushed (height is the total height added)
-    /// OR if width_limits is empty
+    ///   OR if width_limits is empty
     /// - `None` if the item couldn't be rendered
-    /// Render the n-th matched item.
     pub(super) fn get_row<T: SSS, D: 'static>(
         &mut self,
         idx: u32,

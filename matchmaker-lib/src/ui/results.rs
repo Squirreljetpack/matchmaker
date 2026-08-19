@@ -110,15 +110,9 @@ impl ResultsUI {
         self.config.hidden_columns.resize(worker.columns.len());
         self.column_name_widths = worker
             .columns
-            .into_iter()
+            .iter()
             .zip(self.config.hidden_columns.mask())
-            .filter_map(|(col, flag)| {
-                if !flag {
-                    Some(col.name.len() as u16)
-                } else {
-                    None
-                }
-            })
+            .filter_map(|(col, flag)| (!flag).then_some(col.name.len() as u16))
             .collect();
         self.status = new_snapshot(&mut worker.nucleo).1;
     }

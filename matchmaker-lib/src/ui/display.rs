@@ -256,9 +256,9 @@ impl DisplayUI {
                     .collect();
 
                 let mut row = Row::new(cells).height(row_h);
-                if is_content_row {
-                    row = row.style(self.config.style);
-                } else if matches!(self.config.row_connection, RowConnectionStyle::Disjoint) {
+                if is_content_row
+                    || matches!(self.config.row_connection, RowConnectionStyle::Disjoint)
+                {
                     row = row.style(self.config.style);
                 }
                 rows.push(row);
@@ -341,10 +341,7 @@ impl DisplayUI {
             remaining_y -= row_h;
         }
 
-        let Y = match target_row {
-            Some(r) => r,
-            None => return None,
-        };
+        let Y = target_row?;
 
         let setting = match self.config.interactions.get(Y) {
             Some(s) if !s.is_empty() => s,

@@ -1,0 +1,9 @@
+[start]
+command = 'mm --presets'
+# on_accept = 'mm -o {}'
+
+[binds]
+"@accept" = "Become(mm -o {})"
+
+[columns]
+max = 1

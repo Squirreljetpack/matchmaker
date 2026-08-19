@@ -17,6 +17,7 @@
 !unicode
 !zotero
 !ai
+!terminal
 
 # generated/downloaded
 *.html

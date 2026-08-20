@@ -1,0 +1,116 @@
+# Pick a zellij layout and apply it to the current tab -- or open it in a new tab.
+# Usage: mm -o terminal/zellij_layout   (run from inside a zellij session)
+#
+# Lists only single-tab layouts: user layouts from the config layout dir
+# (`zellij setup --check` shows it; ~/.config/zellij/layouts by default) plus
+# zellij's single-tab built-ins (default, strider, compact, classic), tagged
+# user/builtin. The `name` column is the only visible one; `source` (user or
+# builtin) and the user layout's full path are hidden columns.
+#
+# <enter>               apply the layout to the CURRENT tab:
+#                         zellij action override-layout <name> --apply-only-to-active-tab
+#                       --retain-existing-terminal-panes
+#                       (existing terminal panes that don't fit the layout are kept,
+#                       not closed) behind a y/N confirmation
+# alt-enter  (@accept_2)   open the layout in a NEW tab (non-destructive):
+#                         zellij action new-tab -l <name>
+# ctrl-y     (@copy)     copy the layout name
+# ctrl-d / Delete       harmless (a layout isn't a killable object)
+#
+# The preview shows the selected layout's KDL via `zellij setup --dump-layout <name>`
+# (a bare name resolves to the user layout dir first, then zellij's embedded
+# defaults -- the same resolution the accept command uses). Sized like the base
+# config's second preview layout (top, 55%); two stub layouts (`max = 0`) follow
+# it so the base config's own layouts stay disabled.
+
+[matcher]
+trim = true
+
+[start]
+command = "@zellij_list_layouts.sh"
+
+[envs]
+CATcmd = { value = 'command -v bat --wrap=never --color=always -pp >/dev/null 2>&1 && echo bat || echo cat', exec = true, force = true }
+
+[columns]
+split = "tsv"
+max = 3
+default = "name"
+names = [
+    { name = "name", options = "Optional" },
+    { name = "source", hidden = true },
+    { name = "path", hidden = true },
+]
+
+# --- Preview ---------------------------------------------------------------
+[preview]
+wrap = true
+show = false
+
+# Main (and only usable layout): the selected layout's KDL as zellij itself
+# resolves it from the bare name.
+[[preview.layout]]
+side = "top"
+percentage = 55
+min = 5
+max = 50
+border.type = "Plain"
+command = '''
+kdl=$(zellij setup --dump-layout '{name}' 2>/dev/null)
+printf '\033[1m%s\033[0m  [%s layout]\n' {name} {source}
+if [ -n "$kdl" ]; then
+    printf '%s\n' '----------------------------------------'
+   eval $CATcmd "'$kdl'"
+else
+    printf '(no KDL preview available)\n'
+fi
+'''
+
+# Stubs: disable the base config's preview layouts (`max = 0` disables a layout).
+[[preview.layout]]
+max = 0
+
+[[preview.layout]]
+max = 0
+
+# --- UI --------------------------------------------------------------------
+[header]
+content = "[layouts]"
+style.modifier = ""
+
+[query]
+prompt = "layout> "
+prompt_style.fg = "Cyan"
+
+[tui]
+percentage = 100
+
+# --- Binds -----------------------------------------------------------------
+[binds]
+# apply the layout to the current tab (keeping panes that don't fit the layout)
+"@accept" = [
+    "#apply",
+    '''BecomeOrConfirm(
+printf 'Apply layout "%s" to the current tab (keep existing panes)? [y/N] ' {name}
+read -r ans
+case "$ans" in
+    [yY]*)
+        zellij action override-layout '{name}' --apply-only-to-active-tab --retain-existing-terminal-panes
+        ;;
+    *) exit 100 ;;
+esac
+)''',
+]
+
+# open the layout in a new tab (non-destructive)
+"@accept_2" = [
+    "#new",
+    '''BecomeOrConfirm(
+printf 'Open layout "%s" in a new tab? [y/N] ' {name}
+read -r ans
+case "$ans" in
+    [yY]*) zellij action new-tab -l '{name}' ;;
+    *) exit 100 ;;
+esac
+)''',
+]

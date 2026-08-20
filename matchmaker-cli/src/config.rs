@@ -124,7 +124,7 @@ pub struct SortSetting {
 /// (client-app responsibility). Configures how input is fed to to the worker(s).
 /// Unfortunately, we cannot use deny_unknown_fields if we want to flatten PreprocessConfig
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct StartConfig {
     #[serde(deserialize_with = "escaped_opt_char")]

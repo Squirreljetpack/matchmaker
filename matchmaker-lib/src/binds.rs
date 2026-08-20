@@ -114,6 +114,20 @@ impl<A: ActionExt> BindMap<A> {
         self
     }
 
+    /// Drop every bound action for which `keep` returns `false`. The predicate
+    /// receives each `Action` (custom and default variants alike), so callers
+    /// can prune builtin actions as well as custom ones. A bind left with no
+    /// surviving actions is removed.
+    pub fn filter_action<F>(&mut self, mut keep: F)
+    where
+        F: FnMut(&Action<A>) -> bool,
+    {
+        self.retain(|_, actions| {
+            actions.0.retain(|a| keep(a));
+            !actions.0.is_empty()
+        });
+    }
+
     pub fn extend_from(&mut self, mut others: Self) {
         others.extend(std::mem::take(self));
         *self = others;

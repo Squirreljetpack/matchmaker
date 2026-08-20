@@ -1,78 +1,180 @@
-# Attach to (or resurrect) a zellij session
-# Usage: mm -o multiplexer/zellij_session
+# Switch between zellij sessions, down to the pane.
+# Usage: mm -o terminal/zellij_session   (run from inside a zellij session)
 #
-# Parses `zellij list-sessions` keeping its ANSI colors (matcher.ansi = true):
-# matchmaker renders them in the results list, while matching, columns and
-# templates operate on the plain text underneath.
+# Three list modes, cycled with ctrl-r / ctrl-shift-r (or alt-tab):
+#   session   every session, active and otherwise (the initial start)
+#   current   every pane of the current session except the one we're in
+#   other     every pane of sessions other than the current one
 #
-# Row columns: name | age | status (EXITED, or empty when the session is running)
-# Preview 1 (top): session metadata - status, base cwd, tabs, layout location
-# Preview 2 (right): the saved session layout from
-#   ~/.cache/zellij/<version>/session_info/<name>/session-layout.kdl
-#   displayed through $CATcmd (bat when available, else cat)
+# The single preview layout (`preview.show = false` hides it initially; toggle
+# with `?`): sessions show the selected session's cached layout KDL
+#   (~/.cache/zellij/<version>/session_info/<name>/session-layout.kdl)
+# since a whole session can't be screen-dumped; panes show the selected pane's
+# live screen via `zellij -s {=session} action dump-screen --pane-id {=pane}`.
+# Sized like the base config's second preview layout (top, 55%). Two stub
+# layouts (`max = 0`) follow it so the base config's own layouts stay disabled.
 
 [matcher]
-ansi = true
 trim = true
-sort.threshold = 20
-sort.reverse = true
 
 [start]
-command = "zellij list-sessions --no-formatting"
+command = "@zellij_list_sessions.sh session"
+additional_commands = [
+    "",
+    "@zellij_list_sessions.sh current",
+    "@zellij_list_sessions.sh other",
+]
+[exit]
+abort_empty = false
 
 [envs]
-CATcmd = { value = 'command -v bat >/dev/null 2>&1 && echo bat || echo cat', exec = true, force = true }
+CATcmd = { value = 'command -v bat --wrap=never --color=always -pp >/dev/null 2>&1 && echo bat || echo cat', exec = true, force = true }
 
 [columns]
-split = '^(?P<name>.*?) \[Created (?P<age>.*?) ago\](?: \((?P<status>[^)]*)\))?$'
-max = 3
-default = "name"
-names = ["name", "age", "status"]
+split = "tsv"
+max = 5
+default = "session"
+names = [
+    { name = "age", options = "Optional | OrUseDefault" },
+    { name = "session", options = "Optional" },
+    { name = "pane", hidden = true },
+    { name = "tab", hidden = true },
+    { name = "title", options = "Optional | OrUseDefault" },
+]
 
-# --- Preview: session metadata ---
+# --- Preview ---------------------------------------------------------------
 [preview]
-wrap = true
+wrap = false
+show = false
 
+# Main (and only usable layout): the session's cached layout (sessions mode),
+# or the pane's live screen. "{x}" shells out single-quoted, so assign to a
+# variable first when the value needs to go inside a quoted path.
 [[preview.layout]]
-command = '''
-cache="${XDG_CACHE_HOME:-$HOME/.cache}/zellij"
-kdl="$cache/contract_version_1/session_info/{=name}/session-metadata.kdl"
-eval $CATcmd "'$kdl'"
-'''
-
-[[preview.layout]]
-command = '''
-cache="${XDG_CACHE_HOME:-$HOME/.cache}/zellij"
-kdl="$cache/contract_version_1/session_info/{=name}/session-layout.kdl"
-eval $CATcmd "'$kdl'"
-'''
-side = "right"
-percentage = 45
-min = 30
-max = 120
+side = "top"
+percentage = 55
+min = 5
+max = 50
 border.type = "Plain"
-border.padding = [2, 0]
+command = '''
+case $MM_INDEX in
+0)
+    sess={session}
+    cache="${XDG_CACHE_HOME:-$HOME/.cache}/zellij"
+    kdl=""
+    for dir in "$cache"/*/; do
+        [ -f "$dir/session_info/$sess/session-layout.kdl" ] &&
+            { kdl="$dir/session_info/$sess/session-layout.kdl"; break; }
+    done
+    if [ -n "$kdl" ]; then
+        printf '\033[1m%s\033[0m  [%s]  created %s ago\n' "$sess" {title} {age}
+        printf '%s\n' '----------------------------------------'
+        eval $CATcmd "'$kdl'"
+    else
+        echo "(no saved layout for $sess -- 'zellij action save-session' writes one)"
+    fi
+    ;;
+*)
+    zellij -s {session} action dump-screen --pane-id {pane} 2>/dev/null || true
+    ;;
+esac
+'''
 
-# --- UI ---
+# Stubs: disable the base config's preview layouts (`max = 0` disables a layout).
+[[preview.layout]]
+max = 0
+
+[[preview.layout]]
+max = 0
+
+# --- UI --------------------------------------------------------------------
 [header]
-content = ["name", "age", "status"]
+content = "[sessions]"
+style.modifier = ""
 
 [query]
-prompt = "sessions> "
+prompt = "session> "
 prompt_style.fg = "Cyan"
 
 [tui]
 percentage = 100
 
+# --- Binds -----------------------------------------------------------------
 [binds]
-"@accept" = "Become(zellij attach {1})"
-"@accept_2" = ["#print name", "Become(printf '%s\\n' {name})"]
-"@copy" = "CopyAsync(printf '%s\\n' {name})"
-"@kill" = ["#kill session", '''ExecuteOrConfirm(
-        printf "Kill session %s? [y/N] " {name}
-        read -r ans
-        case "$ans" in
-            [yY]*) zellij kill-session {name} ;;
-            *) exit 0 ;;
+# cycle the three list modes
+"@reload" = "ReloadNext"
+"@reload_2" = "ReloadPrev"
+
+"@accept" = '''Become(
+case $MM_INDEX in
+0)
+    if [ -n "$ZELLIJ" ] || [ -n "$ZELLIJ_SESSION_NAME" ]; then
+        case {title} in
+            EXITED)
+                exec zellij attach {session}
+                ;;
+            *)
+                exec zellij action switch-session {session}
+                ;;
         esac
-    )''', "Reload"]
+    else
+        exec zellij attach {session}
+    fi
+    ;;
+1)
+    zellij -s {session} action focus-pane-id {pane}
+    ;;
+2)
+    zellij action switch-session --pane-id {pane} {session}
+    ;;
+esac
+)'''
+
+"@print" = [
+    "#print",
+    '''Become(
+case $MM_INDEX in
+0) printf '%s\n' {session} ;;
+*) printf '%s\t%s\n' {session} {pane} ;;
+esac
+)''',
+]
+
+"@copy" = '''CopyAsync(
+case $MM_INDEX in
+0) printf '%s\n' {session} ;;
+*) printf '%s:%s\n' {session} {pane} ;;
+esac
+)'''
+
+"@rm" = [
+    "#kill",
+    '''ExecuteOrConfirm(
+case $MM_INDEX in
+0)
+    printf "Kill session %s? [y/N] " {session}
+    read -r ans
+    case "$ans" in
+        [yY]*) zellij kill-session {session} ;;
+        *) exit 0 ;;
+    esac
+    ;;
+*)
+    printf "Close pane %s in %s? [y/N] " {pane} {session}
+    read -r ans
+    case "$ans" in
+        [yY]*) zellij -s {session} action close-pane --pane-id {pane} ;;
+        *) exit 0 ;;
+    esac
+    ;;
+esac
+)''',
+    "Reload",
+]
+
+# per-mode header label
+"Reloaded" = '''Transform(
+    HEADERS=( '[sessions]' '[current]' '[other]' )
+    setopt KSH_ARRAYS 2>/dev/null
+    echo "SetHeader(${HEADERS[$MM_INDEX]})"
+)'''

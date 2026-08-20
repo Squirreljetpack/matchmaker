@@ -3,9 +3,9 @@
 Matchmaker supports multiple execution strategies for running commands, generating input rows, copying text, transforming state, and executing actions.
 
 > [!IMPORTANT]
-> 
+>
 > Despite the breadth of the following section is, for the most part it only exists due to the need for matchmaker to act consistently with respect to lua support.
-> You can almost always just use simple inline scripts (the _shell command_ strategy), for which you should consult the [template docs](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md) instead.
+> You can almost always just use simple inline scripts (the *shell command* strategy), for which you should consult the [template docs](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md) instead.
 
 ---
 
@@ -13,15 +13,18 @@ Matchmaker supports multiple execution strategies for running commands, generati
 
 Every command string (except preview layout commands) is classified into one of four execution strategies based on its prefix:
 
-| Prefix / Shape        | Strategy            | Description                                                                                                                             |
-| :-------------------- | :------------------ | :-------------------------------------------------------------------------------------------------------------------------------------- |
-| `command ...`         | **Shell Command**   | Run via the configured shell (`start.shell` or `$SHELL -c`). Supports `{}` [template expansions](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md).                          |
-| `@path [args...]`     | **Direct File**     | Directly invokes executable at `path` with `args`, bypassing shell interpretation. Relative paths resolve against the preset directory. |
-| `#!lua ...`           | **Inline Lua**      | Runs inline Lua script on the internal Lua runtime with access to global `state` and `env` tables.                                      |
-| `@file.lua [args...]` | **Lua Script File** | Runs `file.lua` on the internal Lua runtime, passing `args` as varargs (`...`). Relative paths resolve against the preset directory.    |
+| Prefix / Shape        | Strategy            | Description                                                                                                                                                                                       |
+| :-------------------- | :------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `command ...`         | **Shell Command**   | Run via the configured shell (`start.shell` or `$SHELL -c`). Supports `{}` [template expansions](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md). |
+| `@path [args...]`     | **Direct File**     | Directly invokes executable at `path` with `args`, bypassing shell interpretation. Relative paths resolve against the preset's directory.                                                         |
+| `#!lua ...`           | **Inline Lua**      | Runs inline Lua script on the internal Lua runtime with access to global `state` and `env` tables.                                                                                                |
+| `@file.lua [args...]` | **Lua Script File** | Runs `file.lua` on the internal Lua runtime, passing `args` as varargs (`...`). Relative paths resolve against the preset directory.                                                              |
 
 > [!NOTE]
 > Lua strategies require the `mlua` cargo feature (enabled by default). When disabled, `#!lua` falls back to Shell, and `@*.lua` falls back to Direct File.
+
+> [!NOTE]
+> Relative files resolve against the parent directory of `MM_OVERRIDE`. This is exactly the path of the first override passed with `-o`!
 
 ---
 
@@ -174,10 +177,3 @@ When executing commands synchronously within the TUI, Matchmaker applies distinc
 > [!NOTE]
 > Custom helper scripts invoked via `BecomeOrConfirm` can exit with code `100` to instruct Matchmaker to resume the interactive picker without relying on user interrupts.
 
----
-
-## Cross References
-
-- **[Template Syntax & Modifiers](template.md)**: Placeholder syntax (`{}`, `{col}`, `{+}`), range expressions, status/prompt styling, and the full table of `MM_*` environment variables.
-- **[Keybindings & Actions](binds.md)**: Complete list of bind actions, triggers, and configuration options.
-- **[CLI Options & Debugging](other.md)**: `--list` testing workflows, query operators, and column configurations.

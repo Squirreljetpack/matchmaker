@@ -56,7 +56,7 @@ command = '''
     label={label}; eval "$RESOLVE_TARGET"
 
     if command -v bat >/dev/null 2>&1; then
-        launchctl print "$target" | bat --color=always --paging never -l toml
+        launchctl print "$target" | bat --wrap=never --color=always -pp -l toml
     else
         launchctl print "$target"
     fi

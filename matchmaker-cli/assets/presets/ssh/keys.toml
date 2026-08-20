@@ -12,7 +12,7 @@ show = true
 
 [[preview.layout]]
 command = '''
-bat --color=always -pp {1}
+bat --wrap=never --color=always -pp {1}
 echo
 ssh-keygen -lf {1} -E sha256
 '''

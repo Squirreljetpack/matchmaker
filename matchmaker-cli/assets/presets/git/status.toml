@@ -54,7 +54,7 @@ always_trigger = false
 command = '''
 git diff --color=always --exit-code -- {1} && if [ -e {1} ]; then $PAGER {1}; else git show HEAD:{1}; fi
 '''
-border = { type = "LightDoubleDashed", color = "DarkGray" }
+border = { type = "LightDoubleDashed", color = "DarkGray", title = "Unstaged Diff" }
 side = "top"
 percentage = 50
 min = 5
@@ -64,7 +64,7 @@ padding = 0
 command = '''
 git diff --cached --color=always --exit-code -- {1} && echo "no staged changes"
 '''
-border = { type = "LightDoubleDashed", color = "DarkGray" }
+border = { type = "LightDoubleDashed", color = "DarkGray", title = "Staged Diff" }
 side = "top"
 percentage = 50
 min = 5
@@ -75,6 +75,7 @@ padding = 0
 command = '''
 git -c  color.ui=always log --ext-diff -D -p -- {1}
 '''
+border = { title = "File History" }
 
 # --- Binds ---
 [binds]

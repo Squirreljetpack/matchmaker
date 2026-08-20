@@ -29,14 +29,17 @@ names: {{.Names}}
 "
 
 '''
+border = { title = "Containers" }
 
 [[preview.layout]]
 # History
 command = "$DOCKERcmd image history {id}"
+border = { title = "Image History" }
 
 [[preview.layout]]
 # Inspect
 command = "$DOCKERcmd image inspect {id} | PG_LANG=json $PAGER"
+border = { title = "Image Inspect" }
 
 [binds]
 # Navigation

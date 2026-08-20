@@ -5,27 +5,26 @@ command = "ls *.pub 2>/dev/null"
 
 [start]
 directory = "~/.ssh"
-
+on_accept = "realpath {}"
 # --- Preview ---
 [preview]
 show = true
 
 [[preview.layout]]
 command = '''
-bat --color=always -pp {1}
+bat --wrap=never --color=always -pp {1}
 echo
 ssh-keygen -lf {1} -E sha256
 '''
+border = { title = "Key Fingerprint" }
 
 # --- UI ---
 [query]
 prompt = "keys> "
 
 [binds]
-"ctrl-b" = ["@bind_to_host", "Reload"]
-
-"@accept" = ["#copy", "Become(cat {} | tee >(eval $CLIPcmd) 2>/dev/null)"]
-"@accept_2" = ["#copy path", "@copy", "Accept"]
+"@accept" = ["#copy", "Copy(cat {})", "Accept"]
+"@accept_2" = ["#copy path", "Copy(realpath {})", "Accept"]
 "@open_2" = '''Execute(priv={}; priv="${priv%%.pub}"; [[ -f $priv ]] && $EDITOR "$priv")'''
 "@next" = "BecomeSilent(mm -o ssh/known)"
 "@prev" = "BecomeSilent(mm -o ssh/hosts)"
@@ -51,113 +50,3 @@ esac
 )''',
     "Reload",
 ]
-
-# --- Scripts ---
-"@bind_to_host" = '''
-ExecuteOrConfirm(
-    mkdir -p ~/.ssh
-    chmod 700 ~/.ssh || { echo "Error: Could not set permissions for ~/.ssh. Please do it manually."; exit 1; }
-    cd ~/.ssh || exit 1
-
-    add_ssh_config() {
-        local key_file="$1"
-        local remote_target=""
-        local target_user=""
-        local target_hostname=""
-        local config_host_alias=""
-        local config_block=""
-
-        if [ -z "$key_file" ]; then
-            echo "Usage: add_ssh_config <path_to_private_key>"
-            return 1
-        fi
-
-        if [ ! -f "$key_file" ]; then
-            echo "Error: Key file '$key_file' not found."
-            return 1
-        fi
-
-        printf "Enter remote URL/target (e.g., user@host.com or host.com), or leave empty to exit: "
-        read -r remote_target
-
-        if [ -z "$remote_target" ]; then
-            exit 1
-        fi
-
-        if echo "$remote_target" | grep -q '@'; then
-            target_user=$(echo "$remote_target" | cut -d'@' -f1)
-            target_hostname=$(echo "$remote_target" | cut -d'@' -f2)
-        else
-            target_user=""
-            target_hostname="$remote_target"
-        fi
-
-        config_host_alias="$target_hostname"
-
-        config_block="\n"
-        config_block="${config_block}Host ${config_host_alias}\n"
-        config_block="${config_block}    HostName ${target_hostname}\n"
-        if [ -n "$target_user" ]; then
-            config_block="${config_block}    User ${target_user}\n"
-        fi
-        config_block="${config_block}    IdentityFile ${key_file}\n"
-        config_block="${config_block}    IdentitiesOnly yes\n"
-        config_block="${config_block}    AddKeysToAgent yes\n"
-
-        touch ~/.ssh/config
-        chmod 600 ~/.ssh/config || { echo "Error: Could not set permissions for ~/.ssh/config."; return 1; }
-
-        echo -e "$config_block" >> ~/.ssh/config
-        echo "Added block to ~/.ssh/config for host '$config_host_alias'."
-    }
-
-    create_key() {
-        printf "Key name: "
-        read -r name
-        if [ -z "$name" ]; then
-            echo "Usage: name required"
-            exit 1
-        fi
-
-        # Dynamically grab the system default (username@hostname) for the prompt
-        default_email="$(id -un)@$(hostname)"
-
-        printf "Enter email (optional) [%s]: " "$default_email"
-        read -r email
-
-        keyfile=~/.ssh/${name}_ed25519
-
-        if [ -z "$email" ]; then
-            ssh-keygen -t ed25519 -f "$keyfile"
-        else
-            ssh-keygen -t ed25519 -C "$email" -f "$keyfile"
-        fi
-    }
-
-    echo "Register {1}? [(Y)es/(n)ew] "
-    read -r choice
-    keyfile={1}
-    case "$choice" in
-        [Yy]*|"")
-            ;;
-        [Nn]*)
-            create_key
-            ;;
-        *)
-            echo "Invalid option"
-            exit 1
-            ;;
-    esac
-
-    if [ ! -f "${keyfile}.pub" ]; then
-        echo "Error: public key not found for $keyfile"
-        exit 1
-    fi
-
-    $CLIPcmd < "${keyfile}.pub"
-    ssh-add "$keyfile"
-    echo "$keyfile copied to clipboard and added to agent." >&2
-
-    add_ssh_config "$keyfile"
-)
-'''

@@ -103,15 +103,17 @@ jq -rs '
 command = '''
 "$(dirname -- "$MM_OVERRIDE")"/session_stats.py --price -- {+file} 2>&1
 '''
+border = { title = "Usage Stats" }
 
 [[preview.layout]]
 command = '''
 if command -v bat >/dev/null 2>&1; then
-    bat --wrap=never --color=always --style=snip,changes,rule -- "$PWD"/{file}
+    bat --wrap=never --color=always -pp -- "$PWD"/{file}
 else
     cat -- "$PWD"/{file}
 fi
 '''
+border = { title = "Raw Session" }
 
 # --- Binds ---
 [binds]

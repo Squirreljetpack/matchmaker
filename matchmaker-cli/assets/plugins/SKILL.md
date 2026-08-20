@@ -16,10 +16,11 @@ Before inventing configuration keys, consult the version of Matchmaker being use
 mm --doc options
 mm --doc binds
 mm --doc template
-mm --dump-config
+# dump configuration
+mm -o <preset_path> --dump-config | cat
 ```
 
-If the request is ambiguous, clarify the input source, accepted output, target platforms, and whether the preset may modify files or execute destructive commands before writing it. You may be able to list existing presets on the user's system with `mm --presets`.
+If the request is ambiguous, clarify the input source, accepted output, target platforms, and whether the preset may modify files or execute destructive commands before writing it. You may be able to list existing presets on the user's system with `mm --presets` and use them as examples.
 
 ## Preset model
 
@@ -39,14 +40,23 @@ Use section comments to separate the input, UI, preview, and action portions. Ke
 - Use `start.input_separator` when input items are separated by something other than newlines.
 - Use `[envs]` for stable values shared by commands. An environment entry can also be command-backed with `value = ...`, `exec = true`, and `force = true` when deriving the value or requiring it to exist is intentional.
 - Use `columns.split` (`'\t'`, `csv`, `tsv`, or a regex) when rows contain multiple fields. Give important fields names with `columns.names`; names must be alphanumeric.
+- Put file paths in column 1 (a hidden column is fine): default binds such as `@open` act on `{1}`, so rows carry their editable/openable file there even when it is not displayed. Name that column `file`; the Lua-flavored default configs make `@open` prefer a nonempty `file` column over `{1}`.
+- Column order is load-bearing: reordering fields means updating `[header].content` entries, `columns.default`, positional templates (`{2}`, ...), and field order plus dedup/sort keys in any producing script.
 - Set `matcher.trim`, `matcher.ansi`, and `start.skip_invalid_lines` deliberately rather than relying on defaults.
 - Choose an explicit `start.output_template`, `start.output_separator`, or `start.on_accept` when the accepted value should differ from the displayed row.
 - `start.command` and values in `[envs]` are **not** template-expanded. Templates belong in preview commands, bind actions, and output/accept hooks.
 - Treat a preset's input command as a public interface. Quote paths, handle empty output, and return a useful non-zero status when the source cannot be read.
 
+### Column-aligned headers
+
+- `[header].content` accepts a list with one entry per column; entries align over their columns, so include **all columns, not just visible ones**. Hidden columns' entries are never displayed but still occupy their position.
+- Use `header.header_lines = N` instead when the input command already emits its own header rows; those lines are consumed from input and never enter matching/selection.
+- A picker whose input is only header lines still counts as empty.
+
 ### Inheritance and overrides
 
-`source` can inherit from another preset. Override only the fields that are intentionally different. Collections such as `preview.layout` are merged by position and then appended; binds override existing keys. Test an inherited preset with the same commands as a standalone preset so defaults do not hide a missing field.
+`source` can inherit from another preset. A common pattern for several related presets stored in the same folder (i.e. `git`) is to define a `base.toml` (in `git/`), and add `source = 'base.toml'` to each of the concrete presets (`git/restore.toml`).
+Override only the fields that are intentionally different. Collections such as `preview.layout` are merged by position and then appended; binds override existing keys. 
 
 ## Templates
 
@@ -91,51 +101,67 @@ Note that `[preview]` and `[previewer]` are different sections. Consult `mm --do
 
 ## Binds and actions
 
-Use semantic aliases for workflows that have more than one trigger:
+Using semantic aliases for workflows creates self-documenting binds:
 
 ```toml
 [binds]
-"ctrl-r" = "@reload-source"
+"ctrl-r" = "@reload-source" # help shows: ctrl-r = @reload-source
 "@reload-source" = ["Reload", "Cancel"]
 "?" = "SwitchPreview"
 ```
 
+The other way of describing a bind is using traces. A token beginning with `#` parses as a description-only trace action (`#description`) that contributes no behavior; in help and debug output it is displayed in place of the raw actions that follow it:
+
+```toml
+[binds]
+"@rm" = ["#kill", "ExecuteOrConfirm(…)", "Reload"]
+```
+
+Help output for `@rm` then reads as `kill` instead of the full shell payload, keeping long commands readable while documenting intent beside their definition. Both semantic aliases and traces create runtime documentation; packaging a long action into a semantic aliases allows for reuse across multiple actions, and can help keep the 'bind customization' section of the config cleaner for users who want to adjust it, but traces are more explicitly designed for describing sets of actions.
+
 Guidelines:
 
 - Prefer an action array for ordered operations such as `['ExecuteAsync(...)', 'Reload']`.
-- Use `Execute` for a command that should return to Matchmaker, `Become` when the external program should replace Matchmaker, and `ExecuteOrConfirm` when a failure needs user confirmation.
-- Use `ExecuteSilent`/`ExecuteAsync` only when detached or asynchronous behavior is intentional.
+- Use `Execute` for a command that should return to Matchmaker, `Become` when the external program should replace Matchmaker, and `ExecuteOrConfirm` when a failure should be surfaced to the user.
+- Use `ExecuteSilent`/`ExecuteAsync` when detached or asynchronous behavior is intentional.
 - Make destructive operations opt-in and obvious. Confirm the exact selected paths before using `rm`, overwriting files, or changing persistent configuration.
 - Keep aliases composable. A key should trigger an alias when the same workflow may later be attached to another key, event, or interaction region.
-- Use `mm --test-keys` instead of guessing terminal key names.
-
-When a bind needs all selected rows, use `{+}`/`{+column}`. There is no environment variable containing the selection list; `MM_SELECT_COUNT` only provides the count. A common Python pattern is:
-
-```python
-import shlex
-names = shlex.split(r"""{+1}""")
-```
-
-If a bind uses a second selected column for state, parse both lists and reject a mixed-state selection before changing anything. Preserve the original file's line endings, blank lines, and trailing newline when performing a targeted rewrite.
+- Reuse the default config's semantic aliases (`@accept`, `@open`, `@rm`, `@copy`, `@next`, ...) instead of redefining standard workflows; define a bind only when behavior differs from the default.
+- If you can send key inputs, `mm --test-keys` will output the name of actual key events.
 
 ## Scripts next to a preset
 
-For non-trivial logic, prefer a small script beside the preset over a giant inline command. Resolve sibling files from `MM_OVERRIDE`, not from the process working directory:
+For non-trivial logic, prefer a small script beside the preset over a giant inline command. A payload whose first word starts with `@` references a sibling file; relative paths resolve against the preset's directory (the parent of `MM_OVERRIDE`):
 
-```python
-import os
-import subprocess
-import sys
-from pathlib import Path
+```toml
+[start]
+command = "@./zellij.sh sessions"
 
-preset = Path(os.environ["MM_OVERRIDE"])
-script = preset.with_name("helper.py")
-subprocess.run([sys.executable, str(script), "arg"], check=False)
+[binds]
+"@open" = "Execute(@open_item.sh {file})"
 ```
+
+Choose the reference form deliberately:
+
+- `@script args` runs the file with the configured shell (`start.shell` or `$SHELL`); write it in that shell's dialect.
+- `@./script args` executes the file itself: the kernel honors its shebang and the file must be executable (`chmod +x`). Use this for interpreter-specific syntax or non-shell interpreters.
+- `@script.lua args` runs on Matchmaker's internal Lua runtime (a fresh VM per run) with access to the `state`/`env` tables.
+
+To call a helper from inside a larger inline payload (rather than as the whole payload), resolve it from `MM_OVERRIDE`:
+
+```sh
+"$(dirname -- "$MM_OVERRIDE")"/helper.sh has-current-panes
+```
+
+Group related helpers into one script with subcommands, and document each subcommand's output shape in its header comment so preset files stay declarative. Keep helpers testable standalone: every subcommand should run correctly when invoked directly from a terminal.
 
 Use the standard library when portability matters. Send data rows only to stdout; send progress, warnings, and diagnostics to stderr. Use atomic same-directory temporary files plus `os.replace`/`Path.replace` for updates so a failed write does not leave a truncated settings file. Validate JSON/TOML-derived input before replacing a user's configuration.
 
 `MM_OVERRIDE` identifies the first applied override and is the reliable anchor for preset-local helpers. It may not be set when a helper is run directly, so provide a deliberate fallback or fail with an actionable message.
+
+### Multi-preset rings
+
+Related pickers can form a ring: each preset binds `@next` / `@prev` to `BecomeSilent(mm -o <sibling>)`, letting users cycle between workflows with one key pair. Guard edges that may have nothing to show with a probe subcommand in the shared script (exit 0 iff the target would list rows) and fall through to the next ring member otherwise. See `terminal/zellij_*.toml` for a four-preset example sharing a single `zellij.sh`.
 
 ## Patterns in shipped presets
 
@@ -146,6 +172,7 @@ Use the repository's presets as style references instead of treating one workflo
 - `docker/containers.toml` shows sibling helper scripts, command-backed environment values, named columns, and previews that reuse a dispatcher.
 - `csv.toml` shows the smallest useful preset: discover input, select a parser, set a header, and preview the active field.
 - `ai/pi_sessions.toml` shows a larger multi-column browser with generated metadata, several preview layouts, and helper programs resolved relative to `MM_OVERRIDE`.
+- `terminal/zellij_*.toml` shows a four-preset ring (`@next`/`@prev` navigation with skip-empty probes) sharing one subcommand-driven helper script referenced via `@./`.
 
 Copy the pattern, not the incidental command names. Keep the preset's assumptions explicit and avoid adding UI or abstraction that the workflow does not need.
 
@@ -186,4 +213,6 @@ Use a temporary `HOME`, settings directory, and input file for tests that mutate
 - **The helper cannot be found:** use `MM_OVERRIDE` and `Path.with_name`, not `$PWD` or an assumed install directory.
 - **An update destroys a file:** validate the complete new content and write atomically in the target file's directory.
 - **A command works on Linux but not macOS:** it depends on GNU utilities, Bash-only syntax, or a non-portable `stat`/`sed`/`grep` flag.
+- **A script works from the terminal but fails under mm:** it was written for one interpreter while the payload runs it under another (the configured shell); reference it as `@./script` so its shebang selects the interpreter.
+- **A bind shows raw shell in help output:** give the action array a leading `#description` trace.
 - **A command works only in one environment:** document its required tools, shell, variables, working directory, and config files, or provide a fallback.

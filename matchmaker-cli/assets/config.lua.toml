@@ -13,9 +13,11 @@ prompt_style.fg = "Gray"
 prompt_style.modifier = "ITALIC"
 # word movement stops at these characters in addition to whitespace
 # word_boundaries = ['.', '/']
+reset_cursor_on_query_change = true
 
 [results]
 # wrap = true
+# uniformly_truncate_columns = false
 max_height = 16
 
 [status]
@@ -29,22 +31,24 @@ template = '\m/\t'
 wrap = true
 scroll_wrap = true
 
+[preview.border]
+title_style.modifier = "UNDERLINED"
+
 [[preview.layout]]
 command = '''
-$p = {1}
-if (Test-Path -LiteralPath $p -PathType Container) {
-    if (Get-Command eza -ErrorAction SilentlyContinue) {
-        eza --color=always -T -L 2 $p
-    } else {
-        Get-ChildItem -LiteralPath $p | Select-Object -First 20 | ForEach-Object { "  $($_.Name)" }
-    }
-} else {
-    if (Get-Command bat -ErrorAction SilentlyContinue) {
-        bat --binary no-printing --color=always --style=-numbers $p
-    } else {
-        Get-Content -LiteralPath $p -Raw
-    }
-}
+if [ -d {1} ]; then
+    if command -v eza >/dev/null 2>&1; then
+        eza --color=always -T -L 2 -- {1}
+    else
+        find {1} -maxdepth 2 | sed 's|[^/]*/|  |g'
+    fi
+else
+    if command -v bat >/dev/null 2>&1; then
+        bat --binary no-printing --color=always --style=-numbers -- {1}
+    else
+        cat -- {1}
+    fi
+fi
 '''
 
 side = "right"
@@ -76,18 +80,18 @@ always_trigger = true
 # --- Misc ---
 [matcher]
 # ansi = false # don't set to true here
-sort.threshold = 1 # maintain initial ordering
+# sort.threshold = 1 # set to maintain initial ordering
 
 [columns]
 
 [start.command]
 command = '''
-if (Get-Command fd -ErrorAction SilentlyContinue) {
-    fd --strip-cwd-prefix --print0
-} else {
-    Get-ChildItem -Recurse -File | ForEach-Object FullName
-}
-'''
+    if command -v fd >/dev/null 2>&1; then
+        fd --strip-cwd-prefix --print0
+    else
+        find . -print0
+    fi
+    '''
 separator = "\\0"
 
 [start]
@@ -150,13 +154,6 @@ abort_empty = true
 # "alt-}" = "TogglePreviewWrap",
 "ctrl-[" = ["ToggleWrap", "ToggleHeaderWrap"] # requires keyboard enhancement
 
-"alt-s" = "Sort"
-"alt-n" = "SortNumeric"
-"alt-r" = "SortReverse"
-
-"alt-=" = "ExpandColumn"
-"alt-hyphen" = "ShrinkColumn"
-
 # Columns
 "ctrl-." = "NextColumn" # requires keyboard enhancement
 "ctrl-shift-." = "PrevColumn" # requires keyboard enhancement
@@ -164,6 +161,13 @@ abort_empty = true
 "alt-shift-." = "PrevColumn"
 "alt-\\" = "HideColumn"
 "alt-shift-\\" = "UnhideColumn"
+
+"alt-s" = "Sort"
+"alt-n" = "SortNumeric"
+"alt-r" = "SortReverse"
+
+"alt-=" = "ExpandColumn"
+"alt-hyphen" = "ShrinkColumn"
 
 # Preview
 "ctrl-j" = "PreviewJump"
@@ -200,8 +204,8 @@ abort_empty = true
 "alt-o" = "@open_2"
 "ctrl-r" = "@reload"
 "ctrl-shift-r" = "@reload_2"
-"ctrl-shift-n" = "@next"
-"ctrl-shift-p" = "@prev"
+"ctrl-shift-n" = "@next" # requires keyboard enhancement
+"ctrl-shift-p" = "@prev" # requires keyboard enhancement
 "alt-tab" = "@next"
 "alt-shift-backtab" = "@prev"
 "alt-shift-tab" = "@prev"
@@ -211,8 +215,17 @@ abort_empty = true
 
 "@accept" = "Accept"
 "@accept_2" = "Accept"
-"@open" = "ExecuteOrConfirm(powershell -Command \"& $env:EDITOR {1}\")"
-"@open_2" = "Become(powershell -Command \"& $env:EDITOR {1}\")"
+"@open" = '''ExecuteOrConfirm(#!lua
+local c = state.current or {}
+local p = c.file
+if not p or p == "" then
+    p = c[1]
+    local f = io.open(p or "", "r")
+    if not f then os.exit(1) end
+    f:close()
+end
+os.execute(string.format("%q -- %q", os.getenv("EDITOR") or "vi", p))'''
+"@open_2" = "Become($EDITOR -- {1})"
 "@reload" = "Reload"
 # "@next" = ["ReloadNext", "Cancel"] # see mm --doc binds
 # "@prev" = ["ReloadPrev", "Cancel"]
@@ -229,6 +242,10 @@ abort_empty = true
 
 "@print" = "Print({-})"
 "@print_2" = "Print({-!})"
-"@copy" = "CopyAsync(Write-Output {+0})"
-"@copy_all" = "CopyAsync(Write-Output {})"
-"@copy_active" = "CopyAsync(Write-Output {+!})"
+"@copy" = '''CopyAsync(#!lua local t = {}
+for _, it in ipairs(state.selected) do t[#t + 1] = it[1] end
+return table.concat(t, "\n"))'''
+"@copy_all" = '''CopyAsync(#!lua return state.raw or "")'''
+"@copy_active" = '''CopyAsync(#!lua local a = state.active; local t = {}
+for _, it in ipairs(state.selected) do if it[a] then t[#t + 1] = it[a] end end
+return table.concat(t, "\n"))'''

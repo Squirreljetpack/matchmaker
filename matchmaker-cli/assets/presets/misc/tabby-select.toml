@@ -105,6 +105,7 @@ command = 'eval $CHECK_API'
 side = "up"
 percentage = 80
 initial.hidden = true
+border = { title = "API Status" }
 
 [[preview.layout]]
 command = '''eval $CURL_TABBY "$TABBYHOST/v1/model" | {
@@ -115,6 +116,7 @@ command = '''eval $CURL_TABBY "$TABBYHOST/v1/model" | {
     fi
 }
 '''
+border = { title = "API Response" }
 
 [binds]
 "alt-l" = 'RunPreview([[ {type} != api-* ]] && $PAGER "$(dirname -- {path})"/README.md)'

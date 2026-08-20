@@ -19,6 +19,7 @@ JQ = "jq"
 [[preview.layout]]
 # Logs
 command = '"$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} logs {source} --tail 200 | PG_LANG=log $PAGER'
+border = { title = "Logs" }
 side = "top"
 percentage = 50
 min = 5
@@ -27,6 +28,7 @@ padding = 0
 [[preview.layout]]
 # Config
 command = '"$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} config {source} | PG_LANG=yaml $PAGER'
+border = { title = "Compose Config" }
 side = "right"
 percentage = 40
 min = 30
@@ -35,6 +37,7 @@ max = 120
 [[preview.layout]]
 # Top
 command = '"$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} top {source}'
+border = { title = "Processes" }
 
 [binds]
 "0,1^^@accept" = "Become(mm -o docker/containers -- {id} {source})"

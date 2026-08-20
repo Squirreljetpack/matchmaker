@@ -19,6 +19,7 @@ names = ["driver", "name"]
 [[preview.layout]]
 # Inspect
 command = "$DOCKERcmd volume inspect {name} | PG_LANG=json $PAGER"
+border = { title = "Volume Inspect" }
 
 [binds]
 # Navigation

@@ -1,78 +1,122 @@
-# Attach to (or resurrect) a zellij session
-# Usage: mm -o multiplexer/zellij_session
-#
-# Parses `zellij list-sessions` keeping its ANSI colors (matcher.ansi = true):
-# matchmaker renders them in the results list, while matching, columns and
-# templates operate on the plain text underneath.
-#
-# Row columns: name | age | status (EXITED, or empty when the session is running)
-# Preview 1 (top): session metadata - status, base cwd, tabs, layout location
-# Preview 2 (right): the saved session layout from
-#   ~/.cache/zellij/<version>/session_info/<name>/session-layout.kdl
-#   displayed through $CATcmd (bat when available, else cat)
+# Switch between zellij sessions
+# Preview (hidden by default) shows the session's saved layout KDL
 
 [matcher]
-ansi = true
 trim = true
-sort.threshold = 20
-sort.reverse = true
 
 [start]
-command = "zellij list-sessions --no-formatting"
+command = "@./zellij.sh sessions"
+
+[exit]
+abort_empty = false
 
 [envs]
-CATcmd = { value = 'command -v bat >/dev/null 2>&1 && echo bat || echo cat', exec = true, force = true }
+CATcmd = { value = 'command -v bat --wrap=never --color=always -pp >/dev/null 2>&1 && echo bat || echo cat', exec = true, force = true }
 
 [columns]
-split = '^(?P<name>.*?) \[Created (?P<age>.*?) ago\](?: \((?P<status>[^)]*)\))?$'
-max = 3
-default = "name"
-names = ["name", "age", "status"]
+split = "tsv"
+max = 5
+default = "session"
+names = [
+    { name = "age", options = "Optional | OrUseDefault" },
+    { name = "session", options = "Optional" },
+    { name = "pane", hidden = true },
+    { name = "tab", hidden = true },
+    { name = "title", options = "Optional | OrUseDefault" },
+]
 
-# --- Preview: session metadata ---
+# --- Preview ---------------------------------------------------------------
 [preview]
-wrap = true
+wrap = false
+show = false
 
+# the selected session's cached layout KDL
 [[preview.layout]]
 command = '''
+sess={session}
 cache="${XDG_CACHE_HOME:-$HOME/.cache}/zellij"
-kdl="$cache/contract_version_1/session_info/{=name}/session-metadata.kdl"
-eval $CATcmd "'$kdl'"
+kdl=""
+for dir in "$cache"/*/; do
+    [ -f "$dir/session_info/$sess/session-layout.kdl" ] &&
+        { kdl="$dir/session_info/$sess/session-layout.kdl"; break; }
+done
+if [ -n "$kdl" ]; then
+    printf '\033[1m%s\033[0m  [%s]  created %s ago\n' "$sess" {title} {age}
+    printf '%s\n' '----------------------------------------'
+    eval $CATcmd "'$kdl'"
+else
+    echo "(no saved layout for $sess -- 'zellij action save-session' writes one)"
+fi
 '''
+
+# stubs disabling the base config preview layouts
+[[preview.layout]]
+max = 0
 
 [[preview.layout]]
-command = '''
-cache="${XDG_CACHE_HOME:-$HOME/.cache}/zellij"
-kdl="$cache/contract_version_1/session_info/{=name}/session-layout.kdl"
-eval $CATcmd "'$kdl'"
-'''
-side = "right"
-percentage = 45
-min = 30
-max = 120
-border.type = "Plain"
-border.padding = [2, 0]
+max = 0
 
-# --- UI ---
+# --- UI --------------------------------------------------------------------
 [header]
-content = ["name", "age", "status"]
+content = ["AGE", "SESSION", "PANE", "TAB", "STATE"]
+style.modifier = ""
 
 [query]
-prompt = "sessions> "
+prompt = "session> "
 prompt_style.fg = "Cyan"
 
 [tui]
 percentage = 100
 
+# --- Binds -----------------------------------------------------------------
 [binds]
-"@accept" = "Become(zellij attach {1})"
-"@accept_2" = ["#print name", "Become(printf '%s\\n' {name})"]
-"@copy" = "CopyAsync(printf '%s\\n' {name})"
-"@kill" = ["#kill session", '''ExecuteOrConfirm(
-        printf "Kill session %s? [y/N] " {name}
-        read -r ans
-        case "$ans" in
-            [yY]*) zellij kill-session {name} ;;
-            *) exit 0 ;;
-        esac
-    )''', "Reload"]
+"@accept" = '''Become(
+if [ -n "$ZELLIJ" ] || [ -n "$ZELLIJ_SESSION_NAME" ]; then
+    case {title} in
+        EXITED)
+            exec zellij attach {session}
+            ;;
+        *)
+            exec zellij action switch-session {session}
+            ;;
+    esac
+else
+    exec zellij attach {session}
+fi
+)'''
+
+"@print" = [
+    "#print",
+    '''Become(printf '%s\n' {session})''',
+]
+
+"@copy" = '''CopyAsync(printf '%s\n' {session})'''
+
+"@rm" = [
+    "#kill",
+    '''ExecuteOrConfirm(
+printf "Kill session %s? [Y/n] " {session}
+read -r ans
+case "$ans" in
+    [Yy]*|'') zellij kill-session {session};;
+    *) exit 0 ;;
+esac
+)''',
+    "Reload",
+]
+
+# ring navigation (skip [current]/[other] when they would list no panes)
+"@next" = '''BecomeSilent(
+if "$(dirname -- "$MM_OVERRIDE")"/zellij.sh has-current-panes; then
+    exec mm -o terminal/zellij_current
+else
+    exec mm -o terminal/zellij_layout
+fi
+)'''
+"@prev" = '''BecomeSilent(
+if "$(dirname -- "$MM_OVERRIDE")"/zellij.sh has-other-panes; then
+    exec mm -o terminal/zellij_other
+else
+    exec mm -o terminal/zellij_layout
+fi
+)'''

@@ -16,7 +16,7 @@ names = ["vault", { name = "path", hidden = true }]
 default = "vault"
 
 [preview]
-show = true
+# show = true
 
 [[preview.layout]]
 command = "fs :tool liza :u2 {path} || ls -l {path}"

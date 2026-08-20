@@ -18,6 +18,7 @@ names = ["namespace", "name", "ready", "status", "restarts", "age"]
 [[preview.layout]]
 # Logs
 command = "kubectl logs --follow --all-containers --tail=100 --namespace {namespace} {name}"
+border = { title = "Container Logs" }
 
 [binds]
 # Navigation

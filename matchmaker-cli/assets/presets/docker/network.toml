@@ -19,6 +19,7 @@ names = ["id", "name", "driver", "scope"]
 [[preview.layout]]
 # Inspect
 command = "$DOCKERcmd network inspect {id} | PG_LANG=json $PAGER"
+border = { title = "Network Inspect" }
 
 [binds]
 # Navigation

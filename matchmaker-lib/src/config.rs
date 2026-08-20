@@ -8,8 +8,8 @@ use ratatui::layout::Rect;
 
 pub use crate::config_types::*;
 pub use crate::utils::{
+    serde::{escaped_opt_char, escaped_opt_string, os_strings, StringOrVec},
     Percentage,
-    serde::{StringOrVec, escaped_opt_char, escaped_opt_string, os_strings},
 };
 
 use crate::collections::HiddenColumns;
@@ -812,7 +812,7 @@ pub struct BorderSetting {
     pub padding: Padding,
     pub title: String,
     // #[serde(deserialize_with = "transform_uppercase")]
-    pub title_modifier: Modifier,
+    pub title_style: StyleSetting,
     pub modifier: Modifier,
     #[serde(deserialize_with = "camelcase_normalized")]
     pub bg: Color,
@@ -825,10 +825,7 @@ impl BorderSetting {
             .style(Style::default().bg(self.bg).add_modifier(self.modifier));
 
         if !self.title.is_empty() {
-            let title = Span::styled(
-                &self.title,
-                Style::default().add_modifier(self.title_modifier),
-            );
+            let title = Span::styled(&self.title, self.title_style.into_style_no_submodifiers());
 
             ret = ret.title(title)
         };
@@ -862,7 +859,7 @@ impl BorderSetting {
         if !self.title.is_empty() {
             let title: Span<'static> = Span::styled(
                 self.title.clone(),
-                Style::default().add_modifier(self.title_modifier),
+                self.title_style.into_style_no_submodifiers(),
             );
 
             ret = ret.title(title)
@@ -967,6 +964,7 @@ pub struct PreviewSetting {
     #[serde(flatten)]
     #[partial(recurse)]
     pub layout: PreviewLayout,
+    // base title modifier cascades in hacky way for now, todo: figure out best partial merge strategy
     #[partial(recurse)]
     pub border: Option<BorderSetting>,
     #[serde(default, alias = "cmd", alias = "x")]

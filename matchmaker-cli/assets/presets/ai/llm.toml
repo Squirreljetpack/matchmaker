@@ -75,6 +75,7 @@ show = true
 command = '''
 llm models --options -m {model}
 '''
+border = { title = "Model Options" }
 
 # --- Binds ---
 [binds]

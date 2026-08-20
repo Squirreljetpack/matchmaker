@@ -50,14 +50,17 @@ else
     fi
 fi
 '''
+border = { title = "Process Tree" }
 
 [[preview.layout]]
-command = "echo '### Resources ###\n'; top -b -p {2} 2>/dev/null || top -pid {2}"
+command = "top -b -p {2} 2>/dev/null || top -pid {2}"
+border = { title = "Resources" }
 initial.tail = true
 min = 13
 
 [[preview.layout]]
-command = "echo '### Ports ###\n'; lsof -p {2}"
+command = "lsof -p {2}"
+border = { title = "Open Ports" }
 
 [binds]
 "Reloaded" = '''Transform(

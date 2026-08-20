@@ -103,7 +103,9 @@ impl<A: ActionExt> BindMap<A> {
             key!(tab) => [Action::ToggleSelection, Action::Down(1)],
             key!(shift-backtab) => [Action::ToggleSelection, Action::Up(1)],
             key!(ctrl-a) => Action::CycleSelections,
-            key!(ctrl-shift-a) => Action::ClearSelections
+            key!(ctrl-shift-a) => Action::ClearSelections,
+            key!(alt-shift-a) => Action::Pos(0),
+            key!(alt-shift-e) => Action::Pos(-1),
 
             // not currently supported by crossterm
             // "shift+scrollup" = "PreviewUp"
@@ -112,6 +114,20 @@ impl<A: ActionExt> BindMap<A> {
         );
         self.extend(ext);
         self
+    }
+
+    /// Drop every bound action for which `keep` returns `false`. The predicate
+    /// receives each `Action` (custom and default variants alike), so callers
+    /// can prune builtin actions as well as custom ones. A bind left with no
+    /// surviving actions is removed.
+    pub fn filter_action<F>(&mut self, mut keep: F)
+    where
+        F: FnMut(&Action<A>) -> bool,
+    {
+        self.retain(|_, actions| {
+            actions.0.retain(|a| keep(a));
+            !actions.0.is_empty()
+        });
     }
 
     pub fn extend_from(&mut self, mut others: Self) {

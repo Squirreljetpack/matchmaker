@@ -348,7 +348,7 @@ Most UI components have a `border` block:
 - `sides`: Which sides to show (e.g., `TOP | BOTTOM | LEFT | RIGHT`). Empty string for none.
 - `padding`: Padding inside the border. Can be 1 value (all), 2 (vertical, horizontal), or 4 (top, right, bottom, left).
 - `title`: Optional text to display on the border.
-- `title_modifier`: Style modifier for the title.
+- `title_style`: Style (`fg`, `bg`, `modifier`) applied to the title.
 - `modifier`: Style modifier applied to the bordered area.
 
 ### Key Binds (`binds.`, `b`)

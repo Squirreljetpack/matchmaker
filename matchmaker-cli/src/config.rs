@@ -124,7 +124,7 @@ pub struct SortSetting {
 /// (client-app responsibility). Configures how input is fed to to the worker(s).
 /// Unfortunately, we cannot use deny_unknown_fields if we want to flatten PreprocessConfig
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct StartConfig {
     #[serde(deserialize_with = "escaped_opt_char")]
@@ -171,10 +171,14 @@ pub struct StartConfig {
 
 // -----------------------
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(feature = "mlua")))]
 pub const DEFAULT_CONFIG: &str = include_str!("../assets/config.toml");
-#[cfg(windows)]
+#[cfg(all(not(windows), feature = "mlua"))]
+pub const DEFAULT_CONFIG: &str = include_str!("../assets/config.lua.toml");
+#[cfg(all(windows, not(feature = "mlua")))]
 pub const DEFAULT_CONFIG: &str = include_str!("../assets/win.config.toml");
+#[cfg(all(windows, feature = "mlua"))]
+pub const DEFAULT_CONFIG: &str = include_str!("../assets/win.config.lua.toml");
 
 impl Default for Config {
     fn default() -> Self {
@@ -207,27 +211,26 @@ pub struct PagerConfig {
 mod tests {
     use super::*;
 
-    #[test]
-    fn config_round_trip() {
-        let default_toml = include_str!("../assets/config.toml");
-        let config: Config = toml::from_str(default_toml).expect("failed to parse default TOML");
-        let serialized = toml::to_string_pretty(&config).expect("failed to serialize to TOML");
-        let deserialized: Config = toml::from_str(&serialized)
-            .unwrap_or_else(|e| panic!("failed to parse serialized TOML:\n{}\n{e}", serialized));
-
-        // Assert the round-trip produces the same data
-        assert_eq!(config, deserialized);
+    fn check_round_trip(name: &str, toml_str: &str) {
+        let config: Config =
+            toml::from_str(toml_str).unwrap_or_else(|e| panic!("failed to parse {name}: {e}"));
+        let serialized = toml::to_string_pretty(&config)
+            .unwrap_or_else(|e| panic!("failed to serialize {name}: {e}"));
+        let deserialized: Config = toml::from_str(&serialized).unwrap_or_else(|e| {
+            panic!("failed to parse serialized TOML for {name}:\n{serialized}\n{e}")
+        });
+        assert_eq!(config, deserialized, "round trip mismatch for {name}");
     }
 
     #[test]
-    fn dev_config_round_trip() {
-        let default_toml = include_str!("../assets/dev.toml");
-        let config: Config = toml::from_str(default_toml).expect("failed to parse default TOML");
-        let serialized = toml::to_string_pretty(&config).expect("failed to serialize to TOML");
-        let deserialized: Config = toml::from_str(&serialized)
-            .unwrap_or_else(|e| panic!("failed to parse serialized TOML:\n{}\n{e}", serialized));
-
-        // Assert the round-trip produces the same data
-        assert_eq!(config, deserialized);
+    fn config_round_trip() {
+        check_round_trip("config.toml", include_str!("../assets/config.toml"));
+        check_round_trip("config.lua.toml", include_str!("../assets/config.lua.toml"));
+        check_round_trip("win.config.toml", include_str!("../assets/win.config.toml"));
+        check_round_trip(
+            "win.config.lua.toml",
+            include_str!("../assets/win.config.lua.toml"),
+        );
+        check_round_trip("dev.toml", include_str!("../assets/dev.toml"));
     }
 }

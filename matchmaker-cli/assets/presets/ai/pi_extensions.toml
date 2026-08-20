@@ -93,12 +93,11 @@ if [ -n {1} ]; then
     "$base"/pi_extensions_preview.py {1}
 fi
 '''
+border = { title = "Extension Info" }
 
 [[preview.layout]]
 command = '''
 bat --wrap=never --color=always -pp -l md <<'EOF'
-Usage:
-
 This preset reads `~/.pi/agent/mm_extensions` (`MM_EXTENSIONS_FILE`) for your desired extension setup.
 The rows shown may not reflect your current pi settings! Trigger `@reconcile` (ctrl-r) to update the file to reflect your current extension settings for this project.
 Trigger `@accept` to toggle extensions.
@@ -108,6 +107,7 @@ Press `ctrl-n` and enter a source to `pi install`; on success it is added to the
 Trigger `@prune` to uninstall extensions found in the global/project git and npm install folders that are not in this list (preview with `pi_extensions_prune.py -n`).
 EOF
 '''
+border = { title = "Usage" }
 
 [[preview.layout]]
 command = '''
@@ -123,6 +123,7 @@ if [ -n {1} ]; then
     fi
 fi
 '''
+border = { title = "README" }
 
 # --- Binds ---
 [binds]

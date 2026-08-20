@@ -34,7 +34,7 @@ done |
 #                 is absolute, the input tail is the --tail-sep remainder; a missing
 #                 path omits the entry; missing display/tail keep the current values.
 #                 Note: Files can be supplied with the `@` prefix.
-dfs :custom  --opener ob-open \
+fs :custom  --opener ob-open \
   --tail-sep $'\t' \
   --transform '
         local path, tail = ...

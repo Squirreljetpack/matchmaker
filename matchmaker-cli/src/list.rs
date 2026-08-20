@@ -303,6 +303,18 @@ fn with_item<T>(
         ..
     } = config;
 
+    // classify and resolve the populating command: `@`-file paths resolve
+    // against the parent directory of MM_OVERRIDE (mirroring bare `--list`),
+    // and lua start commands stream their rows straight from the lua engine.
+    let vars = EnvVars::from(
+        envs.iter()
+            .map(|(a, b)| (a.clone(), b.clone()))
+            .collect::<Vec<_>>(),
+    );
+    let Some(strategy) = execute::classify(&command).resolve_relative(&vars)._ebog() else {
+        bail!("Failed to resolve command: {command}");
+    };
+
     // -------- read the command's output into the worker ------------
     let (mut mm, injector, OddEnds { ranges_fn, .. }) =
         Matchmaker::new_from_config(render, tui, columns, exit, preprocess);
@@ -310,33 +322,66 @@ fn with_item<T>(
     // apply the configured sort settings, mirroring `start::start`.
     init_mm_sort(&mut mm, &ranges_fn, sort);
 
-    // stdout is captured (it provides the items); stderr is inherited so it
-    // stays visible.
-    let mut child = Command::from_script(&command, &shell)
-        .envs(&envs)
-        .args(&*COMMAND_ARGS.lock().unwrap())
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .spawn()
-        .with_context(|| format!("Failed to spawn command: {command}"))?;
+    // pushes are counted so `total` reflects the number of queued items for
+    // both the shell and lua paths (the lua engine returns an exit code, not a
+    // row count). `run_inject` requires its push closure to be `'static`, so
+    // the counter is shared through an `Rc` that the closure owns.
+    let count = std::rc::Rc::new(std::cell::Cell::new(0usize));
 
-    let stdout = child
-        .stdout
-        .take()
-        .context("Failed to capture command stdout")?;
-
-    let push = |line: String| injector.push(line);
-    let total = if let Some(delim) = separator.or(input_separator) {
-        map_chunks(read_to_chunks(stdout, delim), push, skip_invalid_lines)
+    let total = if strategy.is_lua() {
+        #[cfg(feature = "mlua")]
+        {
+            let push = {
+                let count = count.clone();
+                move |line: String| {
+                    count.set(count.get() + 1);
+                    injector.push(line).map_err(|e| e.to_string())
+                }
+            };
+            let lua_state = crate::lua::LuaState::empty();
+            crate::execute::run_inject(&strategy, &vars, &lua_state, push)
+                .map_err(|e| anyhow::anyhow!("lua command failed: {e}"))?;
+            count.get()
+        }
+        #[cfg(not(feature = "mlua"))]
+        {
+            bail!("mlua feature is disabled")
+        }
     } else {
-        map_reader_lines(stdout, push, skip_invalid_lines)
-    }
-    .context("Failed to read command output")?;
+        // stdout is captured (it provides the items); stderr is inherited so it
+        // stays visible.
+        let push = {
+            let count = count.clone();
+            move |line: String| {
+                count.set(count.get() + 1);
+                injector.push(line)
+            }
+        };
+        let Some(mut cmd) = crate::execute::build_command(&strategy, &shell) else {
+            bail!("Failed to build command: {command}");
+        };
+        let mut child = cmd
+            .envs(&envs)
+            .args(&*COMMAND_ARGS.lock().unwrap())
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit())
+            .spawn()
+            .with_context(|| format!("Failed to spawn command: {command}"))?;
+        let stdout = child
+            .stdout
+            .take()
+            .context("Failed to capture command stdout")?;
+        if let Some(delim) = separator.or(input_separator) {
+            map_chunks(read_to_chunks(stdout, delim), push, skip_invalid_lines)
+        } else {
+            map_reader_lines(stdout, push, skip_invalid_lines)
+        }
+        .context("Failed to read command output")?
+    };
 
-    // No more pushes: let the worker index everything we queued. Dropping the
-    // injector first ensures the snapshot stops reporting a running state.
-    drop(injector);
+    // No more pushes: let the worker index everything we queued. The injector,
+    // owned by the (now consumed) push closure, has already been dropped.
     let status = loop {
         let (_, s) = new_snapshot(&mut mm.worker.nucleo);
         if s.item_count as usize == total && !s.running {

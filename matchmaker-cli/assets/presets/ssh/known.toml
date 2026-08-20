@@ -19,10 +19,12 @@ names = [
 show = true
 
 [[preview.layout]]
-command = "echo '### Fingerprint ###\n'; echo {} | ssh-keygen -lf -"
+command = "echo {} | ssh-keygen -lf -"
+border = { title = "Key Fingerprint" }
 
 [[preview.layout]]
-command = "echo '### Fetch ###\n'; ssh-keyscan {host};"
+command = "ssh-keyscan {host}"
+border = { title = "Host Keys" }
 
 # --- UI ---
 [header]

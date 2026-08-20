@@ -27,12 +27,12 @@ scroll.index = "pos"
 command = '''
 line={2}
 if command -v bat >/dev/null 2>&1; then
-    bat --color=always --highlight-line ${line%%:*} {1}
+    bat --wrap=never --color=always -pp --highlight-line ${line%%:*} {1}
 else
     cat {1}
 fi
 '''
-border = { type = "LightDoubleDashed", color = "DarkGray" }
+border = { type = "LightDoubleDashed", color = "DarkGray", title = "File Contents" }
 side = "top"
 percentage = 50
 min = 5

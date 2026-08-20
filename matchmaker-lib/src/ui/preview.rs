@@ -9,6 +9,7 @@ use ratatui::{
 use crate::{
     config::{
         BorderSetting, PreviewConfig, PreviewInitialSetting, PreviewSetting, ShowCondition, Side,
+        StyleSetting,
     },
     preview::Preview,
     ui::{RESULTS_MIN_H, RESULTS_MIN_W},
@@ -183,10 +184,16 @@ impl PreviewUI {
         self.setting().map(|x| x.command.as_str()).unwrap_or("")
     }
 
-    pub fn border(&self) -> &BorderSetting {
-        self.setting()
-            .and_then(|s| s.border.as_ref())
-            .unwrap_or(&self.config.border)
+    pub fn border(&self) -> BorderSetting {
+        let global = &self.config.border;
+        let mut b = self
+            .setting()
+            .and_then(|s| s.border.clone())
+            .unwrap_or_else(|| global.clone());
+        if b.title_style == StyleSetting::DEFAULT {
+            b.title_style = global.title_style;
+        }
+        b
     }
 
     pub fn get_initial_command(&self) -> &str {
@@ -622,7 +629,7 @@ impl PreviewUI {
         }
 
         let mut preview = Paragraph::new(lines);
-        preview = preview.block(self.border().as_block());
+        preview = preview.block(self.border().as_static_block());
         if self.config.wrap {
             preview = preview
                 .wrap(Wrap { trim: false })

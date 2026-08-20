@@ -213,7 +213,7 @@ mm -o rg
 
 ### Comparison with fzf
 
-To users of `fzf`, getting started with `mm` should be conceptually straightforward because the two tools are almost fully feature-compatible. You can continue using familiar actions, like `execute`, and they will function the same way.[^51]
+To users of `fzf`, getting started with `mm` should be conceptually straightforward because matchmaker is almost fully feature-compatible with fzf. You can continue using familiar actions, like `execute`, and they will function the same way.[^51]
 
 For example, opening a selected file in your editor:
 
@@ -226,7 +226,7 @@ fzf --bind "ctrl-o:execute($EDITOR {+})"
 - In `mm`:
 
 ```text
-mm b.ctrl-o="Execute($EDITOR {+})"
+mm b.ctrl-o="Execute($EDITOR {+})" # 'execute' also works, as action names are case-insensitive
 ```
 
 > [!NOTE]

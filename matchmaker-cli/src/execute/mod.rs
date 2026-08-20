@@ -30,7 +30,18 @@ pub(crate) fn build_command(
 ) -> Option<Command> {
     match strategy {
         CommandStrategy::Shell(cmd) => Some(Command::from_script(cmd, shell)),
-        CommandStrategy::File { path, args } => {
+        CommandStrategy::File {
+            path,
+            args,
+            direct,
+        } => {
+            // direct: exec the file itself, letting the kernel honor its
+            // shebang (requires the executable bit)
+            if *direct {
+                let mut cmd = Command::new(path);
+                cmd.args(args);
+                return Some(cmd);
+            }
             let mut cmd = Command::new(
                 shell
                     .first()

@@ -4,8 +4,16 @@
 Execute(
   file={1}
   [[ "$MM_PREVIEW_INDEX" == "1" ]] && flags="--cached" || flags=""
-  line=$(git diff --no-ext-diff $flags --unified=0 -- "$file" | sed -n '/^@@/s/^.*+\([0-9]*\).*/\1/p' | head -n 1)
-  if [ -n "$line" ]; then
+  line=$(git diff --no-ext-diff $flags --unified=0 -- "$file" | awk '/^@@/ {
+    match($0, /@@ -([0-9]+)(,[0-9]+)? \+([0-9]+)(,[0-9]+)? @@/, m)
+    if (m[3] != "" && m[3] != "0") {
+      print m[3]
+    } else {
+      print m[1]
+    }
+    exit
+  }')
+  if [ -n "$line" ] && [ "$line" -gt 0 ] 2>/dev/null; then
     $EDITOR "+$line" "$file"
   else
     $EDITOR "$file"
@@ -19,8 +27,16 @@ Execute(
 Become(
   file={1}
   [[ "$MM_PREVIEW_INDEX" == "1" ]] && flags="--cached" || flags=""
-  line=$(git diff --no-ext-diff $flags --unified=0 -- "$file" | sed -n '/^@@/s/^.*+\([0-9]*\).*/\1/p' | head -n 1)
-  if [ -n "$line" ]; then
+  line=$(git diff --no-ext-diff $flags --unified=0 -- "$file" | awk '/^@@/ {
+    match($0, /@@ -([0-9]+)(,[0-9]+)? \+([0-9]+)(,[0-9]+)? @@/, m)
+    if (m[3] != "" && m[3] != "0") {
+      print m[3]
+    } else {
+      print m[1]
+    }
+    exit
+  }')
+  if [ -n "$line" ] && [ "$line" -gt 0 ] 2>/dev/null; then
     $EDITOR "+$line" "$file"
   else
     $EDITOR "$file"

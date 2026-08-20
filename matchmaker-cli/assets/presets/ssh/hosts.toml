@@ -17,7 +17,7 @@ command = '''
 
                     # Using printf with null byte \x00 via %c for portability
                     printf "%s%c%s%c%s%c%s%c%s\n",
-                           out_host, 0, out_hostname, 0, user, 0, port, 0, file
+                           file, 0, out_host, 0, out_hostname, 0, user, 0, port
                 }
             }
 
@@ -46,31 +46,34 @@ command = '''
             }
         ' "$f"
     done
-} | awk -F'\x00' '!seen[$1]++' | sort
+} | awk -F'\x00' '!seen[$2]++' | sort
 '''
 
 [columns]
 split = "\\x00"
 max = 5
-default = 1
-names = ["host", "address", "user", "port", { name = "file", hidden = true }]
+default = "host"
+names = [{ name = "file", hidden = true }, "host", "address", "user", "port"]
 
 # --- Preview ---
 [preview]
 show = false
 
 [[preview.layout]]
-command = "echo '### Configuration ###\n'; ssh -G {host}"
+command = "ssh -G {host}"
+border = { title = "SSH Config" }
 
 [[preview.layout]]
 command = "(nc -w 5 -vz {host} 22 2>&1)&!; ping -c 3 -W 1000 {host}"
+border = { title = "Connectivity" }
 
 [[preview.layout]]
-command = "echo '### Host keys ###\n'; ssh-keyscan {host}"
+command = "ssh-keyscan {host}"
+border = { title = "Host Keys" }
 
 # --- UI ---
 [header]
-content = ["host", "address", "user", "port"]
+content = ["file", "host", "address", "user", "port"]
 
 [query]
 prompt = "hosts> "
@@ -81,7 +84,6 @@ prompt = "hosts> "
 
 "@accept" = ["#ssh", "Become(ssh {host})"]
 "@accept_2" = "Become(echo {host})"
-"@open" = "ExecuteOrConfirm($EDITOR -- {file})"
 "@open_2" = "Become($EDITOR {file})"
 "@next" = "BecomeSilent(mm -o ssh/keys)"
 "@prev" = "BecomeSilent(mm -o ssh/tailscale)"

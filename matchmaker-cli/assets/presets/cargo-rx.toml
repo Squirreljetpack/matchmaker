@@ -79,7 +79,7 @@ if [ {kind} = "target" ]; then
 else
   [ -e "$f" ] || f="${f%???}/main.rs"
   if command -v bat >/dev/null 2>&1; then
-    bat --color=always --plain "$f"
+    bat --wrap=never --color=always -pp "$f"
   else
     cat "$f"
   fi

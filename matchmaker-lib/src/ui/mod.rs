@@ -213,6 +213,13 @@ impl<T: SSS, D: 'static> PickerUI<T, D> {
         }
     }
 
+    /// Clear the selections and flag the results for redraw (selection
+    /// markers are rendered by the results).
+    pub fn clear_selections(&mut self) {
+        self.selector.clear();
+        self.results.set_dirty();
+    }
+
     /// Prefer [`crate::render::MMState::worker_restart`]
     pub fn restart(&mut self) {
         self.worker.restart(false);

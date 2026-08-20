@@ -831,6 +831,8 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                         Action::DeleteLineStart => query.delete_line_start(),
                         Action::DeleteLineEnd => query.delete_line_end(),
                         Action::ClearQuery => query.clear(),
+                        Action::ClearQueryRight => query.delete_line_end(),
+                        Action::ClearQueryLeft => query.delete_line_start(),
 
                         // Other
                         Action::Redraw => {
@@ -983,8 +985,6 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
 
                     render_ui(frame, area, &ui);
 
-                    cursor_y_offset = render_input(frame, layout.input, &mut picker_ui.query).y;
-
                     render_status(
                         frame,
                         layout.status,
@@ -1007,6 +1007,9 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                     {
                         render_preview(frame, layout.preview, preview_ui);
                     }
+
+                    // putting after doesn't help with text hidden by preview
+                    cursor_y_offset = render_input(frame, layout.input, &mut picker_ui.query).y;
 
                     if let Some(x) = overlay_ui.as_mut() {
                         x.draw(frame);

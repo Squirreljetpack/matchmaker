@@ -11,8 +11,13 @@ use matchmaker::{config_mm::ConfigPreprocessedData, render::MMState};
 pub enum CommandStrategy {
     /// Plain shell command (or templated shell command string, runs via `$SHELL -c`).
     Shell(String),
-    /// `@path [args…]` — direct execution without shell interpretation.
-    File { path: OsString, args: Vec<OsString> },
+    /// `@path [args…]` — script file run through `$SHELL`, or executed directly
+    /// (kernel honors its shebang) when `direct` is set (`@./path …`).
+    File {
+        path: OsString,
+        args: Vec<OsString>,
+        direct: bool,
+    },
     /// `#!lua …` — inline lua source for the lua engine.
     #[cfg(feature = "mlua")]
     Lua(String),
@@ -108,6 +113,7 @@ pub fn classify(s: &str) -> CommandStrategy {
         };
     }
     CommandStrategy::File {
+        direct: path.starts_with("./"),
         path: path.into(),
         args,
     }
@@ -152,11 +158,41 @@ mod tests {
     fn classify_recognizes_file_and_shell() {
         assert!(matches!(
             classify("@script.sh 'a b' c"),
-            CommandStrategy::File { path, args } if path == "script.sh" && args == ["a b", "c"]
+            CommandStrategy::File {
+                path,
+                args,
+                direct: false
+            } if path == "script.sh" && args == ["a b", "c"]
         ));
         assert!(matches!(
             classify("echo hi"),
             CommandStrategy::Shell(s) if s == "echo hi"
+        ));
+    }
+
+    #[test]
+    fn classify_direct_file_references() {
+        // `@./…` executes the file itself (shebang honored), plain `@…` does not
+        assert!(matches!(
+            classify("@./script.sh 'a b' c"),
+            CommandStrategy::File {
+                path,
+                args,
+                direct: true
+            } if path == "./script.sh" && args == ["a b", "c"]
+        ));
+        // `.lua` files keep lua-engine precedence regardless of the `./` prefix
+        #[cfg(feature = "mlua")]
+        assert!(matches!(
+            classify("@./clean.lua"),
+            CommandStrategy::LuaFile { .. }
+        ));
+        assert!(matches!(
+            classify("@../sibling.sh"),
+            CommandStrategy::File {
+                direct: false,
+                ..
+            }
         ));
     }
 
@@ -192,6 +228,7 @@ mod tests {
             Some(CommandStrategy::File {
                 path: OsString::from("script.sh"),
                 args: vec![OsString::from("a"), OsString::from("b")],
+                direct: false,
             })
         );
     }
@@ -208,6 +245,18 @@ mod tests {
             CommandStrategy::File {
                 path: Path::new("/path/to/script.sh").as_os_str().to_os_string(),
                 args: vec![OsString::from("a"), OsString::from("b")],
+                direct: false,
+            }
+        );
+
+        // Relative direct File strategy keeps its `direct` flag
+        let direct_strat = classify("@./script.sh a");
+        assert_eq!(
+            direct_strat.clone().resolve_relative(&envs).unwrap(),
+            CommandStrategy::File {
+                path: Path::new("/path/to/./script.sh").as_os_str().to_os_string(),
+                args: vec![OsString::from("a")],
+                direct: true,
             }
         );
 
@@ -221,6 +270,7 @@ mod tests {
             CommandStrategy::File {
                 path: OsString::from("/usr/local/bin/script.sh"),
                 args: vec![OsString::from("a")],
+                direct: false,
             }
         );
 

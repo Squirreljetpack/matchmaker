@@ -18,6 +18,7 @@ DOCKERcmd = { value = 'echo "$(dirname -- "$MM_OVERRIDE")"/dispatcher.sh', exec 
 [[preview.layout]]
 # Logs
 command = '"$DOCKERcmd" logs --tail 200 {id} | PG_LANG=log $PAGER'
+border = { title = "Logs" }
 side = "top"
 percentage = 50
 min = 5
@@ -26,6 +27,7 @@ padding = 0
 [[preview.layout]]
 # Inspect
 command = '"$DOCKERcmd" inspect {id} | PG_LANG=json $PAGER'
+border = { title = "Container Inspect" }
 side = "right"
 percentage = 40
 min = 30
@@ -34,6 +36,7 @@ max = 120
 [[preview.layout]]
 # Top
 command = '"$DOCKERcmd" top {id}'
+border = { title = "Processes" }
 
 [binds]
 "@prev" = "BecomeSilent(mm -o docker/compose)"

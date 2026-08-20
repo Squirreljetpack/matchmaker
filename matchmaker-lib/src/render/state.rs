@@ -385,11 +385,11 @@ impl<'a, T: SSS, D: 'static> MMState<'a, T, D> {
     }
 
     /// Returns the nucleo index of the currently highlighted item, if any.
-    pub fn current_index(&self) -> Option<u32> {
+    pub fn current_raw_index(&self) -> Option<u32> {
         self.picker_ui.current_indexed().map(|x| x.0)
     }
 
-    /// Same as `current_index`, but returns a reference to the underlying item.
+    /// Same as `current_raw_index`, but returns a reference to the underlying item.
     pub fn current_raw(&self) -> Option<&T> {
         _info!("current_raw": self.picker_ui.results.index());
         self.picker_ui

@@ -26,12 +26,12 @@ $file = {1}
 $highlightLine = ($line -split ':')[0]
 
 if (Get-Command bat -ErrorAction SilentlyContinue) {
-    bat --color=always --highlight-line $highlightLine $file
+    bat --wrap=never --color=always -pp $highlightLine $file
 } else {
     Get-Content -LiteralPath $file -Raw
 }
 '''
-border = { type = "LightDoubleDashed", color = "DarkGray" }
+border = { type = "LightDoubleDashed", color = "DarkGray", title = "File Contents" }
 side = "top"
 percentage = 50
 min = 5

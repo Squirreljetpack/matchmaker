@@ -1,0 +1,88 @@
+# Focus a pane of the current zellij session
+
+[matcher]
+trim = true
+
+[start]
+command = "@./zellij.sh current"
+
+[exit]
+abort_empty = false
+
+[envs]
+CATcmd = { value = 'command -v bat --wrap=never --color=always -pp >/dev/null 2>&1 && echo bat || echo cat', exec = true, force = true }
+
+[columns]
+split = "tsv"
+max = 5
+default = "title"
+names = [
+    { name = "age", options = "Optional | OrUseDefault" },
+    { name = "session", hidden = true },
+    { name = "pane" },
+    { name = "tab", hidden = true },
+    { name = "title", options = "Optional | OrUseDefault" },
+]
+
+# --- Preview ---------------------------------------------------------------
+[preview]
+wrap = false
+show = true
+
+# live screen of the selected pane
+[[preview.layout]]
+side = "top"
+percentage = 55
+min = 5
+max = 50
+border.type = "Plain"
+command = '''
+zellij action dump-screen --pane-id {pane} 2>/dev/null || true
+'''
+
+# stubs disabling the base config preview layouts
+[[preview.layout]]
+max = 0
+
+[[preview.layout]]
+max = 0
+
+# --- UI --------------------------------------------------------------------
+[header]
+content = ["AGE", "SESSION", "PANE", "TAB", "TITLE"]
+style.modifier = ""
+
+[query]
+prompt = "current> "
+prompt_style.fg = "Cyan"
+
+[tui]
+percentage = 100
+
+# --- Binds -----------------------------------------------------------------
+[binds]
+"@accept" = 'Become(zellij action focus-pane-id {pane})'
+
+"@print" = [
+    "#print",
+    '''Become(printf '%s\t%s\n' {session} {pane})''',
+]
+
+"@copy" = '''CopyAsync(printf '%s:%s\n' {session} {pane})'''
+
+"@rm" = [
+    "#kill",
+    '''ExecuteOrConfirm(
+printf "Close pane %s? [Y/n] " {pane}
+read -r ans
+case "$ans" in
+    [yY]*|'') zellij action close-pane --pane-id {pane} ;;
+    *) exit 0 ;;
+esac
+)''',
+    "Reload",
+]
+
+# ring navigation
+"@next" = "BecomeSilent(mm -o terminal/zellij_layout)"
+"@prev" = "BecomeSilent(mm -o terminal/zellij_session)"

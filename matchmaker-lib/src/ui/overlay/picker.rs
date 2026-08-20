@@ -193,6 +193,8 @@ where
             Action::DeleteLineStart => self.query.delete_line_start(),
             Action::DeleteLineEnd => self.query.delete_line_end(),
             Action::ClearQuery => self.query.clear(),
+            Action::ClearQueryRight => self.query.delete_line_end(),
+            Action::ClearQueryLeft => self.query.delete_line_start(),
             _ => return OverlayEffect::None,
         }
         if matches!(
@@ -204,6 +206,8 @@ where
                 | Action::DeleteLineStart
                 | Action::DeleteLineEnd
                 | Action::ClearQuery
+                | Action::ClearQueryRight
+                | Action::ClearQueryLeft
         ) {
             self.query_dirty = true;
             self.results.set_dirty();

@@ -155,6 +155,10 @@ pub enum Action<A: ActionExt = NullActionExt> {
     DeleteLineEnd,
     /// Clear input
     ClearQuery,
+    /// Clear the query from the cursor to the end
+    ClearQueryRight,
+    /// Clear the query from the start to the cursor
+    ClearQueryLeft,
     /// Set input query
     SetQuery(String),
     /// Insert string at cursor into query
@@ -374,7 +378,7 @@ enum_from_str_display!(
 
     PreviewHalfPageUp, PreviewHalfPageDown,
 
-    ForwardChar,BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord, DeleteLineStart, DeleteLineEnd, ClearQuery = Cancel, Redraw, NextColumn, PrevColumn, PrintKey;
+    ForwardChar,BackwardChar, ForwardWord, BackwardWord, DeleteChar, DeleteWord, DeleteLineStart, DeleteLineEnd, ClearQuery, ClearQueryRight, ClearQueryLeft = Cancel, Redraw, NextColumn, PrevColumn, PrintKey;
 
     tuples:
     Execute, ExecuteAsync, ExecuteThen, ExecuteSilent, Become, BecomeSilent, Preview,

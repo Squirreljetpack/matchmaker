@@ -18,11 +18,13 @@ show = true
 
 [[preview.layout]]
 command = "tailscale ping --verbose {hostname}"
+border = { title = "Ping" }
 
 [[preview.layout]]
 
 [[preview.layout]]
 command = "tailscale status --json"
+border = { title = "Tailnet Status" }
 
 # --- UI ---
 [header]

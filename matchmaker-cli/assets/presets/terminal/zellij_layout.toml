@@ -1,0 +1,83 @@
+# Pick a zellij layout
+# Lists only single-tab layouts by default, extra layouts can be specified as extra arguments to the populating command
+
+[matcher]
+trim = true
+
+[start]
+command = "@./zellij.sh layouts"
+
+[envs]
+CATcmd = { value = 'command -v bat --wrap=never --color=always -pp >/dev/null 2>&1 && echo bat || echo cat', exec = true, force = true }
+
+[columns]
+split = "tsv"
+max = 3
+default = "name"
+names = [
+    { name = "file", hidden = true },
+    { name = "name", options = "Optional" },
+    { name = "source", hidden = true },
+]
+
+# --- Preview ---------------------------------------------------------------
+[preview]
+wrap = true
+show = false
+
+# the selected layout's KDL as zellij resolves it from the bare name
+[[preview.layout]]
+command = 'zellij setup --dump-layout {name}'
+
+# stubs disabling the base config preview layouts
+[[preview.layout]]
+max = 0
+
+[[preview.layout]]
+max = 0
+
+# --- UI --------------------------------------------------------------------
+[header]
+content = ["FILE", "NAME", "SOURCE"]
+style.modifier = ""
+
+[query]
+prompt = "layout> "
+prompt_style.fg = "Cyan"
+
+[tui]
+percentage = 100
+
+# --- Binds -----------------------------------------------------------------
+[binds]
+"@accept" = [
+    "#apply to tab",
+    '''Become(zellij action override-layout {name} --apply-only-to-active-tab --retain-existing-terminal-panes)''',
+]
+
+"@accept_2" = [
+    "#replace tab",
+    '''Become(zellij action override-layout {name} --apply-only-to-active-tab)''',
+]
+
+"ctrl-n" = [
+    "#new tab",
+    '''Become(zellij --layout {name})''',
+]
+
+
+# ring navigation (skip [other]/[current] when they would list no panes)
+"@next" = '''BecomeSilent(
+if "$(dirname -- "$MM_OVERRIDE")"/zellij.sh has-other-panes; then
+    exec mm -o terminal/zellij_other
+else
+    exec mm -o terminal/zellij_session
+fi
+)'''
+"@prev" = '''BecomeSilent(
+if "$(dirname -- "$MM_OVERRIDE")"/zellij.sh has-current-panes; then
+    exec mm -o terminal/zellij_current
+else
+    exec mm -o terminal/zellij_session
+fi
+)'''

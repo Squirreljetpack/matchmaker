@@ -287,6 +287,10 @@ impl<A: ActionExt> EventLoop<A> {
         let mut interval = time::interval(self.tick_interval);
         interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
 
+        // Registered once for the whole loop; recreated per-iteration they
+        // would miss signals arriving between polls.
+        let mut terminations = termination_status();
+
         if let Some(path) = self.key_file.clone() {
             // log::debug!("Cleaning up temp files @ {path:?}");
             tokio::spawn(async move {
@@ -367,6 +371,14 @@ impl<A: ActionExt> EventLoop<A> {
                         self.send(RenderCommand::quit());
                         info!("Received ctrl-c");
                     }
+                }
+
+                // OS-level termination: leave through the normal teardown
+                // path so raw mode, mouse capture etc. are restored, with the
+                // shell-conventional exit status for each signal.
+                status = &mut terminations => {
+                    info!("Received termination signal, exiting with {status}");
+                    self.send(RenderCommand::quit_with(status));
                 }
 
                 // Scroll debounce deadline — flush all buffered scroll events
@@ -594,6 +606,55 @@ async fn scroll_deadline_future(deadline: &mut Option<std::pin::Pin<Box<time::Sl
     match deadline.as_mut() {
         Some(sleep) => sleep.as_mut().await,
         None => std::future::pending().await,
+    }
+}
+
+/// Resolves with the shell-conventional exit status of the first termination
+/// signal received (SIGINT → 130, SIGTERM → 143, SIGHUP → 129). Pends forever
+/// on platforms without signals or when listener registration fails.
+fn termination_status() -> std::pin::Pin<Box<dyn std::future::Future<Output = i32> + Send>> {
+    #[cfg(unix)]
+    {
+        use futures::FutureExt;
+        use tokio::signal::unix::{SignalKind, signal};
+
+        let listen = |kind: SignalKind, code: i32| match signal(kind) {
+            Ok(mut rx) => async move {
+                rx.recv().await;
+                code
+            }
+            .boxed(),
+            Err(e) => {
+                error!("Failed to register signal listener: {e}");
+                async move {
+                    std::future::pending::<()>().await;
+                    code
+                }
+                .boxed()
+            }
+        };
+
+        let mut sigint = listen(SignalKind::interrupt(), 130);
+        let mut sigterm = listen(SignalKind::terminate(), 143);
+        let mut sighup = listen(SignalKind::hangup(), 129);
+
+        // Fused: the render loop keeps polling this arm until teardown
+        // finishes, and polling a completed future again would panic.
+        Box::pin(
+            async move {
+                tokio::select! {
+                    code = &mut sigint => code,
+                    code = &mut sigterm => code,
+                    code = &mut sighup => code,
+                }
+            }
+            .fuse(),
+        )
+    }
+
+    #[cfg(not(unix))]
+    {
+        Box::pin(std::future::pending())
     }
 }
 

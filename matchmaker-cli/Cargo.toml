@@ -76,3 +76,6 @@ experimental = [
     "matchmaker-lib/experimental",
     # "log/max_level_debug"
 ]
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

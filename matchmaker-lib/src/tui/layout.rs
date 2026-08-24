@@ -5,7 +5,12 @@ use crate::config::ScrollStrategy;
 ///
 /// Callers assume the cursor position is the worst case (`height - 1`) when it
 /// cannot be measured, so every strategy still produces an in-view placement.
-pub(super) fn scroll_amount(strategy: ScrollStrategy, request: u16, min: u16, available: u16) -> u16 {
+pub(super) fn scroll_amount(
+    strategy: ScrollStrategy,
+    request: u16,
+    min: u16,
+    available: u16,
+) -> u16 {
     match strategy {
         ScrollStrategy::Compact => min.saturating_sub(available),
         ScrollStrategy::Lazy if available >= min => 0,

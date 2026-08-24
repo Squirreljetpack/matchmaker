@@ -101,6 +101,10 @@ impl<A: ActionExt> RenderCommand<A> {
     pub fn quit() -> Self {
         RenderCommand::Action(Action::Quit(1))
     }
+
+    pub fn quit_with(code: i32) -> Self {
+        RenderCommand::Action(Action::Quit(code))
+    }
 }
 
 // ---------------------------------------------------------------------

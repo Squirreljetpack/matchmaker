@@ -1280,6 +1280,7 @@ dependencies = [
  "dirs",
  "easy-ext",
  "env_logger",
+ "libc",
  "log",
  "matchmaker-lib",
  "matchmaker-minus",

@@ -1,5 +1,5 @@
 use crate::config::TerminalConfig;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use cba::{_info, _trace, bait::ResultExt};
 use crossterm::{
     event::{
@@ -57,7 +57,14 @@ where
 {
     // waiting on https://github.com/ratatui/ratatui/issues/984 to implement growable inline, currently just tries to request max
     // if max > than remainder, then scrolls up a bit
-    pub fn new_with_writer(writer: W, config: TerminalConfig) -> Result<Self> {
+    pub fn new_with_writer(writer: W, mut config: TerminalConfig) -> Result<Self> {
+        if matches!(config.stream, IoStream::Auto) {
+            config.stream = config
+                .stream
+                .resolve()
+                .context("Failed to select a render stream")?;
+            debug!("Resolved IoStream::Auto to {:?}", config.stream);
+        }
         let mut backend = CrosstermBackend::new(writer);
         let mut options = TerminalOptions::default();
 
@@ -105,7 +112,7 @@ where
 
             let cursor_y = startup.cursor.map(|(_, y)| y).unwrap_or_else(|| {
                 error!("Failed to read cursor");
-                height - 1 // overestimate
+                height.saturating_sub(1) // overestimate
             });
 
             let initial_height = height.saturating_sub(cursor_y);
@@ -400,8 +407,14 @@ where
 }
 
 impl Tui<Box<dyn Write + Send>> {
-    pub fn new(config: TerminalConfig) -> Result<Self> {
-        let writer = config.stream.to_stream();
+    pub fn new(mut config: TerminalConfig) -> Result<Self> {
+        let stream = config
+            .stream
+            .resolve()
+            .context("Failed to select a render stream")?;
+        config.stream = stream.clone();
+        debug!("Render stream: {:?}", config.stream);
+        let writer = stream.to_stream()?;
         let tui = Self::new_with_writer(writer, config)?;
         Ok(tui)
     }
@@ -415,4 +428,3 @@ where
         self.exit(None);
     }
 }
-

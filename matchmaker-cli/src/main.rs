@@ -45,6 +45,14 @@ static GLOBAL: MiMalloc = MiMalloc;
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
+    // Classic Unix behavior: die with SIGPIPE when a downstream reader
+    // (`mm ... | head`) closes the pipe, instead of surfacing EPIPE errors
+    // from subsequent writes. Rust ignores the signal by default.
+    #[cfg(unix)]
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL)
+    };
+
     let (cli, config_args) = Cli::get_partitioned_args();
 
     init_logger(
@@ -121,7 +129,10 @@ async fn main() {
                 exit(125);
             }
             MatchError::TUIError(e) => {
-                ebog!("TUI"; "{e}")
+                ebog!("TUI"; "{e}");
+                // Hard failure; 2 keeps it disjoint from user aborts
+                // (`Quit`) and the 4xx no-match codes.
+                exit(2)
             }
             MatchError::NoMatch => {
                 let e = std::mem::take(&mut *CHUNK_ERROR.lock().unwrap());

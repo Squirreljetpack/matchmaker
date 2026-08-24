@@ -327,8 +327,18 @@ back to the external pager chain `MM_PAGER` → `$PAGER` → `less` → `more`.
 - `layout` *(flattened)*: Constraints for non-fullscreen mode.
   - `percentage`: Height of the terminal used.
   - `min`, `max`: Pixel constraints.
+  - `scroll`: (`Aggressive`, `Lazy`, `Expansive` or `Compact`) How the terminal is scrolled up when the requested height does not fit below the cursor (default: `Aggressive`).
 - `osc52`: (bool). Execute the `Copy` action using the OSC52 protocol. If false, the `Copy` command pipes to `CLIPcmd` from `envs` (default: true).
 - `copy_trailing_newline`: (bool) Preserve a trailing newline in copied command output (default: false).
+
+Scroll strategies:
+
+| Strategy     | Scrolls when       | Final size                         |
+| ------------ | ------------------ | ---------------------------------- |
+| `Aggressive` | below `percentage` | capped at `percentage`             |
+| `Lazy`       | below `min`        | capped at `percentage`             |
+| `Expansive`  | below `percentage` | all rows below cursor, up to `max` |
+| `Compact`    | below `min`        | just enough for `min`              |
 
 ### Style Settings
 

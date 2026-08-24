@@ -24,17 +24,10 @@ pub fn run_command_capture(mut command: Command) -> Option<String> {
 }
 
 /// Build a `std::process::Command` for a `CommandStrategy::Shell` or `CommandStrategy::File`.
-pub(crate) fn build_command(
-    strategy: &CommandStrategy,
-    shell: &[OsString],
-) -> Option<Command> {
+pub(crate) fn build_command(strategy: &CommandStrategy, shell: &[OsString]) -> Option<Command> {
     match strategy {
         CommandStrategy::Shell(cmd) => Some(Command::from_script(cmd, shell)),
-        CommandStrategy::File {
-            path,
-            args,
-            direct,
-        } => {
+        CommandStrategy::File { path, args, direct } => {
             // direct: exec the file itself, letting the kernel honor its
             // shebang (requires the executable bit)
             if *direct {
@@ -105,7 +98,12 @@ pub fn run_lua_capture(
             }
         },
         CommandStrategy::LuaFile { path, args } => {
-            match crate::lua::run_file_value(std::path::Path::new(path), args.clone(), envs, lua_state) {
+            match crate::lua::run_file_value(
+                std::path::Path::new(path),
+                args.clone(),
+                envs,
+                lua_state,
+            ) {
                 Ok(value) => value,
                 Err(e) => {
                     log::error!("Lua script @{} failed: {e}", path.to_string_lossy());
@@ -130,9 +128,13 @@ where
 {
     match strategy {
         CommandStrategy::Lua(code) => crate::lua::run_inline_inject(code, envs, lua_state, push),
-        CommandStrategy::LuaFile { path, args } => {
-            crate::lua::run_file_inject(std::path::Path::new(path), args.clone(), envs, lua_state, push)
-        }
+        CommandStrategy::LuaFile { path, args } => crate::lua::run_file_inject(
+            std::path::Path::new(path),
+            args.clone(),
+            envs,
+            lua_state,
+            push,
+        ),
         _ => Err("cannot inject rows from a non-Lua command strategy".into()),
     }
 }

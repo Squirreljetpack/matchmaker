@@ -2,6 +2,7 @@
 percentage = 60
 min = 10
 max = 120
+scroll = "Expansive" # Expansive | Aggressive | Lazy | Compact
 
 # --- UI ---
 [ui]

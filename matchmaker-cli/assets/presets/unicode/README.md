@@ -23,3 +23,5 @@ To update the data:
 ![](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/extra/unicode.png?raw=true)
 
 ![](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/extra/emoji.png?raw=true)
+
+![unicode-square](.README.assets/unicode-square.png)

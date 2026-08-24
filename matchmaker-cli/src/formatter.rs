@@ -477,7 +477,9 @@ pub(crate) mod tests {
     }
 
     /// Builds the picker offline (no terminal) for formatting tests.
-    pub(crate) fn offline_ui(mm: ConfigMatchmaker) -> (UI, PickerUI<String, ConfigPreprocessedData>) {
+    pub(crate) fn offline_ui(
+        mm: ConfigMatchmaker,
+    ) -> (UI, PickerUI<String, ConfigPreprocessedData>) {
         UI::new_offline(mm.render_config, mm.worker)
     }
 

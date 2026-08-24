@@ -9,10 +9,7 @@ use crate::{
     formatter::format_cli,
     pager,
 };
-use cba::{
-    bait::ResultExt,
-    broc::CommandExt,
-};
+use cba::{bait::ResultExt, broc::CommandExt};
 use matchmaker::{
     Action, Matchmaker,
     action::ActionExt,

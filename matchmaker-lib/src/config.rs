@@ -8,8 +8,8 @@ use ratatui::layout::Rect;
 
 pub use crate::config_types::*;
 pub use crate::utils::{
-    serde::{escaped_opt_char, escaped_opt_string, os_strings, StringOrVec},
     Percentage,
+    serde::{StringOrVec, escaped_opt_char, escaped_opt_string, os_strings},
 };
 
 use crate::collections::HiddenColumns;
@@ -938,6 +938,7 @@ impl BorderSetting {
 
 // how to determine how many rows to allocate?
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct TerminalLayoutSettings {
     /// Percentage of total rows to occupy.
@@ -945,14 +946,19 @@ pub struct TerminalLayoutSettings {
     pub percentage: Percentage,
     pub min: u16,
     pub max: u16, // 0 for terminal height cap
+    /// How the terminal viewport is scrolled into place when the requested
+    /// height is not already available below the cursor.
+    #[serde(deserialize_with = "camelcase_normalized")]
+    pub scroll: ScrollStrategy,
 }
 
 impl Default for TerminalLayoutSettings {
     fn default() -> Self {
         Self {
-            percentage: Percentage::new(50),
+            percentage: Percentage::new(90), // don't scroll up all the way cuz it looks more interesting
             min: 10,
             max: 120,
+            scroll: ScrollStrategy::default(),
         }
     }
 }
@@ -1102,6 +1108,29 @@ impl<'de> Deserialize<'de> for NucleoMatcherConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config_types::ScrollStrategy;
+
+    #[test]
+    fn layout_scroll_deserializes_normalized() {
+        let de = |scroll: &str| {
+            ::toml::from_str::<TerminalLayoutSettings>(&format!(
+                "percentage = 50\nmin = 1\nmax = 0\n{scroll}"
+            ))
+            .expect("valid toml")
+            .scroll
+        };
+
+        assert_eq!(de("scroll = \"lazy\""), ScrollStrategy::Lazy);
+        assert_eq!(de("scroll = \"Aggressive\""), ScrollStrategy::Aggressive);
+        assert_eq!(de("scroll = \"compact\""), ScrollStrategy::Compact);
+        assert_eq!(
+            ::toml::from_str::<TerminalLayoutSettings>("percentage = 50\nmin = 1\nmax = 0")
+                .expect("valid toml")
+                .scroll,
+            ScrollStrategy::default(),
+            "defaults to the enum default",
+        );
+    }
 
     #[test]
     fn inner_of_all_sides() {

@@ -44,7 +44,10 @@ pub(crate) fn run_file_value(
     let exit = Rc::new(Cell::new(None));
     let lua = new_vm(env, state, &exit)?;
     let f = load_file(&lua, path)?;
-    value(f.call::<MultiValue>(Variadic::from(to_args(args))), exit.get())
+    value(
+        f.call::<MultiValue>(Variadic::from(to_args(args))),
+        exit.get(),
+    )
 }
 
 /// Run inline lua source. Same VM, env, state, and exit semantics as
@@ -295,10 +298,16 @@ mod tests {
     fn run_inline_value_returns_first_value() {
         let env = EnvVars::default();
         let state = LuaState::empty();
-        assert_eq!(run_inline_value("return 42", &env, &state).unwrap(), Some("42".into()));
+        assert_eq!(
+            run_inline_value("return 42", &env, &state).unwrap(),
+            Some("42".into())
+        );
         assert_eq!(run_inline_value("return nil", &env, &state).unwrap(), None);
         assert_eq!(run_inline_value("return", &env, &state).unwrap(), None);
-        assert_eq!(run_inline_value("return 'a', 'b'", &env, &state).unwrap(), Some("a".into()));
+        assert_eq!(
+            run_inline_value("return 'a', 'b'", &env, &state).unwrap(),
+            Some("a".into())
+        );
         assert!(run_inline_value("error('boom')", &env, &state).is_err());
     }
 
@@ -393,10 +402,8 @@ assert(state.total == 0, 'state table present')"#,
     fn inject_errors_fail_the_script() {
         let env = EnvVars::default();
         let state = LuaState::empty();
-        let err = run_inline_inject("inject('x')", &env, &state, |_| {
-            Err("picker closed".into())
-        })
-        .unwrap_err();
+        let err = run_inline_inject("inject('x')", &env, &state, |_| Err("picker closed".into()))
+            .unwrap_err();
         assert!(err.contains("picker closed"), "unexpected error: {err}");
     }
 

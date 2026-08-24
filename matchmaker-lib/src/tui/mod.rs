@@ -11,12 +11,31 @@ use crossterm::{
 };
 use log::{debug, error};
 use ratatui::{Terminal, TerminalOptions, Viewport, layout::Rect, prelude::CrosstermBackend};
-use serde::{Deserialize, Serialize};
 use std::{
     io::{self, Write},
     thread::sleep,
     time::Duration,
 };
+
+mod layout;
+mod query;
+mod stream;
+
+pub use stream::IoStream;
+
+/// Ownership of bracketed paste mode.
+#[cfg(feature = "bracketed-paste")]
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum PasteMode {
+    /// Disabled when we started; we may enable it and must then disable it on
+    /// exit.
+    Off,
+    /// Enabled by us; must be disabled on exit.
+    Ours,
+    /// Already enabled before we started (e.g. by a shell line editor); leave
+    /// it untouched so pasting keeps working after we exit.
+    External,
+}
 pub struct Tui<W>
 where
     W: Write,
@@ -24,6 +43,10 @@ where
     pub terminal: ratatui::Terminal<CrosstermBackend<W>>,
     pub area: Rect,
     pub config: TerminalConfig,
+
+    /// Ownership of bracketed paste mode; see [`PasteMode`].
+    #[cfg(feature = "bracketed-paste")]
+    paste_mode: PasteMode,
 
     in_execute: bool,
 }
@@ -43,6 +66,27 @@ where
             crossterm::terminal::enable_raw_mode()?;
         }
 
+        // Single query round trip against the terminal; see [`query::startup`].
+        let startup = if config.stream != IoStream::Test {
+            match query::startup(Duration::from_millis(config.sleep_ms)) {
+                Ok(s) => s,
+                Err(e) => {
+                    debug!("Terminal startup queries failed: {e:#}");
+                    query::Startup::default()
+                }
+            }
+        } else {
+            query::Startup::default()
+        };
+
+        // Bracketed paste that was already on stays untouched so exit does not
+        // disable it out from under whoever turned it on.
+        #[cfg(feature = "bracketed-paste")]
+        let paste_mode = match startup.bracketed_paste {
+            Some(true) => PasteMode::External,
+            _ => PasteMode::Off,
+        };
+
         // In headless environments (e.g. CI) there is no terminal to size;
         // the test backend falls back to a fixed size so rendering is possible.
         let (width, height) = Self::full_size().unwrap_or_else(|| {
@@ -59,15 +103,14 @@ where
                 .percentage
                 .compute_clamped(height, layout.min, layout.max);
 
-            let cursor_y = Self::get_cursor_y(Duration::from_millis(config.sleep_ms))
-                .unwrap_or_else(|e| {
-                    error!("Failed to read cursor: {e}");
-                    height - 1 // overestimate
-                });
+            let cursor_y = startup.cursor.map(|(_, y)| y).unwrap_or_else(|| {
+                error!("Failed to read cursor");
+                height - 1 // overestimate
+            });
 
             let initial_height = height.saturating_sub(cursor_y);
 
-            let scroll = request.saturating_sub(initial_height);
+            let scroll = layout::scroll_amount(layout.scroll, request, layout.min, initial_height);
             debug!("TUI dimensions: {width}, {height}. Cursor_y: {cursor_y}.",);
 
             // ensure available by scrolling
@@ -93,7 +136,13 @@ where
                     0,
                     cursor_y,
                     width,
-                    available_height.min(request).max(layout.min),
+                    layout::viewport_height(
+                        layout.scroll,
+                        request,
+                        layout.min,
+                        layout.max,
+                        available_height,
+                    ),
                 );
 
                 // options.viewport = Viewport::Inline(available_height.min(request));
@@ -112,6 +161,8 @@ where
             terminal,
             config,
             area,
+            #[cfg(feature = "bracketed-paste")]
+            paste_mode,
             in_execute: false,
         })
     }
@@ -131,8 +182,12 @@ where
         let backend = self.terminal.backend_mut();
         execute!(backend, EnableMouseCapture)._elog();
         #[cfg(feature = "bracketed-paste")]
+        if self.paste_mode == PasteMode::Off
+            && execute!(backend, crossterm::event::EnableBracketedPaste)
+                ._elog()
+                .is_some()
         {
-            execute!(backend, crossterm::event::EnableBracketedPaste)._elog();
+            self.paste_mode = PasteMode::Ours;
         }
 
         if self.config.extended_keys {
@@ -234,6 +289,14 @@ where
         if self.config.extended_keys {
             execute!(backend, PopKeyboardEnhancementFlags)._elog();
         }
+        #[cfg(feature = "bracketed-paste")]
+        if self.paste_mode == PasteMode::Ours
+            && execute!(backend, crossterm::event::DisableBracketedPaste)
+                ._elog()
+                .is_some()
+        {
+            self.paste_mode = PasteMode::Off;
+        }
         execute!(backend, LeaveAlternateScreen, DisableMouseCapture)._wlog();
 
         if clear.is_none() {
@@ -288,6 +351,14 @@ where
         if self.config.extended_keys {
             execute!(backend, PopKeyboardEnhancementFlags)._elog();
         }
+        #[cfg(feature = "bracketed-paste")]
+        if self.paste_mode == PasteMode::Ours
+            && execute!(backend, crossterm::event::DisableBracketedPaste)
+                ._elog()
+                .is_some()
+        {
+            self.paste_mode = PasteMode::Off;
+        }
 
         disable_raw_mode()._wlog();
 
@@ -304,19 +375,6 @@ where
     }
 
     // note: do not start before event stream
-    pub fn get_cursor_y(timeout: Duration) -> io::Result<u16> {
-        // crossterm uses stdout to determine cursor position
-        // todo: workarounds?
-        // #[cfg(not(target_os = "windows"))]
-        Ok(if !atty::is(atty::Stream::Stdout) {
-            utils::query_cursor_position(timeout)
-                .map_err(io::Error::other)?
-                .1
-        } else {
-            crossterm::cursor::position()?.1
-        })
-    }
-
     pub fn scroll_up(backend: &mut CrosstermBackend<W>, lines: u16) -> io::Result<u16> {
         execute!(backend, crossterm::terminal::ScrollUp(lines))?;
         Ok(0) // not used
@@ -358,111 +416,3 @@ where
     }
 }
 
-// ---------- IO ---------------
-
-#[derive(Debug, Clone, Deserialize, Default, Serialize, PartialEq)]
-pub enum IoStream {
-    Stdout,
-    #[default]
-    BufferedStderr,
-    /// Capture all output into [`crate::test::TEST_BUFFER`].
-    ///
-    /// For tests only: rendering does not depend on a real terminal
-    /// (raw mode and terminal sizing are bypassed). Because there is no
-    /// terminal to read input from, [`crate::Matchmaker::pick`] runs the
-    /// event loop it creates in optional mode (input-less, no crossterm
-    /// event stream); a caller-supplied event loop override is kept as-is.
-    Test,
-}
-
-impl IoStream {
-    pub fn to_stream(&self) -> Box<dyn std::io::Write + Send> {
-        match self {
-            IoStream::Stdout => Box::new(io::stdout()),
-            IoStream::BufferedStderr => Box::new(io::LineWriter::new(io::stderr())),
-            IoStream::Test => Box::new(crate::test::TestWriter),
-        }
-    }
-}
-
-// ------------------------------------------------------------
-
-#[cfg(unix)]
-mod utils {
-    use anyhow::{Context, Result, bail};
-    use std::{
-        fs::OpenOptions,
-        io::{Read, Write},
-        time::Duration,
-    };
-
-    /// Query the terminal for the current cursor position (col, row)
-    /// Needed because crossterm implementation fails when stdout is not connected.
-    /// Requires raw mode
-    pub fn query_cursor_position(timeout: Duration) -> Result<(u16, u16)> {
-        use nix::sys::{
-            select::{FdSet, select},
-            time::{TimeVal, TimeValLike},
-        };
-        use std::os::fd::AsFd;
-
-        let mut tty = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open("/dev/tty")
-            .context("Failed to open /dev/tty")?;
-
-        // Send the ANSI cursor position report query
-        tty.write_all(b"\x1b[6n")?;
-        tty.flush()?;
-
-        // Wait for input using select()
-        let fd = tty.as_fd();
-        let mut fds = FdSet::new();
-        fds.insert(fd);
-
-        let mut timeout = TimeVal::milliseconds(timeout.as_millis() as i64);
-
-        let ready =
-            select(None, &mut fds, None, None, Some(&mut timeout)).context("select() failed")?;
-
-        if ready == 0 {
-            bail!("Timed out waiting for cursor position response: {timeout:?}");
-        }
-
-        // Read the response
-        let mut buf = [0u8; 64];
-        let n = tty.read(&mut buf)?;
-        let s = String::from_utf8_lossy(&buf[..n]);
-
-        parse_cursor_response(&s).context(format!("Failed to parse terminal response: {s}"))
-    }
-
-    /// Parse the terminal response with format ESC [ row ; col R
-    /// and return (col, row) as 0-based coordinates.
-    fn parse_cursor_response(s: &str) -> Result<(u16, u16)> {
-        let coords = s
-            .strip_prefix("\x1b[")
-            .context("Missing ESC]")?
-            .strip_suffix('R')
-            .context("Missing R")?;
-
-        let mut parts = coords.split(';');
-
-        let row: u16 = parts.next().context("Missing row")?.parse()?;
-
-        let col: u16 = parts.next().context("Missing column")?.parse()?;
-
-        Ok((col - 1, row - 1)) // convert to 0-based
-    }
-}
-
-#[cfg(windows)]
-mod utils {
-    use anyhow::Result;
-    use std::time::Duration;
-    pub fn query_cursor_position(timeout: Duration) -> Result<(u16, u16)> {
-        let ret = crossterm::cursor::position()?;
-        Ok(ret)
-    }
-}

@@ -252,6 +252,26 @@ impl<'de> Deserialize<'de> for Padding {
 //     FormatString: String
 // );
 
+/// Strategy for scrolling the terminal viewport to satisfy the inline layout.
+///
+/// Applies when there is not enough space below the cursor for the requested
+/// height.
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ScrollStrategy {
+    /// Scroll up to the requested percentage whenever it does not already
+    /// fit; otherwise occupy every row below the cursor up to `max`,
+    /// ignoring the percentage.
+    Expansive,
+    /// Always scroll up to reach the requested percentage of rows.
+    #[default]
+    Aggressive,
+    /// Scroll up to the requested percentage only when fewer than `min` rows
+    /// are available; otherwise leave the viewport untouched.
+    Lazy,
+    /// Scroll up only enough to guarantee `min` rows.
+    Compact,
+}
+
 #[derive(Default, Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Side {

@@ -332,9 +332,10 @@ pub fn map_lua<E: SSS + std::fmt::Display>(
         }
 
         if res.is_ok()
-            && let Err(e) = window.borrow_mut().finish() {
-                ebog!("failed to flush window: {e}");
-            }
+            && let Err(e) = window.borrow_mut().finish()
+        {
+            ebog!("failed to flush window: {e}");
+        }
 
         let total = count.get();
         if total == 0 && abort_empty {
@@ -798,9 +799,7 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
         Box::new(move |config| matchmaker::binds::display_help(&binds_ptr_exec.load(), config)),
         previewer_help_config,
     );
-    mm.register_execute_handler(
-        shell.clone(),
-    );
+    mm.register_execute_handler(shell.clone());
     mm.register_execute_async_handler(shell.clone());
     mm.register_copy(
         copy_trailing_newline,

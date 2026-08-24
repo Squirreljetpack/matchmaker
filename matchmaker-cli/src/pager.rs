@@ -16,7 +16,7 @@ use std::{
     time::Duration,
 };
 
-use cba::broc::{tty_or_inherit, TTY_HANDLE};
+use cba::broc::{TTY_HANDLE, tty_or_inherit};
 use log::info;
 
 use crate::config::PagerConfig;
@@ -30,7 +30,7 @@ use std::{
 };
 
 #[cfg(feature = "pager")]
-use minus::{hooks::Hook, LineNumbers, Pager};
+use minus::{LineNumbers, Pager, hooks::Hook};
 
 /// Common pager configuration for `ShowPreview`: line numbers, follow mode,
 /// horizontal scroll, smart case, prompt, and the no-op `PostPagerExit`

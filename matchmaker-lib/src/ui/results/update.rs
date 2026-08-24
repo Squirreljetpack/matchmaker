@@ -336,12 +336,11 @@ impl ResultsUI {
             applied = self.try_apply_max_widths_into_width_buffer();
         }
         if let Some(applied) = applied
-            && (applied
-                || {
-                    _info!(self.changed[1]; self.preferred_widths.is_empty(); wrap_condition);
-                    (self.changed[1] || self.preferred_widths.is_empty() || wrap_condition)
-                        && self.update_preferred_widths()
-                })
+            && (applied || {
+                _info!(self.changed[1]; self.preferred_widths.is_empty(); wrap_condition);
+                (self.changed[1] || self.preferred_widths.is_empty() || wrap_condition)
+                    && self.update_preferred_widths()
+            })
         {
             _info!(
                 "[update_preferred]";

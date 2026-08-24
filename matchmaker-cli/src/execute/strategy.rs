@@ -189,10 +189,7 @@ mod tests {
         ));
         assert!(matches!(
             classify("@../sibling.sh"),
-            CommandStrategy::File {
-                direct: false,
-                ..
-            }
+            CommandStrategy::File { direct: false, .. }
         ));
     }
 

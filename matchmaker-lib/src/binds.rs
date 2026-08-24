@@ -761,11 +761,12 @@ pub fn display_help<A: ActionExt + Display>(
         let mut combined: Vec<(String, Vec<String>)> = Vec::new();
         for (trigger, actions) in entries_processed {
             if let Some((last_trigger, last_actions)) = combined.last_mut()
-                && *last_actions == actions {
-                    last_trigger.push_str(", ");
-                    last_trigger.push_str(&trigger);
-                    continue;
-                }
+                && *last_actions == actions
+            {
+                last_trigger.push_str(", ");
+                last_trigger.push_str(&trigger);
+                continue;
+            }
             combined.push((trigger, actions));
         }
         entries_processed = combined;
@@ -920,7 +921,10 @@ mod test {
         }
         // Exact strings for case-preserving (semantic) triggers.
         assert_eq!(Trigger::from_str("@accept").unwrap().to_string(), "@accept");
-        assert_eq!(Trigger::from_str("0,1^^@accept").unwrap().to_string(), "0,1^^@accept");
+        assert_eq!(
+            Trigger::from_str("0,1^^@accept").unwrap().to_string(),
+            "0,1^^@accept"
+        );
     }
 
     #[test]
@@ -1451,15 +1455,24 @@ mod test {
         let lines: Vec<_> = help_str.lines().filter(|l| !l.is_empty()).collect();
 
         // Trace items come first when quote_traces is true, followed by Print actions
-        assert!(lines.iter().any(|l| l.contains("Ctrl-d, Delete = \"rm\"") || l.contains("Delete, Ctrl-d = \"rm\"")));
-        assert!(lines.iter().any(|l| l.contains("a, b = Print(foo)") || l.contains("b, a = Print(foo)")));
+        assert!(lines.iter().any(
+            |l| l.contains("Ctrl-d, Delete = \"rm\"") || l.contains("Delete, Ctrl-d = \"rm\"")
+        ));
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("a, b = Print(foo)") || l.contains("b, a = Print(foo)"))
+        );
         assert!(lines.iter().any(|l| l.contains("c = Print(bar)")));
 
         // Disable combine_keys
         cfg.combine_keys = false;
         let help_no_combine = display_help(&binds.resolve_semantics(&[]), &cfg);
         let help_no_combine_str = help_no_combine.to_string();
-        let lines_no_combine: Vec<_> = help_no_combine_str.lines().filter(|l| !l.is_empty()).collect();
+        let lines_no_combine: Vec<_> = help_no_combine_str
+            .lines()
+            .filter(|l| !l.is_empty())
+            .collect();
 
         assert_eq!(lines_no_combine.len(), 5);
         assert!(!lines_no_combine.iter().any(|l| l.contains(',')));

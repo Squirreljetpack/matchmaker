@@ -6,6 +6,12 @@ repos:
         entry: dprint fmt --allow-no-files
         language: system
         types: [text]
+      - id: cargo-fmt
+        name: cargo fmt
+        entry: cargo fmt
+        language: system
+        types: [rust]
+        pass_filenames: false
   # - repo: local
   #   hooks:
   #   - id: tests

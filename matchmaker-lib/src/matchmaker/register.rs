@@ -81,7 +81,8 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
 }
 
 /// Factory closure for producing formatted help text.
-pub type HelpFactory = Box<dyn Fn(&crate::config::HelpDisplayConfig) -> Text<'static> + Send + Sync>;
+pub type HelpFactory =
+    Box<dyn Fn(&crate::config::HelpDisplayConfig) -> Text<'static> + Send + Sync>;
 
 /// Resolves static preview text: if the text is empty, delegates to `help_factory`.
 pub fn resolve_static_preview(

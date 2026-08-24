@@ -5,7 +5,7 @@
 //! therefore address columns without going through the shell-quoting template
 //! formatter (which produces strings unsafe to embed in lua source).
 
-use matchmaker::{nucleo::Render, render::MMState, SSS};
+use matchmaker::{SSS, nucleo::Render, render::MMState};
 
 /// Snapshot of matchmaker state for one lua run. Pure data — the lua table is
 /// materialized from this in [`crate::lua::new_vm`].

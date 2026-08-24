@@ -8,9 +8,9 @@ mod list;
 mod logger;
 #[cfg(feature = "mlua")]
 mod lua;
+mod pager;
 mod parse;
 mod paths;
-mod pager;
 mod register;
 mod sort;
 mod start;

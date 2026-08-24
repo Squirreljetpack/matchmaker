@@ -517,11 +517,7 @@ impl<A: ActionExt> EventLoop<A> {
         self.current_task = Some(handle);
     }
 
-    fn send_actions(
-        &mut self,
-        actions: impl IntoIterator<Item = Action<A>>,
-        key: Option<String>,
-    ) {
+    fn send_actions(&mut self, actions: impl IntoIterator<Item = Action<A>>, key: Option<String>) {
         for action in actions {
             match action {
                 Action::PrintKey => {

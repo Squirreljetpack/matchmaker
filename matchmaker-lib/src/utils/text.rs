@@ -383,9 +383,10 @@ pub fn scrub_text_styles(text: &mut Text<'_>) {
 
 pub fn is_empty(text: &Text<'_>) -> bool {
     text.lines.is_empty()
-        || text.lines.iter().all(|l| {
-            l.spans.is_empty() || l.spans.iter().all(|s| s.content.is_empty())
-        })
+        || text
+            .lines
+            .iter()
+            .all(|l| l.spans.is_empty() || l.spans.iter().all(|s| s.content.is_empty()))
 }
 
 pub fn trim_text_lines(text: &mut Text) {

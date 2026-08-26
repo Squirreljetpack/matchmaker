@@ -5,6 +5,15 @@ pub static LIBRARY_FULL: &str = "matchmaker";
 pub static BINARY_SHORT: &str = "mm";
 
 #[derive(Debug, Parser, Default, Clone)]
+#[command(
+    disable_help_flag = true,
+    arg(
+        clap::Arg::new("help")
+            .long("help")
+            .action(ArgAction::Help)
+            .global(true)
+    )
+)]
 #[command(name = "mm", version)]
 pub struct Cli {
     #[arg(long, value_name = "PATH")]
@@ -47,7 +56,7 @@ pub struct Cli {
     #[clap(short, conflicts_with("quiet"), action = ArgAction::Count)]
     pub verbose: u8,
 
-    /// Download all presets from GitHub. Use `--download=<FOLDER>` (no space) to download a subfolder.
+    /// Download all presets from GitHub, or a specific subfolder / preset file.
     #[arg(long, value_name = "FOLDER", num_args = 0..=1, default_missing_value = "")]
     pub download: Option<String>,
 
@@ -55,7 +64,7 @@ pub struct Cli {
     #[arg(long)]
     pub presets: bool,
 
-    /// Useful for testing presets (see `mm --doc other`).
+    /// Test a preset (see `mm --doc other`).
     #[arg(long, value_name = "N@ALIAS | N-M | N:TEMPLATE | TEMPLATE", num_args = 0..=1, default_missing_value = "")]
     pub list: Option<String>,
 
@@ -81,27 +90,29 @@ impl Cli {
         let mut clap_args = Vec::new();
         let mut rest = Vec::new();
 
-        let mut iter = args.into_iter().peekable();
+        let mut iter = args.iter();
         while let Some(arg) = iter.next() {
             let s = arg.to_string_lossy();
 
+            // Flags that exit without running the matcher: when one of them
+            // appears anywhere before `--`, clap parses the entire command line.
+            macro_rules! skips_matcher {
+                ($name:literal) => {{
+                    let eq_opt = concat!("--", $name, "=");
+                    let long_opt = concat!("--", $name);
+                    s == long_opt || s.starts_with(eq_opt)
+                }};
+            }
+
             // Check end of options
             if s == "--" {
-                clap_args.push(arg);
-                clap_args.extend(iter);
+                clap_args.push(arg.clone());
+                clap_args.extend(iter.cloned());
                 break;
             }
 
-            // Special handling for download since it has an optional value that must be joined to it
-            if s == "--download" || s.starts_with("--download=") {
-                clap_args.push(arg.clone());
-                continue;
-            }
-
-            // Special handling for list since it has an optional value that must be joined to it
-            if s == "--list" || s.starts_with("--list=") {
-                clap_args.push(arg.clone());
-                continue;
+            if skips_matcher!("doc") || skips_matcher!("list") || skips_matcher!("download") {
+                return (args, Vec::new());
             }
 
             macro_rules! try_parse {
@@ -114,7 +125,7 @@ impl Cli {
                         clap_args.push(arg.clone());
                         if needs_next {
                             if let Some(next) = iter.next() {
-                                clap_args.push(next);
+                                clap_args.push(next.clone());
                             } else {
                                 // clap will handle
                             }
@@ -127,7 +138,6 @@ impl Cli {
             // Long options with optional or required values
             try_parse!("config", "--");
             try_parse!("verbosity", "--");
-            try_parse!("doc", "--");
             try_parse!("d", "-");
             try_parse!("override", "--");
             try_parse!("o", "-");
@@ -149,12 +159,12 @@ impl Cli {
                 || s.strip_prefix('-')
                     .is_some_and(|x| x.chars().all(|c| c == 'v') || x.chars().all(|c| c == 'q'))
             {
-                clap_args.push(arg);
+                clap_args.push(arg.clone());
                 continue;
             }
 
             // Anything else
-            rest.push(arg);
+            rest.push(arg.clone());
         }
 
         (clap_args, rest)
@@ -183,5 +193,55 @@ impl Cli {
             .collect();
 
         (cli, rest)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn partition(args: &[&str]) -> (Vec<String>, Vec<String>) {
+        // `partition_clap_args` receives argv without the program name.
+        let args: Vec<OsString> = args.iter().map(Into::into).collect();
+        let (clap_args, rest) = Cli::partition_clap_args(args);
+        (
+            clap_args
+                .into_iter()
+                .map(|s| s.to_string_lossy().into_owned())
+                .collect(),
+            rest.into_iter()
+                .map(|s| s.to_string_lossy().into_owned())
+                .collect(),
+        )
+    }
+
+    #[test]
+    fn ui_less_flags_hand_everything_to_clap() {
+        for flag in [
+            "--download",
+            "--download=x.toml",
+            "--list",
+            "--list=N@alias",
+            "--doc",
+            "--doc=options",
+        ] {
+            let (clap_args, rest) = partition(&[flag, "x.toml"]);
+            assert_eq!(clap_args, vec![flag, "x.toml"], "flag {flag}");
+            assert!(rest.is_empty(), "flag {flag}");
+        }
+    }
+
+    #[test]
+    fn matcher_args_still_partition() {
+        let (clap_args, rest) = partition(&["--config", "c.toml", "binds.quit=q", "echo", "hi"]);
+        assert_eq!(clap_args, vec!["--config", "c.toml"]);
+        assert_eq!(rest, vec!["binds.quit=q", "echo", "hi"]);
+    }
+
+    #[test]
+    fn end_of_options_is_respected() {
+        let (clap_args, rest) = partition(&["--", "echo", "--download"]);
+        assert_eq!(clap_args, vec!["--", "echo", "--download"]);
+        assert!(rest.is_empty());
     }
 }

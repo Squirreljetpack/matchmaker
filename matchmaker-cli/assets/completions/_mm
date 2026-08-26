@@ -19,8 +19,8 @@ _mm() {
 '*-o+[Paths without a toml extension refer to a preset]:PATH:_files' \
 '*--override=[Paths without a toml extension refer to a preset]:PATH:_files' \
 '-C+[Context lines rolled into each item]:N:_default' \
-'--download=[Download all presets from GitHub. Use \`--download=<FOLDER>\` (no space) to download a subfolder]::FOLDER:_default' \
-'--list=[Useful for testing presets (see \`mm --doc other\`)]::N@ALIAS | N-M | N:TEMPLATE | TEMPLATE:_default' \
+'--download=[Download all presets from GitHub, or a specific subfolder / preset file]::FOLDER:_default' \
+'--list=[Test a preset (see \`mm --doc other\`)]::N@ALIAS | N-M | N:TEMPLATE | TEMPLATE:_default' \
 '-d+[Display documentation]:DOC:(options binds template execute other pager)' \
 '--doc=[Display documentation]:DOC:(options binds template execute other pager)' \
 '--dump-config[Write the default configuration to the default location. If piped, writes the current configuration to stdout]' \
@@ -31,8 +31,7 @@ _mm() {
 '(-v)*-q[Reduce the verbosity level]' \
 '(-q)*-v[Increase the verbosity level]' \
 '--presets[List installed presets]' \
-'-h[Print help]' \
-'--help[Print help]' \
+'--help[]' \
 '-V[Print version]' \
 '--version[Print version]' \
 '*::args -- args passed to the populating command:_default' \

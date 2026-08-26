@@ -43,7 +43,7 @@ On the way:
 
 [^15]: I like this so much i had to mention it twice
 
-[^16]: [See](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/presets/csv.toml), run with `mm --download=csv.toml`, multi-line values not supported.
+[^16]: [See](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/presets/csv.toml), run with `mm --download csv.toml`, multi-line values not supported.
 
 [^17]: <https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/other.md>
 
@@ -191,13 +191,13 @@ Matchmaker is really good for creating workflows. It's like a swiss army knife f
 
 ```shell
 # download a preset (collection)
-mm --download=git
+mm --download git
 
 # invoke a preset (browse/restore by ref)
 mm -o git/restore
 
 # You can also run the first example this way:
-mm --download=rg.toml
+mm --download rg.toml
 mm -o rg
 ```
 

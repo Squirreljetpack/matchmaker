@@ -1,9 +1,4 @@
-use cba::{
-    _ibog,
-    bog::{BogOkExt, BogUnwrapExt},
-    broc::CommandExt,
-    ebog, ibog,
-};
+use cba::{_ibog, ebog, ibog};
 use serde::Deserialize;
 use std::{
     path::{Path, PathBuf},
@@ -155,7 +150,7 @@ fn set_executable_bit(_path: &Path) {}
 
 /// Handle `--download [FOLDER]`. `download` is the value of the flag: an
 /// empty string downloads every preset, a folder path downloads that folder,
-/// and a `.toml` file path downloads (and re-runs with `-o`) a file preset.
+/// and a `.toml` file path downloads that file preset.
 /// This function always exits — it either fetches what the user asked for
 /// or errors out, and never returns to the caller.
 pub fn handle_download(download: &String, folder_exclude_extensions: &[&str]) -> ! {
@@ -344,36 +339,7 @@ pub fn handle_download(download: &String, folder_exclude_extensions: &[&str]) ->
     }
 
     ibog!("Successfully downloaded {} file(s).", download_count);
-
-    // `--download <file.toml>` follows up with mm -o.
-    if subfolder.is_empty() || !subfolder.ends_with(".toml") {
-        exit(0);
-    } else {
-        let file_name = Path::new(subfolder)
-            .file_name()
-            ._ebog("Unexpected: no filename")
-            .to_string_lossy()
-            .into_owned();
-        let local_name = strip_platform_prefix(&file_name).unwrap_or(file_name);
-        let exe = std::env::current_exe().__ebog();
-        Command::new(exe)
-            .with_arg("-o")
-            .with_arg(local_name)
-            ._exec();
-    }
-}
-
-/// Strip a leading platform prefix (`win.`, `macos.`, `linux.`, `unix.`) from
-/// `name`. Returns `None` if the prefix belongs to a different OS family
-/// (e.g. `win.` on linux).
-fn strip_platform_prefix(name: &str) -> Option<String> {
-    const ALL_PREFIXES: &[&str] = &["win.", "macos.", "linux.", "unix."];
-    for p in ALL_PREFIXES {
-        if let Some(rest) = name.strip_prefix(p) {
-            return Some(rest.to_string());
-        }
-    }
-    Some(name.to_string())
+    exit(0)
 }
 
 pub fn expand_tilde(path: PathBuf) -> PathBuf {

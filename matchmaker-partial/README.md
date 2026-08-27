@@ -123,7 +123,7 @@ fn main() {
 
 ## Collections
 
-When `#[partial(unwrap)]`is applied to a collection (`HashMap, Vec, HashMap, BTreeSet`), the corresponding field omits the wrapping `Option`. This holds even for collections wrapped in Option.
+When `#[partial(unwrap)]` is applied to a collection (`Vec`, `HashSet`, `BTreeSet`, `IndexSet`, `HashMap`, `BTreeMap`, `IndexMap`), the corresponding field omits the wrapping `Option`. This holds even for collections wrapped in Option.
 
 When `#[partial(recurse)]` is applied to a collection, the nesting propogates to the internal type: `Vec<Inner>` becomes `Vec<PartialInner>`.
 

@@ -11,6 +11,7 @@ serde = { version = "1.0", features = ["derive"] }
 thiserror = "2.0"
 
 [dev-dependencies]
+indexmap = { version = "2.14.0", features = ["serde"] }
 matchmaker-partial-macros = { path = "../matchmaker-partial-macros", features = ["partial"] }
 toml = "1.1"
 trybuild = "1"

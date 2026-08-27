@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use matchmaker::config::*;
 use matchmaker_partial_macros::partial;
 
+use indexmap::IndexMap;
 use matchmaker::action::Actions;
 use matchmaker::binds::Trigger;
 use std::{collections::HashMap, ffi::OsString};
@@ -31,7 +32,7 @@ pub struct Config {
     #[serde(default)]
     #[partial(alias = "b")]
     #[partial(no_recurse, unwrap)]
-    pub binds: HashMap<Trigger, Actions<MMAction>>,
+    pub binds: IndexMap<Trigger, Actions<MMAction>>,
 
     // configure the tui
     #[partial(attr)]
@@ -232,5 +233,21 @@ mod tests {
             include_str!("../assets/win.config.lua.toml"),
         );
         check_round_trip("dev.toml", include_str!("../assets/dev.toml"));
+    }
+
+    #[test]
+    fn partial_binds_set_and_apply() {
+        use matchmaker_partial::{Apply, Set};
+
+        let mut partial = PartialConfig::default();
+        partial
+            .set(&["binds".to_string(), "ctrl-c".to_string()], &["Quit(1)".to_string()])
+            .expect("setting binds via path must succeed");
+
+        let mut config = Config::default();
+        config.apply(partial);
+
+        let trigger = "ctrl-c".parse::<Trigger>().unwrap();
+        assert!(config.binds.contains_key(&trigger));
     }
 }

@@ -59,6 +59,13 @@ impl PrefixFilter {
     pub fn is_empty(&self) -> bool {
         self.positive_prefixes.is_empty() && self.negative_prefixes.is_empty()
     }
+
+    /// Number of patterns (positive + negative). Higher means more specific:
+    /// a bind with more patterns shadows one with fewer
+    /// for the same trigger kind when both match the current mode.
+    pub fn pattern_count(&self) -> usize {
+        self.positive_prefixes.len() + self.negative_prefixes.len()
+    }
 }
 
 impl Display for PrefixFilter {

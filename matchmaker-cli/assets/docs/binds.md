@@ -280,11 +280,11 @@ Sort the results by one of the columns in the active row.
 
 ### Modes
 
-| Action        | Description                              |
-| ------------- | ---------------------------------------- |
-| `SetMode(s)`  | Replace the current mode stack with `s`. |
-| `PushMode(s)` | Push a mode tag onto the mode stack.     |
-| `PopMode`     | Pop the current mode tag.                |
+| Action        | Description                                  |
+| ------------- | -------------------------------------------- |
+| `PushMode(s)` | Push a mode tag onto the mode stack.         |
+| `SetMode(s)`  | Replace the current mode stack with `s`.     |
+| `PopMode(s)`  | Pop last tag, or remove a specified tag `s`. |
 
 ### Programmable and Miscellaneous
 

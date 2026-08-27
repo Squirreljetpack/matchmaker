@@ -777,8 +777,10 @@ fn codegen_collection_field(
         CollectionKind::Vec => quote! { Vec },
         CollectionKind::HashSet => quote! { HashSet },
         CollectionKind::BTreeSet => quote! { BTreeSet },
+        CollectionKind::IndexSet => quote! { IndexSet },
         CollectionKind::HashMap => quote! { HashMap },
         CollectionKind::BTreeMap => quote! { BTreeMap },
+        CollectionKind::IndexMap => quote! { IndexMap },
     };
 
     let partial_coll_ty = if let Some(key) = key_ty {
@@ -802,7 +804,7 @@ fn codegen_collection_field(
 
     let apply = if is_recursive_field {
         let element_apply = match kind {
-            CollectionKind::Vec | CollectionKind::HashSet | CollectionKind::BTreeSet => {
+            CollectionKind::Vec | CollectionKind::HashSet | CollectionKind::BTreeSet | CollectionKind::IndexSet => {
                 let push_method = if kind == CollectionKind::Vec {
                     quote! { push }
                 } else {
@@ -844,7 +846,7 @@ fn codegen_collection_field(
                     }
                 }
             }
-            CollectionKind::HashMap | CollectionKind::BTreeMap => {
+            CollectionKind::HashMap | CollectionKind::BTreeMap | CollectionKind::IndexMap => {
                 let src = if state.options.unwrap {
                     quote! { partial.#raw_ident }
                 } else {
@@ -875,7 +877,7 @@ fn codegen_collection_field(
             quote! { p }
         };
         quote! { if let Some(p) = partial.#raw_ident { self.#raw_ident = #val; } }
-    } else if matches!(kind, CollectionKind::HashMap | CollectionKind::BTreeMap) {
+    } else if matches!(kind, CollectionKind::HashMap | CollectionKind::BTreeMap | CollectionKind::IndexMap) {
         quote! {
             for (k, v) in partial.#raw_ident {
                 #target_expr.insert(k, v);
@@ -1234,8 +1236,10 @@ enum CollectionKind {
     Vec,
     HashSet,
     BTreeSet,
+    IndexSet,
     HashMap,
     BTreeMap,
+    IndexMap,
 }
 
 /// A recognized collection type and its type arguments.
@@ -1257,10 +1261,14 @@ fn get_collection_info(ty: &Type) -> SynResult<Option<CollectionInfo<'_>>> {
             CollectionKind::HashSet
         } else if last_seg.ident == "BTreeSet" {
             CollectionKind::BTreeSet
+        } else if last_seg.ident == "IndexSet" {
+            CollectionKind::IndexSet
         } else if last_seg.ident == "HashMap" {
             CollectionKind::HashMap
         } else if last_seg.ident == "BTreeMap" {
             CollectionKind::BTreeMap
+        } else if last_seg.ident == "IndexMap" {
+            CollectionKind::IndexMap
         } else {
             return Ok(None);
         };
@@ -1274,7 +1282,10 @@ fn get_collection_info(ty: &Type) -> SynResult<Option<CollectionInfo<'_>>> {
             }
         }
 
-        let is_map = matches!(kind, CollectionKind::HashMap | CollectionKind::BTreeMap);
+        let is_map = matches!(
+            kind,
+            CollectionKind::HashMap | CollectionKind::BTreeMap | CollectionKind::IndexMap
+        );
         let (key_ty, element_ty) = match (is_map, inner_types.as_slice()) {
             (true, [key, value]) => (Some(*key), *value),
             (false, [element]) => (None, *element),

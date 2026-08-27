@@ -229,7 +229,7 @@ impl<A: ActionExt> EventLoop<A> {
             }
 
             BindDirective::Unbind(k) => {
-                self.original_binds.remove(&k);
+                self.original_binds.shift_remove(&k);
             }
 
             BindDirective::PopBind(k) => {
@@ -237,7 +237,7 @@ impl<A: ActionExt> EventLoop<A> {
                     actions.0.pop();
 
                     if actions.0.is_empty() {
-                        self.original_binds.remove(&k);
+                        self.original_binds.shift_remove(&k);
                     }
                 }
             }
@@ -255,9 +255,13 @@ impl<A: ActionExt> EventLoop<A> {
                 }
             }
 
-            BindDirective::PopMode => {
+            BindDirective::PopMode(s) => {
                 if let Ok(mut mode) = MODE.lock() {
-                    mode.pop();
+                    if s.is_empty() {
+                        mode.pop();
+                    } else {
+                        mode.retain(|m| m.as_ref() != s);
+                    }
                 }
             }
 

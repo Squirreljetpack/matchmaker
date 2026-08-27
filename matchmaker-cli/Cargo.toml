@@ -27,6 +27,7 @@ eula = false
 
 [dependencies]
 cli_boilerplate_automation = { workspace = true, features = ["serde", "bring"] }
+indexmap = { version = "2.14.0", features = ["serde"] }
 matchmaker-lib = { workspace = true, features = ["partial"] }
 matchmaker-partial = { workspace = true }
 matchmaker-partial-macros = { workspace = true }

@@ -38,8 +38,9 @@ pub enum MMAction {
     SetMode(String),
     /// Push a single mode tag onto the mode stack.
     PushMode(String),
-    /// Pop the top mode tag from the mode stack.
-    PopMode,
+    /// Pop mode tags from the mode stack: empty pops the top tag, otherwise
+    /// removes all occurrences of the given tag.
+    PopMode(String),
 
     // state
     /// Toggle refiltering of results by query.
@@ -236,8 +237,8 @@ pub fn action_handler(
         MMAction::PushMode(s) => {
             let _ = bind_tx.send(BindDirective::PushMode(s));
         }
-        MMAction::PopMode => {
-            let _ = bind_tx.send(BindDirective::PopMode);
+        MMAction::PopMode(s) => {
+            let _ = bind_tx.send(BindDirective::PopMode(s));
         }
 
         // set
@@ -480,7 +481,7 @@ enum_from_str_display! {
     MMAction;
 
     units:
-    HistoryUp, HistoryDown, ReloadPrev, PopMode;
+    HistoryUp, HistoryDown, ReloadPrev;
 
 
     tuples:
@@ -488,7 +489,7 @@ enum_from_str_display! {
     Copy, CopyAsync;
 
     defaults:
-    ;
+    (PopMode, String::new());
 
     options:
     SetPrompt, SetHeader, SetFooter, SetStatus, Filtering, ReloadNext, Sort, SortNumeric, SortReverse, SortThreshold, ShowPreview;

@@ -17,6 +17,7 @@ prompt_style.modifier = "ITALIC"
 
 [results]
 # wrap = true
+# reverse = false # set this to prevent flipping when using -F
 max_height = 16
 
 [status]

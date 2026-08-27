@@ -1015,6 +1015,8 @@ checksum = "d466e9454f08e4a911e14806c24e16fba1b4c121d1ea474396f396069cf949d9"
 dependencies = [
  "equivalent",
  "hashbrown 0.17.1",
+ "serde",
+ "serde_core",
 ]
 
 [[package]]
@@ -1280,6 +1282,7 @@ dependencies = [
  "dirs",
  "easy-ext",
  "env_logger",
+ "indexmap",
  "libc",
  "log",
  "matchmaker-lib",
@@ -1368,6 +1371,7 @@ dependencies = [
 name = "matchmaker-partial"
 version = "0.1.4"
 dependencies = [
+ "indexmap",
  "matchmaker-partial-macros",
  "serde",
  "thiserror 2.0.20",

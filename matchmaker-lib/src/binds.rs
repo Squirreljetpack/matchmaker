@@ -6,6 +6,7 @@ use std::{
 };
 
 use cba::bring::StrExt;
+use indexmap::IndexMap;
 use serde::{
     Deserializer,
     de::{self, Visitor},
@@ -25,7 +26,7 @@ pub use crokey::{KeyCombination, key};
 pub use crossterm::event::{KeyModifiers, MouseButton, MouseEventKind};
 
 #[allow(type_alias_bounds)]
-pub type BindMap<A: ActionExt = NullActionExt> = HashMap<Trigger, Actions<A>>;
+pub type BindMap<A: ActionExt = NullActionExt> = IndexMap<Trigger, Actions<A>>;
 
 /// A mode-specific resolved bind map that uses `TriggerKind` for O(1) lookups.
 ///
@@ -159,8 +160,14 @@ impl<A: ActionExt> BindMap<A> {
     /// Returns a [`ResolvedBindMap`] keyed by [`TriggerKind`] for O(1) lookups.
     pub fn resolve_semantics(&self, mode: &[Box<str>]) -> ResolvedBindMap<A> {
         let mut resolved: ResolvedBindMap<A> = HashMap::new();
+        // specificity of the current winner per TriggerKind (pattern count)
+        let mut specs: HashMap<TriggerKind, usize> = HashMap::new();
 
-        // Iterate through all triggers and resolve those matching the current mode
+        // Iterate through all triggers and resolve those matching the current mode.
+        // A trigger with more mode patterns (higher specificity) shadows one with
+        // fewer for the same TriggerKind; ties keep the later entry in definition
+        // order (IndexMap preserves insertion order, so user config wins over
+        // code defaults).
         for (trigger, actions) in self.iter() {
             // Only include triggers whose mode filter matches the current mode
             if !trigger.mode.matches(mode) {
@@ -169,7 +176,14 @@ impl<A: ActionExt> BindMap<A> {
 
             // Resolve the actions (replaces semantic aliases with concrete actions)
             if let Some(resolved_actions) = self.resolve_actions(actions, mode) {
-                resolved.insert(trigger.kind.clone(), resolved_actions);
+                let incoming = trigger.mode.pattern_count();
+                let replace = specs
+                    .get(&trigger.kind)
+                    .is_none_or(|&existing| incoming >= existing);
+                if replace {
+                    resolved.insert(trigger.kind.clone(), resolved_actions);
+                    specs.insert(trigger.kind.clone(), incoming);
+                }
             }
             // If resolve_actions returns None, the trigger is dropped (e.g., unbound alias)
         }
@@ -1014,6 +1028,106 @@ mod test {
 
         // Empty mode -> whole string parsed as TriggerKind, which fails here
         assert!(Trigger::from_str("^^a").is_err());
+    }
+
+    #[test]
+    fn test_mode_bind_shadows_default_deterministically() {
+        // A mode-tagged trigger must deterministically shadow an unconditional
+        // trigger for the same TriggerKind when the mode matches — regardless
+        // of iteration order. BindMap is now an IndexMap, so definition order
+        // is preserved and ties keep the later insert.
+        let bind_map: BindMap = bindmap!(
+            Trigger {
+                kind: TriggerKind::Key(key!(left)),
+                mode: PrefixFilter::default()
+            } => Action::BackwardChar,
+            Trigger {
+                kind: TriggerKind::Key(key!(left)),
+                mode: PrefixFilter::from_str("prompt").unwrap()
+            } => Action::DeleteChar,
+        );
+
+        // In prompt mode, the mode-tagged bind wins (1 pattern > 0).
+        let resolved = bind_map.resolve_semantics(&mode_vec("prompt"));
+        assert_eq!(
+            resolved.get(&TriggerKind::Key(key!(left))),
+            Some(&Actions(vec![Action::DeleteChar])),
+            "mode-tagged bind must shadow the default in matching mode"
+        );
+
+        // Outside the prompt, only the unconditional bind applies.
+        let resolved = bind_map.resolve_semantics(&[]);
+        assert_eq!(
+            resolved.get(&TriggerKind::Key(key!(left))),
+            Some(&Actions(vec![Action::BackwardChar])),
+            "unconditional bind applies outside the mode"
+        );
+
+        // Run the resolution many times to catch iteration-order flakiness.
+        for _ in 0..64 {
+            let resolved = bind_map.resolve_semantics(&mode_vec("prompt"));
+            assert_eq!(
+                resolved.get(&TriggerKind::Key(key!(left))),
+                Some(&Actions(vec![Action::DeleteChar])),
+                "mode-tagged bind must win deterministically"
+            );
+        }
+    }
+
+    #[test]
+    fn test_specificity_by_pattern_count() {
+        // More patterns = more specific, even for the same mode tag: a
+        // two-pattern filter beats a one-pattern filter for the same key.
+        let bind_map: BindMap = bindmap!(
+            Trigger {
+                kind: TriggerKind::Key(key!(right)),
+                mode: PrefixFilter::from_str("prompt").unwrap()
+            } => Action::ForwardChar,
+            Trigger {
+                kind: TriggerKind::Key(key!(right)),
+                mode: PrefixFilter::from_str("prompt,locked").unwrap()
+            } => Action::Accept,
+        );
+
+        // In `prompt,locked`, the two-pattern bind wins.
+        let resolved = bind_map.resolve_semantics(&mode_vec("prompt,locked"));
+        assert_eq!(
+            resolved.get(&TriggerKind::Key(key!(right))),
+            Some(&Actions(vec![Action::Accept])),
+            "2-pattern bind must shadow 1-pattern bind in matching mode"
+        );
+
+        // In `prompt` alone, the two-pattern filter doesn't match; only the
+        // one-pattern bind applies.
+        let resolved = bind_map.resolve_semantics(&mode_vec("prompt"));
+        assert_eq!(
+            resolved.get(&TriggerKind::Key(key!(right))),
+            Some(&Actions(vec![Action::ForwardChar])),
+            "1-pattern bind applies when the 2-pattern filter doesn't match"
+        );
+    }
+
+    #[test]
+    fn test_tie_keeps_later_insert() {
+        // Equal specificity: definition order wins (IndexMap preserves
+        // insertion order) — mirrors user-config-appended-after-defaults.
+        let bind_map: BindMap = bindmap!(
+            Trigger {
+                kind: TriggerKind::Key(key!(up)),
+                mode: PrefixFilter::from_str("prompt").unwrap()
+            } => Action::Up(1),
+            Trigger {
+                kind: TriggerKind::Key(key!(up)),
+                mode: PrefixFilter::from_str("locked").unwrap()
+            } => Action::Down(1),
+        );
+
+        let resolved = bind_map.resolve_semantics(&mode_vec("prompt,locked"));
+        assert_eq!(
+            resolved.get(&TriggerKind::Key(key!(up))),
+            Some(&Actions(vec![Action::Down(1)])),
+            "equal specificity keeps the later definition"
+        );
     }
 
     #[test]

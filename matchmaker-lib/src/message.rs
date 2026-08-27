@@ -118,8 +118,9 @@ pub enum BindDirective<A: ActionExt> {
     SetMode(String),
     /// Push a single mode tag onto the mode stack.
     PushMode(String),
-    /// Pop the top mode tag from the mode stack.
-    PopMode,
+    /// Pop mode tags from the mode stack. Empty string pops the top tag;
+    /// a non-empty tag removes all occurrences of that tag.
+    PopMode(String),
     /// Override the event loop tick rate. While overridden, ticks are never
     /// skipped. `None` restores the base tick rate.
     OverrideTickrate(Option<u8>),

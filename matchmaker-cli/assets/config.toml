@@ -19,6 +19,7 @@ reset_cursor_on_query_change = true
 [results]
 # wrap = true
 # uniformly_truncate_columns = false
+# reverse = false # set this to prevent flipping when using -F
 max_height = 16
 
 [status]

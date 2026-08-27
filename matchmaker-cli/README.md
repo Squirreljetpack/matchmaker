@@ -203,7 +203,7 @@ mm -o rg
 
 <img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/git-restore.png" alt="git-restore" style="width:416px;" /> <img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/git-grep-help.png" alt="git-help" style="width:416px;" />
 <img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/ps.png" alt="procs" style="width:416px;" /> <img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/context.png" alt="image-20260814151029456" style="width:416px" />
-<img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/docker-containers.png" alt="docker-containers" style="width:416px;" /> <img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/extra/unicode.png?raw=true" alt="emoji" style="width:416px" />
+<img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/docker-containers.png" alt="docker-containers" style="width:416px;" /> <img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/presets/unicode/.README.assets/unicode-square.png?raw=true" alt="unicode" style="width:416px" />
 
 <video src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/webm/git.mp4" controls width="416"></video>
 

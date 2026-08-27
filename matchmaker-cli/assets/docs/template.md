@@ -38,10 +38,13 @@ You can specify a column by its name or by its index (starting from 1). `{0}` re
 | `{+col}`    | Column `col` of all selected items (shell-quoted) |
 | `{-col}`    | Column `col` of all selected items (raw)          |
 
-> [!SHELL QUOTING]
+> [!TIP]
 >
-> Unix shells: single-quoted (`'foo'`, embedded `'` → `'\''`). cmd.exe: double-quoted (`"` and `&|<>^%` escaped).
-> PowerShell: single-quoted (embedded `'` doubled: `''`). An empty column becomes `''` when quoted but nothing when raw.
+> **SHELL QUOTING**
+> 
+> - Unix shells: single-quoted (`'foo'`, embedded `'` → `'\''`).
+> - cmd.exe: double-quoted (`"` and `&|<>^%` escaped).
+> - PowerShell: single-quoted (embedded `'` doubled: `''`). An empty column becomes `''` when quoted but nothing when raw.
 
 ## Special
 

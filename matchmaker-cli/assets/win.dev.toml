@@ -12,6 +12,7 @@ wrap = true
 
 [status]
 template = '\m/\t'
+show = true
 
 [preview]
 show = true

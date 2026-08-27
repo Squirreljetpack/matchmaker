@@ -22,6 +22,7 @@ max_height = 16
 
 [status]
 template = '\m/\t'
+show = true
 
 [header]
 

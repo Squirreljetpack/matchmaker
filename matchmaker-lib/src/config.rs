@@ -513,7 +513,7 @@ impl Default for StatusConfig {
                 modifier: Modifier::ITALIC,
                 ..Default::default()
             },
-            show: true,
+            show: false,
             match_indent: true,
             template: String::new(),
             row_connection: RowConnectionStyle::Full,

@@ -12,30 +12,10 @@ else
   cat
 fi |
 while read -r line; do
-  # This command finds all markdown files, and prints them in a custom format:
-  # {a:b} is a slicing syntax for path components
-  # {-1:} means take all components including and after the last
-  # omitting either end takes the full range in that direction
-  # 3 different delimiters are supported for slicing: `:`, `=` and `.`
-  # `:` targets the current item and adds single quotes around it
-  # `=` targets the current item without single quotes
-  # `.` targets the current working directory without single quotes
-  # `{}` prints the full path.
-  #
-  # Here, the effect is to print alongside each note their containing "vault".
-  fs -t .md --list --format '{=}\t{-1.}' $line .
+  fs -I=false -t .md --list --format '{=}\t{-1.}' $line .
 done |
-# This command browses the results. Note that a bare `fs` call no longer
-# consumes piped input -- browsing a listing is now an explicit `fs :custom`:
-# --opener: use this program to open the selected file
-# --tail-sep: use this delimiter to split each input line into a Path
-#                   and a Context (the tail column)
-# --transform: a lua function (path, tail) -> (path, display, tail). The input path
-#                 is absolute, the input tail is the --tail-sep remainder; a missing
-#                 path omits the entry; missing display/tail keep the current values.
-#                 Note: Files can be supplied with the `@` prefix.
 fs :custom  --opener ob-open \
-  --tail-sep $'\t' \
+  --tail-sep '	' \
   --transform '
         local path, tail = ...
         local display = (tail and tail ~= "") and ("/" .. path):match("^.-/" ..

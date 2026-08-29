@@ -75,7 +75,7 @@ border = { title = "Open Ports" }
 "@reload_2" = []
 
 "@accept" = ["#print pid", "Become(printf '%s\n' {+2})"]
-"@accept_2" = ["#print active", "Become(printf '%s\n' {+!})"]
+"@Accept" = ["#print active", "Become(printf '%s\n' {+!})"]
 "@copy" = "CopyAsync(printf '%s\n' {+2})"
 "@show" = "RunPreview(echo {9})"
 

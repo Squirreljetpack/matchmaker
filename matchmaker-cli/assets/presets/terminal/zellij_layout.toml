@@ -55,7 +55,7 @@ percentage = 100
     '''Become(zellij action override-layout {name} --apply-only-to-active-tab --retain-existing-terminal-panes)''',
 ]
 
-"@accept_2" = [
+"@Accept" = [
     "#replace tab",
     '''Become(zellij action override-layout {name} --apply-only-to-active-tab)''',
 ]
@@ -64,7 +64,6 @@ percentage = 100
     "#new tab",
     '''Become(zellij --layout {name})''',
 ]
-
 
 # ring navigation (skip [other]/[current] when they would list no panes)
 "@next" = '''BecomeSilent(

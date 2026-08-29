@@ -104,6 +104,7 @@ fi
   esac
 )
 '''
+"@Accept" = "Accept"
 "ctrl-1" = "@summary"
 
 "@summary" = '''Execute(

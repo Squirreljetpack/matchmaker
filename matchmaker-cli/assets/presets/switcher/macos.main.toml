@@ -82,6 +82,7 @@ max = 20
 [binds]
 "enter" = "@accept"
 "@accept" = '''Become(launchctl asuser $(id -u) "$(dirname -- "$MM_OVERRIDE")"/switch --pid {pid} --title {title} --bounds {bounds})'''
+"@Accept" = "Accept"
 "@copy" = '''CopyAsync(
 pid={pid}; app={app}; eval "$RESOLVE_APP"
 echo "$app_path"

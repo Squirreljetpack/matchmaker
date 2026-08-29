@@ -5,6 +5,7 @@ directory = { value = 'dirname -- "$MM_OVERRIDE"', exec = true, force = true }
 
 [binds]
 "@accept" = "Become(mm -o {})"
+"@Accept" = "Accept"
 
 [columns]
 max = 1

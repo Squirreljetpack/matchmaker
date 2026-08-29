@@ -24,7 +24,7 @@ prompt = "keys> "
 
 [binds]
 "@accept" = ["#copy", "Copy(cat {})", "Accept"]
-"@accept_2" = ["#copy path", "Copy(realpath {})", "Accept"]
+"@Accept" = ["#copy path", "Copy(realpath {})", "Accept"]
 "@open_2" = '''Execute(priv={}; priv="${priv%%.pub}"; [[ -f $priv ]] && $EDITOR "$priv")'''
 "@next" = "BecomeSilent(mm -o ssh/known)"
 "@prev" = "BecomeSilent(mm -o ssh/hosts)"

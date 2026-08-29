@@ -86,6 +86,7 @@ max = 0
 [binds]
 # --- Navigation ---
 "@accept" = "Become(printf '%s\n' {pid})"
+"@Accept" = "Accept"
 
 "@open" = '''ExecuteOrConfirm(
     label={label}; eval "$RESOLVE_TARGET"

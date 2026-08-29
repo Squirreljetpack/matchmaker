@@ -20,7 +20,7 @@ usage(){
     -s, --show    Show the filepath URI (expected by Obsidian) instead of opening.
     -h, --help    Show this help message."
 
-  (($#)) && exit $1
+  [ $# -eq 1 ] && exit $1
 }
 
 SHOW=false
@@ -33,7 +33,7 @@ while [ $# -gt 0 ]; do
       ;;
     -s|--show)
       shift 1
-      (($#)) || usage 1
+      [ $# -gt 0 ] || usage 1
       uri "$1"
       ;;
     -*)
@@ -50,7 +50,7 @@ done
 case "$1" in
   "") usage 1 ;;
   /*) file="$1";; # Already absolute
-  *)  file="$PWD/$file" ;;
+  *)  file="$PWD/$1" ;;
 esac
 
 # === SCRIPT START ===

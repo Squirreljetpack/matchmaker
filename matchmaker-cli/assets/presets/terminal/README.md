@@ -40,7 +40,7 @@ Apply a single-tab layout.
 - `<enter>`: apply the selected layout to the current tab, keeping panes that
   don't fit (`zellij action override-layout <name> --apply-only-to-active-tab
   --retain-existing-terminal-panes`)
-- `alt-enter` (`@accept_2`): apply it replacing the current tab's panes --
+- `alt-enter` (`@Accept`): apply it replacing the current tab's panes --
   terminal panes that don't fit are closed (no confirmation, no undo)
 - `ctrl-n`: open it in a new tab
 - `ctrl-o` (default `@open`): open the layout's KDL file in `$EDITOR` (the

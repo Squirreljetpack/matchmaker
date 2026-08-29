@@ -200,6 +200,7 @@ border = { title = "API Response" }
     echo "Requesting load for local $type $name..."
     echo "$request_body" | eval $CURL_TABBY -X POST -d @- "$TABBYHOST$endpoint" --fail-with-body
 )'''
+"@Accept" = "Accept"
 
 [query]
 prompt = "tabby> "

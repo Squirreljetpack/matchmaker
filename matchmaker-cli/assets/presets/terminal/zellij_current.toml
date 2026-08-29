@@ -62,6 +62,7 @@ percentage = 100
 # --- Binds -----------------------------------------------------------------
 [binds]
 "@accept" = 'Become(zellij action focus-pane-id {pane})'
+"@Accept" = "Accept"
 
 "@print" = [
     "#print",

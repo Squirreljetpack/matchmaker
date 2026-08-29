@@ -41,7 +41,7 @@ max = 120
 [binds]
 "enter" = "@accept"
 "@accept" = '''Become(@switch.sh --id {id})'''
-"alt-enter" = '''Become(@switch.sh --minimize --id {id})'''
+"@Accept" = '''Become(@switch.sh --minimize --id {id})'''
 "@copy" = "CopyAsync(printf '%s\n' {id})"
 "ctrl-r" = "Reload"
 

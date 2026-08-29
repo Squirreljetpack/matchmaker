@@ -54,7 +54,7 @@ always_trigger = false
 command = '''
 git diff --color=always --exit-code -- {1} && if [ -e {1} ]; then $PAGER {1}; else git show HEAD:{1}; fi
 '''
-border = { type = "LightDoubleDashed", color = "DarkGray", title = "Unstaged Diff" }
+border = { type = "LightDoubleDashed", color = "DarkGray", title = "Diff (Unstaged)" }
 side = "top"
 percentage = 50
 min = 5
@@ -80,6 +80,7 @@ border = { title = "File History" }
 # --- Binds ---
 [binds]
 "@accept" = ["#stage", "@stage", "Reload"]
+"@Accept" = "Accept"
 "@next" = "BecomeSilent(mm -o git/restore)"
 "@prev" = "BecomeSilent(mm -o git/grep)"
 "@reload" = "Reload"

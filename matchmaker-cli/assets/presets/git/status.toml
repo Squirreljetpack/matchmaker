@@ -80,6 +80,7 @@ border = { title = "File History" }
 # --- Binds ---
 [binds]
 "@accept" = ["#stage", "@stage", "Reload"]
+"@Accept" = "Accept"
 "@next" = "BecomeSilent(mm -o git/restore)"
 "@prev" = "BecomeSilent(mm -o git/grep)"
 "@reload" = "Reload"

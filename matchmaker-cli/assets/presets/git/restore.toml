@@ -93,7 +93,7 @@ prompt = "restore> "
 
 [binds]
 "@accept" = ["@checkout", "Reload"]
-"@accept_2" = [
+"@Accept" = [
     "#apply stash/hard reset",
     '''BecomeOrConfirm(
 set -e

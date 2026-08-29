@@ -23,6 +23,7 @@ border = { title = "Container Logs" }
 [binds]
 # Navigation
 "@accept" = "@exec"
+"@Accept" = "Accept"
 "@open" = "@logs_editor"
 
 # --- Actions ---

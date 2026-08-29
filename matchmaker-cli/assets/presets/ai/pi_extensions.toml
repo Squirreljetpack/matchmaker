@@ -133,6 +133,7 @@ border = { title = "README" }
 "@reload" = ["@reconcile", "Reload"]
 # "@start" = ["@reconcile", "Reload"]
 "@accept" = ["@toggle extension", "Reload"]
+"@Accept" = "Accept"
 "ctrl-n" = ["@install", "Reload"]
 "@rm" = ["@uninstall", "Reload"]
 "alt-p" = "@prune"

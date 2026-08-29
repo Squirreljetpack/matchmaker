@@ -84,6 +84,7 @@ else
     exec zellij attach {session}
 fi
 )'''
+"@Accept" = "Accept"
 
 "@print" = [
     "#print",

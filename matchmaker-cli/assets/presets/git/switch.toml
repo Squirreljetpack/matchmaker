@@ -97,7 +97,7 @@ prompt = "switch> "
 
 [binds]
 "@accept" = "@switch"
-"@accept_2" = ["@switch_silent", "Reload"]
+"@Accept" = ["@switch_silent", "Reload"]
 "@rm" = ["@delete", "Reload"]
 
 "ctrl-u" = ["@update", "Reload"]
@@ -292,56 +292,63 @@ set -e
 
 case "$MM_INDEX" in
 0)
-    branch={2}
-    if [[ "$branch" == *":"* ]]; then
-         remote="${branch%%:*}"
-         branch="${branch#*:}"
-         if [ -n "$remote" ] && [ -n "$branch" ]; then
-             printf "Delete remote branch '%s' from '%s'? [y/N]: " "$branch" "$remote"
-             read -r confirm
-             case "$confirm" in
-                 [Yy]*)
-                     echo "Deleting remote branch..."
-                     git push "$remote" --delete "$branch"
-                     ;;
-                 *)
-                     echo "Operation canceled."
-                     exit 0
-                     ;;
-             esac
-         else
-             echo "Error: Invalid ref format. Expected 'remote:branch'."
-             exit 1
-         fi
-    else
-        printf "Delete local branch %s? [y/N] " "$branch"
-        read -r ans
+    set -- {+2};
+    while (($#)); do
+        branch="$1"
+        shift 1
+        if [[ "$branch" == *":"* ]]; then
+             remote="${branch%%:*}"
+             branch="${branch#*:}"
+             if [ -n "$remote" ] && [ -n "$branch" ]; then
+                 printf "Delete remote branch '%s' from '%s'? [y/N]: " "$branch" "$remote"
+                 read -r confirm
+                 case "$confirm" in
+                     [Yy]*)
+                         echo "Deleting remote branch..."
+                         git push "$remote" --delete "$branch"
+                         ;;
+                     *)
+                         echo "Operation canceled."
+                         exit 0
+                         ;;
+                 esac
+             else
+                 echo "Error: Invalid ref format. Expected 'remote:branch'."
+                 exit 1
+             fi
+        else
+            printf "Delete local branch %s? [y/N] " "$branch"
+            read -r ans
 
-        case "$ans" in
-            [yY]*)
-                git branch -D "$branch"
+            case "$ans" in
+                [yY]*)
+                    # 1. Resolve upstream BEFORE deleting the local branch
+                    upstream="$(git rev-parse --abbrev-ref "${branch}@{u}" 2>/dev/null || true)"
 
-                upstream="$(git rev-parse --abbrev-ref "$ref@{u}" 2>/dev/null || true)"
+                    # 2. Delete the local branch
+                    git branch -D "$branch"
 
-                if [ -n "$upstream" ]; then
-                    remote="${upstream%%/*}"
-                    branch="${upstream#*/}"
+                    # 3. Handle remote deletion if an upstream was tracked
+                    if [ -n "$upstream" ]; then
+                        remote="${upstream%%/*}"
+                        remote_branch="${upstream#*/}"
 
-                    printf "Also delete remote branch %s/%s? [y/N] " "$remote" "$branch"
-                    read -r rans
+                        printf "Also delete remote branch %s/%s? [y/N] " "$remote" "$remote_branch"
+                        read -r rans
 
-                    case "$rans" in
-                        [yY]*)
-                            git push "$remote" --delete "$branch"
-                            ;;
-                    esac
-                fi
-                ;;
-            *)
-                exit 0
-                ;;
-        esac
-    fi
+                        case "$rans" in
+                            [yY]*)
+                                git push "$remote" --delete "$remote_branch"
+                                ;;
+                        esac
+                    fi
+                    ;;
+                *)
+                    exit 0
+                    ;;
+            esac
+        fi
+    done
     ;;
 1)
     set -- {+2};

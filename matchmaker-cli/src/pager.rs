@@ -62,6 +62,11 @@ fn configure_pager(pager: &Pager, cfg: &PagerConfig) {
     input_register.add_help_key(&[]);
     let _ = pager.set_input_classifier(Box::new(input_register));
 
+    // Route pager selection copies through host clipboard.
+    let _ = pager.set_clipboard_handler(Box::new(|text| {
+        let _ = crate::register::set_host_clipboard_universal(text);
+    }));
+
     let _ = pager.remove_hook(Hook::PostPagerExit, 1);
     let _ = pager.add_hook(Hook::PostPagerExit, 1, Box::new(|_| {}));
 }

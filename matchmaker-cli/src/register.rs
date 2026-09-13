@@ -429,7 +429,12 @@ pub fn set_host_clipboard_universal(text: &str) -> io::Result<()> {
     use base64::Engine;
     // 1. Encode the payload
     let encoded = base64::engine::general_purpose::STANDARD.encode(text);
-    let sequence = format!("\x1b]52;c;{}\x07", encoded);
+    let is_tmux = env::var("TMUX").is_ok();
+    let sequence = if is_tmux {
+        format!("\x1bPtmux;\x1b\x1b]52;c;{}\x07\x1b\\", encoded)
+    } else {
+        format!("\x1b]52;c;{}\x07", encoded)
+    };
 
     // 2. Determine the direct TTY path
     // If we are over SSH, $SSH_TTY will be set to the exact device file.
@@ -439,22 +444,14 @@ pub fn set_host_clipboard_universal(text: &str) -> io::Result<()> {
     // 3. Attempt to open the TTY file directly
     match OpenOptions::new().write(true).open(&tty_path) {
         Ok(mut tty_file) => {
-            // Write directly to the TTY, completely bypassing standard output, Zellij, and tmux.
-            write!(tty_file, "{}", sequence)?;
+            // Write directly to the TTY (wrapped for tmux if inside tmux)
+            tty_file.write_all(sequence.as_bytes())?;
             tty_file.flush()?;
         }
         Err(_) => {
-            // 4. Fallback if /dev/tty isn't available
-            // If the direct TTY fails (e.g., on Windows), we fall back to standard output.
-            // Here, we can still include the tmux check just in case.
-            let fallback_sequence = if env::var("TMUX").is_ok() {
-                format!("\x1bPtmux;\x1b\x1b]52;c;{}\x07\x1b\\", encoded)
-            } else {
-                sequence
-            };
-
+            // 4. Fallback if /dev/tty isn't available (e.g., on Windows): stdout
             let mut stdout = io::stdout();
-            write!(stdout, "{}", fallback_sequence)?;
+            stdout.write_all(sequence.as_bytes())?;
             stdout.flush()?;
         }
     }

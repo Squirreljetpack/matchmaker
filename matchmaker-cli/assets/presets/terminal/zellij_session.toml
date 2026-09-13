@@ -12,6 +12,7 @@ abort_empty = false
 
 [envs]
 CATcmd = { value = 'command -v bat --wrap=never --color=always -pp >/dev/null 2>&1 && echo bat || echo cat', exec = true, force = true }
+ZELLIJ_CACHE_DIR = { value = 'zellij setup --check 2>/dev/null | sed -n "s/^\\[CACHE DIR\\]: *//p" | tr -d "\"\\r"', exec = true, force = true }
 
 [columns]
 split = "tsv"
@@ -34,12 +35,14 @@ show = false
 [[preview.layout]]
 command = '''
 sess={session}
-cache="${XDG_CACHE_HOME:-$HOME/.cache}/zellij"
+cache="${ZELLIJ_CACHE_DIR:-}"
 kdl=""
-for dir in "$cache"/*/; do
-    [ -f "$dir/session_info/$sess/session-layout.kdl" ] &&
-        { kdl="$dir/session_info/$sess/session-layout.kdl"; break; }
-done
+if [ -d "$cache" ]; then
+    for dir in "$cache"/*/; do
+        [ -f "$dir/session_info/$sess/session-layout.kdl" ] &&
+            { kdl="$dir/session_info/$sess/session-layout.kdl"; break; }
+    done
+fi
 if [ -n "$kdl" ]; then
     printf '\033[1m%s\033[0m  [%s]  created %s ago\n' "$sess" {title} {age}
     printf '%s\n' '----------------------------------------'

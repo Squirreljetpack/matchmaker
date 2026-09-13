@@ -804,7 +804,10 @@ fn codegen_collection_field(
 
     let apply = if is_recursive_field {
         let element_apply = match kind {
-            CollectionKind::Vec | CollectionKind::HashSet | CollectionKind::BTreeSet | CollectionKind::IndexSet => {
+            CollectionKind::Vec
+            | CollectionKind::HashSet
+            | CollectionKind::BTreeSet
+            | CollectionKind::IndexSet => {
                 let push_method = if kind == CollectionKind::Vec {
                     quote! { push }
                 } else {
@@ -877,7 +880,10 @@ fn codegen_collection_field(
             quote! { p }
         };
         quote! { if let Some(p) = partial.#raw_ident { self.#raw_ident = #val; } }
-    } else if matches!(kind, CollectionKind::HashMap | CollectionKind::BTreeMap | CollectionKind::IndexMap) {
+    } else if matches!(
+        kind,
+        CollectionKind::HashMap | CollectionKind::BTreeMap | CollectionKind::IndexMap
+    ) {
         quote! {
             for (k, v) in partial.#raw_ident {
                 #target_expr.insert(k, v);

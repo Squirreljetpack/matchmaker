@@ -222,7 +222,8 @@ if not p or p == "" then
     if not f then os.exit(1) end
     f:close()
 end
-os.execute(string.format("%q %q", os.getenv("EDITOR") or "notepad", p))'''
+os.execute(string.format("%q %q", os.getenv("EDITOR") or "notepad", p))
+)'''
 "@open_2" = "Become(powershell -Command \"& $env:EDITOR {1}\")"
 "@reload" = "Reload"
 # "@next" = ["ReloadNext", "Cancel"] # see mm --doc binds

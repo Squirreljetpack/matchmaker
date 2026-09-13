@@ -106,6 +106,70 @@ pub enum MMAction {
     TransformConfig(String),
 }
 
+impl MMAction {
+    /// Returns the execution or command payload of this action, if any.
+    pub fn payload(&self) -> Option<&str> {
+        match self {
+            Self::ExecuteOrConfirm(s)
+            | Self::ExecuteAndQuit(s)
+            | Self::BecomeOrConfirm(s)
+            | Self::BecomeOrResume(s)
+            | Self::Transform(s)
+            | Self::TransformConfig(s)
+            | Self::Copy(s)
+            | Self::CopyAsync(s)
+            | Self::RunPreview(s) => Some(s.as_str()),
+            Self::ShowPreview(s) => s.as_deref(),
+            _ => None,
+        }
+    }
+
+    /// Validates the Lua syntax of this action's payload if it is a Lua script.
+    ///
+    /// Returns:
+    /// - `Some(true)` if the action contains a Lua payload with valid syntax.
+    /// - `Some(false)` if the action contains a Lua payload with syntax errors.
+    /// - `None` if the action is not a Lua script (or if the `mlua` feature is disabled).
+    pub fn validate_lua(&self) -> Option<bool> {
+        let payload = self.payload()?;
+        #[cfg(feature = "mlua")]
+        {
+            match crate::execute::classify(payload) {
+                crate::execute::CommandStrategy::Lua(code) => {
+                    let lua = mlua::Lua::new();
+                    match lua.load(&code).into_function() {
+                        Ok(_) => Some(true),
+                        Err(e) => {
+                            log::error!("Lua syntax error: {e}");
+                            Some(false)
+                        }
+                    }
+                }
+                crate::execute::CommandStrategy::LuaFile { path, .. } => {
+                    if let Ok(src) = std::fs::read_to_string(&path) {
+                        let lua = mlua::Lua::new();
+                        match lua.load(&src).into_function() {
+                            Ok(_) => Some(true),
+                            Err(e) => {
+                                log::error!(
+                                    "Lua file syntax error in {}: {e}",
+                                    path.to_string_lossy()
+                                );
+                                Some(false)
+                            }
+                        }
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            }
+        }
+        #[cfg(not(feature = "mlua"))]
+        None
+    }
+}
+
 pub struct ActionContext {
     pub bind_tx: BindSender<MMAction>,
     pub render_tx: matchmaker::event::RenderSender<MMAction>,
@@ -658,5 +722,23 @@ mod tests {
 
         let (_trigger, action) = parse_push_bind_parts(&push_inner).unwrap();
         assert_eq!(action, Action::Semantic("enter_mm".into()));
+    }
+
+    #[test]
+    fn test_validate_lua() {
+        let non_lua = MMAction::ExecuteOrConfirm("echo hello".into());
+        assert_eq!(non_lua.validate_lua(), None);
+
+        #[cfg(feature = "mlua")]
+        {
+            let valid_lua = MMAction::ExecuteOrConfirm("#!lua return 1 + 1".into());
+            assert_eq!(valid_lua.validate_lua(), Some(true));
+
+            let invalid_lua = MMAction::ExecuteOrConfirm("#!lua return 1 +".into());
+            assert_eq!(invalid_lua.validate_lua(), Some(false));
+
+            let copy_lua = MMAction::CopyAsync("#!lua local t = {}; return table.concat(t)".into());
+            assert_eq!(copy_lua.validate_lua(), Some(true));
+        }
     }
 }

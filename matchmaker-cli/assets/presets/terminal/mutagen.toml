@@ -1,0 +1,111 @@
+# Mutagen sync session picker
+# Lists mutagen sync sessions (one session name per row).
+# Previews show session sync status and detailed configuration.
+
+[matcher]
+trim = true
+
+[start]
+command = "mutagen sync list --template '{{range $i, $e := .}}{{if $i}}{{\"\\n\"}}{{end}}{{if .Name}}{{.Name}}{{else}}{{.Identifier}}{{end}}{{end}}'"
+
+[exit]
+abort_empty = false
+
+[columns]
+split = "tsv"
+default = "name"
+names = [
+    { name = "name" },
+]
+
+# --- Preview ---------------------------------------------------------------
+[preview]
+wrap = false
+show = true
+
+[[preview.layout]]
+command = 'mutagen sync list {name}'
+border = { title = "Status" }
+
+[[preview.layout]]
+command = 'mutagen sync monitor {name}'
+border = { title = "Mutagen Sync Monitor" }
+initial.tail = true
+
+[[preview.layout]]
+command = 'mutagen sync list -l {name}'
+border = { title = "Details" }
+
+# --- UI --------------------------------------------------------------------
+[header]
+content = ["SESSION"]
+style.modifier = ""
+
+[query]
+prompt = "mutagen> "
+prompt_style.fg = "Cyan"
+
+[tui]
+percentage = 100
+
+# --- Binds -----------------------------------------------------------------
+[binds]
+"@show" = [
+    "#show detailed info",
+    'ShowPreview(mutagen sync list -l {name})',
+]
+
+"@copy_all" = [
+    "#copy conflicting file paths",
+    '''CopyAsync(mutagen sync list {+name} --template '{{range .}}{{range .SessionState.Conflicts}}{{if .Root}}{{.Root}}{{"\n"}}{{end}}{{range .AlphaChanges}}{{if .Path}}{{.Path}}{{"\n"}}{{end}}{{end}}{{range .BetaChanges}}{{if .Path}}{{.Path}}{{"\n"}}{{end}}{{end}}{{end}}{{end}}')''',
+]
+
+"@flush" = [
+    "#flush sync",
+    'ExecuteOrConfirm(mutagen sync flush {+name})',
+    "Reload",
+]
+
+"@pause" = [
+    "#pause sync",
+    'ExecuteOrConfirm(mutagen sync pause {+name})',
+    "Reload",
+]
+
+"@resume" = [
+    "#resume sync",
+    'ExecuteOrConfirm(mutagen sync resume {+name})',
+    "Reload",
+]
+
+"@reset" = [
+    "#reset history",
+    '''ExecuteOrConfirm(
+printf "Reset sync history for %s? [y/N] " {name}
+read -r ans
+case "$ans" in
+    [Yy]*) mutagen sync reset {+name} ;;
+    *) exit 0 ;;
+esac
+)''',
+    "Reload",
+]
+
+"@rm" = [
+    "#terminate session",
+    '''ExecuteOrConfirm(
+printf "Terminate sync session %s? [y/N] " {name}
+read -r ans
+case "$ans" in
+    [Yy]*) mutagen sync terminate {+name} ;;
+    *) exit 0 ;;
+esac
+)''',
+    "Reload",
+]
+
+"ctrl-s" = "@show"
+"alt-f" = "@flush"
+"alt-p" = "@pause"
+"alt-r" = "@resume"
+"ctrl-d" = "@rm"

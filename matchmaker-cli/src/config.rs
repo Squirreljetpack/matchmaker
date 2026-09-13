@@ -241,7 +241,10 @@ mod tests {
 
         let mut partial = PartialConfig::default();
         partial
-            .set(&["binds".to_string(), "ctrl-c".to_string()], &["Quit(1)".to_string()])
+            .set(
+                &["binds".to_string(), "ctrl-c".to_string()],
+                &["Quit(1)".to_string()],
+            )
             .expect("setting binds via path must succeed");
 
         let mut config = Config::default();
@@ -249,5 +252,30 @@ mod tests {
 
         let trigger = "ctrl-c".parse::<Trigger>().unwrap();
         assert!(config.binds.contains_key(&trigger));
+    }
+
+    #[cfg(feature = "mlua")]
+    #[test]
+    fn default_config_lua_payloads_syntax() {
+        for (name, toml_str) in [
+            ("config.lua.toml", include_str!("../assets/config.lua.toml")),
+            (
+                "win.config.lua.toml",
+                include_str!("../assets/win.config.lua.toml"),
+            ),
+        ] {
+            let config: Config = toml::from_str(toml_str).unwrap();
+            for (trigger, actions) in config.binds {
+                for action in actions {
+                    if let matchmaker::Action::Custom(mm) = action {
+                        assert_ne!(
+                            mm.validate_lua(),
+                            Some(false),
+                            "Lua syntax error in {name} bind {trigger}"
+                        );
+                    }
+                }
+            }
+        }
     }
 }

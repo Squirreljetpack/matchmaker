@@ -124,6 +124,8 @@ impl MMAction {
         }
     }
 
+    #[cfg(feature = "mlua")]
+    #[cfg(test)]
     /// Validates the Lua syntax of this action's payload if it is a Lua script.
     ///
     /// Returns:

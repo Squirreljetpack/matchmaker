@@ -52,24 +52,17 @@
 # Bugs
 
 - crossterm cannot detect modifiers on mouse events but we support binding it
-- Setting the custom shell in a patch makes base cfg executes invalid
-  - idea: support mlua in the binary
 
 ### Low priority
 
 - ColumnChange event, set previewer to listen
-- refactor to better fit components into specific ratatui roles so the ui can be embedded?
 - partial should be under #[cfg] but that breaks field level attributes, i don't think there is a solution as we cannot use derive macro (not planned)
 - case insensitive bitflags deserialization (probably requires ratatui pr)
 - nucleo fork
   - more column options (?)
   - Non grapheme aware option to speed up rendering? This would require frizbee (and be required by?).
-- maybe generic context on mmstate so people don't need globals, doubtful tho
-- README images should be unformly sized :(
 
-- Adaptable preview percentage (higher on smaller)
-- ord field on prev layouts for better composability?
+- ord/name field on prev layouts for better composability?
 - flicker-free reload: if empty don't update?
-- very very minor perf improvement, prevent duplicate dynamic handler calls somehow? (not planned)
 - just ran into a facepalm due to previewsetting not having deny_unknown_settings, maybe it would be better to actually flatten
 - Indentation style setting: active or first or custom: decided on active.

@@ -265,9 +265,19 @@ impl State {
         let status = &picker_ui.results.status;
         _info!(status; self.synced);
         self.synced[1] |= status.running;
-        if status.changed {
-            // add a synced event when worker stops running
-            if !status.running {
+
+        if status.running {
+            if self.synced[2] {
+                _info!("restarted on iteration ": self.iteration);
+                // stopped + running -> running
+                self.synced[2] = false;
+                self.insert(Event::Restarted);
+            }
+        } else {
+            let was_stopped = self.synced[2];
+            self.synced[2] = true;
+            // Emit Synced / Resynced when worker stops running, or when results changed while stopped
+            if !was_stopped || status.changed {
                 if !self.synced[0] {
                     // this is supposed to fire when all inputs have been loaded into nucleo although it clearly can't be race-free
                     if status.item_count > 0 {
@@ -283,16 +293,6 @@ impl State {
                     picker_ui.results.changed[1] = true;
                 }
             }
-        }
-
-        let status = &picker_ui.results.status;
-        if self.synced[2] && status.changed {
-            _info!("restarted on iteration ": self.iteration);
-            // stopped + running -> running
-            self.synced[2] = false;
-            self.insert(Event::Restarted);
-        } else if !status.running {
-            self.synced[2] = true;
         }
 
         if let Some(o) = overlay_ui {
@@ -542,5 +542,102 @@ impl<'a, T: SSS, D> std::ops::Deref for MMState<'a, T, D> {
 impl<'a, T: SSS, D> std::ops::DerefMut for MMState<'a, T, D> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.state
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::action::NullActionExt;
+    use crate::config::{DisplayConfig, QueryConfig, ResultsConfig, StatusConfig};
+    use crate::nucleo::Worker;
+
+    fn create_test_picker() -> PickerUI<&'static str, ()> {
+        let worker = Worker::<&'static str, ()>::new_single_column();
+        PickerUI::new(
+            ResultsConfig::default(),
+            StatusConfig::default(),
+            QueryConfig::default(),
+            DisplayConfig::default(),
+            worker,
+            Selector::new(),
+        )
+    }
+
+    #[test]
+    fn test_synced_state_tracking_transitions() {
+        let mut state = State::new();
+        let mut picker = create_test_picker();
+
+        // 1. Initial settled state with items
+        picker.results.status = Status {
+            item_count: 100,
+            matched_count: 100,
+            running: false,
+            changed: true,
+        };
+        state.update::<&'static str, (), NullActionExt>(&mut picker, &None);
+        assert!(state.events.contains(Event::Synced));
+        assert!(state.synced[0]); // initial_synced
+        assert!(state.synced[2]); // stopped
+        state.reset();
+
+        // 2. Query starts running in background (e.g. typing 'w')
+        // nucleo.tick(10) returns running: true, but changed: false because matching is in progress
+        picker.results.status = Status {
+            item_count: 100,
+            matched_count: 0,
+            running: true,
+            changed: false,
+        };
+        state.update::<&'static str, (), NullActionExt>(&mut picker, &None);
+        // Must emit Restarted so event loop knows to keep ticking!
+        assert!(state.events.contains(Event::Restarted));
+        assert!(!state.synced[2]); // running, not stopped
+        state.reset();
+
+        // 3. Next tick while still running
+        picker.results.status = Status {
+            item_count: 100,
+            matched_count: 10,
+            running: true,
+            changed: true,
+        };
+        state.update::<&'static str, (), NullActionExt>(&mut picker, &None);
+        assert!(!state.events.contains(Event::Restarted));
+        assert!(!state.events.contains(Event::Resynced));
+        assert!(!state.synced[2]);
+        state.reset();
+
+        // 4. Background search finishes (even if changed is false on the final tick)
+        picker.results.status = Status {
+            item_count: 100,
+            matched_count: 10,
+            running: false,
+            changed: false,
+        };
+        state.update::<&'static str, (), NullActionExt>(&mut picker, &None);
+        // Must emit Resynced so event loop knows matching is complete and can stop ticking!
+        assert!(state.events.contains(Event::Resynced));
+        assert!(state.synced[2]); // stopped
+        state.reset();
+
+        // 5. Subsequent idle ticks while stopped
+        state.update::<&'static str, (), NullActionExt>(&mut picker, &None);
+        assert!(!state.events.contains(Event::Restarted));
+        assert!(!state.events.contains(Event::Resynced));
+        assert!(state.synced[2]);
+        state.reset();
+
+        // 6. Fast search that starts and finishes within a single tick (small dataset)
+        picker.results.status = Status {
+            item_count: 100,
+            matched_count: 5,
+            running: false,
+            changed: true,
+        };
+        state.update::<&'static str, (), NullActionExt>(&mut picker, &None);
+        assert!(state.events.contains(Event::Resynced));
+        assert!(state.synced[2]);
     }
 }

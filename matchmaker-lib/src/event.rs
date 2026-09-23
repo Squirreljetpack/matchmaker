@@ -352,17 +352,22 @@ impl<A: ActionExt> EventLoop<A> {
                 continue; // event stream is removed when paused by handle_event
             };
 
+            let should_tick = self.tick_rate_override.is_some()
+                || !self.skip_ticks.iter().all(|x| *x)
+                || self.dirty;
+
+            let tick_fut = if should_tick {
+                futures::future::Either::Left(interval.tick())
+            } else {
+                futures::future::Either::Right(futures::future::pending())
+            };
+
             tokio::select! {
                 biased;
 
-                _ = interval.tick() => {
-                    if self.tick_rate_override.is_some()
-                        || !self.skip_ticks.iter().all(|x| *x)
-                        || self.dirty
-                    {
-                        _info!("event tick": self.dirty);
-                        self.send(RenderCommand::Tick)
-                    }
+                _ = tick_fut => {
+                    _info!("event tick": self.dirty);
+                    self.send(RenderCommand::Tick);
                     self.dirty = false;
                 }
 

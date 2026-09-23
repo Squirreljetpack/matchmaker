@@ -78,7 +78,7 @@ else
   git show --color=always {1}
 fi
 '''
-border = { title = "File at Ref" }
+border = { title = "Show Ref" }
 
 # --- UI ---
 [tui]

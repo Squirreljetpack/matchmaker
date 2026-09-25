@@ -19,8 +19,8 @@ default = "session"
 names = [
     { name = "age", options = "Optional | OrUseDefault" },
     { name = "session", options = "Optional" },
-    { name = "pane" },
-    { name = "tab", hidden = true },
+    { name = "pane", hidden = true },
+    { name = "tab" },
     { name = "title", options = "Optional | OrUseDefault" },
 ]
 
@@ -61,25 +61,98 @@ percentage = 100
 
 # --- Binds -----------------------------------------------------------------
 [binds]
-"@accept" = 'Become(zellij action switch-session --pane-id {pane} {session})'
-"@Accept" = "Accept"
+"@accept" = '''Become(
+if [ -n "$ZELLIJ" ] || [ -n "$ZELLIJ_SESSION_NAME" ]; then
+    exec zellij action switch-session --pane-id {pane} {session}
+else
+    zellij -s {session} action focus-pane-id {pane} >/dev/null 2>&1
+    exec zellij attach {session}
+fi
+)'''
+"@return" = "Accept"
 
 "@print" = [
     "#print",
-    '''Become(printf '%s\t%s\n' {session} {pane})''',
+    '''Become(
+set -- {+pane}
+for s in {+session}; do
+    printf '%s\t%s\n' "$s" "$1"
+    shift
+done
+)''',
 ]
 
-"@copy" = '''CopyAsync(printf '%s:%s\n' {session} {pane})'''
+"@copy" = '''CopyAsync(
+set -- {+pane}
+for s in {+session}; do
+    printf '%s:%s\n' "$s" "$1"
+    shift
+done
+)'''
 
 "@rm" = [
     "#kill",
     '''ExecuteOrConfirm(
-printf "Close pane %s in %s? [Y/n] " {pane} {session}
-read -r ans
-case "$ans" in
-    [yY]*|'') zellij -s {session} action close-pane --pane-id {pane} ;;
+set -- {+title}
+labels=()
+for s in {+session}; do
+    labels+=("$1 ($s)")
+    shift
+done
+if [ ${#labels[@]} -eq 1 ]; then
+    printf "Close pane: %s? [Y/n]: " "${labels[@]}"
+else
+    printf "Close %s panes?\n" "${#labels[@]}"
+    printf '    %s\n' "${labels[@]}"
+    printf '[Y/n]: '
+fi
+read -r
+case "$REPLY" in
+    [Yy]*|'') ;;
     *) exit 0 ;;
 esac
+set -- {+session}
+f=()
+for p in {+pane}; do
+    zellij -s "$1" action close-pane --pane-id "$p" 2>/dev/null || f+=("$1:$p")
+    shift
+done
+if [ ${#f[@]} -ne 0 ]; then
+    echo "Failed: ${f[*]}"
+    exit 1
+fi
+exit 0
+)''',
+    "Reload",
+]
+
+# kill the sessions of the selected panes (deduplicated, since several panes
+# may belong to the same session)
+"alt-d" = [
+    "#kill session",
+    '''ExecuteOrConfirm(
+sessions=($(printf '%s\n' {+session} | sort -u))
+if [ ${#sessions[@]} -eq 1 ]; then
+    printf "Kill session: %s? [Y/n]: " "${sessions[@]}"
+else
+    printf "Kill %s sessions?\n" "${#sessions[@]}"
+    printf '    %s\n' "${sessions[@]}"
+    printf '[Y/n]: '
+fi
+read -r
+case "$REPLY" in
+    [Yy]*|'') ;;
+    *) exit 0 ;;
+esac
+f=()
+for s in "${sessions[@]}"; do
+    zellij kill-session "$s" 2>/dev/null || f+=("$s")
+done
+if [ ${#f[@]} -ne 0 ]; then
+    echo "Failed: ${f[*]}"
+    exit 1
+fi
+exit 0
 )''',
     "Reload",
 ]

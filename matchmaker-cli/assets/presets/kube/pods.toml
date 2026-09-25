@@ -1,4 +1,5 @@
 # Kubernetes pods viewer
+
 source = "base.toml"
 
 [matcher]
@@ -23,7 +24,7 @@ border = { title = "Container Logs" }
 [binds]
 # Navigation
 "@accept" = "@exec"
-"@Accept" = "Accept"
+"@return" = "Accept"
 "@open" = "@logs_editor"
 
 # --- Actions ---

@@ -19,8 +19,8 @@ default = "title"
 names = [
     { name = "age", options = "Optional | OrUseDefault" },
     { name = "session", hidden = true },
-    { name = "pane" },
-    { name = "tab", hidden = true },
+    { name = "pane", hidden = true },
+    { name = "tab" },
     { name = "title", options = "Optional | OrUseDefault" },
 ]
 
@@ -62,24 +62,53 @@ percentage = 100
 # --- Binds -----------------------------------------------------------------
 [binds]
 "@accept" = 'Become(zellij action focus-pane-id {pane})'
-"@Accept" = "Accept"
+"@return" = "Accept"
 
 "@print" = [
     "#print",
-    '''Become(printf '%s\t%s\n' {session} {pane})''',
+    '''Become(
+set -- {+pane}
+for s in {+session}; do
+    printf '%s\t%s\n' "$s" "$1"
+    shift
+done
+)''',
 ]
 
-"@copy" = '''CopyAsync(printf '%s:%s\n' {session} {pane})'''
+"@copy" = '''CopyAsync(
+set -- {+pane}
+for s in {+session}; do
+    printf '%s:%s\n' "$s" "$1"
+    shift
+done
+)'''
 
 "@rm" = [
     "#kill",
     '''ExecuteOrConfirm(
-printf "Close pane %s? [Y/n] " {pane}
-read -r ans
-case "$ans" in
-    [yY]*|'') zellij action close-pane --pane-id {pane} ;;
+titles=({+title})
+panes=({+pane})
+if [ ${#panes[@]} -eq 1 ]; then
+    printf "Close pane: %s? [Y/n]: " "${titles[@]}"
+else
+    printf "Close %s panes?\n" "${#panes[@]}"
+    printf '    %s\n' "${titles[@]}"
+    printf '[Y/n]: '
+fi
+read -r
+case "$REPLY" in
+    [Yy]*|'') ;;
     *) exit 0 ;;
 esac
+f=()
+for p in "${panes[@]}"; do
+    zellij action close-pane --pane-id "$p" 2>/dev/null || f+=("$p")
+done
+if [ ${#f[@]} -ne 0 ]; then
+    echo "Failed: ${f[*]}"
+    exit 1
+fi
+exit 0
 )''',
     "Reload",
 ]

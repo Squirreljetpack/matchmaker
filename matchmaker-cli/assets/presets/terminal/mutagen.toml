@@ -1,4 +1,5 @@
 # Mutagen sync session picker
+
 # Lists mutagen sync sessions (one session name per row).
 # Previews show session sync status and detailed configuration.
 
@@ -81,10 +82,17 @@ percentage = 100
 "@reset" = [
     "#reset history",
     '''ExecuteOrConfirm(
-printf "Reset sync history for %s? [y/N] " {name}
+names=({+name})
+if [ ${#names[@]} -eq 1 ]; then
+    printf "Reset sync history for %s? [Y/n]: " "${names[@]}"
+else
+    printf "Reset sync history for %s sessions?\n" "${#names[@]}"
+    printf '    %s\n' "${names[@]}"
+    printf '[Y/n]: '
+fi
 read -r ans
 case "$ans" in
-    [Yy]*) mutagen sync reset {+name} ;;
+    [Yy]*|'') mutagen sync reset "${names[@]}" ;;
     *) exit 0 ;;
 esac
 )''',
@@ -94,10 +102,17 @@ esac
 "@rm" = [
     "#terminate session",
     '''ExecuteOrConfirm(
-printf "Terminate sync session %s? [y/N] " {name}
+names=({+name})
+if [ ${#names[@]} -eq 1 ]; then
+    printf "Terminate sync session %s? [Y/n]: " "${names[@]}"
+else
+    printf "Terminate %s sync sessions?\n" "${#names[@]}"
+    printf '    %s\n' "${names[@]}"
+    printf '[Y/n]: '
+fi
 read -r ans
 case "$ans" in
-    [Yy]*) mutagen sync terminate {+name} ;;
+    [Yy]*|'') mutagen sync terminate "${names[@]}" ;;
     *) exit 0 ;;
 esac
 )''',

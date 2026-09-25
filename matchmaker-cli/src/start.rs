@@ -799,7 +799,7 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
         Box::new(move |config| matchmaker::binds::display_help(&binds_ptr_exec.load(), config)),
         previewer_help_config,
     );
-    mm.register_execute_handler(shell.clone());
+    mm.register_execute_handler(shell.clone(), preview_command_shell.clone());
     mm.register_execute_async_handler(shell.clone());
     mm.register_copy(
         copy_trailing_newline,

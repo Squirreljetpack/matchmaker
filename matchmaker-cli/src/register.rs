@@ -78,7 +78,7 @@ impl<S> Matchmaker<String, S, ConfigPreprocessedData> {
     }
 
     /// Causes [`Action::Execute`] and [`Action::ExecuteSilent`] to execute the command specified by their payload.
-    pub fn register_execute_handler(&mut self, shell: Vec<OsString>) {
+    pub fn register_execute_handler(&mut self, shell: Vec<OsString>, preview_shell: Vec<OsString>) {
         let execute_shell = shell.clone();
         let silent_shell = shell;
 
@@ -97,9 +97,14 @@ impl<S> Matchmaker<String, S, ConfigPreprocessedData> {
             #[cfg(feature = "mlua")]
             let lua_state = crate::lua::LuaState::from_mm(state);
 
+            let shell_to_use = match discriminant {
+                Some(5) => &preview_shell,
+                _ => &execute_shell,
+            };
+
             let Some(exit) = execute::run_execute(
                 &strategy,
-                &execute_shell,
+                shell_to_use,
                 &vars,
                 #[cfg(feature = "mlua")]
                 &lua_state,

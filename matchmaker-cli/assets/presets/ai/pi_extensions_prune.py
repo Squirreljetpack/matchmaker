@@ -42,7 +42,8 @@ from collections import deque
 from dataclasses import dataclass
 from json import JSONDecodeError
 from pathlib import Path
-from urllib.parse import urlparse
+
+from pi_extensions_common import git_identity, is_git_ish  # pyright: ignore[reportMissingImports]
 
 MMX_DEFAULT = Path("~/.pi/agent/mm_extensions").expanduser()
 AGENT_DIR = Path("~/.pi/agent").expanduser()
@@ -57,20 +58,17 @@ RESOURCE_FIELDS = ("extensions", "skills", "prompts", "themes")
 _TRAILING_COMMA = re.compile(r",\s*([}\]])")
 # npm sources keep a version pin out of the package name: `@<seg>` at the end.
 _NPM_PIN = re.compile(r"@[^/@]*$")
-_GIT_SCHEME = re.compile(r"^(https?|ssh|git)://", re.IGNORECASE)
-# A plausible hostname (also matches IPs); rejects `..`, `.` and empty heads.
-_HOSTNAME = re.compile(r"[a-z0-9]([a-z0-9._-]*[a-z0-9])?")
 
 
 @dataclass
 class Deletion:
     """One main folder to delete, plus now-empty parents to tidy up after."""
 
-    scope: str          # "global" | "local"
-    kind: str           # "git" | "npm"
-    label: str          # git identity or npm package name
-    path: Path          # the main folder
-    empty_parents: tuple = ()   # dirs to rmdir (innermost first), if left empty
+    scope: str  # "global" | "local"
+    kind: str  # "git" | "npm"
+    label: str  # git identity or npm package name
+    path: Path  # the main folder
+    empty_parents: tuple = ()  # dirs to rmdir (innermost first), if left empty
 
 
 @dataclass
@@ -89,10 +87,6 @@ class Plan:
     deletions: list
     manifests: list
     kept: int
-
-
-def _looks_like_host(host):
-    return host == "localhost" or bool(_HOSTNAME.fullmatch(host))
 
 
 def load_json(path):
@@ -131,57 +125,6 @@ def line_source(line):
 def npm_name(source):
     """The package name of an npm source without a version pin."""
     return _NPM_PIN.sub("", source.removeprefix("npm:"))
-
-
-def is_git_ish(source):
-    """
-    True when pi could have installed `source` into a git/ tree: `git:`
-    prefix, an explicit git URL, an scp-like git@ URL, or a shorthand
-    whose first segment looks like a host.
-    """
-    if source.startswith(("git:", "git@")) or _GIT_SCHEME.match(source):
-        return True
-    head = source.split("/", 1)[0]
-    return "/" in source and _looks_like_host(head)
-
-
-def git_identity(source):
-    """
-    The `host/path` identity pi uses for a git source checkout, or None when
-    the source does not parse as a git source. Handles the `git:` prefix,
-    git@ and protocol URLs, plus the bare host/user/repo shorthand; pinned
-    `@ref`s and a trailing `.git` are stripped.
-    """
-    text = source.strip().removeprefix("git:")
-    host = None
-    path = None
-    if _GIT_SCHEME.match(text):
-        try:
-            parsed = urlparse(text)
-        except ValueError:
-            return None
-        host, path = parsed.hostname, parsed.path
-    elif text.startswith("git@"):
-        match = re.match(r"^git@([^:]+):(.*)$", text)
-        if match:
-            host, path = match.group(1), match.group(2)
-    else:
-        head, sep, rest = text.partition("/")
-        if not sep:
-            return None
-        host, path = head, rest
-        # pi only accepts bare shorthand hosts that look like hosts
-        if not host or ("." not in host and host != "localhost"):
-            return None
-    if not host or not path:
-        return None
-    host = host.lower()
-    path = path.strip("/").split("@", 1)[0]  # strip the @ref (first-@ rule)
-    if path.lower().endswith(".git"):
-        path = path[:-4]
-    if not _looks_like_host(host) or not path:
-        return None
-    return f"{host}/{path}"
 
 
 def read_mmx(mmx):
@@ -368,11 +311,7 @@ def plan_scope(root, listed, scope):
     npm_root = root / "npm"
     if npm_root.is_dir():
         closure = dep_closure(npm_root, npm_names)
-        extensions = [
-            (name, path)
-            for name, path in npm_package_entries(npm_root)
-            if is_pi_extension(path)
-        ]
+        extensions = [(name, path) for name, path in npm_package_entries(npm_root) if is_pi_extension(path)]
         for name, path in extensions:
             if name in closure:
                 kept += 1
@@ -407,10 +346,7 @@ def main():
     mmx = positional[0] if positional else os.environ.get("MM_EXTENSIONS_FILE", MMX_DEFAULT)
 
     listed = read_mmx(mmx)
-    plans = [
-        plan_scope(root, listed, scope)
-        for scope, root in (("global", AGENT_DIR), ("local", PROJECT_DIR))
-    ]
+    plans = [plan_scope(root, listed, scope) for scope, root in (("global", AGENT_DIR), ("local", PROJECT_DIR))]
     deletions = [d for p in plans for d in p.deletions]
     manifests = [m for p in plans for m in p.manifests]
     kept = sum(p.kept for p in plans)
@@ -432,10 +368,7 @@ def main():
 
     if not yes:
         if not sys.stdin.isatty():
-            sys.stderr.write(
-                "refusing to run non-interactively: pass -y/--yes to delete "
-                "or -n/--dry-run to preview\n"
-            )
+            sys.stderr.write("refusing to run non-interactively: pass -y/--yes to delete or -n/--dry-run to preview\n")
             sys.exit(2)
         answer = input(f"delete these {len(deletions)} folder(s)? [y/N] ").strip().lower()
         if answer not in ("y", "yes"):

@@ -11,6 +11,61 @@ additional_commands = [
     "lsof -nP -i",
 ]
 
+[envs]
+PS_KILL = '''
+# usage: eval "$PS_KILL" [-g] SIGNAL
+# (the signal args are appended to the trailing mm_kill call)
+# Signals each PID in $pids (or its process group with -g), then waits up to
+# $MM_KILL_TIMEOUT seconds (default 1) for each to disappear.
+# A process left in state Z counts as gone.
+# Surviving PIDs are stored in failed and reported.
+mm_kill() {
+    group=0
+    [ "$1" = "-g" ] && { group=1; shift; }
+    sig=$1
+    wait=$(( ${MM_KILL_TIMEOUT:-1} * 20 ))
+
+    pending=""
+    failed=""
+    for p in $pids; do
+        target=$p
+        if [ "$group" -eq 1 ]; then
+            pgid=$(ps -o pgid= -p "$p" 2>/dev/null | tr -d ' ')
+            [ -z "$pgid" ] && continue
+            target="-$pgid"
+        fi
+        if kill "-$sig" -- "$target" 2>/dev/null; then
+            pending="${pending}${pending:+ }$p"
+        else
+            # delivery failed: an empty/Z state means the target is already gone
+            st=$(ps -o stat= -p "$p" 2>/dev/null)
+            case $st in ""|Z*) ;; *) failed="${failed}${failed:+ }$p" ;; esac
+        fi
+    done
+
+    i=0
+    while [ -n "$pending" ] && [ "$i" -lt "$wait" ]; do
+        next=""
+        for p in $pending; do
+            st=$(ps -o stat= -p "$p" 2>/dev/null)
+            case $st in ""|Z*) ;; *) next="${next}${next:+ }$p" ;; esac
+        done
+        pending=$next
+        [ -n "$pending" ] || break
+        sleep 0.05
+        i=$((i + 1))
+    done
+
+    for p in $pending; do
+        failed="${failed}${failed:+ }$p"
+    done
+    [ -z "$failed" ] || {
+        echo "Failed: $failed"
+        return 1
+    }
+}
+mm_kill'''
+
 [header]
 header_lines = 1
 content = '[procs]'
@@ -30,24 +85,21 @@ trim_ends = true
 [[preview.layout]]
 # Tree view
 command = '''
+os=$(uname -s)
 if command -v pstree >/dev/null 2>&1; then
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        pstree -p {2}
-    else
-        pstree -ap {2}
-    fi
+    case $os in
+        Darwin) pstree -p {2} ;;
+        *) pstree -ap {2} ;;
+    esac
+elif ps --version 2>/dev/null | grep -q procps; then
+    ps -f --forest -p {2}
 else
-    if ps --version 2>/dev/null | grep -q procps; then
-        ps -f --forest -p $pid
-    else
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            args=,wq
-        else
-            args=,thcount
-        fi
+    case $os in
+        Darwin) args=,wq ;;
+        *) args=,thcount ;;
+    esac
 
-        ps -ww -eo user,pid,ppid,pgid,sess,tty,lstart,time,rss,vsz,pcpu,pmem,stat$args,command {2}
-    fi
+    ps -ww -eo user,pid,ppid,pgid,sess,tty,lstart,time,rss,vsz,pcpu,pmem,stat$args,command {2}
 fi
 '''
 border = { title = "Process Tree" }
@@ -64,47 +116,34 @@ border = { title = "Open Ports" }
 
 [binds]
 "Reloaded" = '''Transform(
-    HEADERS=(
-      '[procs]'
-      '[ports]'
-    )
-    setopt KSH_ARRAYS 2>/dev/null
-    echo "SetHeader(${HEADERS[$MM_INDEX]})"
+    HEADERS='[procs]
+[ports]'
+    i=0
+    for h in $HEADERS; do
+        [ "$i" -eq "${MM_INDEX:-0}" ] && echo "SetHeader($h)"
+        i=$((i + 1))
+    done
 )
 '''
 "@reload_2" = []
 
 "@accept" = ["#print pid", "Become(printf '%s\n' {+2})"]
-"@Accept" = ["#print active", "Become(printf '%s\n' {+!})"]
+"@return" = ["#print active", "Become(printf '%s\n' {+!})"]
 "@copy" = "CopyAsync(printf '%s\n' {+2})"
 "@show" = "RunPreview(echo {9})"
 
 "ctrl-k" = [
     "#kill",
     '''ExecuteOrConfirm(
-        pids=({+2})
-        [ ${#pids[@]} -gt 1 ] && {
-            printf "Kill: %s [y/N] " "${pids[*]}"
-            read -r
-            [[ $REPLY != [yY]* ]] && exit 0
+        pids="{-2}"
+        set -- $pids
+        [ $# -gt 1 ] && {
+            printf "Kill: %s [y/N] " "$pids"
+            read -r reply
+            case $reply in [yY]*) ;; *) exit 0 ;; esac
         }
 
-        for p in "${pids[@]}"; do
-            kill "$p" 2>/dev/null
-            sleep 0.1
-        done
-
-        f=()
-        for p in "${pids[@]}"; do
-            kill -0 "$p" 2>/dev/null && f+=("$p")
-        done
-
-        if [ ${#f[@]} -ne 0 ]; then
-            echo "Failed: ${f[*]}"
-            exit 1
-        fi
-
-        exit 0
+        eval "$PS_KILL" TERM
     )''',
     "Reload",
 ]
@@ -112,29 +151,15 @@ border = { title = "Open Ports" }
 "alt-k" = [
     "#kill -9",
     '''ExecuteOrConfirm(
-        pids=({+2})
-        [ ${#pids[@]} -gt 1 ] && {
-            printf "Kill: %s [y/N] " "${pids[*]}"
-            read -r
-            [[ $REPLY != [yY]* ]] && exit 0
+        pids="{-2}"
+        set -- $pids
+        [ $# -gt 1 ] && {
+            printf "Kill: %s [y/N] " "$pids"
+            read -r reply
+            case $reply in [yY]*) ;; *) exit 0 ;; esac
         }
 
-        for p in "${pids[@]}"; do
-            kill -9 "$p" 2>/dev/null
-            sleep 0.1
-        done
-
-        f=()
-        for p in "${pids[@]}"; do
-            kill -0 "$p" 2>/dev/null && f+=("$p")
-        done
-
-        if [ ${#f[@]} -ne 0 ]; then
-            echo "Failed: ${f[*]}"
-            exit 1
-        fi
-
-        exit 0
+        eval "$PS_KILL" KILL
     )''',
     "Reload",
 ]
@@ -142,29 +167,15 @@ border = { title = "Open Ports" }
 "ctrl-shift-k" = [
     "#kill parent",
     '''ExecuteOrConfirm(
-        pids=({+1})
-        [ ${#pids[@]} -gt 1 ] && {
-            printf "Kill: %s [y/N] " "${pids[*]}"
-            read -r
-            [[ $REPLY != [yY]* ]] && exit 0
+        pids="{-1}"
+        set -- $pids
+        [ $# -gt 1 ] && {
+            printf "Kill: %s [y/N] " "$pids"
+            read -r reply
+            case $reply in [yY]*) ;; *) exit 0 ;; esac
         }
 
-        for p in "${pids[@]}"; do
-            kill "$p" 2>/dev/null
-            sleep 0.1
-        done
-
-        f=()
-        for p in "${pids[@]}"; do
-            kill -0 "$p" 2>/dev/null && f+=("$p")
-        done
-
-        if [ ${#f[@]} -ne 0 ]; then
-            echo "Failed: ${f[*]}"
-            exit 1
-        fi
-
-        exit 0
+        eval "$PS_KILL" TERM
     )''',
     "Reload",
 ]
@@ -172,29 +183,15 @@ border = { title = "Open Ports" }
 "alt-shift-k" = [
     "#kill parent -9",
     '''ExecuteOrConfirm(
-        pids=({+1})
-        [ ${#pids[@]} -gt 1 ] && {
-            printf "Kill: %s [y/N] " "${pids[*]}"
-            read -r
-            [[ $REPLY != [yY]* ]] && exit 0
+        pids="{-1}"
+        set -- $pids
+        [ $# -gt 1 ] && {
+            printf "Kill: %s [y/N] " "$pids"
+            read -r reply
+            case $reply in [yY]*) ;; *) exit 0 ;; esac
         }
 
-        for p in "${pids[@]}"; do
-            kill -9 "$p" 2>/dev/null
-            sleep 0.1
-        done
-
-        f=()
-        for p in "${pids[@]}"; do
-            kill -0 "$p" 2>/dev/null && f+=("$p")
-        done
-
-        if [ ${#f[@]} -ne 0 ]; then
-            echo "Failed: ${f[*]}"
-            exit 1
-        fi
-
-        exit 0
+        eval "$PS_KILL" KILL
     )''',
     "Reload",
 ]
@@ -202,30 +199,15 @@ border = { title = "Open Ports" }
 "ctrl-g" = [
     "#kill group",
     '''ExecuteOrConfirm(
-        pids=({+2})
-        [ ${#pids[@]} -gt 1 ] && {
-            printf "Kill: %s [y/N] " "${pids[*]}"
-            read -r
-            [[ $REPLY != [yY]* ]] && exit 0
+        pids="{-2}"
+        set -- $pids
+        [ $# -gt 1 ] && {
+            printf "Kill: %s [y/N] " "$pids"
+            read -r reply
+            case $reply in [yY]*) ;; *) exit 0 ;; esac
         }
 
-        for p in "${pids[@]}"; do
-            pgid=$(ps -o pgid= -p "$p" | tr -d ' ')
-            [[ -n $pgid ]] && kill -- -"${pgid}" 2>/dev/null
-            sleep 0.1
-        done
-
-        f=()
-        for p in "${pids[@]}"; do
-            kill -0 "$p" 2>/dev/null && f+=("$p")
-        done
-
-        if [ ${#f[@]} -ne 0 ]; then
-            echo "Failed: ${f[*]}"
-            exit 1
-        fi
-
-        exit 0
+        eval "$PS_KILL" -g TERM
     )''',
     "Reload",
 ]
@@ -233,30 +215,15 @@ border = { title = "Open Ports" }
 "alt-g" = [
     "#kill group -9",
     '''ExecuteOrConfirm(
-        pids=({+2})
-        [ ${#pids[@]} -gt 1 ] && {
-            printf "Kill: %s [y/N] " "${pids[*]}"
-            read -r
-            [[ $REPLY != [yY]* ]] && exit 0
+        pids="{-2}"
+        set -- $pids
+        [ $# -gt 1 ] && {
+            printf "Kill: %s [y/N] " "$pids"
+            read -r reply
+            case $reply in [yY]*) ;; *) exit 0 ;; esac
         }
 
-        for p in "${pids[@]}"; do
-            pgid=$(ps -o pgid= -p "$p" | tr -d ' ')
-            [[ -n $pgid ]] && kill -9 -- -"${pgid}" 2>/dev/null
-            sleep 0.1
-        done
-
-        f=()
-        for p in "${pids[@]}"; do
-            kill -0 "$p" 2>/dev/null && f+=("$p")
-        done
-
-        if [ ${#f[@]} -ne 0 ]; then
-            echo "Failed: ${f[*]}"
-            exit 1
-        fi
-
-        exit 0
+        eval "$PS_KILL" -g KILL
     )''',
     "Reload",
 ]

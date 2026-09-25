@@ -1,21 +1,8 @@
 # Pi extensions manager
-#
+
 # Maintains a mirrored list at ~/.pi/agent/mm_extensions (one JSON extension
 # definition per line; lines prefixed with `# ` are disabled) and syncs the
-# enabled set into pi's settings.json `packages` array:
-#
-#   enter         toggle the selected extensions (all must share the same state)
-#   tab           multi-select (see global config)
-#   alt-enter     write the enabled set to the global settings (~/.pi/agent/settings.json)
-#   ctrl-enter    write the enabled set to the project settings (.pi/settings.json)
-#   alt-r         reconcile: sync mm_extensions with what is actually defined in
-#                 the global or project settings (creates the file if missing)
-#   @rm           remove the selected extension: delete its line, then `pi uninstall`
-#   ctrl-n        prompt for a source, `pi install` it, and add it to the list
-#   @prune        uninstall what is installed in the global/project git and npm
-#                 folders but not listed in this file (preview with -n)
-#
-# Point MM_EXTENSIONS_FILE elsewhere to use a different mm_extensions file.
+# enabled set into pi's settings.json `packages` array.
 
 [start]
 shell = ['python', '-c']
@@ -133,7 +120,7 @@ border = { title = "README" }
 "@reload" = ["@reconcile", "Reload"]
 # "@start" = ["@reconcile", "Reload"]
 "@accept" = ["@toggle extension", "Reload"]
-"@Accept" = "Accept"
+"@return" = "Accept"
 "ctrl-n" = ["@install", "Reload"]
 "@rm" = ["@uninstall", "Reload"]
 "alt-p" = "@prune"
@@ -305,11 +292,14 @@ print("removed " + str(len(removed)) + " extension(s) from mm_extensions and pi 
 "@install" = '''ExecuteOrConfirm(
 import json, os, shutil, subprocess, sys, tempfile
 
+sys.path.insert(0, os.path.dirname(os.environ["MM_OVERRIDE"]))
+from pi_extensions_common import canonical_source
+
 mmx = os.environ.get("MM_EXTENSIONS_FILE") or os.path.expanduser("~/.pi/agent/mm_extensions")
 
 sys.stderr.write("source to install (e.g. https://github.com/user/repo): ")
 sys.stderr.flush()
-url = sys.stdin.readline().strip()
+url = canonical_source(sys.stdin.readline().strip())
 if not url:
     sys.stderr.write("error: no source entered\n")
     sys.exit(1)
@@ -335,7 +325,7 @@ if os.path.isfile(mmx):
         except json.JSONDecodeError:
             continue
         name = value.get("source") if isinstance(value, dict) else value
-        if name == url:
+        if canonical_source(name) == url:
             print("already listed in mm_extensions: " + url)
             sys.exit(0)
     lines.append(line)

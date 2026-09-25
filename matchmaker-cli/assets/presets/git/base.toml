@@ -1,10 +1,12 @@
+# Common binds and actions for Git presets
+
 [start]
 directory = { value = "git rev-parse --show-toplevel", exec = true, force = true }
 
 [binds]
 "ctrl-s" = "@show"
 "ctrl-shift-s" = "@diff"
-"ctrl-shift-l" = "@log"
+"alt-l" = "@log"
 
 "@reload" = ["#next view", "ReloadNext"]
 "@reload_2" = ["#prev view", "ReloadPrev"]

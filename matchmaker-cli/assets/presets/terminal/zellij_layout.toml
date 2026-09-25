@@ -1,4 +1,5 @@
 # Pick a zellij layout
+
 # Lists only single-tab layouts by default, extra layouts can be specified as extra arguments to the populating command
 
 [matcher]
@@ -55,7 +56,7 @@ percentage = 100
     '''Become(zellij action override-layout {name} --apply-only-to-active-tab --retain-existing-terminal-panes)''',
 ]
 
-"@Accept" = [
+"@return" = [
     "#replace tab",
     '''Become(zellij action override-layout {name} --apply-only-to-active-tab)''',
 ]

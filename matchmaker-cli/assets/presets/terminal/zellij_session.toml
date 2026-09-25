@@ -1,4 +1,5 @@
 # Switch between zellij sessions
+
 # Preview (hidden by default) shows the session's saved layout KDL
 
 [matcher]
@@ -87,24 +88,42 @@ else
     exec zellij attach {session}
 fi
 )'''
-"@Accept" = "Accept"
+"@return" = "Accept"
 
 "@print" = [
     "#print",
-    '''Become(printf '%s\n' {session})''',
+    '''Become(printf '%s\n' {+session})''',
 ]
 
-"@copy" = '''CopyAsync(printf '%s\n' {session})'''
+"@copy" = '''CopyAsync(printf '%s\n' {+session})'''
+
+"@new" = '''Become(zellij options --on-force-close detach)'''
 
 "@rm" = [
     "#kill",
     '''ExecuteOrConfirm(
-printf "Kill session %s? [Y/n] " {session}
-read -r ans
-case "$ans" in
-    [Yy]*|'') zellij kill-session {session};;
+sessions=({+session})
+if [ ${#sessions[@]} -eq 1 ]; then
+    printf "Kill session: %s? [Y/n]: " "${sessions[@]}"
+else
+    printf "Kill %s sessions?\n" "${#sessions[@]}"
+    printf '    %s\n' "${sessions[@]}"
+    printf '[Y/n]: '
+fi
+read -r
+case "$REPLY" in
+    [Yy]*|'') ;;
     *) exit 0 ;;
 esac
+f=()
+for s in "${sessions[@]}"; do
+    zellij kill-session "$s" 2>/dev/null || f+=("$s")
+done
+if [ ${#f[@]} -ne 0 ]; then
+    echo "Failed: ${f[*]}"
+    exit 1
+fi
+exit 0
 )''',
     "Reload",
 ]

@@ -1,3 +1,5 @@
+# git-status patch to open files at their changed line
+
 [binds]
 "@open" = [
     '''

@@ -1,4 +1,5 @@
 # restore a file or revision
+
 source = 'base.toml'
 
 [start]
@@ -60,11 +61,11 @@ min = 5
 max = 50
 command = '''
 if ((MM_INDEX == 1)); then
-  echo "stash..stash base"
-  printf "%${COLUMNS}s\n" | tr ' ' '-'
-  git -c color.ui=always stash show -p {1} -- {$0}
+  git diff --color=always {1}^1 {1} -- {$0}
+elif git diff --quiet {1} -- {$0}; then
+  echo "no change"
 else
-  git diff --color=always --exit-code {1} -- {$0} && echo "no change"
+  git diff --color=always {1} -- {$0}
 fi
 '''
 border = { title = "Working Tree Diff" }
@@ -73,9 +74,13 @@ border = { title = "Working Tree Diff" }
 command = '''
 f={$1}
 if [ -f "$f" ]; then
-  git show --color=always {1}:"$f" | PG_FILENAME="$f" $PAGER
+  git show --color=always {1}:"$f"
 else
-  git show --color=always {1}
+  if ((MM_INDEX == 1)); then
+    git -c color.ui=always stash show -p {1}
+  else
+    git show --color=always {1}
+  fi
 fi
 '''
 border = { title = "Show Ref" }
@@ -93,7 +98,7 @@ prompt = "restore> "
 
 [binds]
 "@accept" = ["@checkout", "Reload"]
-"@Accept" = [
+"@return" = [
     "#apply stash/hard reset",
     '''BecomeOrConfirm(
 set -e

@@ -1,4 +1,5 @@
 # Intelligently switch to any ref
+
 source = 'base.toml'
 
 [start]
@@ -56,9 +57,11 @@ border = { title = "Ahead/Behind" }
 
 [[preview.layout]]
 command = '''
-echo {1}..
-printf "%${COLUMNS}s\n" | tr ' ' '-'
-git diff --color=always --exit-code {1} -- {$0} && echo "no change"
+if git diff --quiet {1}; then
+  echo "no change"
+else
+  git diff --color=always {1}
+fi
 '''
 border = { title = "Branch Diff" }
 # side = "top"
@@ -97,7 +100,7 @@ prompt = "switch> "
 
 [binds]
 "@accept" = "@switch"
-"@Accept" = ["@switch_silent", "Reload"]
+"@return" = ["@switch_silent", "Reload"]
 "@rm" = ["@delete", "Reload"]
 
 "ctrl-u" = ["@update", "Reload"]

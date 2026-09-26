@@ -58,6 +58,7 @@ impl ResultsUI {
         if mc == 0 {
             self.table = Table::default(); // todo: maybe delay this, like waiting for a signal to reduce flicker?
             self.row_data.clear();
+            self.separator_offsets.clear();
             return;
         }
         if mc < self.bottom + self.cursor as u32 && !self.cursor_disabled {
@@ -94,6 +95,7 @@ impl ResultsUI {
         // get_row via `row_data: None`.
         let mut rows: Vec<Row<'static>> = Vec::new();
         self.row_data.clear();
+        self.separator_offsets.clear();
 
         let scroll_padding = self.scroll_padding();
 
@@ -127,8 +129,8 @@ impl ResultsUI {
         if scroll_padding > 0 && total_height < self.height {
             while after_height < scroll_padding && idx + self.bottom < mc {
                 // Add separator if needed
-                if let Some(cells) = self.hr() {
-                    after_rows.push(Row::new(cells).height(1));
+                if self.hr() {
+                    after_rows.push(Row::default().height(1));
                     after_row_data.push((u32::MAX, 1));
                     after_height += 1;
                 }
@@ -179,8 +181,8 @@ impl ResultsUI {
             }
 
             // Add separator if needed
-            if let Some(cells) = self.hr() {
-                rows.push(Row::new(cells));
+            if self.hr() {
+                rows.push(Row::default().height(1));
                 self.row_data.push((u32::MAX, 1));
                 before_height += 1;
                 remaining_height = remaining_height.saturating_sub(1);
@@ -252,12 +254,6 @@ impl ResultsUI {
                 if removed {
                     after_idx -= 1;
                 }
-            } else {
-                // ensure after_row_data ends with maybe_separator
-                if let Some(cells) = self.hr() {
-                    rows.push(Row::new(cells).height(1));
-                    self.row_data.push((u32::MAX, 1));
-                }
             }
 
             // Find the next idx after after_row_data
@@ -272,6 +268,12 @@ impl ResultsUI {
             // Append after_rows to rows
             rows.extend(after_rows);
             self.row_data.extend(after_row_data);
+
+            if !after_truncated && remaining_height > 0 && self.bottom + idx < mc && self.hr() {
+                rows.push(Row::default().height(1));
+                self.row_data.push((u32::MAX, 1));
+                remaining_height = remaining_height.saturating_sub(1);
+            }
 
             while remaining_height > 0 && self.bottom + idx < mc {
                 // Check if we need to truncate
@@ -294,11 +296,8 @@ impl ResultsUI {
                 }
 
                 // Add separator if needed and we have more items
-                if remaining_height > 0
-                    && idx + 1 < mc
-                    && let Some(cells) = self.hr()
-                {
-                    rows.push(Row::new(cells).height(1));
+                if remaining_height > 0 && idx + 1 < mc && self.hr() {
+                    rows.push(Row::default().height(1));
                     self.row_data.push((u32::MAX, 1));
                     remaining_height = remaining_height.saturating_sub(1);
                 }
@@ -312,7 +311,8 @@ impl ResultsUI {
         // Section 5.5: Compute preferred widths for next pass from collected data
 
         let wrap_condition = if self.is_wrap() {
-            self.row_cache[0].iter().any(|(_, _, widths)| {
+            // new column appeared
+            self.row_cache[1].iter().any(|(_, _, widths)| {
                 widths
                     .iter()
                     .zip(&self.preferred_widths)
@@ -331,26 +331,47 @@ impl ResultsUI {
         // width limits yet (first pass after a resize). Returns `true` if
         // the new preferred widths differ from the current ones, in which
         // case the width limits need to be recomputed.
-        let mut applied = Some(false);
+        let mut applied = None;
         if self.changed[3] {
             applied = self.try_apply_max_widths_into_width_buffer();
         }
-        if let Some(applied) = applied
-            && (applied || {
-                _info!(self.changed[1]; self.preferred_widths.is_empty(); wrap_condition);
-                (self.changed[1] || self.preferred_widths.is_empty() || wrap_condition)
+
+        match applied {
+            Some(true) => {
+                if self.widths_buffer != self.width_limits {
+                    self.changed[2] = true;
+                } else {
+                    // skip_allocation will not run to consume it so we clear here
+                    self.widths_buffer.clear();
+                }
+            }
+            _ => {
+                _info!(
+                    self.changed[1];
+                    self.preferred_widths.is_empty();
+                    self.width_limits.is_empty();
+                    wrap_condition
+                );
+                if (self.changed[1]
+                    || self.preferred_widths.is_empty()
+                    || self.width_limits.is_empty()
+                    || wrap_condition)
                     && self.update_preferred_widths()
-            })
-        {
+                {
+                    self.changed[2] = true;
+                }
+            }
+        }
+
+        if self.changed[2] {
             _info!(
-                "[update_preferred]";
+                "[needs_limits]";
                 self.preferred_widths;
                 self.width_limits;
                 self.config.hidden_columns;
                 self.changed[1];
                 self.changed[3];
             );
-            self.changed[2] = true;
         }
         self.changed[1] = false;
 
@@ -363,6 +384,29 @@ impl ResultsUI {
         // Convert collected items into the final flattened row list, reversing row ordering
         // if `reverse = true`. All styling is already applied to rows inside `get_row`.
         let mut final_rows: Vec<Row> = rows;
+
+        self.separator_offsets.clear();
+        if self.hr() {
+            let mut current_y = 0u16;
+            if self.reverse() {
+                if remaining_height > 0 {
+                    current_y += remaining_height;
+                }
+                for &(idx, h) in self.row_data.iter().rev() {
+                    if idx == u32::MAX {
+                        self.separator_offsets.push(current_y);
+                    }
+                    current_y += h;
+                }
+            } else {
+                for &(idx, h) in &self.row_data {
+                    if idx == u32::MAX {
+                        self.separator_offsets.push(current_y);
+                    }
+                    current_y += h;
+                }
+            }
+        }
 
         if self.reverse() {
             final_rows.reverse();

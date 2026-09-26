@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use indexmap::{IndexMap, IndexSet};
 use matchmaker_partial::*;
 use matchmaker_partial_macros::partial;

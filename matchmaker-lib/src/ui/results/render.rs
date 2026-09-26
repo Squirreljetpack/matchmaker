@@ -481,26 +481,45 @@ impl ResultsUI {
         fit_width(&substituted, self.indentation())
     }
 
-    // todo: multicolumn needs to overlay onto empty row instead of inject row
-    pub(super) fn hr(&self) -> Option<Vec<ratatui::text::Text<'static>>> {
-        let sep = self.config.separator;
-
-        if matches!(sep, HorizontalSeparator::None) {
-            return None;
-        }
-
-        let unit = sep.as_str();
-        let line = unit.repeat(self.width as usize);
-
-        if !self.config.stacked_columns && self.widths.len() > 1 {
-            Some(vec![ratatui::text::Text::raw(line); self.widths().len()])
-        } else {
-            Some(vec![ratatui::text::Text::raw(line)])
-        }
+    pub(super) fn hr(&self) -> bool {
+        !matches!(self.config.separator, HorizontalSeparator::None)
     }
 
-    pub(super) fn _hr(&self) -> u16 {
-        !matches!(self.config.separator, HorizontalSeparator::None) as u16
+    pub fn render_table(&self, frame: &mut Frame, mut area: Rect) {
+        if matches!(self.config.row_connection, RowConnectionStyle::Capped) {
+            area.width = area.width.min(self.table_width());
+        }
+
+        frame.render_widget(&self.table, area);
+
+        if !self.hr() || self.separator_offsets.is_empty() {
+            return;
+        }
+
+        let inner = self.config.border.inner_of(area);
+        if inner.width == 0 || inner.height == 0 {
+            return;
+        }
+
+        let sep = self.config.separator;
+        let unit = sep.as_str();
+        let line = unit.repeat(inner.width as usize);
+
+        let mut style: ratatui::style::Style =
+            if matches!(self.config.row_connection, RowConnectionStyle::Full) {
+                self.config.style.into()
+            } else {
+                ratatui::style::Style::default()
+            };
+        style = style.patch(self.config.separator_style);
+
+        let span = ratatui::text::Span::styled(line, style);
+        for &offset in &self.separator_offsets {
+            if offset < inner.height {
+                let row_area = Rect::new(inner.x, inner.y + offset, inner.width, 1);
+                frame.render_widget(ratatui::text::Line::from(span.clone()), row_area);
+            }
+        }
     }
 
     pub(super) fn vscroll_to_skip(&self, is_current: bool) -> usize {

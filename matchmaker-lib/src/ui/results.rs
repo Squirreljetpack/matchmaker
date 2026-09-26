@@ -1,5 +1,6 @@
 use cba::_info;
 use ratatui::{
+    Frame,
     layout::Rect,
     text::Text,
     widgets::{Row, Table},
@@ -68,6 +69,7 @@ pub struct ResultsUI {
     /// Kept around so click positions can be mapped back to absolute
     /// indices after the table has been assembled.
     row_data: Vec<(u32, u16)>,
+    pub separator_offsets: Vec<u16>,
     pub table: Table<'static>,
 }
 
@@ -100,6 +102,7 @@ impl ResultsUI {
             changed: Default::default(),
             row_cache: [Vec::new(), Vec::new()],
             row_data: Vec::new(),
+            separator_offsets: Vec::new(),
             table: ratatui::widgets::Table::default(),
         }
     }

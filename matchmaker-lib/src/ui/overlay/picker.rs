@@ -7,7 +7,7 @@ use crate::{
     action::{Action, ActionExt},
     config::{
         CursorSetting, OverlayConfig, OverlayLayoutSettings, QueryConfig, ResultsConfig,
-        RowConnectionStyle, StringOrInt,
+        StringOrInt,
     },
     nucleo::{ColumnIndexable, Worker, WorkerInjector},
     render::MMState,
@@ -253,16 +253,8 @@ where
         }
         frame.render_widget(self.query.make_input(), input);
 
-        // Results (mirrors render::render_results)
-        let (table, width) = self.results.get_table();
-        let mut results_area = results;
-        if matches!(
-            self.results.config.row_connection,
-            RowConnectionStyle::Capped
-        ) {
-            results_area.width = results_area.width.min(width);
-        }
-        frame.render_widget(table, results_area);
+        // Results
+        self.results.render_table(frame, results);
     }
 
     fn area(&mut self, ui_area: &Rect, layout: &OverlayLayoutSettings) {

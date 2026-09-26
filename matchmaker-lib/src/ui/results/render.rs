@@ -1,4 +1,5 @@
 use cba::_info;
+use ratatui::text::{Line, Span};
 
 use super::*;
 use crate::{
@@ -481,26 +482,29 @@ impl ResultsUI {
         fit_width(&substituted, self.indentation())
     }
 
-    // todo: multicolumn needs to overlay onto empty row instead of inject row
-    pub(super) fn hr(&self) -> Option<Vec<ratatui::text::Text<'static>>> {
-        let sep = self.config.separator;
-
-        if matches!(sep, HorizontalSeparator::None) {
-            return None;
-        }
-
-        let unit = sep.as_str();
-        let line = unit.repeat(self.width as usize);
-
-        if !self.config.stacked_columns && self.widths.len() > 1 {
-            Some(vec![ratatui::text::Text::raw(line); self.widths().len()])
-        } else {
-            Some(vec![ratatui::text::Text::raw(line)])
-        }
+    pub(super) fn hr(&self) -> bool {
+        !matches!(self.config.separator, HorizontalSeparator::None)
     }
 
-    pub(super) fn _hr(&self) -> u16 {
-        !matches!(self.config.separator, HorizontalSeparator::None) as u16
+    pub fn make_table(&self) -> (&Table<'static>, u16, Option<Line<'static>>) {
+        let separator = if self.hr() {
+            let unit = self.config.separator.as_str();
+            let line = unit.repeat(self.width as usize);
+
+            let mut style: ratatui::style::Style =
+                if matches!(self.config.row_connection, RowConnectionStyle::Full) {
+                    self.config.style.into()
+                } else {
+                    ratatui::style::Style::default()
+                };
+            style = style.patch(self.config.separator_style);
+
+            Some(Line::from(Span::styled(line, style)))
+        } else {
+            None
+        };
+
+        (&self.table, self.table_width(), separator)
     }
 
     pub(super) fn vscroll_to_skip(&self, is_current: bool) -> usize {

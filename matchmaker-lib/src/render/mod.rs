@@ -1145,13 +1145,23 @@ fn render_results<T: SSS, D: 'static>(
         RowConnectionStyle::Capped
     );
 
-    let (table, width) = picker_ui.results.get_table();
+    let (table, width, separator) = picker_ui.results.make_table();
 
     if cap {
         area.width = area.width.min(width);
     }
 
     frame.render_widget(table, area);
+
+    if let Some(separator) = separator {
+        let inner = picker_ui.results.config.border.inner_of(area);
+        for &offset in &picker_ui.results.separator_offsets {
+            if offset < inner.height {
+                let row_area = Rect::new(inner.x, inner.y + offset, inner.width, 1);
+                frame.render_widget(separator.clone(), row_area);
+            }
+        }
+    }
 }
 
 /// Returns the offset of the cursor against the drawing area

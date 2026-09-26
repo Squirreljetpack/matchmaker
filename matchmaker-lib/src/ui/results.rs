@@ -68,6 +68,7 @@ pub struct ResultsUI {
     /// Kept around so click positions can be mapped back to absolute
     /// indices after the table has been assembled.
     row_data: Vec<(u32, u16)>,
+    pub separator_offsets: Vec<u16>,
     pub table: Table<'static>,
 }
 
@@ -100,6 +101,7 @@ impl ResultsUI {
             changed: Default::default(),
             row_cache: [Vec::new(), Vec::new()],
             row_data: Vec::new(),
+            separator_offsets: Vec::new(),
             table: ratatui::widgets::Table::default(),
         }
     }
@@ -360,11 +362,5 @@ impl ResultsUI {
         self.width_limits.clear();
         self.preferred_widths.clear();
         self.row_cache[0].clear(); // empty limits still calls get_row which is invalidated if hidden_columns changed
-    }
-
-    // ------- RENDERING ----------
-    /// Call [`ResultsUI::update_table`] first
-    pub fn get_table(&self) -> (&Table<'static>, u16) {
-        (&self.table, self.table_width())
     }
 }

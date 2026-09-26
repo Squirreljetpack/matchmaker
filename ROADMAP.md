@@ -2,7 +2,6 @@
 
 - it would be nice to have presets like full, simple, and minimal presets like fzf
 - it would be nice to have color presets too maybe
-- better hr styling (dim etc.)
 - vty to support animated previews/sixel (will that do the trick? otherwise pipe should be more efficient).
 - move preset screenshots into preset directory
 
@@ -13,14 +12,13 @@
   - config.clear_on_exit: None -> true
   - Fix exit_lite
 
-- git/restore has a weird heading bug [history] -> [stash]y], i think its from ratatui tho i have no idea how it happens
+
 
 - Code examples:
   - query change
   - frecency
   - api
 
-- Does render refs (statusUI, overlay?) improve performance?
 
 - toast action:
   - toast config:
@@ -29,7 +27,6 @@
   - id like to use either the line or table 'niche' of displayui but not sure which one
 
 - mla feature?
-- Picker overlay
 - replace ansi-2-text for performance and correctness (i.e. man output)
 
 # Previewer
@@ -66,3 +63,4 @@
 - flicker-free reload: if empty don't update?
 - just ran into a facepalm due to previewsetting not having deny_unknown_settings, maybe it would be better to actually flatten
 - Indentation style setting: active or first or custom: decided on active.
+- Does render refs (statusUI, overlay?) improve performance?

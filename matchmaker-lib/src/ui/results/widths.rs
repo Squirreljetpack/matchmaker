@@ -22,6 +22,8 @@ impl ResultsUI {
 
         self.widths_buffer = self.max_widths.clone();
         let mut vi = 0;
+        let mut single_col = None;
+        let mut non_zero_count = 0;
         for (i, name_w) in self.column_name_widths.iter().enumerate() {
             if self.config.hidden_columns.contains(i) {
                 continue;
@@ -38,17 +40,26 @@ impl ResultsUI {
                 lower = 1;
             }
             self.widths_buffer[vi] = self.widths_buffer[vi].max(lower);
+            if self.widths_buffer[vi] > 0 {
+                non_zero_count += 1;
+                single_col = Some(vi);
+            }
             vi += 1;
         }
 
-        // Apply column width overrides directly (1:1 mapping with widths_buffer)
-        for (w, &override_w) in self
-            .widths_buffer
-            .iter_mut()
-            .zip(&self.config.width_overrides)
-        {
-            if override_w > 0 {
-                *w = override_w;
+        if non_zero_count == 1 {
+            let idx = single_col.unwrap();
+            self.widths_buffer[idx] = self.widths_buffer[idx].min(self.available_width());
+        } else {
+            // Apply column width overrides to columns with non-zero width
+            for (w, &override_w) in self
+                .widths_buffer
+                .iter_mut()
+                .zip(&self.config.width_overrides)
+            {
+                if *w > 0 && override_w > 0 {
+                    *w = override_w;
+                }
             }
         }
 
@@ -64,7 +75,8 @@ impl ResultsUI {
         }
     }
 
-    fn prepare_max_widths(&mut self) {
+    /// initialize self.max_widths from self.row_cache[0]
+    pub(super) fn prepare_max_widths(&mut self) {
         if !self.max_widths.is_empty() {
             return;
         }

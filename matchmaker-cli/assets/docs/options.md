@@ -239,7 +239,7 @@ All colors and modifiers come from ratatui:
   - `\s` -> available whitespace / count appearances
   - `\S` -> increment the count denominator without displaying whitespace
 - `row_connection`: `Disjoint`, `Capped`, or `Full`. Controls the width used for whitespace expansion.
-- `interactions`: ([index, action]) Define interactive regions. See [Interactions](template.md#interaction-regions).
+- `interactions`: Either `[index, action]` regions or an ordered action list mapped to `i`/`interactive` template spans. See [Interactions](template.md#interaction-regions).
 
 #### Preview Panel (`preview.`, `p`)
 

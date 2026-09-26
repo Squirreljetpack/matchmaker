@@ -41,7 +41,7 @@ You can specify a column by its name or by its index (starting from 1). `{0}` re
 > [!TIP]
 >
 > **SHELL QUOTING**
-> 
+>
 > - Unix shells: single-quoted (`'foo'`, embedded `'` → `'\''`).
 > - cmd.exe: double-quoted (`"` and `&|<>^%` escaped).
 > - PowerShell: single-quoted (embedded `'` doubled: `''`). An empty column becomes `''` when quoted but nothing when raw.
@@ -225,34 +225,41 @@ In addition to the above, commands executed within the preview window also recei
 
 ## Interaction Regions
 
-Interaction regions allow you to trigger [semantic actions](binds.md#semantic-triggers) by clicking on specific areas of the `header`, `footer`, or `status` line.
+Interaction regions trigger [semantic actions](binds.md#semantic-triggers) when a status, header, or footer section is clicked.
 
-### Configuration
+### Status templates
 
-Interactions are defined as a list of `(index, action)` pairs:
+Status templates can mark clickable spans with the `i` or `interactive` style token. Status `interactions` may then be an ordered action list. Actions are assigned to marked spans from left to right, and each region ends at the marked span's rendered boundary.
 
-- `index`: The 0-based horizontal character offset from the left of the UI component.
-- `action`: The name of the semantic trigger to activate (e.g., `"foo"` for `@foo`).
-
-When a region is clicked, Matchmaker finds the entry with the largest `index` that is less than or equal to the click position and triggers the associated action. An empty action string (`""`) can be used to disable interaction for a specific range.
-
-### Example
-
-In your `config.toml`:
+Regions are resolved after `\r`, `\m`, `\t`, `\s`, and `\S` substitutions, so dynamic prefixes and terminal-width changes remain aligned.
 
 ```toml
 [status]
-template = "{red: [X]} {green: [OK]} \s \m/\t"
-interactions = [
-    [1, "quit"],   # Trigger @quit
-    [4, ""],       # Gap (no action)
-    [6, "accept"], # Trigger @accept
-    [11, ""]       # Disable for the rest of the line
-]
+template = "{red,i: [X]} {green,interactive: [OK]} \s \m/\t"
+interactions = ["quit", "accept"]
 
 [binds]
 "@quit" = "Quit(1)"
 "@accept" = "Accept"
 ```
 
-For `header` and `footer`, which can have multiple lines, `interactions` is a list of lists (one for each line).
+`i` and `interactive` reserve the `RAPID_BLINK` modifier as an internal marker on status spans. The marker is removed before rendering.
+
+### Coordinate regions
+
+The original `(index, action)` form remains available for status, header, and footer interactions:
+
+```toml
+[status]
+template = "{red: [X]} {green: [OK]} \s \m/\t"
+interactions = [
+    [1, "quit"],
+    [4, ""],
+    [6, "accept"],
+    [11, ""]
+]
+```
+
+`index` is the zero-based horizontal offset. Matchmaker selects the region with the greatest index that is less than or equal to the click position. An empty action disables clicks until the next region.
+
+Header and footer interactions use coordinate regions and accept one region list per rendered line.

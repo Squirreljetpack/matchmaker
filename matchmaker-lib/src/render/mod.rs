@@ -298,10 +298,9 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                             } else if layout.status.contains(pos) {
                                 let x = pos.x.saturating_sub(layout.status.x);
                                 debug!("Status clicked at x: {x}");
-                                if let Some(action) = find_interaction(
-                                    &picker_ui.status.status_config.interactions,
-                                    x,
-                                ) {
+                                if let Some(action) =
+                                    find_interaction(picker_ui.status.interactions(), x)
+                                {
                                     click = Click::Semantic(action);
                                 }
                             } else if layout.header.contains(pos) {
@@ -988,7 +987,7 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                     render_status(
                         frame,
                         layout.status,
-                        &picker_ui.status,
+                        &mut picker_ui.status,
                         &picker_ui.results,
                         ui.area().width,
                     );
@@ -1111,16 +1110,16 @@ impl Click {
     }
 }
 
-pub(crate) fn find_interaction(
-    setting: &crate::config::InteractionRegionSetting,
-    x: u16,
-) -> Option<String> {
+pub(crate) fn find_interaction<T>(setting: &[(T, String)], x: u16) -> Option<String>
+where
+    T: Copy + Into<u16>,
+{
     setting
         .iter()
         .rev()
-        .find(|(start, _)| x >= *start as u16)
+        .find(|(start, _)| x >= (*start).into())
         .map(|(_, action)| action.clone())
-        .filter(|a| !a.is_empty())
+        .filter(|action| !action.is_empty())
 }
 
 fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {
@@ -1173,7 +1172,7 @@ fn render_input(frame: &mut Frame, area: Rect, ui: &mut QueryUI) -> Position {
 fn render_status(
     frame: &mut Frame,
     area: Rect,
-    ui: &StatusUI,
+    ui: &mut StatusUI,
     results_ui: &ResultsUI,
     full_width: u16,
 ) {

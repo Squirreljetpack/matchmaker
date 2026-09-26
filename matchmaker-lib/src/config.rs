@@ -22,7 +22,7 @@ use ratatui::{
     widgets::{BorderType, Borders},
 };
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 /// Configures how columns/text are preprocessed.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -475,6 +475,42 @@ impl Default for ResultsConfig {
     }
 }
 
+/// Status-line interaction configuration.
+///
+/// Coordinate regions preserve the original absolute-offset API. Ordered actions
+/// are assigned to `i`/`interactive` template spans from left to right.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum StatusInteractionSetting {
+    Regions(InteractionRegionSetting),
+    Actions(Vec<String>),
+}
+
+impl Default for StatusInteractionSetting {
+    fn default() -> Self {
+        Self::Actions(Vec::new())
+    }
+}
+
+impl<'de> Deserialize<'de> for StatusInteractionSetting {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Repr {
+            Actions(Vec<String>),
+            Regions(InteractionRegionSetting),
+        }
+
+        Ok(match Repr::deserialize(deserializer)? {
+            Repr::Actions(actions) => Self::Actions(actions),
+            Repr::Regions(regions) => Self::Regions(regions),
+        })
+    }
+}
+
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -503,7 +539,7 @@ pub struct StatusConfig {
     /// - Capped: no effect. (Since, unlike [`DisplayConfig`], status line can not display over the preview).
     pub row_connection: RowConnectionStyle,
 
-    pub interactions: InteractionRegionSetting,
+    pub interactions: StatusInteractionSetting,
 }
 impl Default for StatusConfig {
     fn default() -> Self {
@@ -565,6 +601,7 @@ pub struct DisplayConfig {
 }
 
 pub type InteractionRegionSetting = Vec<(u8, String)>;
+pub type ResolvedInteractionRegionSetting = Vec<(u16, String)>;
 
 impl Default for DisplayConfig {
     fn default() -> Self {
@@ -1110,6 +1147,36 @@ mod tests {
     use super::*;
     use crate::config_types::ScrollStrategy;
 
+    #[derive(Deserialize)]
+    struct StatusInteractionTest {
+        interactions: StatusInteractionSetting,
+    }
+
+    #[test]
+    fn status_interactions_deserialize_both_shapes() {
+        let actions =
+            toml::from_str::<StatusInteractionTest>(r#"interactions = ["first", "second"]"#)
+                .expect("ordered actions")
+                .interactions;
+        let regions = toml::from_str::<StatusInteractionTest>(
+            r#"interactions = [[0, "first"], [5, "second"]]"#,
+        )
+        .expect("coordinate regions")
+        .interactions;
+        let empty = toml::from_str::<StatusInteractionTest>(r#"interactions = []"#)
+            .expect("empty ordered actions")
+            .interactions;
+
+        assert_eq!(
+            actions,
+            StatusInteractionSetting::Actions(vec!["first".into(), "second".into()])
+        );
+        assert_eq!(
+            regions,
+            StatusInteractionSetting::Regions(vec![(0, "first".into()), (5, "second".into())])
+        );
+        assert_eq!(empty, StatusInteractionSetting::Actions(Vec::new()));
+    }
     #[test]
     fn layout_scroll_deserializes_normalized() {
         let de = |scroll: &str| {

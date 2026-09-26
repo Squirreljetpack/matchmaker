@@ -6,7 +6,7 @@ use ratatui::{
 };
 
 use crate::{
-    config::{RowConnectionStyle, StatusConfig},
+    config::{RowConnectionStyle, StatusConfig, StatusInteractionSetting},
     ui::ResultsUI,
     utils::{string::substitute_escaped, text::expand_indents},
 };
@@ -15,35 +15,45 @@ pub struct StatusUI {
     pub status_config: StatusConfig,
     pub status_template: Line<'static>,
     pub dim: Option<bool>,
+    resolved_interactions: crate::config::ResolvedInteractionRegionSetting,
 }
 
 impl StatusUI {
     pub fn new(status_config: StatusConfig) -> Self {
         let mut ret = Self {
-            status_template: Line::from(status_config.template.clone()).style(status_config.style),
+            status_template: Self::parse_template_to_status_line(&status_config.template)
+                .style(status_config.style),
             status_config,
             dim: None,
+            resolved_interactions: Vec::new(),
         };
         ret.init();
         ret
     }
 
     pub fn init(&mut self) {
-        self.status_config.interactions.sort_by_key(|(i, _)| *i);
+        match &mut self.status_config.interactions {
+            StatusInteractionSetting::Regions(regions) => {
+                regions.sort_by_key(|(start, _)| *start);
+                self.resolved_interactions = regions
+                    .iter()
+                    .map(|(start, action)| (u16::from(*start), action.clone()))
+                    .collect();
+            }
+            StatusInteractionSetting::Actions(_) => self.resolved_interactions.clear(),
+        }
     }
 
-    pub fn make_status(&self, results_ui: &ResultsUI, full_width: u16) -> Paragraph<'_> {
-        let status_config = &self.status_config;
+    pub fn make_status(&mut self, results_ui: &ResultsUI, full_width: u16) -> Paragraph<'_> {
         let replacements = [
             ('r', results_ui.index().to_string()),
             ('m', results_ui.status.matched_count.to_string()),
             ('t', results_ui.status.item_count.to_string()),
         ];
 
-        // sub replacements into line
         let mut new_spans = Vec::new();
 
-        if status_config.match_indent {
+        if self.status_config.match_indent {
             new_spans.push(Span::raw(" ".repeat(results_ui.indentation())));
         }
 
@@ -53,14 +63,12 @@ impl StatusUI {
         }
 
         let substituted_line = Line::from(new_spans);
-
-        // sub whitespace expansions
         let effective_width = match self.status_config.row_connection {
             RowConnectionStyle::Full => full_width,
             _ => results_ui.width(),
         } as usize;
 
-        let mut style = Style::from(status_config.style);
+        let mut style = Style::from(self.status_config.style);
         if let Some(s) = self.dim {
             if s {
                 style = style.add_modifier(Modifier::DIM);
@@ -69,11 +77,45 @@ impl StatusUI {
             }
         }
 
-        let expanded = expand_indents(substituted_line, r"\s", r"\S", effective_width).style(style);
+        let mut expanded =
+            expand_indents(substituted_line, r"\s", r"\S", effective_width).style(style);
+        self.resolve_interactions(&mut expanded);
 
         Paragraph::new(expanded)
     }
 
+    fn resolve_interactions(&mut self, line: &mut Line<'static>) {
+        let actions = match &self.status_config.interactions {
+            StatusInteractionSetting::Actions(actions) => Some(actions),
+            StatusInteractionSetting::Regions(_) => None,
+        };
+        let mut actions = actions.into_iter().flatten();
+        let mut x = 0u16;
+        let mut regions = Vec::new();
+
+        for span in &mut line.spans {
+            let width = u16::try_from(span.width()).unwrap_or(u16::MAX);
+            if span.style.add_modifier.contains(Modifier::RAPID_BLINK) {
+                span.style = span.style.remove_modifier(Modifier::RAPID_BLINK);
+                if let Some(action) = actions.next() {
+                    regions.push((x, action.clone()));
+                    regions.push((x.saturating_add(width), String::new()));
+                }
+            }
+            x = x.saturating_add(width);
+        }
+
+        if matches!(
+            self.status_config.interactions,
+            StatusInteractionSetting::Actions(_)
+        ) {
+            self.resolved_interactions = regions;
+        }
+    }
+
+    pub fn interactions(&self) -> &crate::config::ResolvedInteractionRegionSetting {
+        &self.resolved_interactions
+    }
     /// The style from the config overrides the Line style (but not the span styles).
     /// None restores the prompt defined in the config.
     pub fn set(&mut self, template: Option<Line<'static>>) {
@@ -81,7 +123,7 @@ impl StatusUI {
         log::trace!("status line: {template:?}");
 
         self.status_template = template
-            .unwrap_or(status_config.template.clone().into())
+            .unwrap_or_else(|| Self::parse_template_to_status_line(&status_config.template))
             .style(status_config.style)
     }
 
@@ -117,29 +159,12 @@ impl StatusUI {
         Line::from(spans)
     }
 
-    /// Converts a template string into a `Span` with colors and modifiers.
+    /// Converts a template section into a styled status span.
     ///
-    /// The template string format is:
-    /// ```text
-    /// "style1,style2,...:text"
-    /// ```
-    /// - The **first valid color** token is used as foreground (fg).
-    /// - The **second valid color** token is used as background (bg).
-    /// - Remaining tokens are interpreted as **modifiers**: bold, dim, italic, underlined,
-    ///   slow_blink, rapid_blink, reversed, hidden, crossed_out.
-    /// - Empty tokens are ignored.
-    /// - Unrecognized tokens are collected and logged once at the end.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use matchmaker::ui::StatusUI;
-    /// StatusUI::span_from_template("red,bg=blue,bold,italic:Hello");
-    /// StatusUI::span_from_template("green,,underlined:World");
-    /// StatusUI::span_from_template(",,dim:OnlyDim");
-    /// ```
-    ///
-    /// Returns a `Span` with the specified styles applied to the text.
+    /// `i` and `interactive` mark the span as an interaction region. The
+    /// marker uses `Modifier::RAPID_BLINK` internally and is removed before
+    /// rendering.
+
     pub fn span_from_template(inner: &str) -> Span<'static> {
         use std::str::FromStr;
 
@@ -154,6 +179,11 @@ impl StatusUI {
             let token = token.trim();
             if token.is_empty() {
                 fg_set = true;
+                continue;
+            }
+
+            if matches!(token.to_lowercase().as_str(), "i" | "interactive") {
+                style = style.add_modifier(Modifier::RAPID_BLINK);
                 continue;
             }
 
@@ -227,5 +257,98 @@ impl StatusUI {
         }
 
         Span::styled(text.to_string(), style)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{ResultsConfig, StatusInteractionSetting};
+    use ratatui::{Terminal, backend::TestBackend};
+
+    fn render_status(status: &mut StatusUI, results: &ResultsUI, width: u16) -> String {
+        let mut terminal = Terminal::new(TestBackend::new(width, 1)).unwrap();
+        terminal
+            .draw(|frame| {
+                let widget = status.make_status(results, width);
+                frame.render_widget(widget, frame.area());
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        (0..width)
+            .map(|x| buffer[(x, 0)].symbol())
+            .collect::<String>()
+    }
+
+    #[test]
+    fn resolves_interactive_spans_after_dynamic_expansion() {
+        let mut status = StatusUI::new(StatusConfig {
+            show: true,
+            match_indent: false,
+            template: r#"{i:prefix}\s{interactive:action}"#.to_string(),
+            interactions: StatusInteractionSetting::Actions(vec![
+                "prefix".to_string(),
+                "action".to_string(),
+            ]),
+            ..Default::default()
+        });
+        let results = ResultsUI::new(ResultsConfig::default());
+
+        assert_eq!(
+            render_status(&mut status, &results, 20),
+            "prefix        action"
+        );
+        assert_eq!(
+            status.interactions(),
+            &vec![
+                (0, "prefix".to_string()),
+                (6, String::new()),
+                (14, "action".to_string()),
+                (20, String::new()),
+            ]
+        );
+
+        let click = |x| crate::render::find_interaction(status.interactions(), x);
+        assert_eq!(click(0).as_deref(), Some("prefix"));
+        assert_eq!(click(5).as_deref(), Some("prefix"));
+        assert_eq!(click(6), None);
+        assert_eq!(click(13), None);
+        assert_eq!(click(14).as_deref(), Some("action"));
+        assert_eq!(click(19).as_deref(), Some("action"));
+    }
+
+    #[test]
+    fn static_regions_remain_available() {
+        let status = StatusUI::new(StatusConfig {
+            interactions: StatusInteractionSetting::Regions(vec![
+                (2, "first".to_string()),
+                (8, "second".to_string()),
+            ]),
+            ..Default::default()
+        });
+
+        assert_eq!(
+            status.interactions(),
+            &vec![(2, "first".to_string()), (8, "second".to_string())]
+        );
+    }
+
+    #[test]
+    fn parser_marks_interactive_aliases() {
+        let line = StatusUI::parse_template_to_status_line("{i:a} {interactive:b}");
+
+        let marked: Vec<_> = line
+            .spans
+            .iter()
+            .filter(|span| span.style.add_modifier.contains(Modifier::RAPID_BLINK))
+            .collect();
+        assert_eq!(
+            marked
+                .iter()
+                .map(|span| span.content.as_ref())
+                .collect::<Vec<_>>(),
+            vec!["a", "b"]
+        );
     }
 }

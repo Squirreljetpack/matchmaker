@@ -171,7 +171,7 @@ impl PickerQuery {
                     escaped = false;
                 }
                 '\\' => escaped = !escaped,
-                '%' => {
+                '%' if !in_field => {
                     if !text.is_empty() {
                         finish_field!();
                     }

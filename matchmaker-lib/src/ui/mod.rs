@@ -98,7 +98,8 @@ impl UI {
             None
         };
 
-        let footer = DisplayUI::new(config.footer);
+        let mut footer = DisplayUI::new(config.footer);
+        footer.set_reverse(!picker.reverse());
 
         (ui, picker, footer, preview)
     }
@@ -202,11 +203,14 @@ impl<T: SSS, D: 'static> PickerUI<T, D> {
         let mut results = ResultsUI::new(results_config);
         results.init(&mut worker);
 
+        let mut header = DisplayUI::new(header_config);
+        header.set_reverse(results.reverse());
+
         Self {
             results,
             status: StatusUI::new(status_config),
             query: QueryUI::new(input_config),
-            header: DisplayUI::new(header_config),
+            header,
             selector,
             worker,
             filtering: true,
@@ -386,14 +390,14 @@ mod tests {
                 x: 0,
                 y: 1,
                 width: 80,
-                height: 1
+                height: 0
             }
         );
         assert_eq!(
             header,
             Rect {
                 x: 0,
-                y: 2,
+                y: 1,
                 width: 80,
                 height: 0
             }
@@ -402,9 +406,9 @@ mod tests {
             results,
             Rect {
                 x: 0,
-                y: 2,
+                y: 1,
                 width: 80,
-                height: 22
+                height: 23
             }
         );
     }
@@ -430,14 +434,14 @@ mod tests {
                 x: 0,
                 y: 0,
                 width: 80,
-                height: 22
+                height: 23
             }
         );
         assert_eq!(
             header,
             Rect {
                 x: 0,
-                y: 22,
+                y: 23,
                 width: 80,
                 height: 0
             }
@@ -446,9 +450,9 @@ mod tests {
             status,
             Rect {
                 x: 0,
-                y: 22,
+                y: 23,
                 width: 80,
-                height: 1
+                height: 0
             }
         );
         assert_eq!(

@@ -81,7 +81,7 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
     let mut config: Config = if cli.config.is_some() {
         load_type(cfg_path, |s| toml::from_str(s))._ebog().or_exit()
     } else {
-        load_type_or_default(cfg_path, |s| toml::from_str(s))
+        load_type_or_default(cfg_path, None, |s| toml::from_str(s))
     };
     // check config
     if config.source.is_some() {

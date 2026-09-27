@@ -49,6 +49,9 @@
 # Bugs
 
 - crossterm cannot detect modifiers on mouse events but we support binding it
+- [x] git/restore has a weird heading bug [history] -> [stash]y], i think its from ratatui tho i have no idea how it happens
+- zellij session preview, sometimes the header line autowraps when wrap is false tho the command producing it never does. ratatui bug maybe?
+- chinese characters (i.e. in preview) can break layout, probably also a ratatui/term bug related to widths
 
 ### Low priority
 

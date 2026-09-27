@@ -25,6 +25,7 @@ pub struct DisplayUI {
     lines: HeaderTable, // lines from input
     pub show: bool,
     pub config: DisplayConfig,
+    pub reverse: bool,
     dirty: bool,
     table: Vec<Vec<Text<'static>>>,
     cached_result_widths: ResultWidths,
@@ -39,6 +40,14 @@ impl DisplayUI {
         ret.init();
 
         ret
+    }
+
+    pub fn set_reverse(&mut self, reverse: bool) {
+        if self.reverse != reverse {
+            self.reverse = reverse;
+            self.dirty = true;
+            self.update_table();
+        }
     }
 
     /// Refresh content and interactions from config.
@@ -100,16 +109,16 @@ impl DisplayUI {
         let (_result_indentation, _col_spacing, ref widths) = self.cached_result_widths;
         let use_wrap = self.config.wrap;
 
-        let mut table_rows = Vec::new();
-        let mut heights = Vec::new();
+        let mut text_rows = Vec::new();
+        let mut text_heights = Vec::new();
 
         if !self.text.is_empty() {
             if self.is_single_column() {
                 let (text, _) =
                     wrap_text(self.text[0].clone(), if use_wrap { self.width } else { 0 });
                 let row_height = text.height() as u16;
-                table_rows.push(vec![text]);
-                heights.push(row_height);
+                text_rows.push(vec![text]);
+                text_heights.push(row_height);
             } else {
                 let mut row_height = 0;
                 let mut row_cells = Vec::with_capacity(self.text.len());
@@ -126,10 +135,13 @@ impl DisplayUI {
                     }
                     row_cells.push(wrapped);
                 }
-                table_rows.push(row_cells);
-                heights.push(row_height.max(1));
+                text_rows.push(row_cells);
+                text_heights.push(row_height.max(1));
             }
         }
+
+        let mut lines_rows = Vec::new();
+        let mut lines_heights = Vec::new();
 
         if !self.lines.is_empty() {
             for row in &self.lines {
@@ -148,10 +160,24 @@ impl DisplayUI {
                     }
                     row_cells.push(Text::from(wrapped));
                 }
-                table_rows.push(row_cells);
-                heights.push(row_height);
+                lines_rows.push(row_cells);
+                lines_heights.push(row_height);
             }
         }
+
+        let (table_rows, heights) = if self.reverse {
+            let mut rows = lines_rows;
+            rows.extend(text_rows);
+            let mut h = lines_heights;
+            h.extend(text_heights);
+            (rows, h)
+        } else {
+            let mut rows = text_rows;
+            rows.extend(lines_rows);
+            let mut h = text_heights;
+            h.extend(lines_heights);
+            (rows, h)
+        };
 
         self.table = table_rows;
         self.heights = heights;
@@ -229,9 +255,17 @@ impl DisplayUI {
         };
 
         let mut rows = Vec::with_capacity(self.table.len());
+        let content_row_idx = if self.text.is_empty() {
+            None
+        } else if self.reverse {
+            Some(self.lines.len())
+        } else {
+            Some(0)
+        };
+
         for (r, row_cells) in self.table.iter().enumerate() {
             let row_h = self.heights.get(r).copied().unwrap_or(1);
-            let is_content_row = r == 0 && !self.text.is_empty();
+            let is_content_row = Some(r) == content_row_idx;
 
             if is_content_row && self.is_single_column() {
                 let cells = vec![Cell::from(row_cells[0].clone())];
@@ -299,9 +333,18 @@ impl DisplayUI {
         } else {
             self.config.border.left()
         };
-        let top = self.config.border.top();
+        let lines_height: u16 = if self.lines.is_empty() {
+            0
+        } else if self.reverse {
+            self.heights[..self.lines.len()].iter().sum()
+        } else {
+            self.heights[1..].iter().sum()
+        };
+        let border_top = self.config.border.top();
+        let border_bottom = self.config.border.height().saturating_sub(border_top);
+        let top = border_top + if self.reverse { lines_height } else { 0 };
         let right = self.config.border.width().saturating_sub(left);
-        let bottom = self.config.border.height() - top;
+        let bottom = border_bottom + if !self.reverse { lines_height } else { 0 };
 
         let block = ratatui::widgets::Block::default().padding(ratatui::widgets::Padding {
             left,
@@ -343,7 +386,13 @@ impl DisplayUI {
 
         let Y = target_row?;
 
-        let setting = match self.config.interactions.get(Y) {
+        let interaction_row = if self.reverse && !self.text.is_empty() && !self.lines.is_empty() {
+            if Y == self.lines.len() { 0 } else { Y + 1 }
+        } else {
+            Y
+        };
+
+        let setting = match self.config.interactions.get(interaction_row) {
             Some(s) if !s.is_empty() => s,
             _ => return None,
         };
@@ -365,7 +414,14 @@ impl DisplayUI {
         }
         let content_x = x - left_offset;
 
-        let is_content_row = Y == 0 && !self.text.is_empty();
+        let content_row_idx = if self.text.is_empty() {
+            None
+        } else if self.reverse {
+            Some(self.lines.len())
+        } else {
+            Some(0)
+        };
+        let is_content_row = Some(Y) == content_row_idx;
         let X = if is_content_row && self.is_single_column() {
             let col_w = if self.config.wrap && self.width > 0 {
                 self.width
@@ -398,7 +454,11 @@ impl DisplayUI {
                         .map(|t| t.lines.iter().map(|l| l.width() as u16).sum::<u16>())
                         .unwrap_or(0)
                 } else {
-                    let line_idx = if self.text.is_empty() { Y } else { Y - 1 };
+                    let line_idx = if self.reverse || self.text.is_empty() {
+                        Y
+                    } else {
+                        Y - 1
+                    };
                     self.lines
                         .get(line_idx)
                         .and_then(|row| row.get(i))
@@ -613,5 +673,60 @@ mod tests {
         // x=7 is start of col 1 -> surplus x = 0 -> X = 5 + 0 = 5 -> "col1"
         assert_eq!(display.get_interaction(7, 0), Some("col1".to_string()));
         assert_eq!(display.get_interaction(8, 0), Some("col1".to_string()));
+    }
+
+    #[test]
+    fn test_display_reverse_flips_text_and_table() {
+        let mut display = DisplayUI::default();
+        display.set("header_text");
+        display.header_table(vec![
+            vec![Line::from("table_r0_c0"), Line::from("table_r0_c1")],
+            vec![Line::from("table_r1_c0"), Line::from("table_r1_c1")],
+        ]);
+        display.make_display((0, 0, vec![10, 10]));
+
+        // Default order (!reverse): text first, then table rows
+        assert_eq!(display.table.len(), 3);
+        assert_eq!(display.table[0][0].lines[0].spans[0].content, "header_text");
+        assert_eq!(display.table[1][0].lines[0].spans[0].content, "table_r0_c0");
+        assert_eq!(display.table[2][0].lines[0].spans[0].content, "table_r1_c0");
+
+        // When reverse = true: table rows first (in original order), then text
+        display.set_reverse(true);
+        display.make_display((0, 0, vec![10, 10]));
+
+        assert_eq!(display.table.len(), 3);
+        assert_eq!(display.table[0][0].lines[0].spans[0].content, "table_r0_c0");
+        assert_eq!(display.table[1][0].lines[0].spans[0].content, "table_r1_c0");
+        assert_eq!(display.table[2][0].lines[0].spans[0].content, "header_text");
+    }
+
+    #[test]
+    fn test_display_reverse_interaction() {
+        let config = DisplayConfig {
+            content: Some(crate::utils::serde::StringOrVec::String(
+                "header_text".to_string(),
+            )),
+            interactions: vec![
+                vec![(0, "text_action".to_string())],
+                vec![(0, "table_r0_action".to_string())],
+            ],
+            ..Default::default()
+        };
+        let mut display = DisplayUI::new(config);
+        display.header_table(vec![vec![Line::from("table_r0_c0")]]);
+        display.set_reverse(true);
+        display.make_display((0, 0, vec![10]));
+
+        // Row 0 is table_r0
+        assert_eq!(
+            display.get_interaction(2, 0),
+            Some("table_r0_action".to_string())
+        );
+        // Row 1 is header_text
+        assert_eq!(
+            display.get_interaction(2, 1),
+            Some("text_action".to_string())
+        );
     }
 }

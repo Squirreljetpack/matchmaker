@@ -998,8 +998,15 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                         layout.header,
                         &mut picker_ui.header,
                         &picker_ui.results,
+                        picker_ui.results.reverse(),
                     );
-                    render_display(frame, layout.footer, &mut footer_ui, &picker_ui.results);
+                    render_display(
+                        frame,
+                        layout.footer,
+                        &mut footer_ui,
+                        &picker_ui.results,
+                        !picker_ui.results.reverse(),
+                    );
 
                     if let Some(preview_ui) = preview_ui.as_mut()
                         && preview_ui.visible()
@@ -1192,10 +1199,17 @@ fn render_status(
     }
 }
 
-fn render_display(frame: &mut Frame, area: Rect, ui: &mut DisplayUI, results_ui: &ResultsUI) {
+fn render_display(
+    frame: &mut Frame,
+    area: Rect,
+    ui: &mut DisplayUI,
+    results_ui: &ResultsUI,
+    reverse: bool,
+) {
     if !ui.show {
         return;
     }
+    ui.set_reverse(reverse);
     let widths = results_ui.width_limits().to_vec();
 
     let (widget, full_width) = ui.make_display((
@@ -1581,14 +1595,14 @@ mod test {
                 x: 0,
                 y: 1,
                 width: 80,
-                height: 1
+                height: 0
             }
         );
         assert_eq!(
             layout.header,
             Rect {
                 x: 0,
-                y: 2,
+                y: 1,
                 width: 80,
                 height: 0
             }
@@ -1597,9 +1611,9 @@ mod test {
             layout.results,
             Rect {
                 x: 0,
-                y: 2,
+                y: 1,
                 width: 80,
-                height: 22
+                height: 23
             }
         );
         assert_eq!(ui.area(), area);
@@ -1647,16 +1661,16 @@ mod test {
                 x: 2,
                 y: 3,
                 width: 76,
-                height: 1
+                height: 0
             }
         );
         assert_eq!(
             layout.results,
             Rect {
                 x: 2,
-                y: 4,
+                y: 3,
                 width: 76,
-                height: 18
+                height: 19
             }
         );
         // the ui area is inset by the outer border only (not the picker border)
@@ -1710,9 +1724,9 @@ mod test {
             layout.results,
             Rect {
                 x: 0,
-                y: 2,
+                y: 1,
                 width: 32,
-                height: 22
+                height: 23
             }
         );
     }

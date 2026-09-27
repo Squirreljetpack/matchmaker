@@ -1,22 +1,24 @@
 # Pi agent sessions browser
 
 [start]
-command = '''
-if stat --version 2>/dev/null | grep -q GNU; then
-    get_mtime() { stat -c %y -- "$1" | cut -d. -f1; }
-else
-    get_mtime() { stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" -- "$1"; }
-fi
 
-for f in **/*.jsonl; do
-    base=$(basename -- "$f" .jsonl)
-    session=${base##*_}
-    ts=$(get_mtime "$f")
-
-    cwd=$(head -n 1 -- "$f" | jq -r '.cwd')
-    printf "%s\t%s\t%s\t%s\n" "$f" "$ts" "${cwd/#$HOME\//~/}" "$session"
-done
-'''
+command = '@./pi_sessions.py'
+# command = '''
+# if stat --version 2>/dev/null | grep -q GNU; then
+#     get_mtime() { stat -c %y -- "$1" | cut -d. -f1; }
+# else
+#     get_mtime() { stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" -- "$1"; }
+# fi
+# 
+# for f in **/*.jsonl; do
+#     base=$(basename -- "$f" .jsonl)
+#     session=${base##*_}
+#     ts=$(get_mtime "$f")
+# 
+#     cwd=$(head -n 1 -- "$f" | jq -r '.cwd')
+#     printf "%s\t%s\t%s\t%s\n" "$f" "$ts" "${cwd/#$HOME\//~/}" "$session"
+# done
+# '''
 
 directory = { value = "~/.pi/agent/sessions", force = true }
 
@@ -120,7 +122,7 @@ border = { title = "Raw Session" }
 "@show" = '''ExecuteOrConfirm(mkdir -p $TMPdir && node "$(dirname -- "$MM_OVERRIDE")"/export-pi-session.mjs -o $TMPdir/session.html $PWD/{file} && eval $OPENcmd /tmp/pi/html/session.html)'''
 "@open_2" = 'ExecuteOrConfirm(fx {1})'
 "0,1^^@accept" = 'Become(cwd={dir}; cd "${cwd/#\~/$HOME}" && pi --session {id})'
-"0,1^^@Accept" = [
+"0,1^^@return" = [
     '#fork',
     'Become(cwd={dir}; cd "${cwd/#\~/$HOME}" && pi --fork {id})',
 ]

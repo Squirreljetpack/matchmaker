@@ -1,4 +1,5 @@
 # macOS Services (launchctl)
+
 # Manage background services via launchctl
 
 [start]
@@ -86,7 +87,7 @@ max = 0
 [binds]
 # --- Navigation ---
 "@accept" = "Become(printf '%s\n' {pid})"
-"@Accept" = "Accept"
+"@return" = "Accept"
 
 "@open" = '''ExecuteOrConfirm(
     label={label}; eval "$RESOLVE_TARGET"

@@ -1,4 +1,5 @@
 # Linux Preference Panes (XDG Desktop Entries)
+
 # Discovers settings panels by searching .desktop files with "Settings" category.
 
 [start]

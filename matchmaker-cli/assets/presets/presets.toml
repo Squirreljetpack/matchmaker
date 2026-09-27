@@ -1,0 +1,22 @@
+# Preset picker
+
+[start]
+command = '''
+dir="$(dirname -- "$MM_OVERRIDE")"
+mm --presets | while IFS= read -r path; do
+    name="${path#"$dir"/}"
+    printf '%s\0%s\n' "$path" "${name%.toml}"
+done
+'''
+output = "{=path}"
+directory = { value = 'dirname -- "$MM_OVERRIDE"', exec = true, force = true }
+
+[binds]
+"@accept" = "Become(mm -o {path})"
+"@return" = "Accept"
+
+[columns]
+split = "\\x00"
+max = 2
+default = "name"
+names = [{ name = "path", hidden = true }, "name"]

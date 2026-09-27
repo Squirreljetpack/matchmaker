@@ -1,4 +1,5 @@
 # Intelligently switch to any ref
+
 source = 'base.toml'
 
 [start]
@@ -21,6 +22,7 @@ additional_commands = [
     git show-ref | awk '{sub(/^refs\//, "", $2); print substr($1,1,7), $2}'
     ''',
 ]
+output_template = '{=!}'
 
 [envs]
 # same logic as git ls-remote default
@@ -56,9 +58,11 @@ border = { title = "Ahead/Behind" }
 
 [[preview.layout]]
 command = '''
-echo {1}..
-printf "%${COLUMNS}s\n" | tr ' ' '-'
-git diff --color=always --exit-code {1} -- {$0} && echo "no change"
+if git diff --quiet {1}; then
+  echo "no change"
+else
+  git diff --color=always {1}
+fi
 '''
 border = { title = "Branch Diff" }
 # side = "top"
@@ -97,20 +101,21 @@ prompt = "switch> "
 
 [binds]
 "@accept" = "@switch"
-"@Accept" = ["@switch_silent", "Reload"]
-"@rm" = ["@delete", "Reload"]
+"Shift-Enter" = ["@switch_silent", "Reload"] # requires keyboard enhancement
+"@return" = "Accept"
 
+"@rm" = ["@delete", "Reload"]
 "ctrl-u" = ["@update", "Reload"]
+"alt-r" = ["@show_remotes"]
+
+"ctrl-a" = ["@add_remote", "Reload"]
+"ctrl-n" = ["@add_branch", "Reload"]
+"alt-a" = "@copy_remote"
 # restore fetch spec to defaults (i.e. after cloning with --single-branch)
 "alt-u" = [
     'Execute(git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*" && git fetch origin)',
     'Reload',
 ]
-
-"ctrl-a" = ["@add_remote", "Reload"]
-"ctrl-n" = ["@add_branch", "Reload"]
-"alt-r" = ["@show_remotes"]
-"alt-a" = "@copy_remote"
 
 "@next" = "BecomeSilent(mm -o git/grep)"
 "@prev" = "BecomeSilent(mm -o git/restore)"
@@ -706,12 +711,11 @@ read -r branch
 git switch -c "$branch"
 )'''
 
-"@show_remotes" = '''ExecuteOrConfirm(
+"@show_remotes" = '''RunPreview(
 git remote | while IFS= read -r remote; do
     echo "=== $remote ==="
     git remote show "$remote"
     echo
 done
-false
 )
 '''

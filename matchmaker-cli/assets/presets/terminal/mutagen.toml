@@ -1,4 +1,5 @@
 # Mutagen sync session picker
+
 # Lists mutagen sync sessions (one session name per row).
 # Previews show session sync status and detailed configuration.
 
@@ -56,12 +57,12 @@ percentage = 100
 ]
 
 "@copy_all" = [
-    "#copy conflicting file paths",
+    "#copy conflicts",
     '''CopyAsync(mutagen sync list {+name} --template '{{range .}}{{range .SessionState.Conflicts}}{{if .Root}}{{.Root}}{{"\n"}}{{end}}{{range .AlphaChanges}}{{if .Path}}{{.Path}}{{"\n"}}{{end}}{{end}}{{range .BetaChanges}}{{if .Path}}{{.Path}}{{"\n"}}{{end}}{{end}}{{end}}{{end}}')''',
 ]
 
 "@flush" = [
-    "#flush sync",
+    "#flush (force sync)",
     'ExecuteOrConfirm(mutagen sync flush {+name})',
     "Reload",
 ]
@@ -79,28 +80,40 @@ percentage = 100
 ]
 
 "@reset" = [
-    "#reset history",
-    '''ExecuteOrConfirm(
-printf "Reset sync history for %s? [y/N] " {name}
-read -r ans
-case "$ans" in
-    [Yy]*) mutagen sync reset {+name} ;;
-    *) exit 0 ;;
-esac
-)''',
+    "#reset (rescan without merge state)",
+    'ExecuteOrConfirm(mutagen sync reset {+name})',
     "Reload",
 ]
 
 "@rm" = [
     "#terminate session",
     '''ExecuteOrConfirm(
-printf "Terminate sync session %s? [y/N] " {name}
+names=({+name})
+if [ ${#names[@]} -eq 1 ]; then
+    printf "Terminate sync session %s? [Y/n]: " "${names[@]}"
+else
+    printf "Terminate %s sync sessions?\n" "${#names[@]}"
+    printf '    %s\n' "${names[@]}"
+    printf '[Y/n]: '
+fi
 read -r ans
 case "$ans" in
-    [Yy]*) mutagen sync terminate {+name} ;;
+    [Yy]*|'') mutagen sync terminate "${names[@]}" ;;
     *) exit 0 ;;
 esac
 )''',
+    "Reload",
+]
+
+"@clean" = [
+    "#clean ignored files in deleted folders",
+    '''ExecuteOrConfirm("$(dirname -- "$MM_OVERRIDE")"/mutagen_resolve.py --clean-untracked {+name})''',
+    "Reload",
+]
+
+"@resolve" = [
+    "#resolve conflicts (interactive)",
+    '''ExecuteOrConfirm("$(dirname -- "$MM_OVERRIDE")"/mutagen_resolve.py {+name})''',
     "Reload",
 ]
 
@@ -108,4 +121,7 @@ esac
 "alt-f" = "@flush"
 "alt-p" = "@pause"
 "alt-r" = "@resume"
+"alt-shift-r" = "@reset"
+"alt-c" = "@clean"
+"alt-v" = "@resolve"
 "ctrl-d" = "@rm"

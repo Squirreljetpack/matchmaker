@@ -83,7 +83,7 @@ prompt = "hosts> "
 "alt-t" = ["@test", "Reload"]
 
 "@accept" = ["#ssh", "Become(ssh {host})"]
-"@Accept" = "Become(echo {host})"
+"@return" = "Become(echo {host})"
 "@open_2" = "Become($EDITOR {file})"
 "@next" = "BecomeSilent(mm -o ssh/keys)"
 "@prev" = "BecomeSilent(mm -o ssh/tailscale)"

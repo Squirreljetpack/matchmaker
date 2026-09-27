@@ -1,4 +1,5 @@
 # restore a file or revision
+
 source = 'base.toml'
 
 [start]
@@ -25,10 +26,11 @@ additional_commands = [
   ''',
     'git log --all --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "${1:-.}"',
 ]
+output_template = '{=ref}'
 
 [columns]
 split = "\\x00"
-max = 3
+names = [ "ref", "time", "message" ]
 default = 1
 
 [matcher]
@@ -59,12 +61,33 @@ percentage = 50
 min = 5
 max = 50
 command = '''
-if ((MM_INDEX == 1)); then
-  echo "stash..stash base"
-  printf "%${COLUMNS}s\n" | tr ' ' '-'
-  git -c color.ui=always stash show -p {1} -- {$0}
+if [ -n "{$0}" ]; then
+  if git diff --quiet {1} -- {$0}; then
+    echo "no change"
+  else
+    git diff --color=always {1} -- {$0}
+  fi
+elif [ "$MM_INDEX" = 1 ]; then
+  IFS="
+"
+  set -f
+  set -- $(git stash show -u --name-only {1} 2>/dev/null)
+  set +f
+  unset IFS
+  if [ "$#" -gt 0 ]; then
+    out=$(git diff --color=always {1} -- "$@")
+    if [ -z "$out" ]; then
+      echo "no change"
+    else
+      echo "$out"
+    fi
+  else
+    echo "no change"
+  fi
+elif git diff --quiet {1} -- .; then
+  echo "no change"
 else
-  git diff --color=always --exit-code {1} -- {$0} && echo "no change"
+  git diff --color=always {1} -- .
 fi
 '''
 border = { title = "Working Tree Diff" }
@@ -73,12 +96,16 @@ border = { title = "Working Tree Diff" }
 command = '''
 f={$1}
 if [ -f "$f" ]; then
-  git show --color=always {1}:"$f" | PG_FILENAME="$f" $PAGER
+  git show --color=always {1}:"$f"
 else
-  git show --color=always {1}
+  if ((MM_INDEX == 1)); then
+    git -c color.ui=always stash show -u -p {1}
+  else
+    git show --color=always {1}
+  fi
 fi
 '''
-border = { title = "File at Ref" }
+border = { title = "Show Ref" }
 
 # --- UI ---
 [tui]
@@ -93,55 +120,9 @@ prompt = "restore> "
 
 [binds]
 "@accept" = ["@checkout", "Reload"]
-"@Accept" = [
-    "#apply stash/hard reset",
-    '''BecomeOrConfirm(
-set -e
-case $MM_INDEX in
-  1)
-    echo "### Pop Stash ###\n"
-
-    echo "Working directory:"
-    printf "%${COLUMNS}s\n" | tr ' ' '-'
-    git --no-pager diff --stat
-
-    echo "Stash changes:"
-    printf "%${COLUMNS}s\n" | tr ' ' '-'
-    git --no-pager stash show {1}
-    echo
-  ;;
-  *)
-  echo "### Hard Reset ###\n"
-
-  echo "--- File changes ---"
-  git --no-pager diff --stat HEAD {1}
-  echo
-
-  echo "--- Commits ADDED ---"
-  git --no-pager log --oneline HEAD..{1}
-  echo
-
-  echo "--- Commits REMOVED ---"
-  git --no-pager log --oneline {1}..HEAD
-  echo
-  ;;
-esac
-
-printf 'Proceed? [y/N] '
-read -r c
-case $c in
-  [y]) ;;
-  *) exit 100;;
-esac
-
-case $MM_INDEX in
-1) git stash apply {1} ;;
-*) git reset --hard {1} ;;
-esac
-)''',
-]
+"@return" = "Accept"
+"alt-r" = ["#reset/apply stash", "@reset"]
 "ctrl-t" = ["@tag", "Reload"]
-"alt-r" = "@soft_reset"
 "@rm" = ["#squash/stash/drop/clean", "@clean", "Reload"]
 "ctrl-c" = "@compare"
 "alt-c" = "@diffstat"
@@ -204,7 +185,7 @@ set -e
 
 case $MM_INDEX in
   1)
-    echo "### Apply Stash ###\n"
+    echo "### Pop Stash ###\n"
 
     echo "Working directory:"
     printf "%${COLUMNS}s\n" | tr ' ' '-'
@@ -230,7 +211,7 @@ read -r c
 case $c in
   [s])
   git stash push -- {$1} ;;
-  [au])
+  [a])
   git stash push -u -- {$1} ;;
   [y]) ;;
   *) exit 100 ;;
@@ -245,7 +226,7 @@ esac
 )
 '''
 
-"@soft_reset" = '''BecomeOrConfirm(
+"@reset" = '''BecomeOrConfirm(
 set -e
 case $MM_INDEX in
 1)
@@ -260,20 +241,20 @@ case $MM_INDEX in
   then
     printf 'Affected files are dirty. Proceed? [y/N/s(tash)] '
   else
-    printf 'Proceed? [y/N] '
+    printf 'Apply stash %s? [Y/n] ' "$TARGET"
   fi
 
   read -r c
-  case "$c" in
-    [sS])
+  case "${c%% *}" in
+    [sS]*)
       if [ -n "$FILES" ]; then
         printf '%s\n' "$FILES" |
-        git stash push -m "temp backup before stash pop" --pathspec-from-file=-
+        git stash push -m "temp backup before stash apply" --pathspec-from-file=-
       else
-        git stash push -m "temp backup stash pop"
+        git stash push -m "temp backup stash apply"
       fi
       ;;
-    [yY])
+    [yY]*|"")
       ;;
     *)
       exit 100
@@ -318,12 +299,35 @@ case $MM_INDEX in
   fi
   ;;
 *)
-  git --no-pager diff --name-status {1}..HEAD # --color=always inapplicable
-  printf "Soft reset to %s? [y/N] " {1}
+  echo "### Reset HEAD to {1} ###\n"
+
+  echo "--- File changes ---"
+  git --no-pager diff --stat HEAD {1}
+  echo
+
+  echo "--- Commits ADDED ---"
+  git --no-pager log --oneline HEAD..{1}
+  echo
+
+  echo "--- Commits REMOVED ---"
+  git --no-pager log --oneline {1}..HEAD
+  echo
+
+  printf "Reset? [(M)ixed / (s)oft / (h)ard / (c)ancel ]: "
   read -r ans
-  case "$ans" in
-    [yY]*) git reset --soft {1} ;;
-    *) exit 100 ;;
+  case "${ans%% *}" in
+    [sS]*)
+      git reset --soft {1}
+      ;;
+    [hH]*)
+      git reset --hard {1}
+      ;;
+    [mM]*|"")
+      git reset --mixed {1}
+      ;;
+    *)
+      exit 100
+      ;;
   esac
   ;;
 esac
@@ -404,7 +408,7 @@ case $MM_INDEX in
     git-squash "$@" # git-squash will prompt
     exit 1 # keep output visible
   else
-    printf "Stash all changes to HEAD? [Y/n/or type custom message]: "
+    printf "Stash all changes to HEAD? [Y, n, or type custom message]: "
     read -r ans
     case "$ans" in
       [yY]*|"")

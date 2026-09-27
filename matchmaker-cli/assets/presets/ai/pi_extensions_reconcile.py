@@ -7,6 +7,9 @@ Definitions present in pi's global (~/.pi/agent/settings.json) or project
 the file); definitions not defined anywhere are commented out. If MMX does
 not exist yet it is created from the settings (empty when there are none).
 
+Every definition is stored in its canonical form, so the several spellings pi
+accepts for one package collapse to a single MMX line.
+
 Usage: pi_extensions_reconcile.py [MMX]
   MMX defaults to $MM_EXTENSIONS_FILE, else ~/.pi/agent/mm_extensions
 """
@@ -18,6 +21,14 @@ import sys
 import tempfile
 from json import JSONDecodeError
 from pathlib import Path
+
+from pi_extensions_common import (  # pyright: ignore[reportMissingImports]
+    canonical_source,
+    canonicalize_definition,
+    canonicalize_lines,
+    parse_definition,
+    set_enabled,
+)
 
 MMX_DEFAULT = Path("~/.pi/agent/mm_extensions").expanduser()
 GLOBAL = Path("~/.pi/agent/settings.json").expanduser()
@@ -62,7 +73,7 @@ def entry_source(entry):
 
 def settings_entries(path):
     """
-    Every entry defined in a settings file as (source, compact json)
+    Every entry defined in a settings file as (canonical source, compact json)
     pairs, skipping entries without a source (jq: `select($s != "")`).
     """
     data = load_json(path)
@@ -76,28 +87,9 @@ def settings_entries(path):
                 src = entry_source(entry)
                 if src == "" or src is None:
                     continue
-                out.append((src, compact_json(entry)))
+                value = canonicalize_definition(entry)
+                out.append((canonical_source(src), compact_json(value)))
     return out
-
-
-def line_source(line):
-    """
-    The display name of an MMX line (comment prefix and trailing comma
-    stripped, JSON parsed). Empty string when the line is not parseable —
-    matching `jq -r 'if type == "object" then .source else . end'`.
-    """
-    stripped = line[2:] if line.startswith("# ") else (line.removeprefix("#"))
-    text = stripped.rstrip(",")
-    if not text.strip():
-        return stripped, ""
-    try:
-        value = json.loads(text)
-    except JSONDecodeError:
-        return stripped, ""
-    if isinstance(value, dict):
-        src = value.get("source")
-        return stripped, "" if src is None else str(src)
-    return stripped, str(value)
 
 
 def count_mmx(lines):
@@ -109,7 +101,7 @@ def count_mmx(lines):
 def collect_pairs():
     """
     Every entry defined in the global or project settings as
-    (source, compact json) pairs, global first, deduped by source.
+    (canonical source, compact json) pairs, global first, deduped by source.
     """
     pairs = []
     seen = set()
@@ -123,36 +115,37 @@ def collect_pairs():
 
 def reconcile_lines(mmx, pairs):
     """
-    Build the reconciled MMX content: keep enabled what the settings define,
-    comment out the rest, append definitions missing from the file.
+    Build the reconciled MMX content: canonicalize every line, keep enabled
+    what the settings define, comment out the rest, append definitions missing
+    from the file.
     """
-    out = []
-    defined_names = set()
-    defined = {src for src, _ in pairs}
+    lines = []
     if Path(mmx).is_file():
         try:
             lines = Path(mmx).read_text(encoding="utf-8").splitlines()
         except OSError as e:
             sys.stderr.write(f"error: cannot read {mmx}: {e}\n")
             sys.exit(1)
-        for line in lines:
-            if not line.strip():
-                out.append(line)
-                continue
-            stripped, name = line_source(line)
-            if name and name in defined:
-                # defined somewhere: make sure it is present and enabled
-                defined_names.add(name)
-                out.append(stripped if line.startswith("#") else line)
-            else:
-                # not defined anywhere: make sure it is disabled
-                out.append(line if line.startswith("#") else f"# {line}")
+
+    out = canonicalize_lines(lines)
+    defined = {src for src, _ in pairs}
+    present = set()
+    result = []
+    for line in out:
+        parsed = parse_definition(line)
+        if parsed is None:
+            result.append(line)
+            continue
+        _, _, source = parsed
+        present.add(source)
+        result.append(set_enabled(line, source in defined))
 
     # merge in definitions that are active in the settings but missing from mm_extensions
     for src, entry in pairs:
-        if src not in defined_names:
-            out.append(f"{entry},")
-    return out
+        if src not in present:
+            result.append(f"{entry},")
+            present.add(src)
+    return result
 
 
 def write_mmx(mmx, out):

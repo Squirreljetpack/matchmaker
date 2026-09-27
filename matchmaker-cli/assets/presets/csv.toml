@@ -1,3 +1,5 @@
+# CSV/TSV viewer
+
 [start]
 command = '''
 set -- *.csv

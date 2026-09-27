@@ -44,7 +44,7 @@ def parse_json(path):
 
 
 def enabled_definitions(mmx):
-    """The enabled (uncommented) MMX lines as a JSON array of definitions."""
+    """The enabled (uncommented) MMX lines as parsed definition values."""
     lines = Path(mmx).read_text(encoding="utf-8").splitlines()
     lines = [line for line in lines if not re.match(r"^\s*#", line) and line.strip()]
     if lines:

@@ -1,8 +1,10 @@
 # Switch between zellij sessions
-# Preview (hidden by default) shows the session's saved layout KDL
+
+# Preview (hidden by default) shows a tab summary with pane titles
 
 [matcher]
 trim = true
+sort_threshold = 0
 
 [start]
 command = "@./zellij.sh sessions"
@@ -11,7 +13,7 @@ command = "@./zellij.sh sessions"
 abort_empty = false
 
 [envs]
-CATcmd = { value = 'command -v bat --wrap=never --color=always -pp >/dev/null 2>&1 && echo bat || echo cat', exec = true, force = true }
+CATcmd = { value = 'command -v bat >/dev/null 2>&1 && echo bat --wrap=never --color=always -pp || echo cat', exec = true, force = true }
 ZELLIJ_CACHE_DIR = { value = 'zellij setup --check 2>/dev/null | sed -n "s/^\\[CACHE DIR\\]: *//p" | tr -d "\"\\r"', exec = true, force = true }
 
 [columns]
@@ -29,33 +31,27 @@ names = [
 # --- Preview ---------------------------------------------------------------
 [preview]
 wrap = false
-show = false
+show = true
 
-# the selected session's cached layout KDL
+# tab summary with pane titles (live for running, cached for EXITED)
+[[preview.layout]]
+command = '''"$(dirname -- "$MM_OVERRIDE")"/zellij.sh session-preview {session} {title} {age}'''
+
+# active pane screen for running sessions, cached layout/metadata KDL for EXITED
 [[preview.layout]]
 command = '''
-sess={session}
-cache="${ZELLIJ_CACHE_DIR:-}"
-kdl=""
-if [ -d "$cache" ]; then
-    for dir in "$cache"/*/; do
-        [ -f "$dir/session_info/$sess/session-layout.kdl" ] &&
-            { kdl="$dir/session_info/$sess/session-layout.kdl"; break; }
-    done
+if [ {title} != "EXITED" ]; then
+    "$(dirname -- "$MM_OVERRIDE")"/zellij.sh dump-pane {session} 2>/dev/null && exit 0
 fi
-if [ -n "$kdl" ]; then
-    printf '\033[1m%s\033[0m  [%s]  created %s ago\n' "$sess" {title} {age}
-    printf '%s\n' '----------------------------------------'
-    eval $CATcmd "'$kdl'"
-else
-    echo "(no saved layout for $sess -- 'zellij action save-session' writes one)"
-fi
+cache="${ZELLIJ_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/zellij}"
+for dir in "$cache"/*/; do
+    if [ -f "$dir/session_info/{session}/session-layout.kdl" ]; then
+        $CATcmd "$dir/session_info/{session}/session-layout.kdl" && exit 0
+    fi
+done
 '''
 
-# stubs disabling the base config preview layouts
-[[preview.layout]]
-max = 0
-
+# stub disabling the third base config preview layout
 [[preview.layout]]
 max = 0
 
@@ -87,24 +83,42 @@ else
     exec zellij attach {session}
 fi
 )'''
-"@Accept" = "Accept"
+"@return" = "Accept"
 
 "@print" = [
     "#print",
-    '''Become(printf '%s\n' {session})''',
+    '''Become(printf '%s\n' {+session})''',
 ]
 
-"@copy" = '''CopyAsync(printf '%s\n' {session})'''
+"@copy" = '''CopyAsync(printf '%s\n' {+session})'''
+
+"@new" = '''Become(zellij options --on-force-close detach)'''
 
 "@rm" = [
     "#kill",
     '''ExecuteOrConfirm(
-printf "Kill session %s? [Y/n] " {session}
-read -r ans
-case "$ans" in
-    [Yy]*|'') zellij kill-session {session};;
+sessions=({+session})
+if [ ${#sessions[@]} -eq 1 ]; then
+    printf "Kill session: %s? [Y/n]: " "${sessions[@]}"
+else
+    printf "Kill %s sessions?\n" "${#sessions[@]}"
+    printf '    %s\n' "${sessions[@]}"
+    printf '[Y/n]: '
+fi
+read -r
+case "$REPLY" in
+    [Yy]*|'') ;;
     *) exit 0 ;;
 esac
+f=()
+for s in "${sessions[@]}"; do
+    zellij kill-session "$s" 2>/dev/null || f+=("$s")
+done
+if [ ${#f[@]} -ne 0 ]; then
+    echo "Failed: ${f[*]}"
+    exit 1
+fi
+exit 0
 )''',
     "Reload",
 ]

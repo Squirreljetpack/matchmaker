@@ -1,4 +1,5 @@
 # interactive git status
+
 source = 'base.toml'
 
 [start]
@@ -52,7 +53,11 @@ always_trigger = false
 
 [[preview.layout]]
 command = '''
-git diff --color=always --exit-code -- {1} && if [ -e {1} ]; then $PAGER {1}; else git show HEAD:{1}; fi
+if git diff --quiet -- {1}; then
+  if [ -e {1} ]; then $PAGER {1}; else git show HEAD:{1}; fi
+else
+  git diff --color=always -- {1}
+fi
 '''
 border = { type = "LightDoubleDashed", color = "DarkGray", title = "Diff (Unstaged)" }
 side = "top"
@@ -62,7 +67,11 @@ padding = 0
 
 [[preview.layout]]
 command = '''
-git diff --cached --color=always --exit-code -- {1} && echo "no staged changes"
+if git diff --cached --quiet {1}; then
+  echo "no change"
+else
+  git diff --cached --color=always {1}
+fi
 '''
 border = { type = "LightDoubleDashed", color = "DarkGray", title = "Staged Diff" }
 side = "top"
@@ -73,14 +82,14 @@ padding = 0
 [[preview.layout]]
 # alternate history: git -c color.ui=always log --decorate --stat --summary -p -- {1}
 command = '''
-git -c  color.ui=always log --ext-diff -D -p -- {1}
+git -c color.ui=always log --ext-diff -D -p -- {1}
 '''
 border = { title = "File History" }
 
 # --- Binds ---
 [binds]
 "@accept" = ["#stage", "@stage", "Reload"]
-"@Accept" = "Accept"
+"@return" = "Accept"
 "@next" = "BecomeSilent(mm -o git/restore)"
 "@prev" = "BecomeSilent(mm -o git/grep)"
 "@reload" = "Reload"

@@ -1,4 +1,5 @@
 # Pick a zellij layout
+
 # Lists only single-tab layouts by default, extra layouts can be specified as extra arguments to the populating command
 
 [matcher]
@@ -8,7 +9,7 @@ trim = true
 command = "@./zellij.sh layouts"
 
 [envs]
-CATcmd = { value = 'command -v bat --wrap=never --color=always -pp >/dev/null 2>&1 && echo bat || echo cat', exec = true, force = true }
+CATcmd = { value = 'command -v bat >/dev/null 2>&1 && echo bat --wrap=never --color=always -pp || echo cat', exec = true, force = true }
 
 [columns]
 split = "tsv"
@@ -55,7 +56,7 @@ percentage = 100
     '''Become(zellij action override-layout {name} --apply-only-to-active-tab --retain-existing-terminal-panes)''',
 ]
 
-"@Accept" = [
+"@return" = [
     "#replace tab",
     '''Become(zellij action override-layout {name} --apply-only-to-active-tab)''',
 ]

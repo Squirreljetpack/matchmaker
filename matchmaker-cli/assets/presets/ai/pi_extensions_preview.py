@@ -18,6 +18,8 @@ import sys
 from json import JSONDecodeError
 from pathlib import Path
 
+from pi_extensions_common import canonical_source, git_identity  # pyright: ignore[reportMissingImports]
+
 AGENT_DIR = Path("~/.pi/agent").expanduser()
 PROJECT_DIR = Path(".pi")
 MMX_DEFAULT = Path("~/.pi/agent/mm_extensions").expanduser()
@@ -29,39 +31,6 @@ _TRAILING_COMMA = re.compile(r",\s*([}\]])")
 
 # npm sources keep a version pin out of the package name: `@<seg>` at the end.
 _NPM_PIN = re.compile(r"@[^/@]*$")
-
-
-def git_rel(source):
-    """
-    <host>/<user>/<repo> for a git source (without the `git:` prefix),
-    with the pinned @ref stripped (same first-@ rule pi uses). None when the
-    source does not look like a git source.
-    """
-    if "://" in source:
-        # https://host/user/repo@ref, ssh://git@host/user/repo
-        rest = source.split("://", 1)[1]
-        host = rest.split("/", 1)[0]
-        host = host.rsplit("@", 1)[-1]  # drop userinfo (git@, token@)
-        host = host.split(":", 1)[0]  # drop :port
-        path = rest.split("/", 1)[1] if "/" in rest else ""
-    elif source.startswith("git@"):
-        # git@host:user/repo@ref (scp-like)
-        host = source[4:].split(":", 1)[0]
-        path = source.split(":", 1)[1] if ":" in source else ""
-    else:
-        # host/user/repo@ref (git: shorthand)
-        host = source.split("/", 1)[0]
-        path = source.split("/", 1)[1] if "/" in source else ""
-
-    # hosts must be sane; anything else (e.g. a colon typo) is not a git source
-    if not host or not re.fullmatch(r"[A-Za-z0-9._-]+", host):
-        return None
-    if not path:
-        return None
-    path = path.split("@", 1)[0]  # strip the @ref (same first-@ rule pi uses)
-    if not path:
-        return None
-    return f"{host}/{path}"
 
 
 def npm_name(source):
@@ -105,26 +74,22 @@ def extension_dir(source):
         name = npm_name(source)
         return _first_dir(root / "npm/node_modules" / name for root in (PROJECT_DIR, AGENT_DIR))
 
-    if source.startswith("git:"):
-        rel = git_rel(source[4:])
-        roots = (PROJECT_DIR, AGENT_DIR)
-    elif re.match(r"^(https?|ssh|git)://", source):
-        rel = git_rel(source)
-        roots = (PROJECT_DIR, AGENT_DIR)
-    else:
-        # local path: absolute, ~-relative, or relative to a settings base
-        path = Path(source).expanduser()
-        if path.is_absolute():
-            return path if path.exists() else None
-        return _first_existing(root / source for root in (AGENT_DIR, PROJECT_DIR, Path.cwd()))
+    if source.startswith("git:") or re.match(r"^(https?|ssh|git)://", source):
+        identity = git_identity(source)
+        if identity is None:
+            return None
+        return _first_dir(root / "git" / identity for root in (PROJECT_DIR, AGENT_DIR))
 
-    if rel is None:
-        return None
-    return _first_dir(root / "git" / rel for root in roots)
+    # local path: absolute, ~-relative, or relative to a settings base
+    path = Path(source).expanduser()
+    if path.is_absolute():
+        return path if path.exists() else None
+    return _first_existing(root / source for root in (AGENT_DIR, PROJECT_DIR, Path.cwd()))
 
 
 def settings_contains(path, name):
     """True when the settings file defines `name` in packages/extensions."""
+    target = canonical_source(name)
     try:
         text = Path(path).read_text(encoding="utf-8")
     except OSError:
@@ -141,7 +106,7 @@ def settings_contains(path, name):
     for key in ("packages", "extensions"):
         for entry in data.get(key, []) if isinstance(data.get(key), list) else []:
             src = entry.get("source") if isinstance(entry, dict) else entry
-            if src == name:
+            if canonical_source(src) == target:
                 return True
     return False
 

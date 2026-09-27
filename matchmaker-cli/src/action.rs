@@ -106,6 +106,8 @@ pub enum MMAction {
     TransformConfig(String),
 }
 
+#[cfg(feature = "mlua")]
+#[cfg(test)]
 impl MMAction {
     /// Returns the execution or command payload of this action, if any.
     pub fn payload(&self) -> Option<&str> {
@@ -124,8 +126,6 @@ impl MMAction {
         }
     }
 
-    #[cfg(feature = "mlua")]
-    #[cfg(test)]
     /// Validates the Lua syntax of this action's payload if it is a Lua script.
     ///
     /// Returns:
@@ -347,7 +347,15 @@ pub fn action_handler(
             state.picker_ui.query.set_prompt(s.map(Line::raw));
         }
         MMAction::RunPreview(cmd) => {
-            if let Some(p) = state.preview_ui {
+            if cmd.is_empty() {
+                let template = state
+                    .preview_set_payload()
+                    .as_ref()
+                    .and_then(|p| p.as_ref().ok().map(|s| s.to_string()))
+                    .unwrap_or_else(|| state.preview_payload().clone());
+                state.discriminant_payload = Some(5);
+                state.set_interrupt(Interrupt::Execute, template);
+            } else if let Some(p) = state.preview_ui {
                 p.show(true);
                 state.update_preview_set(Ok(cmd));
             }
@@ -551,11 +559,11 @@ enum_from_str_display! {
 
 
     tuples:
-    Bind, Unbind, PushBind, PopBind, SetMode, PushMode, ExecuteOrConfirm, ExecuteAndQuit, BecomeOrConfirm, BecomeOrResume, Transform, TransformConfig, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter, RunPreview,
+    Bind, Unbind, PushBind, PopBind, SetMode, PushMode, ExecuteOrConfirm, ExecuteAndQuit, BecomeOrConfirm, BecomeOrResume, Transform, TransformConfig, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter,
     Copy, CopyAsync;
 
     defaults:
-    (PopMode, String::new());
+    (PopMode, String::new()), (RunPreview, String::new());
 
     options:
     SetPrompt, SetHeader, SetFooter, SetStatus, Filtering, ReloadNext, Sort, SortNumeric, SortReverse, SortThreshold, ShowPreview;
@@ -742,5 +750,21 @@ mod tests {
             let copy_lua = MMAction::CopyAsync("#!lua local t = {}; return table.concat(t)".into());
             assert_eq!(copy_lua.validate_lua(), Some(true));
         }
+    }
+
+    #[test]
+    fn test_parse_run_preview() {
+        assert_eq!(
+            Action::<MMAction>::from_str("RunPreview").unwrap(),
+            Action::Custom(MMAction::RunPreview(String::new()))
+        );
+        assert_eq!(
+            Action::<MMAction>::from_str("RunPreview()").unwrap(),
+            Action::Custom(MMAction::RunPreview(String::new()))
+        );
+        assert_eq!(
+            Action::<MMAction>::from_str("RunPreview(echo foo)").unwrap(),
+            Action::Custom(MMAction::RunPreview("echo foo".into()))
+        );
     }
 }

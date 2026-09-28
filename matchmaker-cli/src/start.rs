@@ -63,9 +63,11 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
     };
 
     if cli.dump_config && atty::is(atty::Stream::Stdout) {
-        // if stdout: dump the default cfg with comments
-        write_str(cfg_path, crate::config::DEFAULT_CONFIG)?;
-        ibog!("Config written to {cfg_path:?}");
+        // if stdout: dump the default cfg with comments if not existing
+        if !cfg_path.exists() {
+            write_str(cfg_path, crate::config::DEFAULT_CONFIG)?;
+            ibog!("Config written to {cfg_path:?}");
+        }
         exit(0)
     }
 

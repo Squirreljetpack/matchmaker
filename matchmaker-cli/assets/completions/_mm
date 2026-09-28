@@ -23,7 +23,7 @@ _mm() {
 '--list=[Test a preset (see \`mm --doc other\`)]::N@ALIAS | N-M | N:TEMPLATE | TEMPLATE:_default' \
 '-d+[Display documentation]:DOC:(options binds template execute other pager)' \
 '--doc=[Display documentation]:DOC:(options binds template execute other pager)' \
-'--dump-config[Write the default configuration to the default location. If piped, writes the current configuration to stdout]' \
+'--dump-config[If piped, outputs the current configuration. Otherwise, writes the default settings to disk]' \
 '-F[Run in fullscreen]' \
 '--test-keys[]' \
 '--last-key[Print the last key pressed in the last \`mm\` run]' \

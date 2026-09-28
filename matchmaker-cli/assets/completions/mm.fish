@@ -9,7 +9,7 @@ template\t''
 execute\t''
 other\t''
 pager\t''"
-complete -c mm -l dump-config -d 'Write the default configuration to the default location. If piped, writes the current configuration to stdout'
+complete -c mm -l dump-config -d 'If piped, outputs the current configuration. Otherwise, writes the default settings to disk'
 complete -c mm -s F -d 'Run in fullscreen'
 complete -c mm -l test-keys
 complete -c mm -l last-key -d 'Print the last key pressed in the last `mm` run'

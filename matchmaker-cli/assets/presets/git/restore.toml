@@ -149,8 +149,6 @@ prompt = "restore> "
     echo "SetHeader(${HEADERS[$MM_INDEX]})"
 )
 '''
-"@reload" = "ReloadNext"
-"@reload_2" = "ReloadPrev"
 
 "@open" = "ExecuteOrConfirm($EDITOR {$1})"
 "@open_2" = []

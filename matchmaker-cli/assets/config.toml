@@ -39,7 +39,9 @@ title_style.modifier = "UNDERLINED"
 
 [[preview.layout]]
 command = '''
-if [ -d {1} ]; then
+if command -v fs >/dev/null 2>&1; then
+    fs :tool pg -- {1}
+elif [ -d {1} ]; then
     if command -v eza >/dev/null 2>&1; then
         eza --color=always -T -L 2 -- {1}
     else
@@ -151,11 +153,9 @@ abort_empty = true
 # "alt-down" = "VScroll(-1)"
 # "alt-left" = "HScroll(-1)"
 # "alt-right" = "HScroll(1)"
-# "ctrl-[" = "ToggleWrap", # requires keyboard enhancement
-# "ctrl-]" = "TogglePreviewWrap",  # requires keyboard enhancement
-# "alt-{" = "ToggleWrap",
-# "alt-}" = "TogglePreviewWrap",
-"ctrl-[" = ["ToggleWrap", "ToggleHeaderWrap"] # requires keyboard enhancement
+# "alt-w" = "ToggleWrap",
+# "alt-shift-w" = "TogglePreviewWrap",
+"alt-w" = ["ToggleWrap", "ToggleHeaderWrap"]
 
 # Columns
 "ctrl-." = "NextColumn" # requires keyboard enhancement
@@ -177,9 +177,9 @@ abort_empty = true
 
 ### (DEFAULTS) ###
 # "?" = "SwitchPreview"
-# "alt-/" = "NextPreview"
+# "alt-/" = ""
 # "alt-shift-/" = "PrevPreview"
-# "ctrl-/" = "NextPreview" # requires keyboard enhancement
+# "ctrl-/" = "" # requires keyboard enhancement
 # "ctrl-shift-/" = "PrevPreview" # requires keyboard enhancement
 # "alt-h" = "Help"
 
@@ -208,18 +208,17 @@ abort_empty = true
 "alt-o" = "@open_2"
 "ctrl-r" = "@reload"
 "ctrl-shift-r" = "@reload_2"
-"ctrl-shift-n" = "@next" # requires keyboard enhancement
+"alt-[" = "@prev"
+"alt-]" = "@next"
 "ctrl-shift-p" = "@prev" # requires keyboard enhancement
-"alt-tab" = "@next"
-"alt-shift-backtab" = "@prev"
-"alt-shift-tab" = "@prev"
+"ctrl-shift-n" = "@next" # requires keyboard enhancement
 "ctrl-d" = "@rm"
 "Delete" = "@rm"
 "ctrl-s" = "@show"
 
 "@accept" = "Accept"
-"@open" = "ExecuteOrConfirm($EDITOR -- {1})"
-"@open_2" = "Become($EDITOR -- {1})"
+"@open" = ["#open in editor", "ExecuteOrConfirm($EDITOR -- {1})"]
+"@open_2" = ["#replace with editor", "Become($EDITOR -- {1})"]
 "@reload" = "Reload"
 # "@next" = ["ReloadNext", "Cancel"] # see mm --doc binds
 # "@prev" = ["ReloadPrev", "Cancel"]
@@ -235,7 +234,7 @@ abort_empty = true
 "alt-y" = "@copy_active"
 
 "@print" = "Print({-})"
-"@print_2" = "Print({-!})"
+"@print_2" = ["#print active", "Print({-!})"]
 "@copy" = "CopyAsync(printf '%s\n' {+0})"
 "@copy_all" = "CopyAsync(printf {})"
 "@copy_active" = "CopyAsync(printf '%s\n' {+!})"

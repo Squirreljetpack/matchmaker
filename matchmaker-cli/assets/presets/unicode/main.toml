@@ -94,8 +94,8 @@ fi
 # --- UI ---
 
 [binds]
-"@reload" = "ReloadNext"
-"@reload_2" = "ReloadPrev"
+"@reload" = ["#next view", "ReloadNext"]
+"@reload_2" = ["#prev view", "ReloadPrev"]
 
 "@show" = '''RunPreview(
     if ((MM_INDEX == 0)); then

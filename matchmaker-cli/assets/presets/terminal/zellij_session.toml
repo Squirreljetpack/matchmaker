@@ -4,7 +4,7 @@
 
 [matcher]
 trim = true
-sort_threshold = 0
+sort.threshold = 0
 
 [start]
 command = "@./zellij.sh sessions"

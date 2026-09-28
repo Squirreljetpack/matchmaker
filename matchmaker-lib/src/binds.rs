@@ -81,11 +81,8 @@ impl<A: ActionExt> BindMap<A> {
     /// non-"universal" keybinds, some requiring keyboard enhancements, mostly for copying sections from
     pub fn with_extras(mut self) -> Self {
         let ext = bindmap!(
-            // keyboard enhancement
-            key!(ctrl-'[') => Action::ToggleWrap,
-            key!(alt-']') => Action::TogglePreviewWrap,
-            key!(alt-'{') => Action::ToggleWrap,
-            key!(alt-'}') => Action::TogglePreviewWrap,
+            key!(alt-'w') => Action::ToggleWrap,
+            key!(alt-shift-'w') => Action::TogglePreviewWrap,
 
             key!(ctrl-shift-right) => Action::HScroll(1),
             key!(ctrl-shift-left) => Action::HScroll(-1),
@@ -97,8 +94,6 @@ impl<A: ActionExt> BindMap<A> {
             key!(alt-down) => Action::VScroll(-1),
             key!(alt-'/') => Action::NextPreview,
             key!(alt-shift-'/') => Action::PrevPreview,
-            key!(ctrl-'/') => Action::NextPreview,
-            key!(ctrl-shift-'/') => Action::PrevPreview,
             key!(alt-h) => Action::Help("".to_string()),
 
             key!(tab) => [Action::ToggleSelection, Action::Down(1)],
@@ -632,6 +627,20 @@ impl<'de> serde::Deserialize<'de> for Trigger {
 
 use ratatui::style::Style;
 use ratatui::text::{Line, Span, Text};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum HelpItemKind {
+    Trace,
+    Alias,
+    Action,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct HelpItem {
+    text: String,
+    kind: HelpItemKind,
+}
+
 pub fn display_help<A: ActionExt + Display>(
     resolved: &ResolvedBindMap<A>,
     config: &HelpDisplayConfig,
@@ -666,58 +675,110 @@ pub fn display_help<A: ActionExt + Display>(
     }
 
     // Process all bindings into their final visible string sequences. Items between trace delimiters are replaced by the trace message
-    let mut entries_processed: Vec<(String, Vec<String>)> = entries
+    let mut entries_processed: Vec<(String, Vec<HelpItem>)> = entries
         .into_iter()
         .map(|(trigger, actions, _)| {
             let mut visible_items = Vec::new();
             let mut skipping = false;
             let mut last_trace = String::new();
+            let mut last_is_alias_trace = false;
 
             for action in actions {
-                if let Action::Trace(s) = action {
-                    if s.is_empty() {
-                        if skipping {
-                            // Expected empty, push the saved nonempty trace
-                            visible_items.push(last_trace);
-                        } // Empty signals resume
+                match action {
+                    Action::Trace(s) => {
+                        if s.is_empty() {
+                            if skipping {
+                                // Expected empty, push the saved nonempty trace
+                                visible_items.push(HelpItem {
+                                    text: last_trace,
+                                    kind: if last_is_alias_trace {
+                                        HelpItemKind::Alias
+                                    } else {
+                                        HelpItemKind::Trace
+                                    },
+                                });
+                            } // Empty signals resume
 
-                        last_trace = String::new();
-                        skipping = false;
-                    } else {
-                        if skipping {
-                            // Expected empty, got nonempty (treat as if extra empty before)
-                            visible_items.push(last_trace);
-                        }
+                            last_trace = String::new();
+                            last_is_alias_trace = false;
+                            skipping = false;
+                        } else {
+                            if skipping {
+                                // Expected empty, got nonempty (treat as if extra empty before)
+                                visible_items.push(HelpItem {
+                                    text: last_trace,
+                                    kind: if last_is_alias_trace {
+                                        HelpItemKind::Alias
+                                    } else {
+                                        HelpItemKind::Trace
+                                    },
+                                });
+                            }
 
-                        // Start or continue skipping
-                        let (display_trace, is_alias_trace) =
-                            if let Some(alias) = s.strip_prefix("@@") {
-                                (format!("@{alias}"), true)
+                            // Start or continue skipping
+                            let (display_trace, is_alias_trace) =
+                                if let Some(alias) = s.strip_prefix("@@") {
+                                    let alias_stripped = alias.strip_prefix('@').unwrap_or(alias);
+                                    let formatted = if config.alias_modifier.is_some() {
+                                        alias_stripped.to_string()
+                                    } else {
+                                        format!("@{alias_stripped}")
+                                    };
+                                    (formatted, true)
+                                } else {
+                                    (s.clone(), false)
+                                };
+
+                            last_trace = if config.quote_traces && !is_alias_trace {
+                                format!("\"{display_trace}\"")
                             } else {
-                                (s.clone(), false)
+                                display_trace
                             };
-
-                        last_trace = if config.quote_traces && !is_alias_trace {
-                            format!("\"{display_trace}\"")
-                        } else {
-                            display_trace
-                        };
-                        skipping = true;
+                            last_is_alias_trace = is_alias_trace;
+                            skipping = true;
+                        }
                     }
-                } else if !skipping {
-                    visible_items.push(action.to_string().ellipsize(
-                        config.max_item_len,
-                        if config.ellipsize_center {
-                            fmt::Alignment::Center
-                        } else {
-                            fmt::Alignment::Left
-                        },
-                    ));
+                    Action::Semantic(alias) => {
+                        if !skipping {
+                            let alias_stripped = alias.strip_prefix('@').unwrap_or(&alias);
+                            let text = if config.alias_modifier.is_some() {
+                                alias_stripped.to_string()
+                            } else {
+                                format!("@{alias_stripped}")
+                            };
+                            visible_items.push(HelpItem {
+                                text,
+                                kind: HelpItemKind::Alias,
+                            });
+                        }
+                    }
+                    _ => {
+                        if !skipping {
+                            visible_items.push(HelpItem {
+                                text: action.to_string().ellipsize(
+                                    config.max_item_len,
+                                    if config.ellipsize_center {
+                                        fmt::Alignment::Center
+                                    } else {
+                                        fmt::Alignment::Left
+                                    },
+                                ),
+                                kind: HelpItemKind::Action,
+                            });
+                        }
+                    }
                 }
             }
 
             if skipping && !last_trace.is_empty() {
-                visible_items.push(last_trace);
+                visible_items.push(HelpItem {
+                    text: last_trace,
+                    kind: if last_is_alias_trace {
+                        HelpItemKind::Alias
+                    } else {
+                        HelpItemKind::Trace
+                    },
+                });
             }
 
             (trigger, visible_items)
@@ -750,29 +811,27 @@ pub fn display_help<A: ActionExt + Display>(
             }
         }
 
-        // Handle Trace prioritization purely from the strings
-        if config.quote_traces {
-            let is_trace_str = |items: &[String]| -> bool {
-                // Every item in the sequence must look like a trace
-                items.iter().all(
-                    |s| s.starts_with('"') && s.ends_with('"'), // || s.starts_with('@')
-                )
-            };
+        // Put pure trace and alias first
+        let is_pure_trace_or_alias = |items: &[HelpItem]| -> bool {
+            !items.is_empty()
+                && items
+                    .iter()
+                    .all(|item| matches!(item.kind, HelpItemKind::Trace | HelpItemKind::Alias))
+        };
 
-            let a_trace = is_trace_str(&a.1);
-            let b_trace = is_trace_str(&b.1);
+        let a_pure = is_pure_trace_or_alias(&a.1);
+        let b_pure = is_pure_trace_or_alias(&b.1);
 
-            if a_trace != b_trace {
-                return b_trace.cmp(&a_trace); // Prioritize true over false
-            }
+        if a_pure != b_pure {
+            return b_pure.cmp(&a_pure); // Prioritize true over false
         }
 
-        // Fallback to alphabetical sorting
-        a.1.cmp(&b.1)
+        // Sort within: compare actions, then fallback to trigger
+        a.1.cmp(&b.1).then_with(|| a.0.cmp(&b.0))
     });
 
     if config.combine_keys {
-        let mut combined: Vec<(String, Vec<String>)> = Vec::new();
+        let mut combined: Vec<(String, Vec<HelpItem>)> = Vec::new();
         for (trigger, actions) in entries_processed {
             if let Some((last_trigger, last_actions)) = combined.last_mut()
                 && *last_actions == actions
@@ -794,9 +853,13 @@ pub fn display_help<A: ActionExt + Display>(
             let value = if actions.is_empty() {
                 String::new()
             } else if actions.len() == 1 {
-                actions[0].clone()
+                actions[0].text.clone()
             } else {
-                let inner = actions.join(", ");
+                let inner = actions
+                    .iter()
+                    .map(|item| item.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ");
                 if let Some([open, close]) = config.seq_brackets {
                     format!("{open}{inner}{close}")
                 } else {
@@ -816,6 +879,22 @@ pub fn display_help<A: ActionExt + Display>(
             Span::raw(" = "),
         ];
 
+        let item_style = |item: &HelpItem| {
+            let mut style = Style::default().fg(cfg.value);
+            match item.kind {
+                HelpItemKind::Trace => {
+                    style = style.add_modifier(config.trace_modifier);
+                }
+                HelpItemKind::Alias => {
+                    if let Some(modifier) = config.alias_modifier {
+                        style = style.add_modifier(modifier);
+                    }
+                }
+                HelpItemKind::Action => {}
+            }
+            style
+        };
+
         if actions.len() > 1 {
             if let Some([open, _]) = config.seq_brackets {
                 spans.push(Span::raw(open.to_string()));
@@ -825,17 +904,16 @@ pub fn display_help<A: ActionExt + Display>(
                 if i > 0 {
                     spans.push(Span::raw(", "));
                 }
-                spans.push(Span::styled(item, Style::default().fg(cfg.value)));
+                let style = item_style(&item);
+                spans.push(Span::styled(item.text, style));
             }
 
             if let Some([_, close]) = config.seq_brackets {
                 spans.push(Span::raw(close.to_string()));
             }
-        } else if let Some(single_item) = actions.first() {
-            spans.push(Span::styled(
-                single_item.clone(),
-                Style::default().fg(cfg.value),
-            ));
+        } else if let Some(single_item) = actions.into_iter().next() {
+            let style = item_style(&single_item);
+            spans.push(Span::styled(single_item.text, style));
         }
 
         text.lines.push(Line::from(spans));
@@ -848,6 +926,7 @@ pub fn display_help<A: ActionExt + Display>(
 mod test {
     use super::*;
     use crossterm::event::MouseEvent;
+    use ratatui::style::Modifier;
 
     /// Helper to convert a mode string like `"0,1"` to a `Vec<Box<str>>` for tests.
     fn mode_vec(s: &str) -> Vec<Box<str>> {
@@ -1561,7 +1640,10 @@ mod test {
         );
 
         // Default combine_keys is true
-        let mut cfg = HelpDisplayConfig::default();
+        let mut cfg = HelpDisplayConfig {
+            quote_traces: true,
+            ..Default::default()
+        };
         assert!(cfg.combine_keys);
 
         let help = display_help(&binds.resolve_semantics(&[]), &cfg);
@@ -1590,5 +1672,179 @@ mod test {
 
         assert_eq!(lines_no_combine.len(), 5);
         assert!(!lines_no_combine.iter().any(|l| l.contains(',')));
+    }
+
+    #[test]
+    fn test_display_help_trace_modifier() {
+        let binds: BindMap<NullActionExt> = bindmap!(
+            key!(ctrl-d) => Action::Trace("rm".into()),
+            key!(a) => Action::Print("foo".into()),
+        );
+
+        let cfg = HelpDisplayConfig {
+            trace_modifier: Modifier::ITALIC,
+            ..Default::default()
+        };
+
+        let help = display_help(&binds.resolve_semantics(&[]), &cfg);
+        let rm_line = help
+            .lines
+            .iter()
+            .find(|l| l.to_string().contains("rm"))
+            .unwrap();
+        let rm_span = rm_line.spans.iter().find(|s| s.content == "rm").unwrap();
+        assert!(rm_span.style.add_modifier.contains(Modifier::ITALIC));
+
+        let foo_line = help
+            .lines
+            .iter()
+            .find(|l| l.to_string().contains("Print(foo)"))
+            .unwrap();
+        let foo_span = foo_line
+            .spans
+            .iter()
+            .find(|s| s.content == "Print(foo)")
+            .unwrap();
+        assert!(!foo_span.style.add_modifier.contains(Modifier::ITALIC));
+
+        // Custom modifier
+        let cfg_bold = HelpDisplayConfig {
+            trace_modifier: Modifier::BOLD,
+            ..Default::default()
+        };
+        let help_bold = display_help(&binds.resolve_semantics(&[]), &cfg_bold);
+        let rm_line_bold = help_bold
+            .lines
+            .iter()
+            .find(|l| l.to_string().contains("rm"))
+            .unwrap();
+        let rm_span_bold = rm_line_bold
+            .spans
+            .iter()
+            .find(|s| s.content == "rm")
+            .unwrap();
+        assert!(rm_span_bold.style.add_modifier.contains(Modifier::BOLD));
+        assert!(!rm_span_bold.style.add_modifier.contains(Modifier::ITALIC));
+    }
+
+    #[test]
+    fn test_display_help_alias_modifier() {
+        let binds: BindMap<NullActionExt> = bindmap!(
+            key!(r) => Action::Semantic("reload".into()),
+            Trigger {
+                kind: TriggerKind::Semantic("reload".into()),
+                mode: PrefixFilter::default()
+            } => Action::Print("reloading".into()),
+        );
+
+        let resolved = binds.resolve_semantics(&[]);
+
+        // 1. Default alias_modifier: Some(Modifier::ITALIC) -> leading '@' stripped, ITALIC applied
+        let cfg = HelpDisplayConfig::default();
+        let help = display_help(&resolved, &cfg);
+        let reload_line = help
+            .lines
+            .iter()
+            .find(|l| l.to_string().contains("reload"))
+            .unwrap();
+        // Should NOT have @reload, only reload
+        assert!(reload_line.to_string().contains("r = reload"));
+        assert!(!reload_line.to_string().contains("@reload"));
+        let reload_span = reload_line
+            .spans
+            .iter()
+            .find(|s| s.content == "reload")
+            .unwrap();
+        assert!(reload_span.style.add_modifier.contains(Modifier::ITALIC));
+
+        // 2. alias_modifier: None -> keeps leading '@', no modifier added
+        let cfg_none = HelpDisplayConfig {
+            alias_modifier: None,
+            ..Default::default()
+        };
+        let help_none = display_help(&resolved, &cfg_none);
+        let reload_none_line = help_none
+            .lines
+            .iter()
+            .find(|l| l.to_string().contains("reload"))
+            .unwrap();
+        assert!(reload_none_line.to_string().contains("r = @reload"));
+        let reload_none_span = reload_none_line
+            .spans
+            .iter()
+            .find(|s| s.content == "@reload")
+            .unwrap();
+        assert!(
+            !reload_none_span
+                .style
+                .add_modifier
+                .contains(Modifier::ITALIC)
+        );
+
+        // 3. Custom alias_modifier: Some(Modifier::UNDERLINED)
+        let cfg_underlined = HelpDisplayConfig {
+            alias_modifier: Some(Modifier::UNDERLINED),
+            ..Default::default()
+        };
+        let help_underlined = display_help(&resolved, &cfg_underlined);
+        let reload_underlined_line = help_underlined
+            .lines
+            .iter()
+            .find(|l| l.to_string().contains("reload"))
+            .unwrap();
+        assert!(reload_underlined_line.to_string().contains("r = reload"));
+        let reload_underlined_span = reload_underlined_line
+            .spans
+            .iter()
+            .find(|s| s.content == "reload")
+            .unwrap();
+        assert!(
+            reload_underlined_span
+                .style
+                .add_modifier
+                .contains(Modifier::UNDERLINED)
+        );
+        assert!(
+            !reload_underlined_span
+                .style
+                .add_modifier
+                .contains(Modifier::ITALIC)
+        );
+    }
+
+    #[test]
+    fn test_display_help_pure_trace_and_alias_first() {
+        let binds: BindMap<NullActionExt> = bindmap!(
+            key!(x) => Action::Print("item_b".into()),
+            key!(y) => Action::Print("item_a".into()),
+            key!(a) => Action::Trace("open_b".into()),
+            key!(b) => Action::Trace("open_a".into()),
+            key!(r) => Action::Semantic("reload".into()),
+            Trigger {
+                kind: TriggerKind::Semantic("reload".into()),
+                mode: PrefixFilter::default()
+            } => Action::Print("do_reload".into()),
+        );
+
+        let resolved = binds.resolve_semantics(&[]);
+        let cfg = HelpDisplayConfig::default();
+        let help = display_help(&resolved, &cfg);
+        let lines: Vec<_> = help
+            .lines
+            .iter()
+            .map(|l| l.to_string())
+            .filter(|l| !l.is_empty())
+            .collect();
+
+        // Pure traces and aliases should come first, sorted directly:
+        // "open_a" < "open_b" < "reload"
+        assert!(lines[0].contains("open_a"));
+        assert!(lines[1].contains("open_b"));
+        assert!(lines[2].contains("reload"));
+
+        // Followed by non-pure actions:
+        // "item_a" < "item_b"
+        assert!(lines[3].contains("item_a"));
+        assert!(lines[4].contains("item_b"));
     }
 }

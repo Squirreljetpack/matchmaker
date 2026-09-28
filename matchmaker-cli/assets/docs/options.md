@@ -23,7 +23,7 @@ Overrides follow the pattern `path=value` or `path value`.
   - `start.command` -> `x`
   - `start.command` -> `cmd`
   - `matcher.ansi` -> `a`
-  - `matcher.sort_threshold` -> `t`
+  - `matcher.sort.threshold` -> `t`
   - `columns.split` -> `d`
   - `preview.layout` -> `P`
   - `header.content` -> `h`
@@ -42,10 +42,6 @@ The `-o` flag allows you to layer additional configuration files on top of your 
 - **Example**: `mm -o git/status` will attempt to load `presets/git/status.toml` from the installation directory.
 - **Source Field**: Overrides support a `source` field at the top level, allowing them to inherit from another preset (one level of recursion is supported).
 
-### Listing Presets (`--presets`)
-
-`mm --presets` recursively lists the full paths of installed `.toml` presets under the preset directory. Files named `base.toml` are omitted because they are inheritance parents rather than selectable presets.
-
 ### Values
 
 If a "leaf" value contains multiple settings (like a [border](#border-settings) or a bind with multiple actions), you can specify them within a single string joined by `,` (which can be escaped by doubling: `,,`).
@@ -53,11 +49,9 @@ If a "leaf" value contains multiple settings (like a [border](#border-settings) 
 A few illustrative (but not very practical) examples:
 
 ```bash
-# Example:
 # If you started with one preview layout, the following overrides the first preview layout to just display hi and have a minimum width of 3, and adds two new ones. It also sets 3 binds.
 mm p.l command=ls p.l "x=echo hi,min=3" b "ctrl-c=Quit,?=preview(echo hi)" b.ctrl-a cancel
 
-# Example:
 # Setting the column splitting delimiter
 mm m.c.split "\w+,/\w+" # Sets the field: columns.split = Split::Regexes([Regex('\w'), Regex('/\w+')])
 
@@ -70,7 +64,6 @@ Note however, that when declaring a bind, you should prefer to use `mm b.ctrl-x 
 Bool values can be specified with true, false, or "".
 
 ```bash
-# Example:
 # Enable result wrapping and scroll wrapping
 mm p.w= r.r=
 ```
@@ -281,7 +274,9 @@ All colors and modifiers come from ratatui:
   - `colors`: Optional help colors with `section`, `key`, and `value` color fields.
   - `seq_brackets`: Optional pair of characters used to display key sequences.
   - `hide_semantic`: (bool) Hide semantic triggers in help (default true).
-  - `quote_traces`: (bool) Quote trace messages in help (default true).
+  - `quote_traces`: (bool) Quote trace messages in help (default false).
+  - `trace_modifier`: (modifier) Style modifier for trace descriptions in help (default "ITALIC").
+  - `alias_modifier`: (modifier, optional) Style modifier for alias triggers in help, stripping the leading '@' (default "ITALIC").
   - `max_item_len`: (number) Maximum length of a help item before ellipsizing (default 50).
   - `ellipsize_center`: (bool) Ellipsize the center of help items (default false).
   - `event_trigger_prefix`: (string) Prefix for event triggers (default "#").

@@ -258,7 +258,7 @@ mm \
   binds.Shift-BackTab=Up \
   binds.BackTab=Up \
   binds.Tab=Down \
-  matcher.sort_threshold=0 \
+  matcher.sort.threshold=0 \
   results.scroll_wrap=true \
   results.wrap=false \
   results.autoscroll.end=true \
@@ -269,14 +269,13 @@ mm \
   exit.abort_empty=true
 
 # Notes:
-# - matcher.sort_threshold is not available on the cargo version and requires the installer.
 # - results.autoscroll.context=0 is a setting which does not appear in fzf but which is 4 by default in mm.
 ```
 
 - In `mm` using aliases (and omitting defaults):
 
 ```
-mm m.sort=0 ui.b.type=Plain tui.p=45 \
+mm t=0 ui.b.type=Plain tui.p=45 \
 r.r= r.w=false r.a.e= r.a.c=0 \
 b.Shift-BackTab=Up b.BackTab=Up b.Tab=Down
 ```

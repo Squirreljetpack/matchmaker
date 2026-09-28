@@ -780,6 +780,8 @@ pub struct HelpDisplayConfig {
     pub show_events: bool,
     pub sort_fn_last: bool,
     pub combine_keys: bool,
+    pub trace_modifier: Modifier,
+    pub alias_modifier: Option<Modifier>,
 }
 
 impl Default for HelpDisplayConfig {
@@ -788,13 +790,15 @@ impl Default for HelpDisplayConfig {
             colors: Some(Default::default()),
             hide_semantic: true,
             seq_brackets: Some(['[', ']']),
-            quote_traces: true,
+            quote_traces: false,
             max_item_len: 50,
             ellipsize_center: false,
             event_trigger_prefix: "#".to_string(),
             show_events: false,
             sort_fn_last: true,
             combine_keys: true,
+            trace_modifier: Modifier::ITALIC,
+            alias_modifier: Some(Modifier::ITALIC),
         }
     }
 }

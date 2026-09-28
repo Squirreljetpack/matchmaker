@@ -171,8 +171,6 @@ abort_empty = true
 # "?" = "SwitchPreview"
 # "alt-/" = "NextPreview"
 # "alt-shift-/" = "PrevPreview"
-# "ctrl-/" = "NextPreview" # requires keyboard enhancement
-# "ctrl-shift-/" = "PrevPreview" # requires keyboard enhancement
 # "alt-h" = "Help"
 
 "alt-shift-=" = "ExpandPreview"

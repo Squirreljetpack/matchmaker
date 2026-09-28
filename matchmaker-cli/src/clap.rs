@@ -23,8 +23,8 @@ pub struct Cli {
     /// to a preset.
     #[arg(long, short, value_name = "PATH")]
     pub r#override: Vec<PathBuf>,
-    /// Write the default configuration to the default location.
-    /// If piped, writes the current configuration to stdout.
+    /// If piped, outputs the current configuration.
+    /// Otherwise, writes the default settings to disk.
     #[arg(long)]
     pub dump_config: bool,
     /// Run in fullscreen

@@ -13,7 +13,7 @@ correct as of the lua-support work; re-verify before relying on them.
   (config.toml on unix, win.config.toml on windows, dev.toml in debug builds).
   A rebuild is triggered whenever those files change.
 
-## Config & effective-config testing gotchas
+## Config
 
 - In **debug** builds `default_config_path()` resolves to
   `~/.config/matchmaker/dev.toml` (config_dir_impl uses `$MATCHMAKER_CONFIG_DIR`
@@ -21,37 +21,7 @@ correct as of the lua-support work; re-verify before relying on them.
   auto-writes `assets/dev.toml` there. This shadows the embedded config.toml:
   config dumps and parse checks silently test dev.toml (which has no lua binds).
   Always pass `--config <path>` explicitly when inspecting effective config.
-- `--dump-config` behaves differently by stdout: with a TTY it writes the
-  default config to the config **file** path and exits (nothing on stdout);
-  only with **piped** stdout does it serialize the effective config to stdout.
 
-## Binds & mode tags
+## Presets
 
-- Mode-filtered triggers use the syntax
-  `<mode_filter>^^<trigger>` (e.g. `0,1^^@accept`, `lua^^@open`).
-- The CLI builds the mode tag stack (matchmaker-lib `MODE`) from TTY detection
-  or the `start.mode` override, appending `win` under `#[cfg(windows)]` and
-  `lua` under `#[cfg(feature = "mlua")]`. The `lua` tag is what activates `lua^^` bind
-  variants; with the mlua feature disabled no `lua` tag exists and those binds
-  are simply never active.
-
-## Lua support
-
-- `#!lua`-prefixed payloads (any whitespace after the prefix, not just a
-  single space) run through mlua; `@*.lua` argument files are executed as lua,
-  with args split preserving single quotes and file paths resolved relative to
-  the parent of `MM_OVERRIDE`. Both are fresh per-run VMs.
-- Lua payloads read matchmaker state from a `state` global table
-  (query/mode/raw/current{1..n,named}/selected/position/total/matched/
-  selected_count/active/args) — inline payloads get **no** `...` vararg.
-  The `env` global holds only `FZF_*`/`MM_*` vars plus configured `[envs]`
-  (make_env_vars), **not** the process environment: shell payloads can use
-  `$EDITOR` via spawn inheritance, but lua payloads must use stock
-  `os.getenv("EDITOR")` for process env vars.
-- Lua support is return-value only: stdout is never captured, `os.exit` does
-  not terminate the host, and shell-safe exec uses lua 5.4 `%q` quoting
-  (no quote helper). This is the documented contract in assets/docs/execute.md
-  (`mm --doc execute`).
-- The mlua dependency is optional behind the default `mlua` feature; every
-  feature-gated path must keep `--no-default-features` builds warning-free
-  (targeted `#[cfg_attr(...)]` allows on classify/run_value stubs, etc.).
+- See `assets/plugins/SKILL.md`

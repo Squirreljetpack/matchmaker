@@ -124,6 +124,9 @@ impl PreviewUI {
     }
 
     pub fn reevaluate_show_condition(&mut self, [ui_width, ui_height]: [u16; 2], no_hide: bool) {
+        if self.current_dimension.is_some() {
+            return;
+        }
         match self.config.show {
             ShowCondition::Free(x) => {
                 if let Some(setting) = self.setting() {

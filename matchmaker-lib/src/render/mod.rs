@@ -1290,7 +1290,9 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
         let [preview, picker] = preview_ui.split(_area);
         let mut picker_area = ui.border().inner_of(picker);
 
-        let hide_preview = if preview_ui.is_vertical() {
+        let hide_preview = if preview_ui.current_dimension.is_some() {
+            false
+        } else if preview_ui.is_vertical() {
             picker_area.width <= crate::ui::RESULTS_MIN_W
         } else {
             picker_area.height <= crate::ui::RESULTS_MIN_H

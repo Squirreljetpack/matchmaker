@@ -9,6 +9,7 @@ It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and
 ## Features
 
 - Matching with [nucleo](https://github.com/helix-editor/nucleo).
+- Matching with [frizbee](https://github.com/saghen/frizbee), an even faster, typo-resistant matching algorithm.
 - *Fully* configurable via a type-checked [toml file](./matchmaker-cli/assets/config.toml). [^11]
 - A minimal yet powerful [syntax](./matchmaker-cli/assets/docs/options.md) for overriding the configuration on the command line.
 - Interactive preview supports color, scrolling, wrapping, multiple layouts, and even maximizing.
@@ -28,10 +29,6 @@ It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and
 - `-C` (context) flag!
 - a *[panoply](#presets)* of amazing presets which manifest as *dashing* TUIs to boost your productivity.
 - Available as a rust library to use in your own code!
-
-On the way:
-
-- Matching with [frizbee](https://github.com/saghen/frizbee), a faster, typo-resistant matching algorithm.
 
 [^11]: The benefits of a structured, hierarchical, global baseline configuration are many, including but not limited to the fact that toml strings make it much easier to bind keys to complex shell scripts.
 

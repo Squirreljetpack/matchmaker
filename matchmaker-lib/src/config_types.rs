@@ -155,7 +155,6 @@ impl Serialize for Padding {
     {
         use serde::ser::SerializeSeq;
         let padding = self;
-        dbg!(&self);
         if padding.top == padding.bottom
             && padding.left == padding.right
             && padding.top == padding.left

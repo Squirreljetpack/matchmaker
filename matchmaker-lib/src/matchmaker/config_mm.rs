@@ -97,7 +97,7 @@ impl ConfigMatchmaker {
             render_config,
             tui_config,
             exit_config,
-            matcher_config: nucleo::Config::DEFAULT,
+            matcher_config: crate::config::MatcherConfig::default(),
             output: accept_hook,
             event_handlers,
             interrupt_handlers,

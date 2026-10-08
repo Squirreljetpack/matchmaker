@@ -18,7 +18,9 @@ split = "\\t"
 names = ["word", "pos", "definition", { name = 'synonyms', hidden = true }, { name = 'etymology', hidden = true }]
 
 [matcher]
-prefer_prefix = true
+backend = "frizbee"
+max_typos = 1
+exact_match_bonus = 16
 
 # --- Preview ---
 [preview]

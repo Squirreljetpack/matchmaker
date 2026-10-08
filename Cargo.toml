@@ -12,6 +12,7 @@ members = [
 matchmaker-lib = { path = "./matchmaker-lib" }
 matchmaker-partial = { path = "./matchmaker-partial" }
 matchmaker-partial-macros = { path = "./matchmaker-partial-macros" }
+matchmaker-nucleo = { path = "../nucleo" }
 
 [workspace.dependencies]
 cli_boilerplate_automation = { version = "0.*" }

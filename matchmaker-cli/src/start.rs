@@ -670,7 +670,7 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
     // apply the configured sort settings (reverse/threshold/mode+column) to the worker.
     init_mm_sort(&mut mm, &ranges_fn, sort.clone());
     // apply the configured matcher config to the worker and scoring matcher.
-    mm.config_matcher(matcher.0);
+    mm.config_matcher(matcher);
 
     // make previewer
     if !event_loop.original_binds().check_traces() {

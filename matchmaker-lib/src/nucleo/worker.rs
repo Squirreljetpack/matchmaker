@@ -168,9 +168,9 @@ where
     /// Applies the matching config to the worker and its per-thread matchers.
     ///
     /// The config is cloned into every rayon thread's matcher via
-    /// `nucleo::Nucleo::update_config`, so it takes effect on the next match.
-    pub fn set_config(&mut self, config: nucleo::Config) {
-        self.nucleo.update_config(config);
+    /// `nucleo::Nucleo::update_backend`, so it takes effect on the next match.
+    pub fn set_config(&mut self, config: impl Into<nucleo::MatcherBackend>) {
+        self.nucleo.update_backend(config.into());
     }
 
     pub fn set_column_options(&mut self, index: usize, options: ColumnOptions) {
@@ -401,4 +401,29 @@ pub enum WorkerError {
     InjectorShutdown,
     #[error("{0}")]
     Custom(&'static str),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::injector::Injector;
+    use super::*;
+    use nucleo::frizbee;
+
+    #[test]
+    fn test_worker_backend_frizbee() {
+        let mut worker = Worker::<String>::new_single_column();
+        worker.set_config(nucleo::MatcherBackend::Frizbee(frizbee::Config::default()));
+        let inj = worker.injector();
+        let _ = inj.push("apple".to_string());
+        let _ = inj.push("banana".to_string());
+        let _ = inj.push("cherry".to_string());
+        drop(inj);
+
+        worker.find("an");
+        while new_snapshot(&mut worker.nucleo).1.running {}
+
+        let (snapshot, status) = new_snapshot(&mut worker.nucleo);
+        assert_eq!(status.matched_count, 1);
+        assert_eq!(snapshot.get_matched_item(0).unwrap().data, "banana");
+    }
 }

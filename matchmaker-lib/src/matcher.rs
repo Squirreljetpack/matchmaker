@@ -18,9 +18,11 @@ pub fn matcher() -> MutexGuard<'static, Matcher> {
         .unwrap_or_else(|e| e.into_inner())
 }
 
-/// Sets the config of the process-wide scoring matcher.
+/// Sets the config (and backend) of the process-wide scoring matcher.
 ///
 /// Call before starting a picker run; the config persists for the process.
-pub fn set_matcher_config(config: nucleo::Config) {
-    matcher().config = config;
+pub fn set_matcher_config(config: impl Into<nucleo::MatcherBackend>) {
+    let backend = config.into();
+    let mut m = matcher();
+    m.ensure_backend(&backend);
 }

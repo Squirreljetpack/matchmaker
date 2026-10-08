@@ -38,7 +38,7 @@ pub struct Matchmaker<T: SSS, S, D = ()> {
     pub render_config: RenderConfig,
     pub tui_config: TerminalConfig,
     pub exit_config: ExitConfig,
-    pub matcher_config: nucleo::Config,
+    pub matcher_config: crate::config::MatcherConfig,
     pub output: AcceptHook<T, D, S>,
     pub event_handlers: EventHandlers<T, D>,
     pub interrupt_handlers: InterruptHandlers<T, D>,
@@ -56,7 +56,7 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
             render_config: RenderConfig::default(),
             tui_config: TerminalConfig::default(),
             exit_config: ExitConfig::default(),
-            matcher_config: nucleo::Config::DEFAULT,
+            matcher_config: crate::config::MatcherConfig::default(),
             output: Box::new(accept_hook),
             event_handlers: EventHandlers::new(),
             interrupt_handlers: InterruptHandlers::new(),
@@ -81,8 +81,11 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
     /// Configure the scoring matcher
     ///
     /// A matcher is a scratch space that needs to be configured ber thread. This config will be used to configure the Matchers used by the worker (for sorting and filtering), and the Matcher used in the UI thread (to compute the highlight characters within each item).
-    pub fn config_matcher(&mut self, matcher_config: nucleo::Config) -> &mut Self {
-        self.matcher_config = matcher_config;
+    pub fn config_matcher(
+        &mut self,
+        matcher_config: impl Into<crate::config::MatcherConfig>,
+    ) -> &mut Self {
+        self.matcher_config = matcher_config.into();
         self
     }
     /// Register a handler to listen on [`Event`]s

@@ -1085,66 +1085,8 @@ impl Default for ColumnsConfig {
     }
 }
 
-// ----------- Nucleo config helper
-#[derive(Debug, Clone, PartialEq)]
-pub struct NucleoMatcherConfig(pub nucleo::Config);
-
-impl Default for NucleoMatcherConfig {
-    fn default() -> Self {
-        Self(nucleo::Config::DEFAULT)
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
-#[derive(Default)]
-struct MatcherConfigHelper {
-    pub normalize: Option<bool>,
-    pub ignore_case: Option<bool>,
-    pub prefer_prefix: Option<bool>,
-    pub match_paths: bool,
-}
-
-impl serde::Serialize for NucleoMatcherConfig {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let helper = MatcherConfigHelper {
-            normalize: Some(self.0.normalize),
-            ignore_case: Some(self.0.ignore_case),
-            prefer_prefix: Some(self.0.prefer_prefix),
-            match_paths: false,
-        };
-        helper.serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for NucleoMatcherConfig {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let helper = MatcherConfigHelper::deserialize(deserializer)?;
-        let mut config = nucleo::Config::DEFAULT;
-
-        if helper.match_paths {
-            config.set_match_paths();
-        }
-
-        if let Some(norm) = helper.normalize {
-            config.normalize = norm;
-        }
-        if let Some(ic) = helper.ignore_case {
-            config.ignore_case = ic;
-        }
-        if let Some(pp) = helper.prefer_prefix {
-            config.prefer_prefix = pp;
-        }
-
-        Ok(NucleoMatcherConfig(config))
-    }
-}
+// ----------- Matcher config
+pub use crate::config_matcher::*;
 
 #[cfg(test)]
 mod tests {

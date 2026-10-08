@@ -5,6 +5,7 @@ pub mod action;
 pub use action::{Action, Actions};
 pub mod binds;
 pub mod config;
+pub mod config_matcher;
 mod config_types;
 pub mod event;
 mod mode_filter;

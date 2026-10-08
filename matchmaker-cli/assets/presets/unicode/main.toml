@@ -20,6 +20,10 @@ split = "\\t"
 names = ["char", "name", "cat", "meta"]
 default = "name"
 
+[matcher]
+backend = "frizbee"
+max_typos = 1
+
 # --- Preview ---
 [preview]
 show = true

@@ -85,8 +85,7 @@ pub struct Config {
 #[partial(path, derive(Debug, Deserialize))]
 pub struct MatcherConfig {
     #[serde(flatten)]
-    #[partial(skip)]
-    pub matcher: NucleoMatcherConfig,
+    pub matcher: matchmaker::config::MatcherConfig,
     /// Configures how input is fed to the worker(s).
     #[serde(flatten)]
     #[partial(recurse)]

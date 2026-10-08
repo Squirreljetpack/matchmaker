@@ -1,6 +1,8 @@
 # Man page browser
 
 [matcher]
+backend = "frizbee"
+max_typos = 1
 ansi = true
 
 [start]

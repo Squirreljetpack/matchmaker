@@ -15,7 +15,8 @@ pub use injector::{Injector, WorkerInjector};
 pub use variants::*;
 pub use worker::*;
 
-pub use nucleo;
+pub use crate::config::{MatcherBackendKind, MatcherConfig, SpecificMatcherConfig};
+pub use nucleo::{self, MatcherBackend};
 pub use ratatui::prelude::*;
 
 // ------------- Wrapper structs

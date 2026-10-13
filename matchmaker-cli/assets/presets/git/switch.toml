@@ -113,6 +113,7 @@ prompt = "switch> "
 "alt-a" = "@copy_remote"
 # restore fetch spec to defaults (i.e. after cloning with --single-branch)
 "alt-u" = [
+    '#restore fetch spec',
     'Execute(git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*" && git fetch origin)',
     'Reload',
 ]

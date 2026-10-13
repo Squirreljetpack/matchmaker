@@ -1,0 +1,41 @@
+# Bat theme picker
+
+[start]
+command = '''bat --list-themes --color=never | sed 's/ (default light)$//; s/ (default)$//'
+'''
+
+# --- Preview -----------------------------------------------------------------
+[preview]
+show = true
+
+[[preview.layout]]
+# Render the theme over the file passed as a trailing argument, or bat's help.
+command = '''
+theme={}
+if [ -n "{$0}" ]; then
+    bat --theme="$theme" --color=always -pp -- {$0}
+else
+    bat --help | bat --theme="$theme" --color=always -pp -l help
+fi
+'''
+
+# --- Binds -------------------------------------------------------------------
+[binds]
+"@accept" = '''ExecuteAndQuit(
+config="$(bat --config-file 2>/dev/null)"
+[ -n "$config" ] || config="${BAT_CONFIG_PATH:-$HOME/.config/bat/config}"
+theme={}
+mkdir -p -- "$(dirname -- "$config")"
+[ -e "$config" ] || : > "$config"
+
+tmp="$config.mm.$$"
+awk -v theme="$theme" '
+    /^[[:space:]]*--theme([= ]|$)/ { print "--theme=\"" theme "\""; found=1; next }
+    { print }
+    END { if (!found) print "--theme=\"" theme "\"" }
+' "$config" > "$tmp" && mv -- "$tmp" "$config"
+rc=$?
+rm -f -- "$tmp"
+exit $rc
+)'''
+"@return" = "Accept"

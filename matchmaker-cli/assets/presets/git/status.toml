@@ -96,8 +96,9 @@ border = { title = "File History" }
 
 "ctrl-1" = "@summary"
 "ctrl-u" = ["@unstage", "Reload"]
+"@show" = "@diff"
+"alt-s" = "@commit"
 # "ctrl-c" = "@commit"
-"@show" = "@commit"
 "alt-c" = [
     "ExecuteOrConfirm(git add . && echo 'All changes staged' || echo 'git add . failed')",
     "@commit",
@@ -106,16 +107,17 @@ border = { title = "File History" }
 "alt-r" = ["@restore", "Reload"]
 "ctrl-t" = ["@stash", "Reload"]
 "alt-t" = ["@stash_unstaged", "Reload"]
-"@rm" = ["#untrack", "@untrack", "Reload"]
-"ctrl-shift-d" = [
+
+"alt-d" = ["#untrack", "@untrack", "Reload"]
+"@rm" = ["#delete from disk", "ExecuteOrConfirm(rm -rf -- {+1})", "Reload"]
+"alt-shift-i" = [
     "#delete",
     "ExecuteOrConfirm(git add -- {+1}; git rm -rf -- {+1})",
     "Reload",
 ]
-"alt-d" = ["#delete from disk", "ExecuteOrConfirm(rm -rf -- {+1})", "Reload"]
-"alt-i" = ["@ignore", "Reload"]
+
 "ctrl-i" = ["#edit gitignore", "Execute($EDITOR .gitignore)", "Reload"]
-"ctrl-b" = "@save-staged"
+"ctrl-b" = "@save staged"
 
 # --- Scripts ---
 "@summary" = "RunPreview(git -c color.ui=always status -sbu && echo && git --no-pager diff --color=always --compact-summary && false)"
@@ -286,7 +288,7 @@ fi
 )
 '''
 
-"@save_staged" = '''BecomeOrConfirm(
+"@save staged" = '''BecomeOrConfirm(
 set -e
 
 # Get the current branch name and short hash

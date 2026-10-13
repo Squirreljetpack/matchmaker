@@ -3,16 +3,35 @@
 [start]
 command = '''
 dir="$(dirname -- "$MM_OVERRIDE")"
-mm --presets | while IFS= read -r path; do
-    name="${path#"$dir"/}"
-    printf '%s\0%s\n' "$path" "${name%.toml}"
+mm --presets | while IFS= read -r p; do
+    name="${p#"$dir"/}"
+    case "$name" in
+        */main.toml)
+            name="${name%/main.toml}"
+            ;;
+        *.toml)
+            name="${name%.toml}"
+            ;;
+    esac
+    printf '%s\0%s\n' "$p" "$name"
 done
 '''
 output = "{=path}"
 directory = { value = 'dirname -- "$MM_OVERRIDE"', exec = true, force = true }
 
 [binds]
-"@accept" = "Become(mm -o {path})"
+"@accept" = '''Become(
+set -- {+path}
+if [ "$#" -eq 1 ]; then
+    dir="$(dirname -- "$MM_OVERRIDE")"
+    name={name}
+    patch="$dir/patches/${name//\//-}.toml"
+    [ -f "$patch" ] && set -- "$1" "$patch"
+fi
+args=()
+for p; do args+=(-o "$p"); done
+mm "${args[@]}"
+)'''
 "@return" = "Accept"
 
 [columns]

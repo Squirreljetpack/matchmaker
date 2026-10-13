@@ -5,7 +5,7 @@ directory = { value = "git rev-parse --show-toplevel", exec = true, force = true
 
 [binds]
 "ctrl-s" = "@show"
-"ctrl-shift-s" = "@diff"
+"alt-d" = "@diff"
 "alt-l" = "@log"
 
 "@reload" = ["#next view", "ReloadNext"]

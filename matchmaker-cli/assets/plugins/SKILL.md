@@ -45,6 +45,7 @@ Use section comments to separate the input, UI, preview, and action portions. Ke
 - Set `matcher.trim`, `matcher.ansi`, and `start.skip_invalid_lines` deliberately rather than relying on defaults.
 - Choose an explicit `start.output_template`, `start.output_separator`, or `start.on_accept` when the accepted value should differ from the displayed row.
 - `start.command` and values in `[envs]` are **not** template-expanded. Templates belong in preview commands, bind actions, and output/accept hooks.
+- Trailing arguments after `--` reach the populating command as positional parameters (`"$@"`, `"$1"`, ...) as well as templates such as `{$0}`. Forward them explicitly (for example `rg "$@"`) when the preset wraps a tool.
 - Treat a preset's input command as a public interface. Quote paths, handle empty output, and return a useful non-zero status when the source cannot be read.
 
 ### Column-aligned headers
@@ -56,28 +57,32 @@ Use section comments to separate the input, UI, preview, and action portions. Ke
 ### Inheritance and overrides
 
 `source` can inherit from another preset. A common pattern for several related presets stored in the same folder (i.e. `git`) is to define a `base.toml` (in `git/`), and add `source = 'base.toml'` to each of the concrete presets (`git/restore.toml`).
-Override only the fields that are intentionally different. Collections such as `preview.layout` are merged by position and then appended; binds override existing keys. 
+Override only the fields that are intentionally different. Collections such as `preview.layout` are merged by position and then appended; binds override existing keys.
 
 ## Templates
 
 Matchmaker formats templates before executing preview and action commands. Formatted values are shell-quoted by Matchmaker unless the raw modifier is used.
 
-| Template                                  | Meaning                                          |
-| ----------------------------------------- | ------------------------------------------------ |
-| `{}` or `{0}`                             | Current item / primary column, quoted            |
-| `{=}` or `{=0}`                           | Current item / primary column, unquoted          |
-| `{+}` or `{+0}`                           | All selected items, quoted and space-separated   |
-| `{-}` or `{-0}`                           | All selected items, unquoted and space-separated |
-| `{name}`, `{=name}`, `{+name}`, `{-name}` | Named-column forms                               |
-| `{$0}`, `{$1}`                            | Trailing command-line arguments                  |
-| `{2..}`, `{..name}`                       | Column ranges                                    |
-| `{#}`, `{!}`                              | Current absolute index / active column           |
+| Template                                  | Meaning                                                              |
+| ----------------------------------------- | -------------------------------------------------------------------- |
+| `{}`                                      | Entire input line (every column, separator included), quoted         |
+| `{=}`                                     | Entire input line, unquoted                                          |
+| `{0}`                                     | Primary/default column, quoted                                       |
+| `{=0}`                                    | Primary/default column, unquoted                                     |
+| `{+}` / `{-}`                             | Full lines of all selected items, quoted / unquoted, space-separated |
+| `{+0}` / `{-0}`                           | Primary column of all selected items, quoted / unquoted              |
+| `{name}`, `{=name}`, `{+name}`, `{-name}` | Named-column forms                                                   |
+| `{$0}`, `{$1}`                            | Trailing command-line arguments                                      |
+| `{2..}`, `{..name}`                       | Column ranges                                                        |
+| `{#}`, `{!}`                              | Current absolute index / active column                               |
+
+The bare forms (`{}`, `{+}`, `{-}`) expand to the **whole** input line, not the primary column; `{}` is not a synonym for `{0}`. When input uses a non-printing separator (for example `columns.split = "\\x00"`), a bare form embeds that separator, so using it in an action script injects a NUL byte and the process fails with `nul byte found in provided data`. Select the column you mean (`{0}`, `{name}`) whenever a row has more than one field.
 
 Prefer quoted forms when passing values as arguments. Use raw forms only when the receiving program explicitly expects a larger expression or a delimiter-free value. Never build a shell command by concatenating untrusted row data yourself when a Matchmaker template can do the quoting.
 
 ## Alternate interpreters (optional)
 
-Most shipped presets use the user's shell and POSIX-compatible commands. A preset may select an explicit interpreter with `[start].shell` or `[previewer].shell`; when it does, every command governed by that setting must be written in that interpreter's language. Setting a Python shell while leaving shell conditionals, pipes, or variable assignments in the command is a syntax error.
+Commands run through the user's login shell — `$SHELL -c`, falling back to `/bin/sh` — unless `[start].shell` or `[previewer].shell` selects another interpreter. `$SHELL` is arbitrary (fish and nushell are valid), so a default-shell payload is portable only if it avoids shell-specific syntax; several shipped presets use Bash/Zsh arrays without setting `[start].shell` and therefore assume a POSIX-ish shell. When a preset selects an explicit interpreter, every command governed by that setting must be written in that interpreter's language. Setting a Python shell while leaving shell conditionals, pipes, or variable assignments in the command is a syntax error.
 
 When an alternate interpreter receives a Matchmaker template, remember that the inserted value is still shell-quoted. For Python, parse a multi-value placeholder with `shlex.split` rather than a plain `.split()`:
 
@@ -184,7 +189,7 @@ Copy the pattern, not the incidental command names. Keep the preset's assumption
 4. **Add previews.** Start with one reliable layout, then add alternate layouts. Configure `[previewer].shell` if the layout interpreter differs from the default.
 5. **Add safe actions.** Put reusable workflows behind semantic aliases and use templates for selected values.
 6. **Add scripts only where needed.** Keep helpers focused, use `MM_OVERRIDE` for sibling paths, and separate stdout data from stderr diagnostics.
-7. **Exercise non-interactively.** Use `mm --list` to run the start command, `mm --list='N-M'` to render a preview layout, and `mm --list='N@alias'` to exercise a bind alias. The exact `--list` forms are shown by `mm --help`.
+7. **Exercise non-interactively.** Use `mm --list` to run the start command, `mm --list='N-M'` to render a preview layout, and `mm --list='N@alias'` to exercise a bind alias. `N` is the item's **matcher** index, not its line number in the start output: with an empty query the matcher reorders rows (shortest first), so read `mm --list` to pick the index you want. `--list` may warn that it is "ignoring trailing arguments" when args are supplied, but they still reach `start.command` and templates — the warning is spurious in this mode. The exact `--list` forms are shown by `mm --help`.
 8. **Exercise interactively.** Check empty input, one row, many rows, long rows, quotes, backslashes, Unicode, multiple selections, missing files, and command failures.
 9. **Check portability and idempotency.** Test on every promised OS/interpreter, run file-rewriting actions twice, and confirm the second run makes no further changes.
 10. **Document dependencies.** State required commands, environment variables, config locations, keybindings, and destructive behavior next to the preset or in its README.
@@ -210,6 +215,8 @@ Use a temporary `HOME`, settings directory, and input file for tests that mutate
 - **Preview works in one layout but not another:** `[start].shell` was set but `[previewer].shell` was not.
 - **A selected path is split incorrectly:** use `{+column}` plus `shlex.split`, not a plain `.split()`.
 - **A template is printed literally:** it was placed in `start.command` or `[envs]`, where templates are not expanded.
+- **A script fails with `nul byte found in provided data`:** a bare `{}`/`{+}`/`{-}` placeholder inserted a raw NUL-separated line; use a column form (`{0}`, `{name}`).
+- **`--list='N…'` renders the wrong item:** `N` is matcher order, not input line order; read `mm --list` for the index.
 - **The helper cannot be found:** use `MM_OVERRIDE` and `Path.with_name`, not `$PWD` or an assumed install directory.
 - **An update destroys a file:** validate the complete new content and write atomically in the target file's directory.
 - **A command works on Linux but not macOS:** it depends on GNU utilities, Bash-only syntax, or a non-portable `stat`/`sed`/`grep` flag.

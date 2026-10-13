@@ -101,7 +101,7 @@ pub enum Action<A: ActionExt = NullActionExt> {
     PrevColumn,
     /// Switch to a specific column
     SwitchColumn(String),
-    /// Hide the given or current column
+    /// Hide the given or current column. The default column cannot be hidden.
     HideColumn(Option<String>),
     /// Unhide the given or last hidden column.
     UnhideColumn(Option<String>),

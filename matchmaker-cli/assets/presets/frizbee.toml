@@ -1,0 +1,3 @@
+[matcher]
+max_typos = 1
+backend = "frizbee"

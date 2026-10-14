@@ -1,4 +1,4 @@
-use crate::config::TerminalConfig;
+use crate::config::{ImageProtocol, TerminalConfig};
 use anyhow::{Context, Result};
 use cba::{_info, _trace, bait::ResultExt};
 use crossterm::{
@@ -17,6 +17,8 @@ use std::{
     time::Duration,
 };
 
+#[cfg(feature = "image")]
+pub(crate) mod image;
 mod layout;
 mod query;
 mod stream;
@@ -48,6 +50,11 @@ where
     #[cfg(feature = "bracketed-paste")]
     paste_mode: PasteMode,
 
+    /// Graphics capabilities the terminal reported at startup; the preview
+    /// pane builds its picker from them.
+    #[cfg(feature = "image")]
+    image_query: query::ImageQuery,
+
     in_execute: bool,
 }
 
@@ -57,7 +64,11 @@ where
 {
     // waiting on https://github.com/ratatui/ratatui/issues/984 to implement growable inline, currently just tries to request max
     // if max > than remainder, then scrolls up a bit
-    pub fn new_with_writer(writer: W, mut config: TerminalConfig) -> Result<Self> {
+    pub fn new_with_writer(
+        writer: W,
+        mut config: TerminalConfig,
+        image_protocol: ImageProtocol,
+    ) -> Result<Self> {
         if matches!(config.stream, IoStream::Auto) {
             config.stream = config
                 .stream
@@ -75,7 +86,7 @@ where
 
         // Single query round trip against the terminal; see [`query::startup`].
         let startup = if config.stream != IoStream::Test {
-            match query::startup(Duration::from_millis(config.sleep_ms)) {
+            match query::startup(Duration::from_millis(config.sleep_ms), image_protocol) {
                 Ok(s) => s,
                 Err(e) => {
                     debug!("Terminal startup queries failed: {e:#}");
@@ -85,6 +96,9 @@ where
         } else {
             query::Startup::default()
         };
+
+        #[cfg(feature = "image")]
+        let image_query = startup.image;
 
         // Bracketed paste that was already on stays untouched so exit does not
         // disable it out from under whoever turned it on.
@@ -170,6 +184,8 @@ where
             area,
             #[cfg(feature = "bracketed-paste")]
             paste_mode,
+            #[cfg(feature = "image")]
+            image_query,
             in_execute: false,
         })
     }
@@ -407,7 +423,7 @@ where
 }
 
 impl Tui<Box<dyn Write + Send>> {
-    pub fn new(mut config: TerminalConfig) -> Result<Self> {
+    pub fn new(mut config: TerminalConfig, image_protocol: ImageProtocol) -> Result<Self> {
         let stream = config
             .stream
             .resolve()
@@ -415,7 +431,7 @@ impl Tui<Box<dyn Write + Send>> {
         config.stream = stream.clone();
         debug!("Render stream: {:?}", config.stream);
         let writer = stream.to_stream()?;
-        let tui = Self::new_with_writer(writer, config)?;
+        let tui = Self::new_with_writer(writer, config, image_protocol)?;
         Ok(tui)
     }
 }

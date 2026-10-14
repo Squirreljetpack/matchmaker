@@ -70,9 +70,12 @@ path = "src/main.rs"
 workspace = true
 
 [features]
-default = ["mlua", "pager"]
+default = ["mlua", "pager", "image"]
 mlua = ["dep:mlua"]
 pager = ["dep:minus"]
+# Image previews via the `<MM_IMAGE>` preview header.
+image = ["matchmaker-lib/image"]
+image-all = ["matchmaker-lib/image-all"]
 experimental = [
     "matchmaker-lib/experimental",
     # "log/max_level_debug"

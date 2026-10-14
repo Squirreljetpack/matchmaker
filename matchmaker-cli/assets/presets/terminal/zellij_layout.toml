@@ -3,7 +3,7 @@
 # Lists only single-tab layouts by default, extra layouts can be specified as extra arguments to the populating command
 
 [matcher]
-trim = true
+sort.threshold = 20
 
 [start]
 command = "@./zellij.sh layouts"

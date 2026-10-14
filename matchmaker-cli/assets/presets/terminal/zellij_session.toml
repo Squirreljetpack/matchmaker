@@ -3,7 +3,6 @@
 # Preview (hidden by default) shows a tab summary with pane titles
 
 [matcher]
-trim = true
 sort.threshold = 0
 
 [start]

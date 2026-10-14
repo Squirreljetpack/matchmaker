@@ -1,6 +1,8 @@
+#[cfg(feature = "image")]
+pub mod image;
 pub mod previewer;
 mod view;
-pub use view::Preview;
+pub use view::{Override, Preview};
 
 // -------------- APPENDONLY
 use arc_swap::ArcSwap;

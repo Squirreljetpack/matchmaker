@@ -1,7 +1,7 @@
 # Focus a pane of the current zellij session
 
 [matcher]
-trim = true
+sort.threshold = 20
 
 [start]
 command = "@./zellij.sh current"

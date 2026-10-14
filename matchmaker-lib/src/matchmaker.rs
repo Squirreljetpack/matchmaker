@@ -186,7 +186,8 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
         event_loop.add_tx(render_tx.clone());
 
         let mut tui: tui::Tui<Box<_>> =
-            tui::Tui::new(self.tui_config).map_err(|e| MatchError::TUIError(e.to_string()))?;
+            tui::Tui::new(self.tui_config, self.render_config.preview.image.protocol)
+                .map_err(|e| MatchError::TUIError(e.to_string()))?;
         tui.enter()
             .map_err(|e| MatchError::TUIError(e.to_string()))?;
 
@@ -214,13 +215,19 @@ impl<T: SSS, S, D: 'static> Matchmaker<T, S, D> {
         self.worker.set_config(matcher_config.clone());
         crate::matcher::set_matcher_config(matcher_config);
 
-        let (ui, picker, footer, preview) = UI::new(
+        #[cfg_attr(not(feature = "image"), allow(unused_mut))]
+        let (ui, picker, footer, mut preview) = UI::new(
             self.render_config,
             self.worker,
             Selector::new(),
             preview,
             &mut tui,
         );
+
+        #[cfg(feature = "image")]
+        if let Some(preview) = preview.as_mut() {
+            preview.set_event_sender(event_controller.clone());
+        }
 
         let ret = render::render_loop(
             ui,

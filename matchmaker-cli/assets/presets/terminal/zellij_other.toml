@@ -1,7 +1,7 @@
 # Focus a pane in another zellij session
 
 [matcher]
-trim = true
+sort.threshold = 20
 
 [start]
 command = "@./zellij.sh other"

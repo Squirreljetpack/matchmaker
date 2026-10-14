@@ -6,7 +6,7 @@ use ratatui::text::Text;
 
 use crate::{
     Matchmaker, RenderFn, SSS,
-    config::PreviewerConfig,
+    config::{ImageProtocol, PreviewerConfig},
     message::{Event, Interrupt},
     preview::{
         AppendOnly,
@@ -101,10 +101,15 @@ pub fn resolve_static_preview(
 /// The Previewer can be connected to [`Matchmaker`] using [`PickOptions::previewer`]
 pub fn make_previewer<T: SSS, S, D: 'static>(
     mm: &mut Matchmaker<T, S, D>,
-    previewer_config: PreviewerConfig, // note: help_str is provided separately so help_colors is ignored
+    mut previewer_config: PreviewerConfig, // note: help_str is provided separately so help_colors is ignored
     formatter: AttachmentFormatter<T, D>,
     help_factory: HelpFactory,
 ) -> Previewer {
+    // there is no point in parsing image headers that cannot be displayed
+    if mm.render_config.preview.image.protocol == ImageProtocol::None {
+        previewer_config.images = false;
+    }
+
     // initialize previewer
     let (previewer, tx) = Previewer::new(previewer_config.clone());
     let preview_tx = tx.clone();

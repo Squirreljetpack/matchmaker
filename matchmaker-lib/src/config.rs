@@ -669,6 +669,10 @@ pub struct PreviewConfig {
     /// If `None`, it defaults to the width of the preview border.
     /// If `0`, drag resizing is disabled.
     pub drag_width: Option<u16>,
+
+    /// How `<MM_IMAGE>` preview images are displayed.
+    #[partial(recurse)]
+    pub image: ImageOptions,
 }
 
 impl Default for PreviewConfig {
@@ -687,6 +691,7 @@ impl Default for PreviewConfig {
             reevaluate_show_on_resize: false,
             drag_width: None,
             trim_ends: false,
+            image: Default::default(),
         }
     }
 }
@@ -725,6 +730,142 @@ pub struct PreviewInitialSetting {
 //     }
 // }
 
+/// How a single image axis is fitted into the preview pane.
+///
+/// The image is always scaled by a single factor that keeps its proportions, so the
+/// two axes interact:
+///
+/// - `fill` + `fill`: the larger scale wins, filling the pane and cropping the
+///   overflow on the other axis.
+/// - `fill` + `contain`: the fill scale wins, unless it would make the image exceed
+///   the contained axis.
+/// - `fill` + `crop`: the fill scale wins; the other axis follows it and is cropped.
+/// - `contain` + `contain`: the smaller scale wins, so neither axis is exceeded.
+/// - `contain` + `crop`: the contained axis wins and the other follows it.
+/// - `crop` + `crop`: nothing is scaled; the pane crops and the image can be scrolled.
+///
+/// `contain` and `fill` name the extent they fit into in cells, `0` meaning the pane
+/// itself: `hfit=fill:16` makes the image 16 cells wide however wide the pane is,
+/// while `fill` fills the pane. A `contain` extent only shrinks, never past the
+/// image's native size; a `fill` extent grows or shrinks to reach it.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub enum ImageFit {
+    /// Shrink the axis to this many cells (`0` = the pane), never upscaling.
+    Contain(u16),
+    /// Scale the axis to this many cells (`0` = the pane), up or down.
+    Fill(u16),
+    /// Keep the scale implied by the other axis, cropping this one's overflow.
+    #[default]
+    Crop,
+}
+
+impl ImageFit {
+    /// Parse `contain`, `fill` or `crop`, the first two optionally with a cell count:
+    /// `fill:16`. `0` and no count both mean the pane.
+    pub(crate) fn parse(value: &str) -> Option<Self> {
+        let (fit, cells) = match value.split_once(':') {
+            Some((fit, cells)) => (fit, Some(cells.parse().ok()?)),
+            None => (value, None),
+        };
+        match fit {
+            "contain" => Some(Self::Contain(cells.unwrap_or(0))),
+            "fill" => Some(Self::Fill(cells.unwrap_or(0))),
+            "crop" if cells.is_none() => Some(Self::Crop),
+            _ => None,
+        }
+    }
+}
+
+impl TryFrom<String> for ImageFit {
+    type Error = String;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::parse(&value).ok_or_else(|| format!("unknown image fit: {value}"))
+    }
+}
+
+impl From<ImageFit> for String {
+    fn from(fit: ImageFit) -> Self {
+        match fit {
+            ImageFit::Contain(0) => "contain".to_string(),
+            ImageFit::Contain(cells) => format!("contain:{cells}"),
+            ImageFit::Fill(0) => "fill".to_string(),
+            ImageFit::Fill(cells) => format!("fill:{cells}"),
+            ImageFit::Crop => "crop".to_string(),
+        }
+    }
+}
+
+/// Resampling filter used when the image has to be scaled.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ImageFilter {
+    Nearest,
+    #[default]
+    Triangle,
+    CatmullRom,
+    Gaussian,
+    Lanczos3,
+}
+
+#[cfg(feature = "image")]
+impl From<ImageFilter> for ratatui_image::FilterType {
+    fn from(filter: ImageFilter) -> Self {
+        match filter {
+            ImageFilter::Nearest => Self::Nearest,
+            ImageFilter::Triangle => Self::Triangle,
+            ImageFilter::CatmullRom => Self::CatmullRom,
+            ImageFilter::Gaussian => Self::Gaussian,
+            ImageFilter::Lanczos3 => Self::Lanczos3,
+        }
+    }
+}
+
+/// Terminal graphics protocol used to display preview images.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ImageProtocol {
+    /// Use the protocol detected from the terminal.
+    #[default]
+    Auto,
+    /// Unicode half blocks, works everywhere.
+    Halfblocks,
+    Sixel,
+    Kitty,
+    Iterm2,
+    /// Never display images.
+    None,
+}
+
+/// How preview images are displayed.
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ImageOptions {
+    /// Graphics protocol; `auto` uses the terminal-detected one.
+    #[serde(deserialize_with = "camelcase_normalized")]
+    pub protocol: ImageProtocol,
+    /// How the image width is fitted to the pane.
+    pub horizontal_fit: ImageFit,
+    /// How the image height is fitted to the pane.
+    pub vertical_fit: ImageFit,
+    /// Resampling filter used when the image has to be scaled.
+    #[serde(deserialize_with = "camelcase_normalized")]
+    pub filter: ImageFilter,
+    /// Initial vertical crop offset in rows.
+    pub scroll: u16,
+}
+
+impl Default for ImageOptions {
+    fn default() -> Self {
+        Self {
+            protocol: ImageProtocol::Auto,
+            horizontal_fit: ImageFit::Contain(0),
+            vertical_fit: ImageFit::Crop,
+            filter: ImageFilter::Triangle,
+            scroll: 0,
+        }
+    }
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
@@ -744,6 +885,10 @@ pub struct PreviewerConfig {
     pub shell: Vec<OsString>,
     pub trim_commands: bool,
 
+    /// Whether to parse `<MM_IMAGE>` image headers from the preview output.
+    /// Disabling this displays such output as text instead.
+    pub images: bool,
+
     /// Extra arguments passed to preview commands.
     pub command_args: Vec<OsString>,
 }
@@ -760,6 +905,7 @@ impl Default for PreviewerConfig {
             help: Default::default(),
             shell: Default::default(),
             trim_commands: false,
+            images: true,
 
             command_args: Default::default(),
         }
@@ -1143,6 +1289,17 @@ mod tests {
             ScrollStrategy::default(),
             "defaults to the enum default",
         );
+    }
+
+    #[test]
+    fn image_fit_extent() {
+        let options: ImageOptions =
+            ::toml::from_str("horizontal_fit = \"fill:16\"\nvertical_fit = \"contain\"")
+                .expect("valid toml");
+        assert_eq!(options.horizontal_fit, ImageFit::Fill(16));
+        assert_eq!(options.vertical_fit, ImageFit::Contain(0));
+        assert_eq!(String::from(options.vertical_fit), "contain");
+        assert_eq!(String::from(options.horizontal_fit), "fill:16");
     }
 
     #[test]

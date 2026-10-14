@@ -1130,14 +1130,20 @@ where
 }
 
 fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {
-    // if ui.view.changed() {
-    // doesn't work, use resize
-    //     frame.render_widget(Clear, area);
-    // } else {
-    //     let widget = ui.make_preview();
-    //     frame.render_widget(widget, area);
-    // }
     assert!(ui.visible()); // don't call if not visible.
+
+    #[cfg(feature = "image")]
+    {
+        let inner = ui.area;
+        // Taken before the widget, which borrows the pane, is built.
+        let border = ui.border();
+        if let Some(image) = ui.image_widget() {
+            frame.render_widget(border.as_static_block(), area);
+            frame.render_widget(image, inner);
+            return;
+        }
+    }
+
     let widget = ui.make_preview();
     frame.render_widget(widget, area);
 }
@@ -1407,11 +1413,11 @@ mod test {
             RenderConfig, ShowCondition, Side, StringOrVec,
         },
         nucleo::Worker,
-        preview::{AppendOnly, Preview},
+        preview::{AppendOnly, Override, Preview},
         utils::Percentage,
     };
     use ratatui::{Terminal, backend::TestBackend, text::Text, widgets::Borders};
-    use std::sync::atomic::AtomicBool;
+    use std::sync::atomic::AtomicUsize;
     use std::sync::{Arc, Mutex};
 
     fn rect(width: u16, height: u16) -> Rect {
@@ -1444,6 +1450,7 @@ mod test {
     }
 
     fn test_preview() -> PreviewUI {
+        let override_ = Arc::new(Mutex::new(Override::Text(Text::raw("preview"))));
         let config = PreviewConfig {
             show: ShowCondition::Bool(true),
             layout: vec![PreviewSetting {
@@ -1460,8 +1467,9 @@ mod test {
         PreviewUI::new(
             Preview::new(
                 AppendOnly::new(),
-                Arc::new(Mutex::new(Some(Text::raw("preview")))),
-                Arc::new(AtomicBool::new(false)),
+                Default::default(),
+                override_,
+                Arc::new(AtomicUsize::new(0)),
             ),
             config,
             [80, 24],

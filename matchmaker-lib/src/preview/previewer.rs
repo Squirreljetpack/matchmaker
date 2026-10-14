@@ -1,22 +1,25 @@
 use ansi_to_tui::IntoText;
+use arc_swap::ArcSwap;
 use cba::broc::{CommandExt, EnvVars};
 use futures::FutureExt;
 use log::{debug, error, warn};
 use ratatui::text::{Line, Text};
 use std::io::BufReader;
 use std::process::{Child, Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 use tokio::sync::watch::{Receiver, Sender, channel};
 use tokio::task::JoinHandle;
 
-use super::AppendOnly;
+use super::{AppendOnly, Override};
 use crate::config::PreviewerConfig;
 use crate::event::EventSender;
 use crate::message::Event;
 use crate::preview::Preview;
+#[cfg(feature = "image")]
+use crate::preview::image::HeaderParser;
 
 #[derive(Debug, Default, strum_macros::Display, Clone)]
 pub enum PreviewMessage {
@@ -31,15 +34,16 @@ pub enum PreviewMessage {
 
 #[derive(Debug)]
 pub struct Previewer {
-    /// The reciever for for [`PreviewMessage`]'s.
+    /// The receiver for [`PreviewMessage`]'s.
     rx: Receiver<PreviewMessage>,
-    /// storage for preview command output
+    /// Storage for newline-terminated preview command output
     lines: AppendOnly<Line<'static>>,
-    /// storage for preview string override
-    string: Arc<Mutex<Option<Text<'static>>>>,
-    /// Flag which is set to true whenever the state changes
-    /// and which the viewer can toggle after receiving the current state
-    changed: Arc<AtomicBool>,
+    /// Storage for trailing un-terminated line of preview command output
+    last_line: Arc<ArcSwap<Option<Line<'static>>>>,
+    /// Storage for preview override (text or image)
+    override_: Arc<Mutex<Override>>,
+    /// Bumped whenever the previewer starts showing something else.
+    generation: Arc<AtomicUsize>,
 
     paused: bool,
     /// Maintain a queue of child processes to improve cleanup reliability
@@ -50,7 +54,6 @@ pub struct Previewer {
     pub config: PreviewerConfig,
     last: String,
     /// Event loop controller
-    // We only use it to send [`ControlEvent::Event`]
     event_controller_tx: Option<EventSender>,
 }
 
@@ -61,12 +64,14 @@ impl Previewer {
         let new = Self {
             rx,
             lines: AppendOnly::new(),
-            string: Default::default(),
-            changed: Default::default(),
+            last_line: Default::default(),
+            override_: Default::default(),
+            generation: Default::default(),
             paused: false,
 
             procs: Vec::new(),
             current: None,
+
             config,
             last: Default::default(),
             event_controller_tx: None,
@@ -78,35 +83,58 @@ impl Previewer {
     pub fn view(&self) -> Preview {
         Preview::new(
             self.lines.clone(),
-            self.string.clone(),
-            self.changed.clone(),
+            self.last_line.clone(),
+            self.override_.clone(),
+            self.generation.clone(),
         )
     }
 
+    /// Wake the renderer: what the preview shows changed.
     fn signal_dirty(&self) {
-        self.changed.store(true, Ordering::Release);
         if let Some(event_tx) = &self.event_controller_tx {
             let _ = event_tx.send(Event::PreviewFinished);
         }
     }
 
-    pub fn set_string(&self, s: Text<'static>) {
-        if let Ok(mut guard) = self.string.lock() {
-            *guard = Some(s);
+    pub fn set_override(&self, value: Override) {
+        self.generation.fetch_add(1, Ordering::Relaxed);
+        if let Ok(mut guard) = self.override_.lock() {
+            *guard = value;
             self.signal_dirty();
         }
     }
 
-    pub fn clear_string(&self) {
-        if let Ok(mut guard) = self.string.lock() {
-            *guard = None;
-            self.signal_dirty();
-        }
+    pub fn set_text(&self, text: Text<'static>) {
+        self.set_override(Override::Text(text));
     }
 
-    pub fn has_string(&self) -> bool {
-        let guard = self.string.lock();
-        guard.is_ok_and(|s| s.is_some())
+    pub fn clear_override(&self) {
+        self.set_override(Override::None);
+    }
+
+    pub fn has_override(&self) -> bool {
+        let guard = self.override_.lock();
+        guard.is_ok_and(|s| s.is_set())
+    }
+
+    fn parse_slice(valid_bytes: &[u8], try_lossy: bool, cmd_str: &str) -> Option<Text<'static>> {
+        match valid_bytes.into_text() {
+            Ok(text) => Some(text),
+            Err(e) => {
+                if try_lossy {
+                    warn!("Error displaying {cmd_str} (falling back to lossy): {e:?}");
+                    let lines = valid_bytes
+                        .strip_suffix(b"\n")
+                        .unwrap_or(valid_bytes)
+                        .split(|b| *b == b'\n')
+                        .map(|bytes| Line::from(String::from_utf8_lossy(bytes).into_owned()));
+                    Some(Text::from_iter(lines))
+                } else {
+                    error!("Error displaying {cmd_str}: {e:?}");
+                    None
+                }
+            }
+        }
     }
 
     pub async fn run(mut self) -> Result<(), Vec<Child>> {
@@ -131,7 +159,6 @@ impl Previewer {
                     tokio::time::sleep(Duration::from_millis(self.config.debounce_ms)).await;
                 }
 
-                // wait indefinitely until zombies get cleaned up
                 while self.procs.len() >= self.config.max_procs {
                     self.prune_procs();
                     if self.procs.len() < self.config.max_procs {
@@ -173,13 +200,12 @@ impl Previewer {
                         continue;
                     }
                     PreviewMessage::Set(s) => {
-                        self.set_string(s.clone());
+                        self.set_text(s.clone());
                         self.last.clear();
-                        // don't kill the underlying
                         continue;
                     }
                     PreviewMessage::Unset => {
-                        self.clear_string();
+                        self.clear_override();
                         self.last.clear();
                         continue;
                     }
@@ -187,8 +213,8 @@ impl Previewer {
                 }
             }
 
+            self.generation.fetch_add(1, Ordering::Relaxed);
             self.dispatch_kill();
-            self.clear_string();
 
             match m {
                 PreviewMessage::Run(cmd, variables) => {
@@ -206,137 +232,186 @@ impl Previewer {
 
                     if !self.config.delay_clear {
                         self.lines.clear();
-                        self.changed.store(true, Ordering::Release);
+                        self.last_line.store(Default::default());
+                        self.clear_override();
                     }
-                    // we could send it later to save some cpu but maybe this is more responsive
+
                     if let Some(event_tx) = &self.event_controller_tx {
                         let _ = event_tx.send(Event::PreviewStarted);
                     }
 
-                    // we need the child handle
                     if let Some(mut child) = cmd_builder._spawn() {
                         if let Some(stdout) = child.stdout.take() {
                             let lines = self.lines.clone();
                             let mut guard = self.lines.read();
-                            let changed = self.changed.clone();
-                            let cmd_str = cmd.clone();
-                            let event_tx = self.event_controller_tx.clone();
+                            let last_line_shared = self.last_line.clone();
+                            let override_ = self.override_.clone();
 
-                            // false => needs refresh (i.e. invalid utf-8)
-                            let handle = tokio::spawn(async move {
+                            let mut last_line_guard = self.last_line.load_full();
+                            let cmd_str = cmd.clone();
+                            let generation = Generation {
+                                counter: self.generation.clone(),
+                                value: self.generation.load(Ordering::Relaxed),
+                                event_tx: self.event_controller_tx.clone(),
+                            };
+
+                            let handle = tokio::task::spawn_blocking(move || {
                                 let mut reader = BufReader::new(stdout);
-                                let mut leftover = Vec::new();
+                                let mut raw_buf = Vec::new();
                                 let mut buf = [0u8; 8192];
                                 let mut first = true;
+                                #[cfg(feature = "image")]
+                                let mut image = HeaderParser::new(self.config.images);
 
                                 while let Ok(n) = std::io::Read::read(&mut reader, &mut buf) {
                                     if n == 0 {
                                         break;
                                     }
 
-                                    if first {
-                                        if self.config.delay_clear {
-                                            lines.clear();
-                                            guard = lines.read(); // get new consistent snapshot
-                                            changed.store(true, Ordering::Relaxed);
-                                        }
-                                        first = false;
+                                    if generation.superseded(false) {
+                                        break;
                                     }
 
-                                    leftover.extend_from_slice(&buf[..n]);
+                                    #[cfg(feature = "image")]
+                                    match image.feed(&buf[..n], &mut raw_buf) {
+                                        HeaderParser::Text
+                                        | HeaderParser::Path { remaining: 0, .. }
+                                        | HeaderParser::Inline { remaining: 0, .. } => {
+                                            if first {
+                                                if self.config.delay_clear {
+                                                    lines.clear();
+                                                    last_line_shared.store(Default::default());
+                                                    if let Ok(mut guard) = override_.lock() {
+                                                        *guard = Override::None;
+                                                    }
+                                                    guard = lines.read();
+                                                    last_line_guard = last_line_shared.load_full();
+                                                }
+                                                first = false;
+                                            }
+                                        }
+                                        _ => {
+                                            continue;
+                                        }
+                                    }
 
-                                    let valid_up_to = match std::str::from_utf8(&leftover) {
-                                        Ok(_) => leftover.len(),
-                                        Err(e) => e.valid_up_to(),
+                                    #[cfg(not(feature = "image"))]
+                                    {
+                                        raw_buf.extend_from_slice(&buf[..n]);
+                                        if first {
+                                            if self.config.delay_clear {
+                                                lines.clear();
+                                                last_line_shared.store(Default::default());
+                                                if let Ok(mut guard) = override_.lock() {
+                                                    *guard = Override::None;
+                                                }
+                                                guard = lines.read();
+                                                last_line_guard = last_line_shared.load_full();
+                                            }
+                                            first = false;
+                                        }
+                                    }
+
+                                    if let Some(pos) =
+                                        raw_buf.iter().rposition(|&b| b == b'\n' || b == b'\r')
+                                    {
+                                        let (valid_bytes, rest) = raw_buf.split_at(pos + 1);
+                                        let Some(text) = Self::parse_slice(
+                                            valid_bytes,
+                                            self.config.try_lossy,
+                                            &cmd_str,
+                                        ) else {
+                                            generation.superseded(true);
+                                            return false;
+                                        };
+
+                                        for line in text {
+                                            if generation.superseded(true) {
+                                                return true;
+                                            }
+                                            guard.push(line);
+                                        }
+
+                                        raw_buf = rest.to_vec();
+                                    }
+
+                                    let parsed_last_line = if raw_buf.is_empty() {
+                                        None
+                                    } else {
+                                        let valid_up_to = match std::str::from_utf8(&raw_buf) {
+                                            Ok(_) => raw_buf.len(),
+                                            Err(e) => e.valid_up_to(),
+                                        };
+                                        if valid_up_to > 0 {
+                                            match (&raw_buf[..valid_up_to]).into_text() {
+                                                Ok(t) => t.into_iter().next(),
+                                                Err(_) => None, // not try_lossy because we don't want to flash incomplete ansi seq
+                                            }
+                                        } else {
+                                            None
+                                        }
                                     };
 
-                                    let split_at = leftover[..valid_up_to]
-                                        .iter()
-                                        .rposition(|&b| b == b'\n' || b == b'\r')
-                                        .map(|pos| pos + 1)
-                                        .unwrap_or(valid_up_to);
-
-                                    let (valid_bytes, rest) = leftover.split_at(split_at);
-
-                                    match valid_bytes.into_text() {
-                                        Ok(text) => {
-                                            for line in text {
-                                                // re-check before pushing
-                                                if lines.is_expired(&guard) {
-                                                    return true;
-                                                }
-                                                guard.push(line);
-                                            }
-                                        }
-                                        Err(e) => {
-                                            if self.config.try_lossy {
-                                                for bytes in valid_bytes.split(|b| *b == b'\n') {
-                                                    if lines.is_expired(&guard) {
-                                                        return true;
-                                                    }
-                                                    let line =
-                                                        String::from_utf8_lossy(bytes).into_owned();
-                                                    guard.push(Line::from(line));
-                                                }
-                                            } else {
-                                                error!("Error displaying {cmd_str}: {:?}", e);
-                                                return false;
-                                            }
-                                        }
-                                    }
-
-                                    leftover = rest.to_vec();
+                                    // todo: implement custom parsing so we can parse to spans incrementally
+                                    let next = Arc::new(parsed_last_line);
+                                    last_line_shared
+                                        .compare_and_swap(&last_line_guard, Arc::clone(&next));
+                                    last_line_guard = next;
                                 }
 
-                                // no lines read, clear
+                                if generation.superseded(false) {
+                                    return true;
+                                }
+
                                 if first && self.config.delay_clear {
                                     lines.clear();
-                                    changed.store(true, Ordering::Relaxed);
-                                } else if !leftover.is_empty() && !lines.is_expired(&guard) {
-                                    match leftover.into_text() {
-                                        Ok(text) => {
-                                            for line in text {
-                                                if lines.is_expired(&guard) {
-                                                    return true;
-                                                }
-                                                guard.push(line);
-                                            }
-                                        }
-                                        Err(e) => {
-                                            if self.config.try_lossy {
-                                                for bytes in leftover.split(|b| *b == b'\n') {
-                                                    if lines.is_expired(&guard) {
-                                                        return true;
-                                                    }
-                                                    let line =
-                                                        String::from_utf8_lossy(bytes).into_owned();
-                                                    guard.push(Line::from(line));
-                                                }
-                                            } else {
-                                                error!("Error displaying {cmd_str}: {:?}", e);
-                                                return false;
-                                            }
-                                        }
+                                    last_line_shared.store(Default::default());
+                                    if let Ok(mut guard) = override_.lock() {
+                                        *guard = Override::None;
                                     }
                                 }
-                                if let Some(event_tx) = &event_tx {
-                                    let _ = event_tx.send(Event::PreviewFinished);
+
+                                #[cfg(feature = "image")]
+                                if let Some(image) = image.decode(generation.value) {
+                                    match image {
+                                        Ok(image) => {
+                                            match override_.lock() {
+                                                Ok(mut guard) => {
+                                                    *guard = Override::Image(image);
+                                                }
+                                                Err(_) => {
+                                                    generation.superseded(true);
+                                                    return false;
+                                                }
+                                            };
+                                        }
+                                        Err(e) => {
+                                            error!("Failed to load image for {cmd_str}: {e}");
+                                            generation.superseded(true);
+                                            return false;
+                                        }
+                                    };
                                 }
 
+                                generation.superseded(true);
                                 true
                             });
                             self.current = Some((child, handle))
                         } else {
                             error!("Failed to get stdout of preview command: {cmd}");
                             self.signal_dirty();
+                            self.clear_override();
                         }
                     } else {
                         error!("Failed to spawn preview command: {cmd}");
                         self.signal_dirty();
+                        self.clear_override();
                     }
                 }
                 PreviewMessage::Stop => {
                     self.lines.clear();
+                    self.last_line.store(Default::default());
+                    self.clear_override();
                     if !self.last.is_empty() {
                         self.last.clear();
                         self.signal_dirty();
@@ -357,17 +432,9 @@ impl Previewer {
             kill_child(&mut child);
             self.procs.push(child);
 
-            // drop future
             let mut old = Box::pin(old);
             match old.as_mut().now_or_never() {
-                Some(Ok(result))
-                    // unicode error
-                    if !result => {
-                        self.send(Event::Redraw)
-                    }
-                None => {
-                    old.abort(); // still works because `AbortHandle` is separate
-                }
+                Some(Ok(result)) if !result => self.send(Event::Redraw),
                 _ => {}
             }
         }
@@ -383,8 +450,6 @@ impl Previewer {
         self.event_controller_tx = Some(event_controller_tx)
     }
 
-    // todo: This would be cleaner with tokio::Child, but does that merit a conversion? I'm not sure if its worth it for the previewer to yield control while waiting for output cuz we are multithreaded anyways
-    // also, maybe don't want this delaying exit?
     fn cleanup_procs(mut self) -> Vec<Child> {
         let total_timeout = Duration::from_secs(1);
         let start = Instant::now();
@@ -427,6 +492,25 @@ impl Previewer {
     }
 }
 
+struct Generation {
+    counter: Arc<AtomicUsize>,
+    value: usize,
+    event_tx: Option<EventSender>,
+}
+
+impl Generation {
+    fn superseded(&self, prepare_return: bool) -> bool {
+        let superseded = self.value != self.counter.load(Ordering::Relaxed);
+        if prepare_return
+            && !superseded
+            && let Some(event_tx) = &self.event_tx
+        {
+            let _ = event_tx.send(Event::PreviewFinished);
+        }
+        superseded
+    }
+}
+
 fn kill_child(child: &mut Child) {
     let pid = child.id();
 
@@ -440,122 +524,3 @@ fn kill_child(child: &mut Child) {
     }
     let _ = child.kill();
 }
-
-// ---------- NON ANSI VARIANT
-// let reader = BufReader::new(stdout);
-// if self.config.try_lossy {
-// for line_result in reader.split(b'\n') {
-//     match line_result {
-//         Ok(bytes) => {
-//             let line =
-//             String::from_utf8_lossy(&bytes).into_owned();
-//             lines.push(Line::from(line));
-//         }
-//         Err(e) => error!("Failed to read line: {:?}", e),
-//     }
-// }
-// } else {
-//     for line_result in reader.lines() {
-//         match line_result {
-//             Ok(line) => lines.push(Line::from(line)),
-//             Err(e) => {
-//                 // todo: don't know why that even with an explicit ratatui clear, garbage sometimes stays on the screen
-//                 error!("Error displaying {cmd}: {:?}", e);
-//                 break;
-//             }
-//         }
-//     }
-// }
-
-// trait Resettable: Default {
-//     fn reset(&mut self) {}
-// }
-// impl<T> Resettable for AppendOnly<T> {
-//     fn reset(&mut self) {
-//         self.clear();
-//     }
-// }
-
-// use std::ops::{Deref, DerefMut};
-
-// #[derive(Debug)]
-// struct Queue<V: Resettable> {
-//     entries: Vec<(String, V)>,
-//     order: Vec<usize>, // indices ordered by recency (0 = most recent)
-// }
-
-// impl<V: Resettable> Queue<V> {
-//     pub fn new(len: usize) -> Self {
-//         Self {
-//             entries: (0..len)
-//             .map(|_| (String::default(), V::default()))
-//             .collect(),
-//             order: vec![len; len],
-//         }
-//     }
-
-//     fn find_key_pos(&self, key: &str) -> Option<(usize, usize)> {
-//         for (order_idx, &entries_idx) in self.order.iter().enumerate() {
-//             if order_idx == self.entries.len() {
-//                 return None
-//             }
-//             if self.entries[entries_idx].0 == key {
-//                 return Some((order_idx, entries_idx));
-//             }
-//         }
-//         None
-//     }
-
-//     /// Try to get a key; if found, move it to the top.
-//     /// If not found, replace the oldest, clear its vec, set new key.
-//     pub fn try_get(&mut self, key: &str) -> bool {
-//         let n = self.entries.len();
-
-//         if !key.is_empty() && let Some((order_idx, idx)) = self.find_key_pos(key) {
-//             self.order.copy_within(0..order_idx, 1);
-//             self.order[0] = idx;
-//             true
-//         } else {
-//             let order_idx = (0..n)
-//             .rfind(|&i| self.order[i] < n)
-//             .map(|i| i + 1)
-//             .unwrap_or(0);
-
-//             let idx = if self.order[order_idx] < self.entries.len() {
-//                 order_idx
-//             } else {
-//                 *self.order.last().unwrap()
-//             };
-
-//             // shift and insert at front
-//             self.order.copy_within(0..order_idx, 1);
-//             self.order[0] = idx;
-
-//             // reset and assign new key
-//             let (ref mut k, ref mut v) = self.entries[idx];
-//             *k = key.to_owned();
-//             v.reset();
-
-//             false
-//         }
-//     }
-// }
-
-// impl<V: Resettable> Deref for Queue<V> {
-//     type Target = V;
-//     fn deref(&self) -> &Self::Target {
-//         &self.entries[self.order[0]].1
-//     }
-// }
-
-// impl<V: Resettable> DerefMut for Queue<V> {
-//     fn deref_mut(&mut self) -> &mut Self::Target {
-//         &mut self.entries[self.order[0]].1
-//     }
-// }
-
-// impl<V: Resettable> Default for Queue<V> {
-//     fn default() -> Self {
-//         Self::new(1)
-//     }
-// }

@@ -1,4 +1,8 @@
 mod display;
+#[cfg(feature = "image")]
+mod image;
+#[cfg(feature = "image")]
+mod image_worker;
 mod input;
 mod overlay;
 mod preview;
@@ -92,8 +96,12 @@ impl UI {
             selector,
         );
 
+        #[allow(unused_mut)]
         let preview = if let Some(view) = view {
-            Some(PreviewUI::new(view, config.preview, ui_area))
+            let mut preview = PreviewUI::new(view, config.preview, ui_area);
+            #[cfg(feature = "image")]
+            preview.set_picker(tui.image_picker(preview.config.image.protocol));
+            Some(preview)
         } else {
             None
         };

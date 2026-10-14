@@ -6,6 +6,16 @@ use ratatui::{
     widgets::{Paragraph, Wrap},
 };
 
+#[cfg(feature = "image")]
+use crate::{
+    event::EventSender,
+    ui::image::{ImageState, ImageWidget},
+};
+#[cfg(feature = "image")]
+use matchmaker_partial::Apply;
+#[cfg(feature = "image")]
+use ratatui_image::picker::Picker;
+
 use crate::{
     config::{
         BorderSetting, PreviewConfig, PreviewInitialSetting, PreviewSetting, ShowCondition, Side,
@@ -30,13 +40,16 @@ pub struct PreviewUI {
     initial: PreviewInitialSetting,
     pub current_dimension: Option<u16>,
 
-    // scroll
+    /// [Vertical, Horizontal] to match what Paragraph expects
     pub scroll: [u16; 2],
-    offset: usize,
-    target: Option<usize>,
-    attained_target: bool,
+    pub(super) offset: usize,
+    pub(super) target: Option<usize>,
+    pub(super) attained_target: bool,
     pub jump: (bool, usize), // end, initial
     pub last_count: usize,
+
+    #[cfg(feature = "image")]
+    pub(super) image: ImageState,
 }
 
 impl PreviewUI {
@@ -95,6 +108,8 @@ impl PreviewUI {
 
         let idx = config.initial_layout;
 
+        #[cfg(feature = "image")]
+        let image = ImageState::new(view.generation_handle());
         let mut ret = Self {
             view,
             #[cfg(feature = "partial")]
@@ -110,11 +125,15 @@ impl PreviewUI {
             jump: Default::default(),
             show,
             current_dimension: None,
+            #[cfg(feature = "image")]
+            image,
         };
         ret.set_layout(idx);
 
         ret
     }
+
+    // --------------------------------------------------
 
     pub fn update_dimensions(&mut self, area: &Rect) {
         self.area = self.border().inner_of(*area);
@@ -290,9 +309,38 @@ impl PreviewUI {
         self.target
     }
 
+    /// Number of rows the current contents can scroll through.
+    fn total_lines(&self) -> usize {
+        #[cfg(feature = "image")]
+        if self.view.image().is_some() {
+            return self.image.rows();
+        }
+        self.view.len()
+    }
+
+    /// For images, the furthest offset that still shows image rows.
+    #[cfg(feature = "image")]
+    fn image_max_offset(&self, total_lines: usize) -> Option<usize> {
+        self.view
+            .image()
+            .is_some()
+            .then(|| total_lines.saturating_sub(self.area.height as usize))
+    }
+
+    /// The furthest the offset may scroll.
+    ///
+    /// Images stop with their last row visible; text may scroll past its end.
+    fn max_offset(&self, total_lines: usize) -> usize {
+        #[cfg(feature = "image")]
+        if let Some(max) = self.image_max_offset(total_lines) {
+            return max;
+        }
+        total_lines
+    }
+
     // ----- actions --------
     pub fn up(&mut self, n: u16) {
-        let total_lines = self.view.len();
+        let total_lines = self.total_lines();
         let n = n as usize;
 
         if self.offset >= n {
@@ -304,14 +352,15 @@ impl PreviewUI {
         }
     }
     pub fn down(&mut self, n: u16) {
-        let total_lines = self.view.len();
+        let total_lines = self.total_lines();
+        let max = self.max_offset(total_lines);
         let n = n as usize;
 
-        if self.offset + n > total_lines {
+        if self.offset + n > max {
             if self.config.scroll_wrap {
                 self.offset = 0;
             } else {
-                self.offset = total_lines;
+                self.offset = max;
             }
         } else {
             self.offset += n;
@@ -319,13 +368,22 @@ impl PreviewUI {
     }
 
     pub fn scroll(&mut self, horizontal: bool, val: i8) {
-        let a = &mut self.scroll[horizontal as usize];
+        if horizontal {
+            let a = &mut self.scroll[1];
 
-        if val == 0 {
-            *a = 0;
+            *a = if val == 0 {
+                0
+            } else {
+                a.saturating_add_signed(val as i16)
+            };
+        } else if val == 0 {
+            self.offset = 0;
         } else {
-            let new = (*a as i8 + val).clamp(0, u16::MAX as i8);
-            *a = new as u16;
+            let total = self.total_lines();
+
+            let max = self.max_offset(total) as isize;
+
+            self.offset = (self.offset as isize + val as isize).clamp(0, max) as usize;
         }
     }
 
@@ -333,6 +391,12 @@ impl PreviewUI {
         _info!(target);
 
         if self.initial().tail {
+            return;
+        }
+
+        #[cfg(feature = "image")]
+        if self.view.image().is_some() {
+            // Images do not follow the active item's line.
             return;
         }
 
@@ -408,9 +472,14 @@ impl PreviewUI {
         self.attained_target = false;
     }
     pub fn scroll_end(&mut self) {
-        let results = self.view.results();
-        let rl = results.lines.len();
+        let rl = self.total_lines();
         let height = self.area.height as usize;
+
+        #[cfg(feature = "image")]
+        if let Some(max) = self.image_max_offset(rl) {
+            self.offset = max;
+            return;
+        }
 
         let header_count = self.initial().header_lines.min(height);
         let remaining_lines = rl.saturating_sub(header_count);
@@ -556,6 +625,48 @@ impl PreviewUI {
         }
     }
 
+    /// Hand the terminal-detected image protocol picker to the preview pane.
+    #[cfg(feature = "image")]
+    pub(super) fn set_picker(&mut self, picker: Option<Picker>) {
+        self.image.set_picker(picker);
+    }
+
+    /// Wake the render loop when a rebuilt protocol is ready.
+    #[cfg(feature = "image")]
+    pub fn set_event_sender(&mut self, event_tx: EventSender) {
+        self.image.set_event_sender(event_tx);
+    }
+
+    /// The image widget, cropped to the current scroll offset.
+    ///
+    /// `None` when the preview is not showing an image, and while the protocol for the
+    /// current image and pane is still being built.
+    #[cfg(feature = "image")]
+    pub fn image_widget(&mut self) -> Option<ImageWidget> {
+        let image = self.view.image()?;
+        let mut options = self.config.image.clone();
+        options.apply(image.options.clone());
+
+        if Some(image.id) != self.image.last_id() {
+            // Scroll can be specified
+            self.offset = options.scroll as usize;
+            // reset hpan
+            self.scroll[1] = 0;
+
+            // dead parameters when image
+            self.target = None;
+            self.attained_target = false;
+            self.jump = (false, 0);
+        }
+        self.image
+            .prepare(image, &options, self.area, &mut self.scroll[1]);
+
+        Some(ImageWidget {
+            built: self.image.current()?,
+            offset: self.offset as u16,
+        })
+    }
+
     pub fn make_preview(&mut self) -> Paragraph<'_> {
         let mut results = self.view.results();
         if self.config.trim_ends {
@@ -567,7 +678,7 @@ impl PreviewUI {
         let mut offset = self.offset;
 
         // this only triggers on preview change but not guaranteed on every preview change -- attaching it to the event handler is worse
-        if rl < self.last_count {
+        if rl < self.last_count && self.view.image().is_none() {
             self.offset = 0;
             self.attained_target = false;
             self.jump = (false, 0)
@@ -645,11 +756,22 @@ impl PreviewUI {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{config::PreviewLayout, preview::AppendOnly, utils::Percentage};
-    use std::sync::atomic::AtomicBool;
+    #[cfg(feature = "image")]
+    use crate::preview::image::PreviewImage;
+    use crate::{
+        config::PreviewLayout,
+        preview::{AppendOnly, Override},
+        utils::Percentage,
+    };
+    #[cfg(feature = "image")]
+    use ratatui_image::picker::Picker;
+    use std::sync::atomic::AtomicUsize;
     use std::sync::{Arc, Mutex};
 
     fn test_preview(side: Side) -> PreviewUI {
+        let override_ = Arc::new(Mutex::new(Override::Text(ratatui::text::Text::raw(
+            "preview",
+        ))));
         let config = PreviewConfig {
             show: ShowCondition::Bool(true),
             layout: vec![PreviewSetting {
@@ -666,8 +788,9 @@ mod tests {
         PreviewUI::new(
             Preview::new(
                 AppendOnly::new(),
-                Arc::new(Mutex::new(Some(ratatui::text::Text::raw("preview")))),
-                Arc::new(AtomicBool::new(false)),
+                Default::default(),
+                override_,
+                Arc::new(AtomicUsize::new(0)),
             ),
             config,
             [80, 24],
@@ -808,5 +931,114 @@ mod tests {
                 height: 24
             }
         );
+    }
+
+    /// A visible preview pane showing `image`.
+    #[cfg(feature = "image")]
+    fn image_preview(
+        image: Arc<image::DynamicImage>,
+        options: crate::config::PartialImageOptions,
+    ) -> PreviewUI {
+        // The image's id is the generation it was installed at.
+        let generation = Arc::new(AtomicUsize::new(0));
+        let override_ = Arc::new(Mutex::new(Override::Image(PreviewImage {
+            data: image,
+            options,
+            id: 0,
+        })));
+        let config = PreviewConfig {
+            show: ShowCondition::Bool(true),
+            layout: vec![PreviewSetting {
+                layout: crate::config::PreviewLayout {
+                    side: Side::Right,
+                    percentage: Percentage::new(60),
+                    min: 15,
+                    max: 50,
+                },
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let mut preview = PreviewUI::new(
+            Preview::new(AppendOnly::new(), Default::default(), override_, generation),
+            config,
+            [80, 24],
+        );
+        preview.set_picker(Some(Picker::halfblocks()));
+        preview.update_dimensions(&Rect {
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 24,
+        });
+        preview
+    }
+
+    #[test]
+    #[cfg(feature = "image")]
+    fn image_restarts_at_its_own_offsets() {
+        let mut preview = image_preview(
+            Arc::new(image::DynamicImage::new_rgb8(10, 10)),
+            crate::config::PartialImageOptions {
+                scroll: Some(3),
+                ..Default::default()
+            },
+        );
+
+        preview.offset = 9;
+        preview.scroll[1] = 7;
+        // Preparing happens as part of rendering the widget.
+        preview.image_widget();
+        assert_eq!(preview.offset, 3);
+        assert_eq!(preview.scroll[1], 0);
+    }
+
+    #[test]
+    #[cfg(feature = "image")]
+    fn image_pan_is_clamped_to_the_image() {
+        // 40x20 in halfblocks' 10x20 cell is narrower than the pane, so there is no pan
+        // to be had and the stored offset must come back to zero.
+        let mut preview = image_preview(
+            Arc::new(image::DynamicImage::new_rgb8(40, 20)),
+            Default::default(),
+        );
+
+        preview.scroll[1] = 5;
+        preview.image_widget();
+        assert_eq!(preview.scroll[1], 0);
+    }
+
+    #[test]
+    #[cfg(feature = "image")]
+    fn image_builds_on_the_worker() {
+        let mut preview = image_preview(
+            Arc::new(image::DynamicImage::new_rgb8(100, 200)),
+            Default::default(),
+        );
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while preview.image_widget().is_none() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the image worker never finished"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "image")]
+    async fn image_builds_from_a_runtime_context() {
+        let mut preview = image_preview(
+            Arc::new(image::DynamicImage::new_rgb8(100, 200)),
+            Default::default(),
+        );
+
+        let mut attempts = 0;
+        while preview.image_widget().is_none() {
+            attempts += 1;
+            assert!(attempts < 1000, "the image worker never finished");
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        }
     }
 }

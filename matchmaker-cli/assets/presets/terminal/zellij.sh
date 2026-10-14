@@ -5,10 +5,11 @@
 #
 #   zellij.sh sessions           every session, active and otherwise (newest first)
 #                                age \t session \t "" \t "" \t state(EXITED|current|"")
-#   zellij.sh current            panes of the current session except ours, by pane id
+#   zellij.sh current            panes of the current session except ours,
+#                                youngest first, then by pane id
 #                                age \t session \t pane-id \t tab \t title
 #   zellij.sh other              panes of every non-EXITED, non-current session,
-#                                by session then pane id
+#                                youngest session first, then by pane id
 #                                age \t session \t pane-id \t tab \t title
 #   zellij.sh layouts [name...]  single-tab layouts from the user layout dir,
 #                                plus any extra layout names to include
@@ -66,6 +67,30 @@ pane_rows() {
             jq -r ".[]
                   | $filter
                   | \"\(env.AGE)\t\(env.SESS)\t\(.id|tostring)\t\(.tab_name)\t\(.title)\""
+}
+
+# Sort pane rows (age \t session \t id \t tab \t title) youngest first, ties
+# broken by session then pane id. `age` is zellij's humantime duration string
+# ("3months13days14h42m14s"), so it is converted to seconds for the sort.
+sort_by_age() {
+    awk -F'\t' -v OFS='\t' '
+    function unit_secs(u) {
+        if (u ~ /^year/)  return 31557600
+        if (u ~ /^month/) return 2630016
+        if (u ~ /^day/)   return 86400
+        if (u == "h")     return 3600
+        if (u == "m")     return 60
+        return 1
+    }
+    function age_secs(s,   parts, n, i, total) {
+        gsub(/[a-z]+/, " & ", s)
+        n = split(s, parts, /[ \t]+/)
+        total = 0
+        for (i = 1; i + 1 <= n; i += 2) total += parts[i] * unit_secs(parts[i + 1])
+        return total
+    }
+    { print age_secs($1), $0 }
+    ' | sort -k1,1n -k3,3 -k4,4n | cut -f2-
 }
 
 # Tab summary for the session picker preview.
@@ -245,7 +270,7 @@ cmd_sessions() {
 cmd_current() {
     [ -n "$current" ] || exit 0
     age=$(list_sessions | awk -F'\t' -v n="$current" '$1 == n { print $2; exit }')
-    pane_rows "$current" "$age" mine | sort -k3,3n
+    pane_rows "$current" "$age" mine | sort_by_age
 }
 
 cmd_other() {
@@ -256,7 +281,7 @@ cmd_other() {
     list_sessions |
         awk -F'\t' -v OFS='\t' -v cur="$current" '$3 != "EXITED" && $1 != cur { print $1, $2 }' |
         xargs -r -n 2 -P 10 "$script" --pane-rows |
-        sort -k2,2 -k3,3n
+        sort_by_age
 }
 
 cmd_layouts() {

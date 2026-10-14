@@ -16,6 +16,7 @@ matchmaker-partial-macros = { workspace = true, default-features = false }
 
 ansi-to-tui = "8.0.1"
 ratatui = { version = "0.30.2", features = ["serde", "crossterm"] }
+ratatui-image = { version = "11.1", default-features = false, features = ["crossterm"], optional = true }
 
 unicode-segmentation = "1.13.3"
 unicode-width = "^0.2.2"
@@ -33,6 +34,7 @@ crossterm = { version = "0.29.0", features = ["event-stream", "serde", "use-dev-
 easy-ext = "1.0.3"
 env_logger = "0.11.11"
 futures = "0.3.33"
+image = { version = "0.25", default-features = false, optional = true }
 indexmap = { version = "2.14.0", features = ["serde"] }
 log = "0.4.33"
 mio = "1.2.2"
@@ -62,6 +64,17 @@ bracketed-paste = ["crossterm/bracketed-paste"]
 parallelism = []
 experimental = []
 partial = ["matchmaker-partial", "matchmaker-partial-macros/partial"]
+# Image previews via the `<MM_IMAGE>` preview header. `image-all` (or any of the
+# `image/<codec>` dependency features) adds further formats.
+image = ["partial", "dep:image", "dep:ratatui-image", "image/png", "image/jpeg"]
+image-all = [
+    "image",
+    "image/gif",
+    "image/bmp",
+    "image/ico",
+    "image/tiff",
+    "image/webp",
+]
 
 [lib]
 name = "matchmaker"

@@ -20,6 +20,7 @@ _mm() {
 '*--override=[Paths without a toml extension refer to a preset]:PATH:_files' \
 '-C+[Context lines rolled into each item]:N:_default' \
 '--download=[Download all presets from GitHub, or a specific subfolder / preset file]::FOLDER:_default' \
+'--image=[Print an \`<MM_IMAGE>\` token for an image, falling back to \`chafa\`]:PATH:_files' \
 '--list=[Test a preset (see \`mm --doc other\`)]::N@ALIAS | N-M | N:TEMPLATE | TEMPLATE:_default' \
 '-d+[Display documentation]:DOC:(options binds template execute other pager)' \
 '--doc=[Display documentation]:DOC:(options binds template execute other pager)' \

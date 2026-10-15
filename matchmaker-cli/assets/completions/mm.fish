@@ -2,6 +2,7 @@ complete -c mm -l config -r -F
 complete -c mm -s o -l override -d 'Paths without a toml extension refer to a preset' -r -F
 complete -c mm -s C -d 'Context lines rolled into each item' -r
 complete -c mm -l download -d 'Download all presets from GitHub, or a specific subfolder / preset file' -r
+complete -c mm -l image -d 'Print an `<MM_IMAGE>` token for an image, falling back to `chafa`' -r -F
 complete -c mm -l list -d 'Test a preset (see `mm --doc other`)' -r
 complete -c mm -s d -l doc -d 'Display documentation' -r -f -a "options\t''
 binds\t''

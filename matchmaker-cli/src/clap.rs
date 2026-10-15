@@ -60,6 +60,10 @@ pub struct Cli {
     #[arg(long, value_name = "FOLDER", num_args = 0..=1, default_missing_value = "")]
     pub download: Option<String>,
 
+    /// Print an `<MM_IMAGE>` token for an image, falling back to `chafa`.
+    #[arg(long, value_name = "PATH")]
+    pub image: Option<PathBuf>,
+
     /// List installed presets.
     #[arg(long)]
     pub presets: bool,
@@ -137,6 +141,7 @@ impl Cli {
 
             // Long options with optional or required values
             try_parse!("config", "--");
+            try_parse!("image", "--");
             try_parse!("verbosity", "--");
             try_parse!("d", "-");
             try_parse!("override", "--");

@@ -71,6 +71,12 @@ async fn main() {
         );
     }
 
+    if let Some(image) = &cli.image {
+        // The positional args are handed to the image dispatcher instead of
+        // being parsed as config overrides.
+        handle_image(image, &config_args);
+    }
+
     if cli.presets {
         let presets_dir = presets_path();
         match preset_paths() {

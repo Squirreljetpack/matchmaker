@@ -1,6 +1,7 @@
 use cba::{_ibog, ebog, ibog};
 use serde::Deserialize;
 use std::{
+    io::{self, Write},
     path::{Path, PathBuf},
     process::{Command, exit},
 };
@@ -147,6 +148,36 @@ fn set_executable_bit(path: &Path) {
 
 #[cfg(not(unix))]
 fn set_executable_bit(_path: &Path) {}
+
+/// Handle `--image PATH`. Outputs an `<MM_IMAGE>` token when matchmaker can
+/// decode the image itself, otherwise renders it with `chafa` when installed,
+/// otherwise an empty line.
+///
+/// `args` are the positional arguments that followed the path. They are reserved
+/// for the image dispatcher and currently unused.
+/// This function always exits.
+pub fn handle_image(path: &Path, args: &[String]) -> ! {
+    let _ = args;
+
+    let mut stdout = io::stdout();
+
+    if path.is_file() {
+        #[cfg(feature = "image")]
+        if let Some(header) = matchmaker::preview::image::path_header(path) {
+            let _ = write!(stdout, "{header}");
+            let _ = stdout.flush();
+            exit(0);
+        }
+    }
+
+    if which::which("chafa").is_ok() {
+        let _ = Command::new("chafa").arg(path).status();
+        exit(0);
+    }
+
+    let _ = writeln!(stdout);
+    exit(0);
+}
 
 /// Handle `--download [FOLDER]`. `download` is the value of the flag: an
 /// empty string downloads every preset, a folder path downloads that folder,

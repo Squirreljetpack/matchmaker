@@ -32,6 +32,7 @@
 //! Anything that does not match exactly is ordinary preview output and is passed
 //! through unchanged.
 
+use std::path::Path;
 use std::sync::Arc;
 
 use image::{DynamicImage, ImageFormat};
@@ -39,8 +40,21 @@ use image::{DynamicImage, ImageFormat};
 use crate::config::PartialImageOptions;
 use log::error;
 
-/// Bytes that introduce an image preview: `\x1e<MM_IMAGE`.
-pub const MAGIC: &[u8] = b"\x1e<MM_IMAGE";
+/// Text that introduces an image preview: `\x1e<MM_IMAGE`.
+pub const MAGIC: &str = "\x1e<MM_IMAGE";
+
+/// The path-mode `<MM_IMAGE>` header for `path`: the token that makes a preview
+/// show the file as an image. The declared byte count is the path's length.
+/// Returns `None` when the build has no decoder for the path's format.
+pub fn path_header(path: &Path) -> Option<String> {
+    let format = ImageFormat::from_path(path).ok()?;
+    if !format.reading_enabled() {
+        return None;
+    }
+
+    let path = path.to_string_lossy();
+    Some(format!("{MAGIC}:{}>\n{}", path.len(), path))
+}
 
 /// Decoded image data with the options it should be displayed with.
 #[derive(Debug, Clone)]
@@ -169,7 +183,10 @@ impl HeaderParser {
 
         let start = output.len();
         output.extend_from_slice(chunk);
-        if !MAGIC.starts_with(&output[..output.len().min(MAGIC.len())]) {
+        if !MAGIC
+            .as_bytes()
+            .starts_with(&output[..output.len().min(MAGIC.len())])
+        {
             *self = Self::Text;
             return;
         }
@@ -258,7 +275,7 @@ impl HeaderParser {
 /// Returns the format for inline mode (`None` for path mode), the declared byte
 /// count, and the parsed options, or `None` if the line is not a valid image header.
 fn parse_first_line(line: &[u8]) -> Option<(Option<ImageFormat>, usize, PartialImageOptions)> {
-    let rest = line.strip_prefix(MAGIC)?;
+    let rest = line.strip_prefix(MAGIC.as_bytes())?;
 
     // `<MM_IMAGE/N>` selects inline mode, `<MM_IMAGE:N>` path mode.
     let (format, rest) = if let Some(rest) = rest.strip_prefix(b"/") {

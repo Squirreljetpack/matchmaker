@@ -23,7 +23,7 @@ _mm() {
 
     case "${cmd}" in
         mm)
-            opts="-o -F -C -q -v -d -V --config --override --dump-config --test-keys --last-key --no-read --download --presets --list --doc --help --version"
+            opts="-o -F -C -q -v -d -V --config --override --dump-config --test-keys --last-key --no-read --download --image --presets --list --doc --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -46,6 +46,10 @@ _mm() {
                     return 0
                     ;;
                 --download)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --image)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

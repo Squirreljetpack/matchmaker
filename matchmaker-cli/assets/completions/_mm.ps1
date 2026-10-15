@@ -26,6 +26,7 @@ Register-ArgumentCompleter -Native -CommandName 'mm' -ScriptBlock {
             [CompletionResult]::new('--override', '--override', [CompletionResultType]::ParameterName, 'Paths without a toml extension refer to a preset')
             [CompletionResult]::new('-C', '-C ', [CompletionResultType]::ParameterName, 'Context lines rolled into each item')
             [CompletionResult]::new('--download', '--download', [CompletionResultType]::ParameterName, 'Download all presets from GitHub, or a specific subfolder / preset file')
+            [CompletionResult]::new('--image', '--image', [CompletionResultType]::ParameterName, 'Print an `<MM_IMAGE>` token for an image, falling back to `chafa`')
             [CompletionResult]::new('--list', '--list', [CompletionResultType]::ParameterName, 'Test a preset (see `mm --doc other`)')
             [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Display documentation')
             [CompletionResult]::new('--doc', '--doc', [CompletionResultType]::ParameterName, 'Display documentation')

@@ -1,5 +1,7 @@
 #[cfg(feature = "image")]
 pub mod image;
+#[cfg(feature = "image")]
+mod image_header;
 pub mod previewer;
 mod view;
 pub use view::{Override, Preview};

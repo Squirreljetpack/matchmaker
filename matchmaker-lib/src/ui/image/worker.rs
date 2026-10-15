@@ -1,8 +1,8 @@
 //! The thread that turns a wanted protocol into an encoded one.
 //!
 //! Cropping, resampling and encoding an image is far too slow to do while rendering, so
-//! the pane's [`ImageState`](super::preview_image::ImageState) hands it to a worker
-//! thread and picks the result up on a later frame.
+//! the pane's [`ImageState`](super::ImageState) hands it to a worker thread and picks
+//! the result up on a later frame.
 //!
 //! Only the newest request is ever built: a newer one replaces whatever is waiting, and
 //! one the previewer has moved past is dropped.
@@ -21,8 +21,8 @@ use crate::message::Event;
 use crate::preview::image::PreviewImage;
 
 pub struct CachedImage {
-    pub(super) key: ImageKey,
-    pub(super) protocol: SlicedProtocol,
+    pub key: ImageKey,
+    pub protocol: SlicedProtocol,
 }
 
 impl std::fmt::Debug for CachedImage {
@@ -36,7 +36,7 @@ impl std::fmt::Debug for CachedImage {
 
 /// A key to build a protocol for, with what building it needs.
 #[derive(Debug)]
-pub(super) struct ImageRequest {
+pub struct ImageRequest {
     key: ImageKey,
     image: PreviewImage,
     picker: Picker,
@@ -47,28 +47,28 @@ pub(super) struct ImageRequest {
 /// Everything the build needs is in here, so two equal keys want the same protocol: a
 /// pane resize that leaves the displayed size and window alone does not rebuild one.
 #[derive(Debug, Clone, PartialEq)]
-pub(super) struct ImageKey {
+pub struct ImageKey {
     /// Id of the image, which is also its generation.
-    pub(super) id: usize,
+    pub id: usize,
     /// Full size of the image in cells, at the scale the axis fit modes ask for.
-    pub(super) display: [u16; 2],
+    pub display: [u16; 2],
     /// The part of it the pane can see across its width.
-    pub(super) window: Window,
+    pub window: Window,
     /// How to fit, crop and resample it.
-    pub(super) options: ImageOptions,
+    pub options: ImageOptions,
 }
 
 /// The part of the image the pane shows across its width.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct Window {
+pub struct Window {
     /// First cell column of the image that is visible.
-    pub(super) offset: u16,
+    pub offset: u16,
     /// How many cell columns of it are.
-    pub(super) width: u16,
+    pub width: u16,
 }
 
 impl ImageRequest {
-    pub(super) fn new(key: ImageKey, image: PreviewImage, picker: Picker) -> Self {
+    pub fn new(key: ImageKey, image: PreviewImage, picker: Picker) -> Self {
         Self { key, image, picker }
     }
 
@@ -132,7 +132,7 @@ impl ImageRequest {
 /// A request is dropped before it is built when a newer one is already waiting, so a
 /// burst of them costs one build, the newest. One that arrives while a build runs waits
 /// in the slot and is built next.
-pub(super) fn image_worker(
+pub fn image_worker(
     pending: Arc<ArcSwapOption<ImageRequest>>,
     current: Arc<ArcSwapOption<CachedImage>>,
     generation: Arc<AtomicUsize>,
@@ -179,7 +179,6 @@ mod tests {
     use image::DynamicImage;
 
     use super::*;
-    use crate::ui::image_worker::Window;
 
     /// A request for a `dimensions` image showing `display` cells, of which `window`
     /// across is visible.

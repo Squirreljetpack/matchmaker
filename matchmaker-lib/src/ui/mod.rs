@@ -1,8 +1,6 @@
 mod display;
 #[cfg(feature = "image")]
 mod image;
-#[cfg(feature = "image")]
-mod image_worker;
 mod input;
 mod overlay;
 mod preview;
@@ -11,6 +9,8 @@ mod status;
 pub mod utils;
 use cba::_trace;
 pub use display::*;
+#[cfg(feature = "image")]
+pub use image::ImageWidget;
 pub use input::*;
 pub use overlay::*;
 pub use preview::*;

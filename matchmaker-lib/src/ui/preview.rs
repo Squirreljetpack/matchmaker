@@ -49,7 +49,7 @@ pub struct PreviewUI {
     pub last_count: usize,
 
     #[cfg(feature = "image")]
-    pub(super) image: ImageState,
+    image: Option<ImageState>,
 }
 
 impl PreviewUI {
@@ -108,8 +108,6 @@ impl PreviewUI {
 
         let idx = config.initial_layout;
 
-        #[cfg(feature = "image")]
-        let image = ImageState::new(view.generation_handle());
         let mut ret = Self {
             view,
             #[cfg(feature = "partial")]
@@ -126,7 +124,7 @@ impl PreviewUI {
             show,
             current_dimension: None,
             #[cfg(feature = "image")]
-            image,
+            image: None,
         };
         ret.set_layout(idx);
 
@@ -313,7 +311,7 @@ impl PreviewUI {
     fn total_lines(&self) -> usize {
         #[cfg(feature = "image")]
         if self.view.image().is_some() {
-            return self.image.rows();
+            return self.image.as_ref().map_or(0, ImageState::rows);
         }
         self.view.len()
     }
@@ -628,13 +626,15 @@ impl PreviewUI {
     /// Hand the terminal-detected image protocol picker to the preview pane.
     #[cfg(feature = "image")]
     pub(super) fn set_picker(&mut self, picker: Option<Picker>) {
-        self.image.set_picker(picker);
+        self.image = picker.map(|picker| ImageState::new(self.view.generation_handle(), picker));
     }
 
     /// Wake the render loop when a rebuilt protocol is ready.
     #[cfg(feature = "image")]
     pub fn set_event_sender(&mut self, event_tx: EventSender) {
-        self.image.set_event_sender(event_tx);
+        if let Some(image) = &mut self.image {
+            image.set_event_sender(event_tx);
+        }
     }
 
     /// The image widget, cropped to the current scroll offset.
@@ -647,24 +647,20 @@ impl PreviewUI {
         let mut options = self.config.image.clone();
         options.apply(image.options.clone());
 
-        if Some(image.id) != self.image.last_id() {
-            // Scroll can be specified
-            self.offset = options.scroll as usize;
-            // reset hpan
-            self.scroll[1] = 0;
+        if Some(image.id) != self.image.as_ref().and_then(ImageState::last_id) {
+            // The header's initial crop: the vertical offset scrolls the
+            // preview, the horizontal one pans the image.
+            self.offset = options.scroll[0] as usize;
+            self.scroll[1] = options.scroll[1];
 
             // dead parameters when image
             self.target = None;
             self.attained_target = false;
             self.jump = (false, 0);
         }
-        self.image
-            .prepare(image, &options, self.area, &mut self.scroll[1]);
-
-        Some(ImageWidget {
-            built: self.image.current()?,
-            offset: self.offset as u16,
-        })
+        let state = self.image.as_mut()?;
+        state.prepare(image, &options, self.area, &mut self.scroll[1]);
+        state.widget(self.offset as u16)
     }
 
     pub fn make_preview(&mut self) -> Paragraph<'_> {
@@ -678,7 +674,11 @@ impl PreviewUI {
         let mut offset = self.offset;
 
         // this only triggers on preview change but not guaranteed on every preview change -- attaching it to the event handler is worse
-        if rl < self.last_count && self.view.image().is_none() {
+        #[cfg(feature = "image")]
+        let showing_image = self.view.image().is_some();
+        #[cfg(not(feature = "image"))]
+        let showing_image = false;
+        if rl < self.last_count && !showing_image {
             self.offset = 0;
             self.attained_target = false;
             self.jump = (false, 0)
@@ -977,10 +977,13 @@ mod tests {
     #[test]
     #[cfg(feature = "image")]
     fn image_restarts_at_its_own_offsets() {
+        // 1000x10 pixels is 100x1 halfblock cells, which is wider than the 80-cell
+        // pane, so both axes of the initial scroll can be kept.
         let mut preview = image_preview(
-            Arc::new(image::DynamicImage::new_rgb8(10, 10)),
+            Arc::new(image::DynamicImage::new_rgb8(1000, 10)),
             crate::config::PartialImageOptions {
-                scroll: Some(3),
+                scroll: Some([3, 4]),
+                horizontal_fit: Some(crate::config::ImageFit::Crop),
                 ..Default::default()
             },
         );
@@ -990,7 +993,7 @@ mod tests {
         // Preparing happens as part of rendering the widget.
         preview.image_widget();
         assert_eq!(preview.offset, 3);
-        assert_eq!(preview.scroll[1], 0);
+        assert_eq!(preview.scroll[1], 4);
     }
 
     #[test]

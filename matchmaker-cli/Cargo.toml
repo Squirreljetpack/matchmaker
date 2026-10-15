@@ -70,11 +70,13 @@ path = "src/main.rs"
 workspace = true
 
 [features]
-default = ["mlua", "pager", "image"]
+default = ["mlua", "pager", "image", "image-svg"]
 mlua = ["dep:mlua"]
 pager = ["dep:minus"]
 # Image previews via the `<MM_IMAGE>` preview header.
 image = ["matchmaker-lib/image"]
+# SVG previews, rasterized with resvg.
+image-svg = ["matchmaker-lib/image-svg"]
 image-all = ["matchmaker-lib/image-all"]
 experimental = [
     "matchmaker-lib/experimental",

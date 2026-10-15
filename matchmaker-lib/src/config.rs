@@ -851,8 +851,8 @@ pub struct ImageOptions {
     /// Resampling filter used when the image has to be scaled.
     #[serde(deserialize_with = "camelcase_normalized")]
     pub filter: ImageFilter,
-    /// Initial vertical crop offset in rows.
-    pub scroll: u16,
+    /// Initial display offset in cells, as `[vertical, horizontal]`.
+    pub scroll: [u16; 2],
 }
 
 impl Default for ImageOptions {
@@ -862,7 +862,7 @@ impl Default for ImageOptions {
             horizontal_fit: ImageFit::Contain(0),
             vertical_fit: ImageFit::Crop,
             filter: ImageFilter::Triangle,
-            scroll: 0,
+            scroll: [0, 0],
         }
     }
 }

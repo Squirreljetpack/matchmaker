@@ -44,6 +44,7 @@ paste = "1.0.15"
 phf = { version = "0.14.0", features = ["macros", "phf_macros"] }
 # rayon = "1.11.0"
 regex = "1.13.1"
+resvg = { version = "0.48", default-features = false, optional = true }
 rustc-hash = "2.1.3"
 serde = { version = "1.0.229", features = ["derive"] }
 strum = "0.28.0"
@@ -67,8 +68,11 @@ partial = ["matchmaker-partial", "matchmaker-partial-macros/partial"]
 # Image previews via the `<MM_IMAGE>` preview header. `image-all` (or any of the
 # `image/<codec>` dependency features) adds further formats.
 image = ["partial", "dep:image", "dep:ratatui-image", "image/png", "image/jpeg"]
+# SVG previews, rasterized with resvg. Built without text or font support.
+image-svg = ["image", "dep:resvg"]
 image-all = [
     "image",
+    "image-svg",
     "image/gif",
     "image/bmp",
     "image/ico",

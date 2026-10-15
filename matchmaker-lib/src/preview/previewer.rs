@@ -19,7 +19,7 @@ use crate::event::EventSender;
 use crate::message::Event;
 use crate::preview::Preview;
 #[cfg(feature = "image")]
-use crate::preview::image::HeaderParser;
+use crate::preview::image_header::HeaderParser;
 
 #[derive(Debug, Default, strum_macros::Display, Clone)]
 pub enum PreviewMessage {

@@ -732,22 +732,10 @@ pub struct PreviewInitialSetting {
 
 /// How a single image axis is fitted into the preview pane.
 ///
-/// The image is always scaled by a single factor that keeps its proportions, so the
-/// two axes interact:
+/// The image keeps its proportions, so the two axes resolve together; [the image
+/// guide] documents the combinations and the cell extents each mode fits into.
 ///
-/// - `fill` + `fill`: the larger scale wins, filling the pane and cropping the
-///   overflow on the other axis.
-/// - `fill` + `contain`: the fill scale wins, unless it would make the image exceed
-///   the contained axis.
-/// - `fill` + `crop`: the fill scale wins; the other axis follows it and is cropped.
-/// - `contain` + `contain`: the smaller scale wins, so neither axis is exceeded.
-/// - `contain` + `crop`: the contained axis wins and the other follows it.
-/// - `crop` + `crop`: nothing is scaled; the pane crops and the image can be scrolled.
-///
-/// `contain` and `fill` name the extent they fit into in cells, `0` meaning the pane
-/// itself: `hfit=fill:16` makes the image 16 cells wide however wide the pane is,
-/// while `fill` fills the pane. A `contain` extent only shrinks, never past the
-/// image's native size; a `fill` extent grows or shrinks to reach it.
+/// [the image guide]: https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/image.md
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub enum ImageFit {
@@ -837,6 +825,11 @@ pub enum ImageProtocol {
 }
 
 /// How preview images are displayed.
+///
+/// Every option is described in [the image guide], which `mm --doc image` renders
+/// in a terminal.
+///
+/// [the image guide]: https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/image.md
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -851,8 +844,13 @@ pub struct ImageOptions {
     /// Resampling filter used when the image has to be scaled.
     #[serde(deserialize_with = "camelcase_normalized")]
     pub filter: ImageFilter,
+    /// Magnification of the image; `1.0` shows it at its fitted size.
+    pub zoom: f32,
     /// Initial display offset in cells, as `[vertical, horizontal]`.
     pub scroll: [u16; 2],
+    /// Lines of the preview's text drawn above the image, taken from the start of the
+    /// output after the image payload.
+    pub header_lines: u16,
 }
 
 impl Default for ImageOptions {
@@ -862,7 +860,9 @@ impl Default for ImageOptions {
             horizontal_fit: ImageFit::Contain(0),
             vertical_fit: ImageFit::Crop,
             filter: ImageFilter::Triangle,
+            zoom: 1.0,
             scroll: [0, 0],
+            header_lines: 0,
         }
     }
 }

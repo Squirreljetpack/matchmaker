@@ -12,17 +12,26 @@ use super::worker::Window;
 use crate::config::{ImageFit, ImageOptions};
 
 /// The area of the image the pane shows for a horizontal pan of `scroll` cells.
-pub fn window(display: [u16; 2], area: Rect, scroll: u16) -> Window {
-    let offset = scroll.min(max_pan(display, area));
+pub fn window(display: [u16; 2], area: Rect, zoom: f32, scroll: u16) -> Window {
+    let offset = scroll.min(max_pan(display, area, zoom));
     Window {
         offset,
-        width: area.width.min(display[0] - offset),
+        // The box on screen is never wider than the unzoomed `display[0]` or the pane.
+        width: area.width.min(display[0]),
     }
 }
 
-/// The furthest an image can be panned before it would leave the pane.
-pub fn max_pan(display: [u16; 2], area: Rect) -> u16 {
-    display[0].saturating_sub(area.width)
+/// The furthest an image can be panned before its right edge reaches the box's right edge.
+pub fn max_pan(display: [u16; 2], area: Rect, zoom: f32) -> u16 {
+    let zoomed_width = (display[0] as f32 * zoom.max(1.0)).round() as u16;
+    zoomed_width.saturating_sub(area.width.min(display[0]))
+}
+
+/// The rows the image takes in the document: the fitted height, magnified by `zoom`.
+pub fn zoom_rows(display: [u16; 2], zoom: f32) -> u16 {
+    (display[1] as f32 * zoom.max(1.0))
+        .round()
+        .clamp(1.0, u16::MAX as f32) as u16
 }
 
 /// The size of `image` in cells, at the scale the axis fit modes ask for.
@@ -123,6 +132,25 @@ mod tests {
         assert_eq!(scale(Fill(0), Fill(0)), 0.4);
         assert_eq!(scale(Contain(0), Crop), 0.4);
         assert_eq!(scale(Crop, Contain(0)), 0.2);
+    }
+
+    /// Zoom widens the image past its box, and the pan walks across the extra cells.
+    #[test]
+    fn zoom_pans_the_magnified_image() {
+        let area = Rect::new(0, 0, 40, 20);
+
+        // The 20-cell-wide box in a 40-cell pane has nowhere to pan.
+        assert_eq!(max_pan([20, 10], area, 1.0), 0);
+        // At zoom 2 the image is 40 cells across, so 20 of them are extra.
+        assert_eq!(max_pan([20, 10], area, 2.0), 20);
+        assert_eq!(
+            window([20, 10], area, 2.0, 30),
+            Window {
+                offset: 20,
+                width: 20
+            }
+        );
+        assert_eq!(zoom_rows([20, 10], 2.0), 20);
     }
 
     /// A cell count replaces the pane extent on that axis only.

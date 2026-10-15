@@ -60,7 +60,8 @@ pub struct Cli {
     #[arg(long, value_name = "FOLDER", num_args = 0..=1, default_missing_value = "")]
     pub download: Option<String>,
 
-    /// Print an `<MM_IMAGE>` token for an image, falling back to `chafa`.
+    /// Print an `<MM_IMAGE>` token for an image, passing through positional arguments
+    /// as header options. Falls back to `chafa` unless `-q` is given.
     #[arg(long, value_name = "PATH")]
     pub image: Option<PathBuf>,
 
@@ -86,6 +87,7 @@ pub enum Doc {
     Execute,
     Other,
     Pager,
+    Image,
 }
 
 impl Cli {

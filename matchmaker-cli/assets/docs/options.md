@@ -254,17 +254,19 @@ All colors and modifiers come from ratatui:
   - `index` (string or integer, optional) – Extract the initial display index `n` of the preview window from this column. `n` lines are skipped after the header lines are consumed.
   - `o`, `offset` (integer) – Adjust the initial scroll index relative to `index`.
   - `p`, `percentage` (0-100) – How far from the bottom of the preview window the scroll offset should appear.
-  - `h`, `header_lines` (number) – Keep the top N lines as a fixed header so that they are always visible.
+  - `h`, `header_lines` (number) – Keep the top N lines as a fixed header so that they are always visible. Ignored while an `<MM_IMAGE>` image is shown; the image header's own `header_lines` decides how many lines sit above it.
   - `t`, `tail` (bool) – Start with the scroll at the bottom of the preview window.
 - `initial_layout`: (number) Index of the initially selected preview layout.
 - `trim_ends`: (bool) Trim leading and trailing newlines from preview output.
 - `reevaluate_show_on_resize`: (bool) Re-evaluate the `show` condition after a resize.
 - `drag_width`: (integer, optional) Width of the divider strip used for mouse resizing. `0` disables drag resizing; omitted uses the preview border width.
-- `image`: How `<MM_IMAGE>` preview images are displayed.
+- `image`: How `<MM_IMAGE>` preview images are displayed. See `mm --doc image` for the full guide.
   - `protocol`: Graphics protocol to render with: `auto`, `half_blocks`, `sixel`, `kitty`, `iterm2`, or `none` to disable images (default `auto`). Anything but `auto` wins over what the terminal reported, so a protocol the terminal cannot render is drawn as garbage rather than replaced; use `auto` to go by detection.
-  - `horizontal_fit`, `vertical_fit`: How each axis is fitted to the preview pane: `contain` (shrink to the pane, never enlarge), `fill` (scale to the pane extent, may enlarge) or `crop` (leave unconstrained and clip). Defaults to `horizontal_fit = "contain"`, `vertical_fit = "crop"`. `contain` and `fill` may name their own extent in cells instead of the pane, e.g. `"fill:16"` makes the axis 16 cells long however wide the pane is, and `0` means the pane; a `contain` extent is a cap that only shrinks, while a `fill` extent is reached in either direction. The image always keeps its proportions, so the two axes resolve together: `fill` + `fill` uses the larger scale and crops the overflow, `fill` + `contain` fills unless that would exceed the contained axis, `fill` + `crop` fills, `contain` + `contain` uses the smaller scale so neither axis is exceeded, `contain` + `crop` contains, and `crop` + `crop` scales nothing (the image stays at its native pixel size and can be scrolled).
+  - `horizontal_fit`, `vertical_fit`: How each axis is fitted to the preview pane: `contain` (shrink to the pane, never enlarge), `fill` (scale to the pane extent, may enlarge) or `crop` (leave unconstrained and clip). Defaults to `horizontal_fit = "contain"`, `vertical_fit = "crop"`. Either may name its own extent in cells instead of the pane, e.g. `"fill:16"`, with `0` meaning the pane. The image keeps its proportions, so the two axes resolve together; `mm --doc image` lists the combinations.
   - `filter`: Resampling filter used when the image has to be scaled: `nearest`, `triangle`, `catmull_rom`, `gaussian` or `lanczos3`. Defaults to `triangle`.
-  - `scroll`: Initial vertical crop offset in rows (default 0). Scrolling crops the image vertically and pans horizontally when the fitted image is wider than the pane; both are re-encoded off the UI thread.
+  - `zoom`: Magnification of `1.0` or more (default `1.0`). The image's rows grow with it and less of its width is shown at a time; the vertical preview scroll zooms it by tenths while it is on screen.
+  - `scroll`: Initial `[vertical, horizontal]` offset in cells (default `[0, 0]`): where the preview starts, and how far the image is panned.
+  - `header_lines`: Lines of the text after the image payload drawn above the image instead of after it (default 0). The image is fitted into the pane height that remains under them.
 
 ### Previewer (`previewer.`)
 

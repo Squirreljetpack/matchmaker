@@ -73,8 +73,9 @@ async fn main() {
 
     if let Some(image) = &cli.image {
         // The positional args are handed to the image dispatcher instead of
-        // being parsed as config overrides.
-        handle_image(image, &config_args);
+        // being parsed as config overrides; `-q` keeps it from falling back to
+        // `chafa`.
+        handle_image(image, &config_args, cli.quiet > 0);
     }
 
     if cli.presets {
@@ -137,17 +138,17 @@ async fn main() {
             MatchError::TUIError(e) => {
                 ebog!("TUI"; "{e}");
                 // Hard failure; 2 keeps it disjoint from user aborts
-                // (`Quit`) and the 4xx no-match codes.
+                // (`Quit`) and the no-match codes.
                 exit(2)
             }
             MatchError::NoMatch => {
                 let e = std::mem::take(&mut *CHUNK_ERROR.lock().unwrap());
                 if e.is_empty() {
                     ebog!("NoMatch");
-                    exit(404);
+                    exit(148);
                 } else {
                     ebog!("ChunkError"; "{e}");
-                    exit(400);
+                    exit(144);
                 }
             }
             _ => unreachable!(),
@@ -197,6 +198,7 @@ fn display_doc(cli: &Cli) {
             Doc::Execute => md.push_str(include_str!("../assets/docs/execute.md")),
             Doc::Other => md.push_str(include_str!("../assets/docs/other.md")),
             Doc::Pager => md.push_str(include_str!("../assets/docs/pager.md")),
+            Doc::Image => md.push_str(include_str!("../assets/docs/image.md")),
         }
     }
 

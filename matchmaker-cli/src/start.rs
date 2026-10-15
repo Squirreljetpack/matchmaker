@@ -413,8 +413,8 @@ impl<F: FnMut(String) -> Result<(), E>, E> RollingWindow<F> {
 pub static COMMAND_ARGS: Mutex<Vec<std::ffi::OsString>> = Mutex::new(Vec::new());
 
 /// Holds the most recent chunk-read error so the top-level handler in
-/// `main` can distinguish a chunk-error exit (400) from a plain
-/// no-match exit (404). Drained via `mem::take` on the consumer side.
+/// `main` can distinguish a chunk-error exit (144) from a plain
+/// no-match exit (148). Drained via `mem::take` on the consumer side.
 pub static CHUNK_ERROR: Mutex<String> = Mutex::new(String::new());
 
 pub fn process_envs(mut envs: HashMap<String, EnvValue>) -> HashMap<String, String> {

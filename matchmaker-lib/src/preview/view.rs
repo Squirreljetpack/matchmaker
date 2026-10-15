@@ -52,11 +52,9 @@ impl Preview {
     }
 
     /// The text to display: the text override, or the lines this preview accumulated.
-    pub fn results(&self) -> Text<'_> {
+    pub fn results(&self) -> Text<'static> {
         match self.override_() {
             Some(Override::Text(text)) => text,
-            #[cfg(feature = "image")]
-            Some(Override::Image(_)) => Text::default(),
             _ => {
                 let output = self.lines.read();
                 let mut text = Text::from_iter(output.iter().map(|(_, line)| line.clone()));
@@ -68,12 +66,10 @@ impl Preview {
         }
     }
 
-    /// Number of text lines in the current content; an image override has none.
+    /// Number of text lines in the current content.
     pub fn len(&self) -> usize {
         match self.override_() {
             Some(Override::Text(text)) => text.height(),
-            #[cfg(feature = "image")]
-            Some(Override::Image(_)) => 0,
             _ => {
                 let output = self.lines.read();
                 output.iter().count() + usize::from(self.last_line.load().is_some())

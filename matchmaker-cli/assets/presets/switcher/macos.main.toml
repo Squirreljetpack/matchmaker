@@ -1,7 +1,6 @@
 # macOS window switcher
 
 [envs]
-IMAGEcmd = { value = 'chafa --size="$((COLUMNS))x$((10))"' }
 RESOLVE_APP = '''
 exe_path=$(ps -p "$pid" -o comm= 2>/dev/null)
 app_path=""
@@ -53,8 +52,6 @@ echo "PID:    "{pid}
 printf "%${COLUMNS}s\n" | tr ' ' '-'
 # echo
 
-[[ -z "$IMAGEcmd" ]] && exit
-
 pid={pid}; app={app}; eval "$RESOLVE_APP"
 [[ -z "$app_path" ]] && exit
 
@@ -72,7 +69,7 @@ if ! [[ -f "$tmp_icon" ]]; then
     sips -s format png "$icon_path" --out "$tmp_icon" >/dev/null 2>&1
 fi
 
-[[ -f "$tmp_icon" ]] && eval "$IMAGEcmd" "$tmp_icon"
+[[ -f "$tmp_icon" ]] && mm --image "$tmp_icon" hfit=contain:$COLUMNS vfit=contain:10
 '''
 side = "right"
 percentage = 40

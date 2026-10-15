@@ -16,7 +16,12 @@ use std::thread::JoinHandle;
 
 use arc_swap::ArcSwapOption;
 use log::error;
-use ratatui::{buffer::Buffer, layout::Rect, widgets::Widget};
+use ratatui::{
+    buffer::Buffer,
+    layout::Rect,
+    text::Line,
+    widgets::{Paragraph, Widget},
+};
 use ratatui_image::{
     FontSize,
     picker::Picker,
@@ -30,17 +35,18 @@ use crate::preview::image::PreviewImage;
 mod helpers;
 mod worker;
 
-use helpers::{display_size, max_pan, window};
+use helpers::{display_size, max_pan, window, zoom_rows};
 use worker::{CachedImage, ImageKey, ImageRequest, image_worker};
 
-/// The picker, the protocol on screen and the request being built.
+/// The picker, the request for the image the pane shows, and the pixels built for it.
 #[derive(Debug)]
 pub struct ImageState {
     /// Builds protocols for the terminal the pane is drawn on.
     picker: Picker,
     /// The newest protocol the worker built, which the pane renders.
     current: Arc<ArcSwapOption<CachedImage>>,
-    /// Key of the newest request the worker was given.
+    /// Key of the newest request the worker was given, which the pane's image geometry
+    /// comes from.
     sent: Option<ImageKey>,
     /// The request the worker has not taken yet. A newer one replaces it.
     pending: Arc<ArcSwapOption<ImageRequest>>,
@@ -76,6 +82,16 @@ impl ImageState {
         self.event_tx = Some(event_tx);
     }
 
+    /// Forget the request the pane made and the pixels built for it, reporting whether
+    /// it was holding an image.
+    pub fn clear(&mut self) -> bool {
+        let was_showing = self.sent.is_some();
+        self.sent = None;
+        self.pending.store(None);
+        self.current.store(None);
+        was_showing
+    }
+
     /// The protocol the worker built for the image the pane is showing.
     ///
     /// A protocol for another image is not rendered. One for an older pane size or pan
@@ -95,13 +111,36 @@ impl ImageState {
         Some(ImageWidget {
             built: self.current()?,
             offset,
+            header: Vec::new(),
         })
     }
 
-    /// The height of the protocol that is on screen, in rows; zero while there is none.
+    /// Rows the image takes in the document: its fitted rows, magnified by the zoom it
+    /// is shown at. Known from the request, before the protocol is built.
     pub fn rows(&self) -> usize {
-        self.current()
-            .map_or(0, |built| built.protocol.size().height as usize)
+        self.sent
+            .as_ref()
+            .map_or(0, |key| zoom_rows(key.display, key.options.zoom) as usize)
+    }
+
+    /// Header rows the image holds above it, from the request it is shown under.
+    pub fn header_lines(&self) -> usize {
+        self.sent
+            .as_ref()
+            .map_or(0, |key| key.options.header_lines as usize)
+    }
+
+    /// Rows the image block covers in a pane `height` rows tall, with the document
+    /// scrolled `offset` rows down: its header rows and the image, less whatever has
+    /// gone above the pane.
+    pub fn painted_rows(&self, offset: usize, height: u16) -> usize {
+        let rows = self.rows();
+        if rows == 0 {
+            return 0;
+        }
+        (self.header_lines() + rows)
+            .saturating_sub(offset)
+            .min(height as usize)
     }
 
     pub fn last_id(&self) -> Option<usize> {
@@ -135,11 +174,11 @@ impl ImageState {
             return;
         }
         let display = display_size(&image.data, options, area, font);
-        *hpan = (*hpan).min(max_pan(display, area));
+        *hpan = (*hpan).min(max_pan(display, area, options.zoom));
         let key = ImageKey {
             id: image.id,
             display,
-            window: window(display, area, *hpan),
+            window: window(display, area, options.zoom, *hpan),
             options: options.clone(),
         };
         if self.sent.as_ref() == Some(&key) {
@@ -153,11 +192,9 @@ impl ImageState {
     /// Starts the worker on the first request.
     fn request(&mut self, key: ImageKey, image: PreviewImage) {
         let picker = self.picker.clone();
-        // The worker only leaves on a panic, and the request it was holding went with
-        // it.
+        // Restart worker if panicked
         if self.worker.as_ref().is_some_and(JoinHandle::is_finished) {
             self.worker = None;
-            self.sent = None;
         }
         if self.worker.is_none() {
             let pending = Arc::clone(&self.pending);
@@ -204,13 +241,31 @@ impl Drop for ImageState {
 pub struct ImageWidget {
     built: Arc<CachedImage>,
     offset: u16,
+    /// Lines drawn in the header rows the request reserved above the image.
+    header: Vec<Line<'static>>,
+}
+
+impl ImageWidget {
+    /// Text to draw in the request's header rows, above the image.
+    pub fn with_header(mut self, header: Vec<Line<'static>>) -> Self {
+        self.header = header;
+        self
+    }
 }
 
 impl Widget for ImageWidget {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        let header_rows = self.built.key.options.header_lines;
+        // The header never wraps; it scrolls with the image.
+        if !self.header.is_empty() {
+            Paragraph::new(self.header)
+                .scroll((self.offset, 0))
+                .render(area, buf);
+        }
+        let y = i32::from(header_rows) - i32::from(self.offset);
         SlicedImage::new(
             &self.built.protocol,
-            SignedPosition::from((0, -(self.offset as i16))),
+            SignedPosition::from((0, y.clamp(i16::MIN as i32, i16::MAX as i32) as i16)),
         )
         .render(area, buf);
     }

@@ -13,6 +13,7 @@ It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and
 - *Fully* configurable via a type-checked [toml file](./matchmaker-cli/assets/config.toml). [^11]
 - A minimal yet powerful [syntax](./matchmaker-cli/assets/docs/options.md) for overriding the configuration on the command line.
 - Interactive preview supports color, scrolling, wrapping, multiple layouts, and even maximizing.
+- Preview images! Pan and zoom PNG, JPEG and SVG files in the preview pane using the terminal's own graphics protocol (kitty, sixel, iTerm2) or with character approximations.
 - Most of the familiar actions from [fzf](https://github.com/junegunn/fzf), as well as several new ones[^12].
 - Mouse (location aware) scrolling! Drag to resize! Horizontal scrolling!
 - Grapheme-width correct input wrapping!

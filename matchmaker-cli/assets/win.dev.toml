@@ -20,6 +20,10 @@ wrap = true
 
 [[preview.layout]]
 command = '''
+if (Get-Command mm -ErrorAction SilentlyContinue) {
+    mm --image {}
+    if ($LASTEXITCODE -eq 0) { exit 0 }
+}
 Get-Content {}'''
 side = "right"
 percentage = 40

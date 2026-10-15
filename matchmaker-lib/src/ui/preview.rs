@@ -300,7 +300,16 @@ impl PreviewUI {
     pub fn is_wrap(&self) -> bool {
         self.config.wrap
     }
-    pub fn offset(&self) -> usize {
+    /// The source text's offset of the first non-header line of text displayed.
+    pub fn text_offset(&self) -> usize {
+        #[cfg(feature = "image")]
+        if self.image_rows() > 0 {
+            // The header sits above the image, the image above the text: the text
+            // starts where the document leaves the image behind.
+            let header_rows = self.image_header_lines();
+
+            return header_rows + self.offset.saturating_sub(header_rows + self.image_rows());
+        }
         self.initial().header_lines + self.offset
     }
     pub fn target_line(&self) -> Option<usize> {
@@ -310,30 +319,41 @@ impl PreviewUI {
     /// Number of rows the current contents can scroll through.
     fn total_lines(&self) -> usize {
         #[cfg(feature = "image")]
-        if self.view.image().is_some() {
-            return self.image.as_ref().map_or(0, ImageState::rows);
+        if self.image_rows() > 0 {
+            // The header lines, the image, then the rest of the text; a header longer
+            // than the text still holds its rows.
+            return self.image_rows() + self.view.len().max(self.image_header_lines());
         }
         self.view.len()
     }
 
-    /// For images, the furthest offset that still shows image rows.
+    /// Rows the image takes in the document, from the request the pane made.
     #[cfg(feature = "image")]
-    fn image_max_offset(&self, total_lines: usize) -> Option<usize> {
-        self.view
-            .image()
-            .is_some()
-            .then(|| total_lines.saturating_sub(self.area.height as usize))
+    fn image_rows(&self) -> usize {
+        self.image.as_ref().map_or(0, ImageState::rows)
     }
 
-    /// The furthest the offset may scroll.
+    /// Header rows the image holds above it, from the request the pane made.
+    #[cfg(feature = "image")]
+    fn image_header_lines(&self) -> usize {
+        self.image.as_ref().map_or(0, ImageState::header_lines)
+    }
+
+    /// Rows the pane shows of the image block, its header lines and image.
+    #[cfg(feature = "image")]
+    fn image_painted_rows(&self) -> usize {
+        self.image
+            .as_ref()
+            .map_or(0, |state| state.painted_rows(self.offset, self.area.height))
+    }
+
+    /// The offset that brings the contents' last row to the pane's last row.
     ///
-    /// Images stop with their last row visible; text may scroll past its end.
-    fn max_offset(&self, total_lines: usize) -> usize {
-        #[cfg(feature = "image")]
-        if let Some(max) = self.image_max_offset(total_lines) {
-            return max;
-        }
-        total_lines
+    /// An action may pass it: a target's line is placed near the top of the pane, which
+    /// is past the end when the target is at the end of the results. An image is held to
+    /// it (`image_widget`), so the pane shows no blank rows below it.
+    fn end_offset(&self) -> usize {
+        self.total_lines().saturating_sub(self.area.height as usize)
     }
 
     // ----- actions --------
@@ -351,14 +371,13 @@ impl PreviewUI {
     }
     pub fn down(&mut self, n: u16) {
         let total_lines = self.total_lines();
-        let max = self.max_offset(total_lines);
         let n = n as usize;
 
-        if self.offset + n > max {
+        if self.offset + n > total_lines {
             if self.config.scroll_wrap {
                 self.offset = 0;
             } else {
-                self.offset = max;
+                self.offset = total_lines;
             }
         } else {
             self.offset += n;
@@ -377,11 +396,44 @@ impl PreviewUI {
         } else if val == 0 {
             self.offset = 0;
         } else {
-            let total = self.total_lines();
+            let total = self.total_lines() as isize;
 
-            let max = self.max_offset(total) as isize;
+            self.offset = (self.offset as isize + val as isize).clamp(0, total) as usize;
+        }
+    }
 
-            self.offset = (self.offset as isize + val as isize).clamp(0, max) as usize;
+    /// Zoom the displayed image by `steps` tenths of a factor.
+    ///
+    /// The counter is the preview's vertical scroll, anchored at the image's own
+    /// zoom with `0` standing for zoom `1.0`; zooming never goes below that.
+    pub fn zoom(&mut self, steps: i8) {
+        self.scroll[0] = self.scroll[0].saturating_add_signed(steps as i16);
+    }
+
+    /// The step count an image's own `zoom` maps to, tenths rounded up.
+    #[cfg(feature = "image")]
+    fn zoom_steps(zoom: f32) -> u16 {
+        ((zoom - 1.0).max(0.0) * 10.0).ceil() as u16
+    }
+
+    /// The zoom `steps` are worth from an image's own `zoom`, never below `1.0`.
+    #[cfg(feature = "image")]
+    fn zoom_at(zoom: f32, steps: u16) -> f32 {
+        (zoom + (f32::from(steps) - f32::from(Self::zoom_steps(zoom))) * 0.1).max(1.0)
+    }
+
+    /// Whether a vertical scroll zooms the image rather than moving the preview.
+    ///
+    /// Only while image rows are on screen, so the text below an image still
+    /// scrolls once the image has left the pane.
+    pub fn zooms_on_scroll(&self) -> bool {
+        #[cfg(feature = "image")]
+        {
+            self.image_painted_rows() > 0
+        }
+        #[cfg(not(feature = "image"))]
+        {
+            false
         }
     }
 
@@ -470,19 +522,7 @@ impl PreviewUI {
         self.attained_target = false;
     }
     pub fn scroll_end(&mut self) {
-        let rl = self.total_lines();
-        let height = self.area.height as usize;
-
-        #[cfg(feature = "image")]
-        if let Some(max) = self.image_max_offset(rl) {
-            self.offset = max;
-            return;
-        }
-
-        let header_count = self.initial().header_lines.min(height);
-        let remaining_lines = rl.saturating_sub(header_count);
-
-        self.offset = remaining_lines.saturating_sub(height);
+        self.offset = self.end_offset();
     }
 
     fn target_to_offset(&self, mut target: usize, results: &Vec<Line>) -> usize {
@@ -637,33 +677,94 @@ impl PreviewUI {
         }
     }
 
-    /// The image widget, cropped to the current scroll offset.
+    /// The image widget, cropped to the current scroll offset, leaving `body` at the
+    /// part of the pane below the image block for the text to fill.
     ///
     /// `None` when the preview is not showing an image, and while the protocol for the
     /// current image and pane is still being built.
+    ///
+    /// This is where the pane learns the view has left an image: the protocol and the
+    /// state the pane kept for it are dropped there.
     #[cfg(feature = "image")]
-    pub fn image_widget(&mut self) -> Option<ImageWidget> {
-        let image = self.view.image()?;
+    pub fn image_widget(&mut self, body: &mut Rect) -> Option<ImageWidget> {
+        let Some(image) = self.view.image() else {
+            // The pane shows text now: the image's protocol, offset, target and zoom
+            // counter go with it, while the horizontal scroll is the pane's and stays.
+            if let Some(state) = self.image.as_mut()
+                && state.clear()
+            {
+                self.offset = 0;
+                self.scroll[0] = 0;
+                self.attained_target = false;
+                self.jump = (false, 0);
+            }
+            return None;
+        };
         let mut options = self.config.image.clone();
         options.apply(image.options.clone());
 
         if Some(image.id) != self.image.as_ref().and_then(ImageState::last_id) {
-            // The header's initial crop: the vertical offset scrolls the
-            // preview, the horizontal one pans the image.
+            // The header's initial view: the vertical offset scrolls the preview,
+            // the horizontal one pans the image, and the zoom counter starts at
+            // what the image's own zoom is worth.
             self.offset = options.scroll[0] as usize;
             self.scroll[1] = options.scroll[1];
+            self.scroll[0] = Self::zoom_steps(options.zoom);
 
             // dead parameters when image
             self.target = None;
             self.attained_target = false;
             self.jump = (false, 0);
         }
+        // Every request carries the zoom the counter currently reaches.
+        options.zoom = Self::zoom_at(options.zoom, self.scroll[0]);
+        // The header rows sit above the image, so the fits resolve against the pane
+        // without them.
+        let mut fit = self.area;
+        fit.height = fit.height.saturating_sub(options.header_lines);
+        if fit.height == 0 {
+            // A header taller than the pane still leaves the image the whole pane.
+            fit.height = self.area.height;
+        }
+        self.image
+            .as_mut()?
+            .prepare(image, &options, fit, &mut self.scroll[1]);
+
+        // The pane holds an image to the end of the contents: it shows no blank rows
+        // below them, and a shorter image after a zoom pulls the offset back onto it.
+        self.offset = self.offset.min(self.end_offset());
+
         let state = self.image.as_mut()?;
-        state.prepare(image, &options, self.area, &mut self.scroll[1]);
-        state.widget(self.offset as u16)
+        // The text starts below what the pane shows of the image block: the request
+        // knows that whether or not its protocol is built.
+        let painted = state.painted_rows(self.offset, self.area.height) as u16;
+        body.y = body.y.saturating_add(painted);
+        body.height = body.height.saturating_sub(painted);
+
+        let header_rows = state.header_lines();
+        let widget = state.widget(self.offset.min(u16::MAX as usize) as u16)?;
+        if header_rows == 0 {
+            return Some(widget);
+        }
+        let text = {
+            let mut text = self.view.results();
+            if self.config.trim_ends {
+                trim_text_lines(&mut text);
+            }
+            text
+        };
+        Some(widget.with_header(text.lines.into_iter().take(header_rows).collect()))
     }
 
-    pub fn make_preview(&mut self) -> Paragraph<'_> {
+    /// The pane's contents: its text, split around the image block when it holds one.
+    ///
+    /// The pane's frame is not part of them; the renderer draws it around the whole
+    /// pane.
+    pub fn make_preview(&mut self) -> Paragraph<'static> {
+        // The contents can shrink under the offset: the pane does not scroll past what
+        // it holds.
+        self.offset = self.offset.min(self.total_lines());
+
         let mut results = self.view.results();
         if self.config.trim_ends {
             trim_text_lines(&mut results)
@@ -673,19 +774,27 @@ impl PreviewUI {
         let height = self.area.height as usize;
         let mut offset = self.offset;
 
+        // The image's rows are the pane's from the request on: it holds them whether
+        // the protocol has been built yet or not.
         // this only triggers on preview change but not guaranteed on every preview change -- attaching it to the event handler is worse
         #[cfg(feature = "image")]
-        let showing_image = self.view.image().is_some();
+        let (image_rows, header_rows) = (self.image_rows(), self.image_header_lines());
         #[cfg(not(feature = "image"))]
-        let showing_image = false;
-        if rl < self.last_count && !showing_image {
+        let (image_rows, header_rows) = (0, 0);
+        let image_on_screen = image_rows > 0;
+        #[cfg(feature = "image")]
+        let body_height = height.saturating_sub(self.image_painted_rows());
+        #[cfg(not(feature = "image"))]
+        let body_height = height;
+
+        if rl < self.last_count && !image_on_screen {
             self.offset = 0;
             self.attained_target = false;
             self.jump = (false, 0)
         }
         self.last_count = rl;
 
-        if self.initial().tail && !self.attained_target {
+        if self.initial().tail && !self.attained_target && !image_on_screen {
             let header_count = self.initial().header_lines.min(height);
             let remaining_lines = rl.saturating_sub(header_count);
             let remaining_space = height.saturating_sub(header_count);
@@ -726,28 +835,41 @@ impl PreviewUI {
 
         let mut lines = Vec::with_capacity(height);
 
-        for _ in 0..self.initial().header_lines.min(height) {
-            if let Some(line) = results.next() {
-                lines.push(line);
-            } else {
-                break;
-            };
-        }
+        if image_on_screen {
+            // The image block drew the document's first rows; only the text after the
+            // header and below the image is left here.
+            let body_start = header_rows + image_rows;
+            let first = header_rows.min(rl) + offset.saturating_sub(body_start);
+            let mut results = results.skip(first);
+            for _ in 0..body_height {
+                if let Some(line) = results.next() {
+                    lines.push(line);
+                }
+            }
+        } else {
+            for _ in 0..self.initial().header_lines.min(height) {
+                if let Some(line) = results.next() {
+                    lines.push(line);
+                } else {
+                    break;
+                };
+            }
 
-        let mut results = results.skip(offset);
+            let mut results = results.skip(offset);
 
-        for _ in self.initial().header_lines..height {
-            if let Some(line) = results.next() {
-                lines.push(line);
+            for _ in self.initial().header_lines..height {
+                if let Some(line) = results.next() {
+                    lines.push(line);
+                }
             }
         }
 
         let mut preview = Paragraph::new(lines);
-        preview = preview.block(self.border().as_static_block());
         if self.config.wrap {
-            preview = preview
-                .wrap(Wrap { trim: false })
-                .scroll(self.scroll.into());
+            // The horizontal scroll is the pane's: it pans the image and moves the text
+            // below it alike. Slot zero is the image's zoom counter, never a text scroll.
+            let scroll = [0, self.scroll[1]];
+            preview = preview.wrap(Wrap { trim: false }).scroll(scroll.into());
         }
         preview
     }
@@ -933,12 +1055,166 @@ mod tests {
         );
     }
 
-    /// A visible preview pane showing `image`.
+    /// Ending the scroll puts the contents' last line on the pane's last row, under a
+    /// pinned header like anything else.
+    #[test]
+    fn scroll_end_puts_the_last_line_on_the_last_row() {
+        let generation = Arc::new(AtomicUsize::new(0));
+        let lines = (0..40)
+            .map(|i| format!("line {i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let override_ = Arc::new(Mutex::new(Override::Text(ratatui::text::Text::raw(lines))));
+        let config = PreviewConfig {
+            show: ShowCondition::Bool(true),
+            initial: crate::config::PreviewInitialSetting {
+                header_lines: 2,
+                ..Default::default()
+            },
+            layout: vec![PreviewSetting {
+                layout: PreviewLayout {
+                    side: Side::Right,
+                    percentage: Percentage::new(60),
+                    min: 15,
+                    max: 50,
+                },
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let mut preview = PreviewUI::new(
+            Preview::new(AppendOnly::new(), Default::default(), override_, generation),
+            config,
+            [80, 24],
+        );
+        preview.update_dimensions(&Rect {
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 24,
+        });
+        assert_eq!(preview.initial().header_lines, 2, "the header is pinned");
+        assert_eq!(preview.text_offset(), 2, "the body starts under the header");
+
+        preview.scroll_end();
+        assert_eq!(
+            preview.offset,
+            40 - preview.area.height as usize,
+            "the header rows count toward the end of the scroll"
+        );
+        assert_eq!(
+            preview.text_offset(),
+            preview.initial().header_lines + preview.offset,
+            "the text offset follows the pane's scroll"
+        );
+    }
+
+    /// An image pane shows no blank rows below the contents: the offset is held to
+    /// their end.
+    #[test]
     #[cfg(feature = "image")]
+    fn an_image_is_held_to_the_end_of_the_contents() {
+        let lines = (0..40).map(|i| format!("body {i}")).collect::<Vec<_>>();
+        let mut preview = image_preview(
+            Arc::new(image::DynamicImage::new_rgb8(100, 200)),
+            Default::default(),
+            &lines,
+        );
+        wait_for_image(&mut preview);
+
+        preview.offset = preview.total_lines();
+        image_block(&mut preview);
+        assert_eq!(
+            preview.offset,
+            preview.end_offset(),
+            "the contents' last row sits on the pane's last row"
+        );
+    }
+
+    /// A header longer than the text still holds its rows: the pane can bring the
+    /// image's last row to its last row.
+    #[test]
+    #[cfg(feature = "image")]
+    fn a_header_longer_than_the_text_holds_its_rows() {
+        let mut preview = image_preview(
+            Arc::new(image::DynamicImage::new_rgb8(100, 200)),
+            crate::config::PartialImageOptions {
+                header_lines: Some(40),
+                ..Default::default()
+            },
+            &[],
+        );
+        wait_for_image(&mut preview);
+
+        assert_eq!(
+            preview.total_lines(),
+            preview.image_rows() + 40,
+            "the header rows are part of the contents"
+        );
+
+        preview.down(u16::MAX);
+        image_block(&mut preview);
+        assert_eq!(
+            preview.offset,
+            preview.end_offset(),
+            "the image's last row sits on the pane's last row"
+        );
+    }
+
+    /// The text offset steps over the header and the image's rows.
+    #[test]
+    #[cfg(feature = "image")]
+    fn the_text_offset_steps_over_the_header_and_the_image() {
+        let lines = (0..40).map(|i| format!("body {i}")).collect::<Vec<_>>();
+        let mut preview = image_preview(
+            Arc::new(image::DynamicImage::new_rgb8(100, 200)),
+            crate::config::PartialImageOptions {
+                header_lines: Some(2),
+                ..Default::default()
+            },
+            &lines,
+        );
+        wait_for_image(&mut preview);
+
+        assert_eq!(
+            preview.text_offset(),
+            2,
+            "the text starts where the header ends"
+        );
+
+        preview.offset = 12;
+        assert_eq!(
+            preview.text_offset(),
+            2,
+            "the text is still behind the image"
+        );
+
+        preview.offset = 20;
+        assert_eq!(
+            preview.text_offset(),
+            10,
+            "the text has scrolled up past the image by its own rows"
+        );
+    }
+
+    /// A visible preview pane showing `image` with `lines` of text after it.
+    #[cfg(feature = "image")]
+
     fn image_preview(
         image: Arc<image::DynamicImage>,
         options: crate::config::PartialImageOptions,
+        lines: &[String],
     ) -> PreviewUI {
+        image_preview_with_override(image, options, lines).0
+    }
+
+    /// [`image_preview`], with the override handle so a test can replace the image.
+    #[cfg(feature = "image")]
+    fn image_preview_with_override(
+        image: Arc<image::DynamicImage>,
+        options: crate::config::PartialImageOptions,
+        lines: &[String],
+    ) -> (PreviewUI, Arc<Mutex<Override>>) {
         // The image's id is the generation it was installed at.
         let generation = Arc::new(AtomicUsize::new(0));
         let override_ = Arc::new(Mutex::new(Override::Image(PreviewImage {
@@ -959,8 +1235,12 @@ mod tests {
             }],
             ..Default::default()
         };
+        let text = AppendOnly::new();
+        for line in lines {
+            text.push(Line::raw(line.clone()));
+        }
         let mut preview = PreviewUI::new(
-            Preview::new(AppendOnly::new(), Default::default(), override_, generation),
+            Preview::new(text, Default::default(), Arc::clone(&override_), generation),
             config,
             [80, 24],
         );
@@ -971,27 +1251,28 @@ mod tests {
             width: 80,
             height: 24,
         });
-        preview
+        (preview, override_)
     }
 
     #[test]
     #[cfg(feature = "image")]
     fn image_restarts_at_its_own_offsets() {
-        // 1000x10 pixels is 100x1 halfblock cells, which is wider than the 80-cell
-        // pane, so both axes of the initial scroll can be kept.
+        // 1000x2000 pixels is 100x100 halfblock cells, which is wider and taller than
+        // the 80x24 pane, so both axes of the initial scroll can be kept.
         let mut preview = image_preview(
-            Arc::new(image::DynamicImage::new_rgb8(1000, 10)),
+            Arc::new(image::DynamicImage::new_rgb8(1000, 2000)),
             crate::config::PartialImageOptions {
                 scroll: Some([3, 4]),
                 horizontal_fit: Some(crate::config::ImageFit::Crop),
                 ..Default::default()
             },
+            &[],
         );
 
         preview.offset = 9;
         preview.scroll[1] = 7;
         // Preparing happens as part of rendering the widget.
-        preview.image_widget();
+        image_block(&mut preview);
         assert_eq!(preview.offset, 3);
         assert_eq!(preview.scroll[1], 4);
     }
@@ -1004,10 +1285,11 @@ mod tests {
         let mut preview = image_preview(
             Arc::new(image::DynamicImage::new_rgb8(40, 20)),
             Default::default(),
+            &[],
         );
 
         preview.scroll[1] = 5;
-        preview.image_widget();
+        image_block(&mut preview);
         assert_eq!(preview.scroll[1], 0);
     }
 
@@ -1017,10 +1299,11 @@ mod tests {
         let mut preview = image_preview(
             Arc::new(image::DynamicImage::new_rgb8(100, 200)),
             Default::default(),
+            &[],
         );
 
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
-        while preview.image_widget().is_none() {
+        while image_block(&mut preview).is_none() {
             assert!(
                 std::time::Instant::now() < deadline,
                 "the image worker never finished"
@@ -1035,13 +1318,271 @@ mod tests {
         let mut preview = image_preview(
             Arc::new(image::DynamicImage::new_rgb8(100, 200)),
             Default::default(),
+            &[],
         );
 
         let mut attempts = 0;
-        while preview.image_widget().is_none() {
+        while image_block(&mut preview).is_none() {
             attempts += 1;
             assert!(attempts < 1000, "the image worker never finished");
             tokio::time::sleep(std::time::Duration::from_millis(5)).await;
         }
+    }
+
+    /// The image block the renderer would draw, for the tests that only want it.
+    #[cfg(feature = "image")]
+    fn image_block(preview: &mut PreviewUI) -> Option<ImageWidget> {
+        // The body it leaves is where the text goes, which these tests do not draw.
+        let mut body = preview.area;
+        preview.image_widget(&mut body)
+    }
+
+    /// Wait for the worker to build the protocol for the pane's image.
+    #[cfg(feature = "image")]
+    fn wait_for_image(preview: &mut PreviewUI) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while image_block(preview).is_none() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the image worker never finished"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    }
+
+    /// Wait for the worker to build a protocol with `rows` image rows.
+    #[cfg(feature = "image")]
+    fn wait_for_image_rows(preview: &mut PreviewUI, rows: usize) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while preview.image_rows() != rows {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the image worker never finished"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "image")]
+    fn text_is_split_around_the_image() {
+        use ratatui::{buffer::Buffer, widgets::Widget};
+
+        let mut lines = vec!["header 0".to_string(), "header 1".to_string()];
+        lines.extend((0..40).map(|i| format!("body {i}")));
+        // 100x200 pixels is a 10x10 halfblock cell image.
+        let mut preview = image_preview(
+            Arc::new(image::DynamicImage::new_rgb8(100, 200)),
+            crate::config::PartialImageOptions {
+                header_lines: Some(2),
+                ..Default::default()
+            },
+            &lines,
+        );
+        wait_for_image(&mut preview);
+
+        assert_eq!(preview.image_rows(), 10);
+        // The two header lines, the image, then the body.
+        assert_eq!(preview.total_lines(), 10 + lines.len());
+        assert_eq!(preview.image_painted_rows(), 12);
+
+        let mut body = preview.area;
+        let image = preview.image_widget(&mut body).unwrap();
+        let widget = preview.make_preview();
+        assert_eq!(
+            body.y,
+            preview.area.y + preview.image_painted_rows() as u16,
+            "the body starts under the image block"
+        );
+        let mut buf = Buffer::empty(preview.area);
+        image.render(preview.area, &mut buf);
+        widget.render(body, &mut buf);
+
+        let row = |buf: &Buffer, y: u16| {
+            (preview.area.x..preview.area.right())
+                .map(|x| buf[(x, y)].symbol())
+                .collect::<String>()
+        };
+        assert!(row(&buf, preview.area.y).starts_with("header 0"));
+        assert!(row(&buf, preview.area.y + 1).starts_with("header 1"));
+        assert!(
+            row(&buf, body.y).starts_with("body 0"),
+            "the body follows the image"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "image")]
+    fn the_image_fits_below_the_header() {
+        // A 1000x2000 pixel image is 100x100 halfblock cells, taller than the pane.
+        let mut preview = image_preview(
+            Arc::new(image::DynamicImage::new_rgb8(1000, 2000)),
+            crate::config::PartialImageOptions {
+                vertical_fit: Some(crate::config::ImageFit::Contain(0)),
+                header_lines: Some(2),
+                ..Default::default()
+            },
+            &[],
+        );
+        wait_for_image(&mut preview);
+
+        assert_eq!(preview.image_rows(), preview.area.height as usize - 2);
+    }
+
+    /// A header taller than the pane leaves the image the pane's whole height rather
+    /// than collapsing its fit to nothing.
+    #[test]
+    #[cfg(feature = "image")]
+    fn the_image_gets_the_pane_when_the_header_is_taller() {
+        // A 1000x2000 pixel image is 100x100 halfblock cells, taller than the pane.
+        let mut preview = image_preview(
+            Arc::new(image::DynamicImage::new_rgb8(1000, 2000)),
+            crate::config::PartialImageOptions {
+                vertical_fit: Some(crate::config::ImageFit::Contain(0)),
+                header_lines: Some(40),
+                ..Default::default()
+            },
+            &[],
+        );
+        wait_for_image(&mut preview);
+
+        assert_eq!(preview.image_rows(), preview.area.height as usize);
+    }
+
+    /// A text preview replacing an image drops the image's protocol, offset and zoom
+    /// instead of skipping the rows it used to occupy. The pane keeps its horizontal
+    /// scroll, which the image merely panned.
+    #[test]
+    #[cfg(feature = "image")]
+    fn a_text_preview_after_an_image_forgets_the_image() {
+        let lines = (0..40).map(|i| format!("body {i}")).collect::<Vec<_>>();
+        let (mut preview, override_) = image_preview_with_override(
+            Arc::new(image::DynamicImage::new_rgb8(100, 200)),
+            crate::config::PartialImageOptions {
+                header_lines: Some(2),
+                ..Default::default()
+            },
+            &lines,
+        );
+        wait_for_image(&mut preview);
+        preview.offset = 5;
+        preview.scroll[1] = 3;
+        preview.scroll[0] = 4;
+        assert_eq!(preview.image_rows(), 10);
+
+        *override_.lock().unwrap() = Override::Text(ratatui::text::Text::raw(lines.join("\n")));
+        // The frame's first call reconciles the pane with the view.
+        image_block(&mut preview);
+        preview.make_preview();
+
+        assert_eq!(preview.image_rows(), 0, "the image protocol is dropped");
+        assert_eq!(preview.offset, 0, "the image's offset does not carry over");
+        assert_eq!(preview.scroll[1], 3, "the pane keeps its horizontal scroll");
+        assert_eq!(preview.scroll[0], 0, "the image's zoom does not carry over");
+    }
+
+    /// Zoom magnifies the image's rows in the document, from the image's own zoom.
+    #[test]
+    #[cfg(feature = "image")]
+    fn the_zoom_magnifies_the_image_down_the_document() {
+        let lines = (0..40).map(|i| format!("body {i}")).collect::<Vec<_>>();
+        let mut preview = image_preview(
+            Arc::new(image::DynamicImage::new_rgb8(100, 200)),
+            crate::config::PartialImageOptions {
+                zoom: Some(2.0),
+                ..Default::default()
+            },
+            &lines,
+        );
+        wait_for_image(&mut preview);
+
+        assert_eq!(preview.scroll[0], 10, "the image's own zoom is the base");
+        assert_eq!(preview.image_rows(), 20);
+        assert_eq!(preview.total_lines(), 20 + lines.len());
+
+        preview.zoom(1);
+        assert_eq!(preview.scroll[0], 11);
+        // The widget has to run for the new zoom to reach the worker.
+        image_block(&mut preview);
+        assert_eq!(
+            preview.image_rows(),
+            21,
+            "the pane takes the new rows with the counter, before the protocol lands"
+        );
+        wait_for_image_rows(&mut preview, 21);
+        assert_eq!(preview.total_lines(), 21 + lines.len());
+    }
+
+    /// A zoom that shrinks the image pulls an offset past its end back in.
+    #[test]
+    #[cfg(feature = "image")]
+    fn zooming_out_pulls_the_offset_back() {
+        // 100x2000 pixels is 10x100 halfblock cells, taller than the 24-row pane.
+        let mut preview = image_preview(
+            Arc::new(image::DynamicImage::new_rgb8(100, 2000)),
+            crate::config::PartialImageOptions {
+                zoom: Some(2.0),
+                ..Default::default()
+            },
+            &[],
+        );
+        wait_for_image(&mut preview);
+        assert_eq!(preview.image_rows(), 200);
+
+        preview.offset = preview.end_offset();
+        assert_eq!(preview.offset, 176);
+
+        preview.zoom(-10);
+        assert_eq!(preview.scroll[0], 0, "ten steps down reach zoom 1.0");
+        image_block(&mut preview);
+        assert_eq!(
+            preview.offset, 76,
+            "the offset comes back to the shorter image"
+        );
+        wait_for_image_rows(&mut preview, 100);
+    }
+
+    /// A zoom off the tenths grid keeps its own value: the steps count from it.
+    #[test]
+    #[cfg(feature = "image")]
+    fn a_zoom_off_the_grid_counts_steps_from_its_own_value() {
+        let mut preview = image_preview(
+            Arc::new(image::DynamicImage::new_rgb8(100, 200)),
+            crate::config::PartialImageOptions {
+                zoom: Some(1.41),
+                ..Default::default()
+            },
+            &[],
+        );
+        wait_for_image(&mut preview);
+
+        assert_eq!(preview.scroll[0], 5, "1.41 is five tenths, rounded up");
+        assert_eq!(preview.image_rows(), 14);
+
+        preview.zoom(-2);
+        image_block(&mut preview);
+        wait_for_image_rows(&mut preview, 12);
+
+        preview.zoom(-3);
+        assert_eq!(preview.scroll[0], 0, "the counter stops at zero");
+        image_block(&mut preview);
+        wait_for_image_rows(&mut preview, 10);
+    }
+
+    /// The wheel only zooms while the image is on screen; past it, it scrolls.
+    #[test]
+    #[cfg(feature = "image")]
+    fn the_wheel_zooms_only_while_the_image_is_on_screen() {
+        let lines = (0..40).map(|i| format!("body {i}")).collect::<Vec<_>>();
+        let mut preview = image_preview(
+            Arc::new(image::DynamicImage::new_rgb8(100, 200)),
+            Default::default(),
+            &lines,
+        );
+        wait_for_image(&mut preview);
+        assert!(preview.zooms_on_scroll());
+
+        preview.offset = preview.end_offset();
+        assert!(!preview.zooms_on_scroll(), "the image left the pane");
     }
 }

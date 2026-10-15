@@ -121,8 +121,12 @@ Remember to escape any template specifiers, for example: `jq '((map(select(.type
 
 ### Exit codes
 
+An exit status only carries 0-255, so these are the HTTP-style codes wrapped into
+that range.
+
 - 125: EventLoopClosed
-- 404: No Match
-- 400: No Match with a chunk error
+- 148: No Match
+- 144: No Match with a chunk error
 - 11: Start Error
 - 100: Signal to resume from BecomeOrConfirm (when emitted by spawned scripts)
+- 159: No image support (`--image` could not decode the path and `chafa` was not used)

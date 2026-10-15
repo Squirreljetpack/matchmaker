@@ -204,25 +204,25 @@ Actions are the operations performed when a trigger is activated.
 
 ### Preview
 
-| Action                 | Description                                                              |
-| ---------------------- | ------------------------------------------------------------------------ |
-| `NextPreview`          | Cycle through available preview layouts.                                 |
-| `PrevPreview`          | Cycle through available preview layouts in reverse order.                |
-| `Preview(cmd)`         | Show the preview using the provided command.                             |
-| `SetPreview([idx])`    | Set layout `idx`; without an index, restore the current layout command.  |
-| `SwitchPreview([idx])` | Switch to layout `idx`; without an index, toggle preview visibility.     |
-| `TogglePreviewWrap`    | Toggle line wrapping in the preview window.                              |
-| `ExpandPreview(n)`     | Expand the preview dimension by `n` (default: 1).                        |
-| `ShrinkPreview(n)`     | Shrink the preview dimension by `n` (default: 1).                        |
-| `PreviewUp(n)`         | Scroll the preview window up by `n` lines (default: 1).                  |
-| `PreviewDown(n)`       | Scroll the preview window down by `n` lines (default: 1).                |
-| `PreviewHalfPageUp`    | Scroll the preview up by half a page.                                    |
-| `PreviewHalfPageDown`  | Scroll the preview down by half a page.                                  |
-| `PreviewHScroll(n)`    | Persistently scroll the preview horizontally by `n` (0 resets).          |
-| `PreviewScroll(n)`     | Persistently scroll the preview vertically by `n` (0 resets).            |
-| `PreviewJump`          | Jump between the preview's start, end, and initial locations.            |
-| `RunPreview(cmd)`      | CLI action: run a one-off command and display its output in the preview. |
-| `Help(section)`        | Display the specified help section in the preview.                       |
+| Action                 | Description                                                                                              |
+| ---------------------- | -------------------------------------------------------------------------------------------------------- |
+| `NextPreview`          | Cycle through available preview layouts.                                                                 |
+| `PrevPreview`          | Cycle through available preview layouts in reverse order.                                                |
+| `Preview(cmd)`         | Show the preview using the provided command.                                                             |
+| `SetPreview([idx])`    | Set layout `idx`; without an index, restore the current layout command.                                  |
+| `SwitchPreview([idx])` | Switch to layout `idx`; without an index, toggle preview visibility.                                     |
+| `TogglePreviewWrap`    | Toggle line wrapping in the preview window.                                                              |
+| `ExpandPreview(n)`     | Expand the preview dimension by `n` (default: 1).                                                        |
+| `ShrinkPreview(n)`     | Shrink the preview dimension by `n` (default: 1).                                                        |
+| `PreviewUp(n)`         | Scroll the preview window up by `n` lines (default: 1).                                                  |
+| `PreviewDown(n)`       | Scroll the preview window down by `n` lines (default: 1).                                                |
+| `PreviewHalfPageUp`    | Scroll the preview up by half a page.                                                                    |
+| `PreviewHalfPageDown`  | Scroll the preview down by half a page.                                                                  |
+| `PreviewHScroll(n)`    | Persistently scroll the preview horizontally by `n` (0 resets); pans a shown image.                      |
+| `PreviewScroll(n)`     | Persistently scroll the preview vertically by `n` (0 resets); zooms a shown image by `n` tenths instead. |
+| `PreviewJump`          | Jump between the preview's start, end, and initial locations.                                            |
+| `RunPreview(cmd)`      | CLI action: run a one-off command and display its output in the preview.                                 |
+| `Help(section)`        | Display the specified help section in the preview.                                                       |
 
 ### Columns
 

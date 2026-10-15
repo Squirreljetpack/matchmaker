@@ -2,9 +2,6 @@
 
 # inspiration: https://github.com/bvanpeski/SystemPreferences/blob/main/macos_preferencepanes-Monterey.md
 
-[envs]
-IMAGEcmd = { value = "command -v chafa", exec = true }
-
 [start]
 command = '''
     {
@@ -45,8 +42,6 @@ echo "Name:    "{name}
 [[ -n "$section" ]] && echo "Section: "{section}
 echo "Target:  $target"
 printf "%${COLUMNS}s\n" | tr ' ' '-'
-
-[[ -z "$IMAGEcmd" ]] && exit
 
 # Extract sanitized ID for caching
 target_id=${target%%\?*}
@@ -99,7 +94,7 @@ if ! [[ -f "$tmp_icon" ]]; then
 fi
 
 # Final Display (cached or newly created)
-[[ -f "$tmp_icon" ]] && "$IMAGEcmd" "$tmp_icon"
+[[ -f "$tmp_icon" ]] && mm --image "$tmp_icon"
 '''
 
 [binds]

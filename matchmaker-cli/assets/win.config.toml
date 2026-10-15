@@ -36,6 +36,10 @@ scroll_wrap = true
 [[preview.layout]]
 command = '''
 $p = {1}
+if (Get-Command mm -ErrorAction SilentlyContinue) {
+    mm --image $p
+    if ($LASTEXITCODE -eq 0) { exit 0 }
+}
 if (Get-Command fs -ErrorAction SilentlyContinue) {
     fs :tool pg -- $p
 } elseif (Test-Path -LiteralPath $p -PathType Container) {

@@ -605,7 +605,13 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
 
                         Action::PreviewHScroll(x) | Action::PreviewScroll(x) => {
                             if let Some(p) = preview_ui.as_mut() {
-                                p.scroll(matches!(action, Action::PreviewHScroll(_)), x);
+                                let horizontal = matches!(action, Action::PreviewHScroll(_));
+
+                                if !horizontal && p.zooms_on_scroll() {
+                                    p.zoom(x);
+                                } else {
+                                    p.scroll(horizontal, x);
+                                }
                             }
                         }
                         Action::PreviewJump => {
@@ -1132,20 +1138,21 @@ where
 fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {
     assert!(ui.visible()); // don't call if not visible.
 
+    frame.render_widget(ui.border().as_static_block(), area);
+
+    // The text widget goes below the image widget
+    #[allow(unused_mut)]
+    let mut body = ui.area;
     #[cfg(feature = "image")]
-    {
-        let inner = ui.area;
-        // Taken before the widget, which borrows the pane, is built.
-        let border = ui.border();
-        if let Some(image) = ui.image_widget() {
-            frame.render_widget(border.as_static_block(), area);
-            frame.render_widget(image, inner);
+    if let Some(image) = ui.image_widget(&mut body) {
+        frame.render_widget(image, ui.area);
+        if body.height == 0 {
             return;
         }
     }
 
     let widget = ui.make_preview();
-    frame.render_widget(widget, area);
+    frame.render_widget(widget, body);
 }
 
 fn render_results<T: SSS, D: 'static>(

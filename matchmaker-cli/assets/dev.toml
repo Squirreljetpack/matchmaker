@@ -31,6 +31,7 @@ scroll_wrap = true
 
 [[preview.layout]]
 command = '''
+mm --image {1} && exit 0
 if [ -d {1} ]; then
     if command -v eza >/dev/null 2>&1; then
         eza --color=always -T -L 2 -- {1}

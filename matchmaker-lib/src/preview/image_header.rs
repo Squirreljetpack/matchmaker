@@ -28,9 +28,10 @@
 //! The options are `hfit` and `vfit` (`contain`, `fill` or `crop`, the first two
 //! optionally with a cell count, e.g. `fill:16`; see
 //! [`ImageFit`](crate::config::ImageFit) for how they combine), `filter`
-//! (`nearest`, `triangle`, `catmull_rom`, `gaussian`, `lanczos3`) and the initial
+//! (`nearest`, `triangle`, `catmull_rom`, `gaussian`, `lanczos3`), the initial
 //! `scroll` offset, written `vertical`, `vertical,horizontal` or `,horizontal`
-//! cell counts.
+//! cell counts, `header_lines`, how many lines of that text are drawn above the
+//! image instead of after it, and `zoom`, a magnification of `1.0` or more.
 //!
 //! Anything that does not match exactly is ordinary preview output and is passed
 //! through unchanged.
@@ -46,12 +47,19 @@ const MAGIC: &str = "\x1e<MM_IMAGE";
 
 /// The path-mode `<MM_IMAGE>` header for `path`: the token that makes a preview
 /// show the file as an image. The declared byte count is the path's length.
+///
+/// `options` is the header's option list (e.g. `hfit=fill:16 vfit=crop`), written
+/// after the tag; `None` or an empty string emits none.
 /// Returns `None` when the build has no decoder for the path's format.
-pub fn path_header(path: &Path) -> Option<String> {
+pub fn path_header(path: &Path, options: Option<&str>) -> Option<String> {
     PreviewFormat::from_path(path)?;
 
     let path = path.to_string_lossy();
-    Some(format!("{MAGIC}:{}>\n{}", path.len(), path))
+    let options = match options {
+        Some(options) if !options.is_empty() => format!(" {options}"),
+        _ => String::new(),
+    };
+    Some(format!("{MAGIC}:{}>{options}\n{path}", path.len()))
 }
 
 /// State of the `<MM_IMAGE>` header parser.
@@ -283,7 +291,9 @@ fn parse_first_line(line: &[u8]) -> Option<(Option<PreviewFormat>, usize, Partia
             "hfit" => options.horizontal_fit = Some(parse_fit(&value)?),
             "vfit" => options.vertical_fit = Some(parse_fit(&value)?),
             "filter" => options.filter = Some(parse_filter(&value)?),
+            "zoom" => options.zoom = Some(parse_zoom(&value)?),
             "scroll" => options.scroll = Some(parse_scroll(&value)?),
+            "header_lines" => options.header_lines = Some(value.parse().ok()?),
             // Unknown keys are ignored so newer producers stay readable.
             _ => {}
         }
@@ -310,19 +320,35 @@ fn parse_filter(value: &str) -> Option<crate::config::ImageFilter> {
     })
 }
 
-/// The initial crop offset in cells, written `vertical` or
-/// `vertical,horizontal`; an omitted axis is `0`.
-fn parse_scroll(value: &str) -> Option<[u16; 2]> {
-    let (vertical, horizontal) = value.split_once(',').unwrap_or((value, "0"));
-    Some([parse_scroll_axis(vertical)?, parse_scroll_axis(horizontal)?])
+/// A magnification of at least `1.0`; anything below (or non-finite) is not a zoom.
+fn parse_zoom(value: &str) -> Option<f32> {
+    value
+        .parse::<f32>()
+        .ok()
+        .filter(|zoom| zoom.is_finite() && *zoom >= 1.0)
 }
 
-fn parse_scroll_axis(value: &str) -> Option<u16> {
+/// The initial crop offset in cells: `vertical`, `vertical,horizontal` or
+/// `,horizontal`. A missing vertical axis is `0`; the horizontal one has to be
+/// written out.
+fn parse_scroll(value: &str) -> Option<[u16; 2]> {
     if value.is_empty() {
-        Some(0)
-    } else {
-        value.parse().ok()
+        return None;
     }
+    let Some((vertical, horizontal)) = value.split_once(',') else {
+        return Some([parse_scroll_axis(value)?, 0]);
+    };
+    let vertical = if vertical.is_empty() {
+        0
+    } else {
+        parse_scroll_axis(vertical)?
+    };
+    Some([vertical, parse_scroll_axis(horizontal)?])
+}
+
+/// One axis of a `scroll` pair, which must be spelled out.
+fn parse_scroll_axis(value: &str) -> Option<u16> {
+    value.parse().ok()
 }
 
 #[cfg(test)]
@@ -331,11 +357,29 @@ mod tests {
     use image::ImageFormat;
 
     #[test]
+    fn path_header_carries_options() {
+        assert_eq!(
+            path_header(Path::new("/img.png"), Some("hfit=fill:16 vfit=crop")).unwrap(),
+            "\x1e<MM_IMAGE:8> hfit=fill:16 vfit=crop\n/img.png"
+        );
+        assert_eq!(
+            path_header(Path::new("/img.png"), None).unwrap(),
+            "\x1e<MM_IMAGE:8>\n/img.png"
+        );
+        assert_eq!(
+            path_header(Path::new("/img.png"), Some("")).unwrap(),
+            "\x1e<MM_IMAGE:8>\n/img.png",
+            "an empty option list emits no options"
+        );
+        assert_eq!(path_header(Path::new("/notes.txt"), None), None);
+    }
+
+    #[test]
     fn path_mode() {
         let mut parser = HeaderParser::new(true);
         let mut output = Vec::new();
         let state = parser.feed(
-            b"\x1e<MM_IMAGE:9> hfit=fill scroll=3 filter=lanczos3\n/path.img and text",
+            b"\x1e<MM_IMAGE:9> hfit=fill scroll=3 filter=lanczos3 header_lines=2\n/path.img and text",
             &mut output,
         );
         assert_eq!(
@@ -345,6 +389,7 @@ mod tests {
                     horizontal_fit: Some(crate::config::ImageFit::Fill(0)),
                     filter: Some(crate::config::ImageFilter::Lanczos3),
                     scroll: Some([3, 0]),
+                    header_lines: Some(2),
                     ..Default::default()
                 },
                 remaining: 0,
@@ -548,6 +593,7 @@ mod tests {
             b"\x1e<MM_IMAGE:9> hfit=crop:3\n/path.img",
             b"\x1e<MM_IMAGE:9> hfit=fill:x\n/path.img",
             b"\x1e<MM_IMAGE:9> hfit=16\n/path.img",
+            b"\x1e<MM_IMAGE:9> header_lines=x\n/path.img",
         ] {
             let mut parser = HeaderParser::new(true);
             let mut output = Vec::new();
@@ -651,8 +697,8 @@ mod tests {
         }
     }
 
-    /// `scroll` sets the vertical axis alone, both when a comma separates them,
-    /// or the horizontal one alone when the first axis is left out.
+    /// `scroll` sets the vertical axis alone, both when a comma separates
+    /// them, or the horizontal one alone when the vertical axis is left out.
     #[test]
     fn scroll_covers_both_axes() {
         let scroll = |value: &str| {
@@ -673,7 +719,57 @@ mod tests {
             Some([3, 1]),
             "a pair is vertical then horizontal"
         );
-        assert_eq!(scroll(",1"), Some([0, 1]), "an omitted axis is zero");
+        assert_eq!(
+            scroll(",1"),
+            Some([0, 1]),
+            "an omitted vertical axis is zero"
+        );
+    }
+
+    /// Only the vertical axis may be left out; a blank horizontal one, or a
+    /// blank scroll, is not an offset.
+    #[test]
+    fn scroll_rejects_blank_axes() {
+        let parsed = |value: &str| {
+            let mut parser = HeaderParser::new(true);
+            let mut output = Vec::new();
+            matches!(
+                parser.feed(
+                    format!("\x1e<MM_IMAGE:4> scroll={value}\n/img").as_bytes(),
+                    &mut output,
+                ),
+                HeaderParser::Text
+            )
+        };
+
+        assert!(parsed(""), "an empty scroll has no offset");
+        assert!(parsed(","), "neither axis may be blank");
+        assert!(parsed("1,"), "a blank horizontal axis has no value");
+    }
+
+    #[test]
+    fn zoom_parses_and_rejects_shrink() {
+        let zoom = |value: &str| {
+            let mut parser = HeaderParser::new(true);
+            let mut output = Vec::new();
+            match parser.feed(
+                format!("\x1e<MM_IMAGE:4> zoom={value}\n/img").as_bytes(),
+                &mut output,
+            ) {
+                HeaderParser::Path { options, .. } => options.zoom,
+                other => panic!("expected HeaderParser::Path, got {other:?}"),
+            }
+        };
+
+        assert_eq!(zoom("2.5"), Some(2.5));
+        assert_eq!(zoom("1"), Some(1.0), "1 is the identity zoom");
+        // A magnification below 1 has no meaning, so the header is not an image.
+        let mut parser = HeaderParser::new(true);
+        let mut output = Vec::new();
+        assert_eq!(
+            parser.feed(b"\x1e<MM_IMAGE:4> zoom=0.5\n/img", &mut output),
+            &HeaderParser::Text
+        );
     }
 
     #[cfg(feature = "image-svg")]

@@ -15,6 +15,7 @@ use log::error;
 use ratatui::layout::Size;
 use ratatui_image::{Resize, picker::Picker, sliced::SlicedProtocol};
 
+use super::helpers::zoom_rows;
 use crate::config::ImageOptions;
 use crate::event::EventSender;
 use crate::message::Event;
@@ -80,19 +81,17 @@ impl ImageRequest {
             return Err("image has no pixels".to_string());
         }
 
-        let (x, width) = self.window_source();
-        let cropped = source.crop_imm(x, 0, width, source.height());
+        let (x, y, width, height) = self.window_source();
+        let cropped = source.crop_imm(x, y, width, height);
 
         let font = self.picker.font_size();
-        // A `fill` extent is the only thing that makes the display larger than the
-        // image's native cell size, and only then does the protocol have to grow:
-        // `Scale` grows to the target while `Fit` caps at it. Below that both land on
-        // the same cells, whether the source covers the target or not, so the image is
-        // only re-encoded onto the cell grid, never stretched past its own size.
-        let natural = Resize::natural_size(source, font);
+        // The magnified image is built at `zoom` times the fitted rows, so the shown
+        // cells exceed the cropped image's native size however small the fit is;
+        // `Scale` grows to the target while `Fit` caps at it.
+        let rows = zoom_rows(self.key.display, self.key.options.zoom);
+        let natural = Resize::natural_size(&cropped, font);
         let filter = self.key.options.filter;
-        let resize = if self.key.display[0] > natural.width || self.key.display[1] > natural.height
-        {
+        let resize = if self.key.window.width > natural.width || rows > natural.height {
             Resize::Scale(Some(filter.into()))
         } else {
             Resize::Fit(Some(filter.into()))
@@ -101,25 +100,37 @@ impl ImageRequest {
         SlicedProtocol::new_with_resize(
             &self.picker,
             cropped,
-            Size::new(self.key.window.width, self.key.display[1]),
+            Size::new(self.key.window.width, rows),
             resize,
         )
         .map_err(|error| error.to_string())
     }
 
-    /// The source columns covering the visible pan window.
+    /// The source rectangle covering the visible pan window at the current zoom.
     ///
-    /// The scale comes from the full image, so panning never changes it.
-    fn window_source(&self) -> (u32, u32) {
+    /// The fitted display's rows and columns come from the image's own size, so zoom
+    /// only changes which source region the cells show: it crops in from the top left
+    /// and maps that region onto the magnified rows the document scrolls through. The
+    /// scale comes from the full image, so panning never changes it.
+    fn window_source(&self) -> (u32, u32, u32, u32) {
         let source = &self.image.data;
-        let font = self.picker.font_size();
         let display = self.key.display;
         let window = self.key.window;
-        let ratio = source.width() as f32 / (display[0] as f32 * font.width as f32);
-        let x = (window.offset as f32 * font.width as f32 * ratio).floor() as u32;
-        let x = x.min(source.width() - 1);
-        let width = (window.width as f32 * font.width as f32 * ratio).ceil() as u32;
-        (x, width.clamp(1, source.width() - x))
+        let zoom = self.key.options.zoom.max(1.0);
+        let source_width = source.width() as f32;
+
+        // Source pixels per shown cell, one zoom level in; the pan picks the left
+        // column, the document offset picks the row.
+        let scale_x = source_width / (display[0] as f32 * zoom);
+        let width = (window.width as f32 * scale_x)
+            .ceil()
+            .clamp(1.0, source_width);
+        let x = (window.offset as f32 * scale_x)
+            .floor()
+            .clamp(0.0, source_width - width);
+
+        // The whole height is built: `SlicedImage` slices it as the document scrolls.
+        (x as u32, 0, width as u32, source.height())
     }
 }
 
@@ -215,14 +226,36 @@ mod tests {
     fn window_source() {
         // Half blocks use a 10x20 font, so a 100px wide image spans 10 cells.
         let request = image_request([10, 10], window(3, 5), [100, 200]);
-        assert_eq!(request.window_source(), (30, 50));
+        assert_eq!(request.window_source(), (30, 0, 50, 200));
 
         // Displayed at half size, one pan cell covers 20 source pixels.
         let request = image_request([5, 10], window(1, 3), [100, 200]);
-        assert_eq!(request.window_source(), (20, 60));
+        assert_eq!(request.window_source(), (20, 0, 60, 200));
 
-        // Past the end only the last column is left.
-        let request = image_request([10, 10], window(20, 5), [100, 200]);
-        assert_eq!(request.window_source(), (99, 1));
+        // Panning to the far edge is clamped to the last part of the image.
+        let request = image_request([10, 10], window(5, 5), [100, 200]);
+        assert_eq!(request.window_source(), (50, 0, 50, 200));
+    }
+
+    #[test]
+    fn window_source_zooms_from_the_top_left() {
+        // At zoom 2 the pane shows the left half of the source, magnified.
+        let mut request = image_request([10, 10], window(0, 10), [100, 200]);
+        request.key.options.zoom = 2.0;
+        assert_eq!(request.window_source(), (0, 0, 50, 200));
+
+        // The pan walks right through the magnified image: one cell is 5 pixels.
+        let mut request = image_request([10, 10], window(2, 6), [100, 200]);
+        request.key.options.zoom = 2.0;
+        assert_eq!(request.window_source(), (10, 0, 30, 200));
+    }
+
+    #[test]
+    fn build_zooms_the_image_down_the_document() {
+        // 100x200 pixels is 10x10 halfblock cells; at zoom 2 they take 20 rows.
+        let mut request = image_request([10, 10], window(0, 10), [100, 200]);
+        request.key.options.zoom = 2.0;
+        let protocol = request.build().unwrap();
+        assert_eq!(protocol.size(), ratatui::layout::Size::new(10, 20));
     }
 }

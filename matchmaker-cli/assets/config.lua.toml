@@ -39,6 +39,7 @@ title_style.modifier = "UNDERLINED"
 
 [[preview.layout]]
 command = '''
+mm --image {1} && exit 0
 if command -v fs >/dev/null 2>&1; then
     fs :tool pg -- {1}
 elif [ -d {1} ]; then

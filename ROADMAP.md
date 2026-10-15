@@ -33,7 +33,7 @@
 
 - Offload large previews to disk/caching
 - spawn with pty
-
+- zoom: zooms on center of visible region/zooms around image center, but this leaves some corners unzoomable
 # Perf
 
 - benchmarks

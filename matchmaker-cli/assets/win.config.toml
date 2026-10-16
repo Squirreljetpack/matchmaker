@@ -37,7 +37,7 @@ scroll_wrap = true
 command = '''
 $p = {1}
 if (Get-Command mm -ErrorAction SilentlyContinue) {
-    mm --image $p
+    mm -q --image $p
     if ($LASTEXITCODE -eq 0) { exit 0 }
 }
 if (Get-Command fs -ErrorAction SilentlyContinue) {
@@ -146,16 +146,22 @@ abort_empty = true
 # "pageup" = "HalfPageUp"
 # "shift-up" = "PreviewHalfPageUp"
 # "shift-down" = "PreviewHalfPageDown"
-# "ctrl-shift-up" = "VScroll(1)"
-# "ctrl-shift-down" = "VScroll(-1)"
-# "ctrl-shift-left" = "HScroll(-1)"
-# "ctrl-shift-right" = "HScroll(1)"
+# "alt-shift-up" = "VScroll(1)"
+# "alt-shift-down" = "VScroll(-1)"
+# "alt-shift-left" = "HScroll(-1)"
+# "alt-shift-right" = "HScroll(1)"
 # "alt-up" = "VScroll(1)"
 # "alt-down" = "VScroll(-1)"
 # "alt-left" = "HScroll(-1)"
 # "alt-right" = "HScroll(1)"
 # "alt-w" = "ToggleWrap",
 # "alt-shift-w" = "TogglePreviewWrap",
+
+# "ctrl-shift-right" = "PreviewHScroll(1)" # requires keyboard enhancement
+# "ctrl-shift-left" = "PreviewHScroll(-1)"
+# "ctrl-shift-up" = "PreviewScroll(1)" # zoom or row-based persistent scroll
+# "ctrl-shift-down" = "PreviewScroll(-1)"
+
 "alt-w" = ["ToggleWrap", "ToggleHeaderWrap"]
 
 "alt-s" = "Sort"

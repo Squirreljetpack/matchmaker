@@ -31,7 +31,7 @@ scroll_wrap = true
 
 [[preview.layout]]
 command = '''
-mm --image {1} && exit 0
+mm -q --image {1} && exit 0
 if [ -d {1} ]; then
     if command -v eza >/dev/null 2>&1; then
         eza --color=always -T -L 2 -- {1}
@@ -144,10 +144,13 @@ abort_empty = true
 # "alt-down" = "VScroll(-1)"
 # "alt-left" = "HScroll(-1)"
 # "alt-right" = "HScroll(1)"
-# "ctrl-[" = "ToggleWrap", # requires keyboard enhancement
-# "ctrl-]" = "TogglePreviewWrap",  # requires keyboard enhancement
-# "alt-{" = "ToggleWrap",
-# "alt-}" = "TogglePreviewWrap",
+# "alt-w" = "ToggleWrap",
+# "alt-shift-w" = "TogglePreviewWrap",
+
+"alt-shift-right" = "PreviewHScroll(1)"
+"alt-shift-left" = "PreviewHScroll(-1)"
+"alt-shift-up" = "PreviewScroll(1)" # zoom or row-based persistent scroll
+"alt-shift-down" = "PreviewScroll(-1)"
 "ctrl-[" = ["ToggleWrap", "ToggleHeaderWrap"] # requires keyboard enhancement
 
 # Columns

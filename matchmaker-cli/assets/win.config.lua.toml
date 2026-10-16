@@ -156,6 +156,12 @@ abort_empty = true
 # "alt-right" = "HScroll(1)"
 # "alt-w" = "ToggleWrap",
 # "alt-shift-w" = "TogglePreviewWrap",
+
+# "ctrl-shift-right" = "PreviewHScroll(1)" # requires keyboard enhancement
+# "ctrl-shift-left" = "PreviewHScroll(-1)"
+# "ctrl-shift-up" = "PreviewScroll(1)" # zoom or row-based persistent scroll
+# "ctrl-shift-down" = "PreviewScroll(-1)"
+
 "alt-w" = ["ToggleWrap", "ToggleHeaderWrap"]
 
 "alt-s" = "Sort"

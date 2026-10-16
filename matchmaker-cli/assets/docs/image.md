@@ -1,11 +1,9 @@
 # Images
 
 The preview pane can show an image instead of text. The image is drawn with the
-terminal's graphics protocol (or with half blocks where there is none), keeps its
-proportions, and can be zoomed and panned while the text around it stays
-scrollable.
+terminal's graphics protocol, keeps its proportions, and can be zoomed and panned while the text around it stays scrollable.
 
-The shipped configuration already previews files this way: its first preview
+The default configuration already previews files this way: its first preview
 layout starts with `mm --image {1} && exit 0`, so an image file is drawn as one
 and anything else falls through to the text previewer.
 
@@ -25,9 +23,7 @@ those options:
 mm --image logo.svg hfit=fill:20 filter=lanczos3
 ```
 
-If this build has no decoder for the file (or it is not an image at all) and
-`chafa` is installed, the file is rendered by `chafa` instead and printed as
-half-block text. Pass `-q` to keep the command image-or-nothing.
+If this build has no decoder for the file and `chafa` is installed, the file is rendered by `chafa` instead and printed as half-block text. Pass `-q` to keep the command image-or-nothing.
 
 When neither can show the file, the exit status is `159` (see `mm --doc other`),
 which makes it easy to fall back to text in a preview command:
@@ -74,8 +70,7 @@ selects the decoder, and the count is the payload's byte length:
 | `scroll`       | `N`, `N,M` or `,M`                                           | Initial offset in cells: vertical first, horizontal second.                |
 | `header_lines` | number                                                       | Lines of the text after the payload drawn above the image.                 |
 
-Values are case-insensitive and unknown options are ignored, so a producer can
-use newer options without breaking older matchmakers.
+Values are case-insensitive and unknown options are ignored.
 
 Header parsing can be turned off with `previewer.images = false`, and is
 automatically off when `preview.image.protocol = "none"`; such output is then
@@ -95,17 +90,7 @@ the image changes.
 | `PreviewUp(n)`, `PreviewDown(n)`                          | Move through the preview's lines: the image pans vertically, then the text below it scrolls.                                                                                 |
 | `PreviewHalfPageUp`, `PreviewHalfPageDown`, `PreviewJump` | Same as for text previews.                                                                                                                                                   |
 
-A wheel-and-keys setup for images, on top of the usual text bindings:
-
-```toml
-[binds]
-"scrollup" = "PreviewScroll(-1)" # zoom out
-"scrolldown" = "PreviewScroll(1)" # zoom in
-"alt-left" = "PreviewHScroll(-1)"
-"alt-right" = "PreviewHScroll(1)"
-```
-
-See `mm --doc binds` for the full list of actions.
+With the default configuration, `alt-shift-[arrow]` pans the preview.
 
 ---
 
@@ -122,10 +107,8 @@ scroll = [0, 0]
 header_lines = 0
 ```
 
-- `protocol`: `auto` follows what the terminal reported; `half_blocks`, `sixel`,
-  `kitty` and `iterm2` force one, and `none` disables images entirely. A forced
-  protocol wins even when the terminal cannot render it, which then shows
-  garbage rather than the image.
+- `protocol`: `auto` follows what the terminal reported; the other ones force a 
+  possibly incompatible protocol.
 - `horizontal_fit`, `vertical_fit`: how each axis is fitted to the pane, see
   [Fitting](#fitting).
 - `filter`: resampling filter.
@@ -133,7 +116,8 @@ header_lines = 0
 - `scroll`: initial `[vertical, horizontal]` offset in cells.
 - `header_lines`: lines after the image payload drawn above the image, instead of
   with the rest of the text. The image is fitted into the pane height left below
-  them.
+  them. When `preview.wrap` is on they wrap with the pane, and the image is fitted
+  into the pane height left below the rows they wrap into.
 
 The same keys can be overridden per preview on the command line or in the header.
 
@@ -178,7 +162,7 @@ instance — so a supported protocol may not be detected. Setting `protocol` to
 ## Formats
 
 PNG and JPEG always work, and SVG too in builds with the `image-svg` feature
-(the shipped binaries). SVG is rasterized on the way in, without fonts, so text
+(the standard binary). SVG is rasterized on the way in, without fonts, so text
 in an SVG may be missing. GIF, BMP, ICO, TIFF and WebP are available with the
 `image-all` feature:
 

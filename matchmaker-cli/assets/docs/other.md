@@ -87,7 +87,7 @@ part before it is a number):
 | `N@alias`    | Execute the command actions bound to the semantic alias, formatted with the N-th item |
 | `N-M`        | Run the M-th preview layout's command, formatted with the N-th item                   |
 | `N:TEMPLATE` | Execute `TEMPLATE` formatted with the N-th item                                       |
-| `TEMPLATE`   | Print `TEMPLATE` formatted with the first item (no execution)                         |
+| `TEMPLATE`   | Print `TEMPLATE` formatted with the first item                                        |
 
 ```sh
 mm --list="3:open {path}"             # execute a template with the 4th item

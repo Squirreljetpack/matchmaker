@@ -19,7 +19,6 @@ use log::error;
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
-    text::Line,
     widgets::{Paragraph, Widget},
 };
 use ratatui_image::{
@@ -104,14 +103,27 @@ impl ImageState {
             .then_some(built)
     }
 
-    /// [`Self::current`], sliced at the pane's scroll `offset`, as the widget to draw.
+    /// [`Self::current`] as the widget to draw.
     ///
-    /// `None` while no protocol for the current image has been built yet.
-    pub fn widget(&self, offset: u16) -> Option<ImageWidget> {
+    /// `header_height` rows hold the header above the image, `scrolled` rows of the image
+    /// have passed the pane's top, and the widget occupies `height` rows of the pane.
+    ///
+    /// The widget exists while the protocol is still being built: it draws the header and
+    /// leaves the image's rows reserved and blank, so the pane does not reflow when the
+    /// protocol lands. `None` only while the pane has made no request at all.
+    pub fn widget(
+        &self,
+        header_height: usize,
+        scrolled: usize,
+        height: usize,
+    ) -> Option<ImageWidget> {
+        self.sent.as_ref()?;
         Some(ImageWidget {
-            built: self.current()?,
-            offset,
-            header: Vec::new(),
+            built: self.current(),
+            header_height,
+            scrolled,
+            height,
+            header: None,
         })
     }
 
@@ -123,28 +135,26 @@ impl ImageState {
             .map_or(0, |key| zoom_rows(key.display, key.options.zoom) as usize)
     }
 
-    /// Header rows the image holds above it, from the request it is shown under.
+    /// Rows the image is fitted into, before the zoom magnifies them: the pane shows no
+    /// more of the image than these at a time.
+    pub fn display_rows(&self) -> usize {
+        self.sent.as_ref().map_or(0, |key| key.display[1] as usize)
+    }
+
+    /// Header lines the image's header draws, from the request it is shown under: the
+    /// document's header rows, which the text below the image is offset by.
     pub fn header_lines(&self) -> usize {
         self.sent
             .as_ref()
             .map_or(0, |key| key.options.header_lines as usize)
     }
-
-    /// Rows the image block covers in a pane `height` rows tall, with the document
-    /// scrolled `offset` rows down: its header rows and the image, less whatever has
-    /// gone above the pane.
-    pub fn painted_rows(&self, offset: usize, height: u16) -> usize {
-        let rows = self.rows();
-        if rows == 0 {
-            return 0;
-        }
-        (self.header_lines() + rows)
-            .saturating_sub(offset)
-            .min(height as usize)
-    }
-
     pub fn last_id(&self) -> Option<usize> {
         self.sent.as_ref().map(|s| s.id)
+    }
+
+    /// Whether the worker has built the protocol the pane last asked for.
+    pub fn ready(&self) -> bool {
+        self.current().is_some()
     }
 
     /// Cell size in pixels, which an image cannot be scaled without.
@@ -156,7 +166,10 @@ impl ImageState {
         (font.width > 0 && font.height > 0).then_some(font)
     }
 
-    /// Prepare the protocol for `image` in a pane of `area`, `hpan` cells across.
+    /// Prepare the protocol for `image` in the pane left with `area` for it, `hpan`
+    /// cells across.
+    ///
+    /// The pane measures its header and leaves the image what is below it.
     ///
     /// `hpan` is clamped to the image in place, so a pan past the edge does not take as
     /// many steps to undo as it took to overshoot.
@@ -239,34 +252,74 @@ impl Drop for ImageState {
 /// Owned widget wrapping the built protocol so [`ImageState`] does not have to borrow it
 /// across the render call.
 pub struct ImageWidget {
-    built: Arc<CachedImage>,
-    offset: u16,
-    /// Lines drawn in the header rows the request reserved above the image.
-    header: Vec<Line<'static>>,
+    /// The protocol the worker built, while it has finished the pane's current request.
+    built: Option<Arc<CachedImage>>,
+    /// Rows of the pane the header above the image renders into.
+    header_height: usize,
+    /// Rows of the image that have scrolled past the pane's top.
+    scrolled: usize,
+    /// Rows of the pane the widget occupies: the header's rows and the image's shown ones.
+    height: usize,
+    /// The header, drawn above the image, holding the lines the pane's scroll has left.
+    header: Option<Paragraph<'static>>,
 }
 
 impl ImageWidget {
-    /// Text to draw in the request's header rows, above the image.
-    pub fn with_header(mut self, header: Vec<Line<'static>>) -> Self {
-        self.header = header;
+    /// Draw `header` in the rows the pane measured above the image.
+    pub fn with_header(mut self, header: Paragraph<'static>) -> Self {
+        self.header = Some(header);
         self
     }
 }
 
 impl Widget for ImageWidget {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let header_rows = self.built.key.options.header_lines;
-        // The header never wraps; it scrolls with the image.
-        if !self.header.is_empty() {
-            Paragraph::new(self.header)
-                .scroll((self.offset, 0))
-                .render(area, buf);
+        // The header is drawn in full, wrapped as the pane wraps it.
+        if let Some(header) = self.header {
+            header.render(area, buf);
         }
-        let y = i32::from(header_rows) - i32::from(self.offset);
+        // The image follows the header up the pane, and is cropped to the rows the widget
+        // holds: a magnified image is panned through them rather than drawn over the text
+        // below it.
+        let Some(built) = &self.built else {
+            return;
+        };
+        let y = self.header_height as i32 - self.scrolled as i32;
+        let crop = Rect {
+            height: self.height.min(area.height as usize) as u16,
+            ..area
+        };
         SlicedImage::new(
-            &self.built.protocol,
+            &built.protocol,
             SignedPosition::from((0, y.clamp(i16::MIN as i32, i16::MAX as i32) as i16)),
         )
-        .render(area, buf);
+        .render(crop, buf);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The header is drawn while the protocol is still being built, with the image's rows
+    /// left reserved and blank.
+    #[test]
+    fn header_is_drawn_while_the_image_builds() {
+        let widget = ImageWidget {
+            built: None,
+            header_height: 1,
+            scrolled: 0,
+            height: 3,
+            header: Some(Paragraph::new("header")),
+        };
+        let area = Rect::new(0, 0, 10, 3);
+        let mut buf = Buffer::empty(area);
+        widget.render(area, &mut buf);
+
+        let row = (0..10).map(|x| buf[(x, 0)].symbol()).collect::<String>();
+        assert!(
+            row.starts_with("header"),
+            "the header was not drawn: {row:?}"
+        );
     }
 }

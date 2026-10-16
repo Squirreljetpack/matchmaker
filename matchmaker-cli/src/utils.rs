@@ -149,117 +149,6 @@ fn set_executable_bit(path: &Path) {
 #[cfg(not(unix))]
 fn set_executable_bit(_path: &Path) {}
 
-/// Exit code for `--image` when nothing can show the path: matchmaker has no
-/// decoder for it and `chafa` is not installed (or `-q` kept the fallback from
-/// running). It does not collide with `chafa`'s own codes (`0` success, `2`
-/// failure), so a caller can tell "nothing here can show this" from "chafa tried
-/// and failed". `159` is HTTP 415 wrapped into the 0-255 an exit status carries.
-const EXIT_NO_IMAGE_SUPPORT: i32 = 159;
-
-/// Handle `--image PATH [OPTIONS...]`. Outputs an `<MM_IMAGE>` token whose
-/// header carries `OPTIONS` when matchmaker can decode the image itself,
-/// otherwise renders it with `chafa` when installed, otherwise exits silently
-/// with [`EXIT_NO_IMAGE_SUPPORT`].
-///
-/// `options` are the positional arguments that followed the path, written as
-/// `<MM_IMAGE>` header options (`hfit=fill:16 vfit=crop`). The ones `chafa`
-/// understands are translated to its flags; the rest only apply to the native
-/// renderer and are dropped for the fallback.
-///
-/// `quiet` (`-q`) keeps the fallback from running at all, so the path is either
-/// shown as an image or reported as unsupported.
-/// This function always exits.
-pub fn handle_image(path: &Path, options: &[String], quiet: bool) -> ! {
-    #[cfg(feature = "image")]
-    if path.is_file() {
-        let header_options = options.join(" ");
-        if let Some(header) = matchmaker::preview::image::path_header(path, Some(&header_options)) {
-            let mut stdout = io::stdout();
-            let _ = write!(stdout, "{header}");
-            let _ = stdout.flush();
-            exit(0);
-        }
-    }
-
-    if !quiet && which::which("chafa").is_ok() {
-        // chafa writes cursor escapes before it fails, so its output is held
-        // back and only forwarded once it succeeded; its own status is the
-        // answer, and it exits 2 on any failure (the path is not something it
-        // can show either).
-        // chafa has no `--` separator, so a path starting with `-` is reached
-        // as `./-...` instead of being parsed as one of its flags.
-        let mut arg = path.to_path_buf();
-        if arg.as_os_str().as_encoded_bytes().starts_with(b"-") {
-            arg = Path::new(".").join(arg);
-        }
-
-        match Command::new("chafa")
-            .args(chafa_args(options))
-            .arg(&arg)
-            .output()
-        {
-            Ok(output) if output.status.success() => {
-                let mut stdout = io::stdout();
-                let _ = stdout.write_all(&output.stdout);
-                let _ = stdout.flush();
-                exit(0);
-            }
-            Ok(output) => exit(output.status.code().unwrap_or(EXIT_NO_IMAGE_SUPPORT)),
-            Err(_) => exit(EXIT_NO_IMAGE_SUPPORT),
-        }
-    }
-
-    exit(EXIT_NO_IMAGE_SUPPORT);
-}
-
-/// The `chafa` flags equivalent to the `<MM_IMAGE>` header `options`.
-///
-/// `hfit`/`vfit` cell counts become `--size=WxH`; a `fill` on both axes becomes
-/// `--stretch`, otherwise the image is scaled to fit with `--scale=max`. Options
-/// with no `chafa` counterpart (`filter`, `scroll`, `zoom`, `header_lines`) are
-/// dropped.
-fn chafa_args(options: &[String]) -> Vec<String> {
-    let mut width = None;
-    let mut height = None;
-    let (mut fill_width, mut fill_height) = (false, false);
-
-    for option in options {
-        let Some((key, value)) = option.split_once('=') else {
-            continue;
-        };
-        let (fit, cells) = match value.split_once(':') {
-            Some((fit, cells)) => (fit, cells.parse::<u16>().ok()),
-            None => (value, None),
-        };
-        // `0` and no count both mean the pane, which chafa takes from the view.
-        let cells = cells.filter(|cells| *cells > 0);
-        let fill = fit.eq_ignore_ascii_case("fill");
-        match key {
-            "hfit" => {
-                width = cells;
-                fill_width = fill;
-            }
-            "vfit" => {
-                height = cells;
-                fill_height = fill;
-            }
-            _ => {}
-        }
-    }
-
-    let mut args = Vec::new();
-    if width.is_some() || height.is_some() {
-        let side = |cells: Option<u16>| cells.map_or(String::new(), |cells| cells.to_string());
-        args.push(format!("--size={}x{}", side(width), side(height)));
-    }
-    if fill_width && fill_height {
-        args.push("--stretch".to_string());
-    } else if !args.is_empty() {
-        args.push("--scale=max".to_string());
-    }
-    args
-}
-
 /// Handle `--download [FOLDER]`. `download` is the value of the flag: an
 /// empty string downloads every preset, a folder path downloads that folder,
 /// and a `.toml` file path downloads that file preset.
@@ -539,6 +428,116 @@ pub fn guess_editor_cmd() -> &'static str {
     {
         "notepad"
     }
+}
+
+/// Exit code for `--image` when nothing can show the path: matchmaker has no
+/// decoder for it and `chafa` is not installed (or `-q` kept the fallback from
+/// running). It does not collide with `chafa`'s own codes (`0` success, `2`
+/// failure), so a caller can tell "nothing here can show this" from "chafa tried
+/// and failed". `159` is HTTP 415 wrapped into the 0-255 an exit status carries.
+const EXIT_NO_IMAGE_SUPPORT: i32 = 159;
+
+/// Handle `--image PATH [OPTIONS...]`. Outputs an `<MM_IMAGE>` token whose
+/// header carries `OPTIONS` when matchmaker can decode the image itself,
+/// otherwise renders it with `chafa` when installed, otherwise exits silently
+/// with [`EXIT_NO_IMAGE_SUPPORT`].
+///
+/// `options` are the positional arguments that followed the path, written as
+/// `<MM_IMAGE>` header options (`hfit=fill:16 vfit=crop`). The ones `chafa`
+/// understands are translated to its flags; the rest only apply to the native
+/// renderer and are dropped for the fallback.
+///
+/// `quiet` (`-q`) keeps the fallback from running at all, so the path is either
+/// shown as an image or reported as unsupported.
+pub fn handle_image(path: &Path, options: &[String], quiet: bool) -> ! {
+    #[cfg(feature = "image")]
+    if path.is_file() {
+        let header_options = options.join(" ");
+        if let Some(header) = matchmaker::preview::image::path_header(path, Some(&header_options)) {
+            let mut stdout = io::stdout();
+            let _ = write!(stdout, "{header}");
+            let _ = stdout.flush();
+            exit(0);
+        }
+    }
+
+    if !quiet && which::which("chafa").is_ok() {
+        // chafa writes cursor escapes before it fails, so its output is held
+        // back and only forwarded once it succeeded; its own status is the
+        // answer, and it exits 2 on any failure (the path is not something it
+        // can show either).
+        // chafa has no `--` separator, so a path starting with `-` is reached
+        // as `./-...` instead of being parsed as one of its flags.
+        let mut arg = path.to_path_buf();
+        if arg.as_os_str().as_encoded_bytes().starts_with(b"-") {
+            arg = Path::new(".").join(arg);
+        }
+
+        match Command::new("chafa")
+            .args(chafa_args(options))
+            .arg(&arg)
+            .output()
+        {
+            Ok(output) if output.status.success() => {
+                let mut stdout = io::stdout();
+                let _ = stdout.write_all(&output.stdout);
+                let _ = stdout.flush();
+                exit(0);
+            }
+            Ok(output) => exit(output.status.code().unwrap_or(EXIT_NO_IMAGE_SUPPORT)),
+            Err(_) => exit(EXIT_NO_IMAGE_SUPPORT),
+        }
+    }
+
+    exit(EXIT_NO_IMAGE_SUPPORT);
+}
+
+/// The `chafa` flags equivalent to the `<MM_IMAGE>` header `options`.
+///
+/// `hfit`/`vfit` cell counts become `--size=WxH`; a `fill` on both axes becomes
+/// `--stretch`, otherwise the image is scaled to fit with `--scale=max`. Options
+/// with no `chafa` counterpart (`filter`, `scroll`, `zoom`, `header_lines`) are
+/// dropped.
+fn chafa_args(options: &[String]) -> Vec<String> {
+    let mut width = None;
+    let mut height = None;
+    let (mut fill_width, mut fill_height) = (false, false);
+
+    for option in options {
+        let Some((key, value)) = option.split_once('=') else {
+            continue;
+        };
+        let (fit, cells) = match value.split_once(':') {
+            Some((fit, cells)) => (fit, cells.parse::<u16>().ok()),
+            None => (value, None),
+        };
+        // `0` and no count both mean the pane, which chafa takes from the view.
+        let cells = cells.filter(|cells| *cells > 0);
+        let fill = fit.eq_ignore_ascii_case("fill");
+        match key {
+            "hfit" => {
+                width = cells;
+                fill_width = fill;
+            }
+            "vfit" => {
+                height = cells;
+                fill_height = fill;
+            }
+            _ => {}
+        }
+    }
+
+    let mut args = Vec::new();
+    if width.is_some() || height.is_some() {
+        let side = |cells: Option<u16>| cells.map_or(String::new(), |cells| cells.to_string());
+        args.push(format!("--size={}x{}", side(width), side(height)));
+    }
+    if fill_width && fill_height {
+        args.push("--stretch".to_string());
+    } else if !args.is_empty() {
+        args.push("--scale=max".to_string());
+    }
+    args
 }
 
 #[cfg(test)]

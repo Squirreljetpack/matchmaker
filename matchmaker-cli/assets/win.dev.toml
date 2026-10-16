@@ -21,7 +21,7 @@ wrap = true
 [[preview.layout]]
 command = '''
 if (Get-Command mm -ErrorAction SilentlyContinue) {
-    mm --image {}
+    mm -q --image {}
     if ($LASTEXITCODE -eq 0) { exit 0 }
 }
 Get-Content {}'''
@@ -76,10 +76,10 @@ border.padding = [2, 0]
 "pagedown" = "HalfPageUp"
 "shift-up" = "PreviewHalfPageUp"
 "shift-down" = "PreviewHalfPageDown"
-"ctrl-shift-up" = "VScroll(1)"
-"ctrl-shift-down" = "VScroll(-1)"
-"ctrl-shift-left" = "HScroll(-1)"
-"ctrl-shift-right" = "HScroll(1)"
+"alt-shift-up" = "VScroll(1)"
+"alt-shift-down" = "VScroll(-1)"
+"alt-shift-left" = "HScroll(-1)"
+"alt-shift-right" = "HScroll(1)"
 "alt-up" = "VScroll(1)"
 "alt-down" = "VScroll(-1)"
 "alt-left" = "HScroll(-1)"

@@ -52,7 +52,8 @@ bitflags! {
         const PreviewStarted = 1 << 15;
         const PreviewFinished = 1 << 16;
 
-        const DirtyUI = 1 << 17;
+        // Simple redraw request
+        const Tick = 1 << 17;
     }
 }
 // ---------------------------------------------------------------------

@@ -38,11 +38,6 @@ show = true
 command = '''
 target={3}
 
-echo "Name:    "{name}
-[[ -n "$section" ]] && echo "Section: "{section}
-echo "Target:  $target"
-printf "%${COLUMNS}s\n" | tr ' ' '-'
-
 # Extract sanitized ID for caching
 target_id=${target%%\?*}
 tmp_icon="/tmp/mm_pref_$(echo "$target_id" | tr '*./' '___').png"
@@ -94,7 +89,12 @@ if ! [[ -f "$tmp_icon" ]]; then
 fi
 
 # Final Display (cached or newly created)
-[[ -f "$tmp_icon" ]] && mm --image "$tmp_icon"
+[[ -f "$tmp_icon" ]] && mm --image "$tmp_icon" header_lines=4
+
+echo "Name:    "{name}
+[[ -n "$section" ]] && echo "Section: "{section}
+echo "Target:  $target"
+printf "%${COLUMNS}s\n" | tr ' ' '-'
 '''
 
 [binds]

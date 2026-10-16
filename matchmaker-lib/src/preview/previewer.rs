@@ -1,7 +1,6 @@
 use ansi_to_tui::IntoText;
 use arc_swap::ArcSwap;
 use cba::broc::{CommandExt, EnvVars};
-use futures::FutureExt;
 use log::{debug, error, warn};
 use ratatui::text::{Line, Text};
 use std::io::BufReader;
@@ -49,7 +48,7 @@ pub struct Previewer {
     /// Maintain a queue of child processes to improve cleanup reliability
     procs: Vec<Child>,
     /// The currently executing child process
-    current: Option<(Child, JoinHandle<bool>)>,
+    current: Option<(Child, JoinHandle<()>)>,
 
     pub config: PreviewerConfig,
     last: String,
@@ -90,6 +89,8 @@ impl Previewer {
     }
 
     /// Wake the renderer: what the preview shows changed.
+    // We don't need to check whether we have been superseded
+    // since this is not called off thread
     fn signal_dirty(&self) {
         if let Some(event_tx) = &self.event_controller_tx {
             let _ = event_tx.send(Event::PreviewFinished);
@@ -118,6 +119,7 @@ impl Previewer {
     }
 
     fn parse_slice(valid_bytes: &[u8], try_lossy: bool, cmd_str: &str) -> Option<Text<'static>> {
+        // better would be to look for utf-8 valid up to, then parse into Lines with utf-8-unchecked
         match valid_bytes.into_text() {
             Ok(text) => Some(text),
             Err(e) => {
@@ -151,7 +153,7 @@ impl Previewer {
 
             if let PreviewMessage::Run(cmd, _) = &m {
                 if !self.config.always_trigger && &self.last == cmd {
-                    self.signal_dirty();
+                    // self.signal_dirty();
                     continue;
                 }
 
@@ -262,6 +264,30 @@ impl Previewer {
                                 let mut first = true;
                                 #[cfg(feature = "image")]
                                 let mut image = HeaderParser::new(self.config.images);
+                                macro_rules! init {
+                                    ($value:expr) => {{
+                                        if first {
+                                            lines.clear();
+                                            last_line_shared.store(Default::default());
+
+                                            #[allow(unused_assignments)]
+                                            {
+                                                last_line_guard = last_line_shared.load_full();
+                                                guard = lines.read();
+                                                first = false;
+                                            }
+
+                                            // we're trying to avoid case of generation is increased, and we override with a superseded token
+                                            // probably solved with double-word CAS, but not worth it i think
+                                            if generation.superseded(false) {
+                                                return;
+                                            }
+                                            if let Ok(mut guard) = override_.lock() {
+                                                *guard = $value;
+                                            }
+                                        }
+                                    }};
+                                }
 
                                 while let Ok(n) = std::io::Read::read(&mut reader, &mut buf) {
                                     if n == 0 {
@@ -269,27 +295,30 @@ impl Previewer {
                                     }
 
                                     if generation.superseded(false) {
-                                        break;
+                                        return;
                                     }
-
                                     #[cfg(feature = "image")]
                                     match image.feed(&buf[..n], &mut raw_buf) {
-                                        HeaderParser::Text
-                                        | HeaderParser::Path { remaining: 0, .. }
+                                        HeaderParser::Path { remaining: 0, .. }
                                         | HeaderParser::Inline { remaining: 0, .. } => {
-                                            if first {
-                                                if self.config.delay_clear {
-                                                    lines.clear();
-                                                    last_line_shared.store(Default::default());
-                                                    if let Ok(mut guard) = override_.lock() {
-                                                        *guard = Override::None;
-                                                    }
-                                                    guard = lines.read();
-                                                    last_line_guard = last_line_shared.load_full();
+                                            // only runs once due as decode transitions state to Text
+                                            #[cfg(feature = "image")]
+                                            match image.decode(generation.value).unwrap() {
+                                                Ok(image) => {
+                                                    init!(Override::Image(image));
                                                 }
-                                                first = false;
+                                                Err(e) => {
+                                                    error!(
+                                                        "Failed to load image for {cmd_str}: {e}"
+                                                    );
+                                                    // or always continue on image decode failure?
+                                                    if !self.config.try_lossy {
+                                                        break;
+                                                    }
+                                                }
                                             }
                                         }
+                                        HeaderParser::Text => init!(Override::None),
                                         _ => {
                                             continue;
                                         }
@@ -298,18 +327,7 @@ impl Previewer {
                                     #[cfg(not(feature = "image"))]
                                     {
                                         raw_buf.extend_from_slice(&buf[..n]);
-                                        if first {
-                                            if self.config.delay_clear {
-                                                lines.clear();
-                                                last_line_shared.store(Default::default());
-                                                if let Ok(mut guard) = override_.lock() {
-                                                    *guard = Override::None;
-                                                }
-                                                guard = lines.read();
-                                                last_line_guard = last_line_shared.load_full();
-                                            }
-                                            first = false;
-                                        }
+                                        init!(Override::None);
                                     }
 
                                     if let Some(pos) =
@@ -322,12 +340,12 @@ impl Previewer {
                                             &cmd_str,
                                         ) else {
                                             generation.superseded(true);
-                                            return false;
+                                            return;
                                         };
 
                                         for line in text {
-                                            if generation.superseded(true) {
-                                                return true;
+                                            if generation.superseded(false) {
+                                                return;
                                             }
                                             guard.push(line);
                                         }
@@ -359,42 +377,22 @@ impl Previewer {
                                     last_line_guard = next;
                                 }
 
-                                if generation.superseded(false) {
-                                    return true;
-                                }
-
-                                if first && self.config.delay_clear {
-                                    lines.clear();
-                                    last_line_shared.store(Default::default());
-                                    if let Ok(mut guard) = override_.lock() {
-                                        *guard = Override::None;
-                                    }
-                                }
-
+                                // An unfinished header is only an error when the output
+                                // actually contained part of one; empty output is not.
                                 #[cfg(feature = "image")]
-                                if let Some(image) = image.decode(generation.value) {
-                                    match image {
-                                        Ok(image) => {
-                                            match override_.lock() {
-                                                Ok(mut guard) => {
-                                                    *guard = Override::Image(image);
-                                                }
-                                                Err(_) => {
-                                                    generation.superseded(true);
-                                                    return false;
-                                                }
-                                            };
-                                        }
-                                        Err(e) => {
-                                            error!("Failed to load image for {cmd_str}: {e}");
-                                            generation.superseded(true);
-                                            return false;
-                                        }
-                                    };
+                                if !matches!(image, HeaderParser::Sniffing) || !raw_buf.is_empty() {
+                                    image.decode(generation.value).map(|s| {
+                                        s.map_err(|e| {
+                                            error!("Failed to load image for {cmd_str}: {e}")
+                                        })
+                                    });
                                 }
 
+                                // still need to trigger the clear if no lines read
+                                if self.config.delay_clear {
+                                    init!(Override::None);
+                                }
                                 generation.superseded(true);
-                                true
                             });
                             self.current = Some((child, handle))
                         } else {
@@ -432,17 +430,7 @@ impl Previewer {
             kill_child(&mut child);
             self.procs.push(child);
 
-            let mut old = Box::pin(old);
-            match old.as_mut().now_or_never() {
-                Some(Ok(result)) if !result => self.send(Event::Redraw),
-                _ => {}
-            }
-        }
-    }
-
-    fn send(&self, event: Event) {
-        if let Some(ref tx) = self.event_controller_tx {
-            let _ = tx.send(event);
+            drop(old);
         }
     }
 
@@ -499,10 +487,10 @@ struct Generation {
 }
 
 impl Generation {
-    fn superseded(&self, prepare_return: bool) -> bool {
-        let superseded = self.value != self.counter.load(Ordering::Relaxed);
-        if prepare_return
-            && !superseded
+    /// Call before returning from the preview worker thread, or to check whether to return early.
+    fn superseded(&self, returns_unconditionally: bool) -> bool {
+        let superseded = self.value != self.counter.load(Ordering::SeqCst);
+        if returns_unconditionally && !superseded // if superseded, a different thread will emit the PreviewFinished
             && let Some(event_tx) = &self.event_tx
         {
             let _ = event_tx.send(Event::PreviewFinished);

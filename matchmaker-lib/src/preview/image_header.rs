@@ -116,9 +116,14 @@ impl HeaderParser {
         self
     }
 
-    pub fn decode(self, id: usize) -> Option<Result<PreviewImage, String>> {
-        match self {
-            HeaderParser::Sniffing | HeaderParser::Text => None,
+    /// Decode the image the parser collected, ending the header attempt.
+    ///
+    /// `None` when the output is text. `Some(Err(..))` when it began a header but did
+    /// not finish one: an incomplete header line, or fewer image bytes than declared.
+    pub fn decode(&mut self, id: usize) -> Option<Result<PreviewImage, String>> {
+        match std::mem::replace(self, HeaderParser::Text) {
+            HeaderParser::Sniffing => Some(Err("Incomplete <MM_IMAGE> header".to_string())),
+            HeaderParser::Text => None,
             HeaderParser::Path {
                 options,
                 path,
@@ -532,11 +537,11 @@ mod tests {
             parser.feed(b"\x1e<MM_IMAGE/png:4>", &mut output),
             HeaderParser::Sniffing
         ));
-        assert!(parser.decode(0).is_none());
+        assert!(matches!(parser.decode(0), Some(Err(_))));
         assert_eq!(
             output.as_slice(),
             b"\x1e<MM_IMAGE/png:4>",
-            "the header is displayed as text"
+            "the failed header is displayed as text"
         );
 
         // Neither the header line nor the payload need a trailing newline.
@@ -657,7 +662,10 @@ mod tests {
         ));
         // The bytes are kept for the text path, which shows nothing without a newline.
         assert_eq!(output.as_slice(), b"\x1e<MM_IMAG");
-        assert!(parser.decode(0).is_none());
+        assert!(
+            matches!(parser.decode(0), Some(Err(_))),
+            "an unfinished header attempt is reported"
+        );
         assert_eq!(output.as_slice(), b"\x1e<MM_IMAG", "nothing was consumed");
     }
 

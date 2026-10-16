@@ -173,7 +173,7 @@ pub fn image_worker(
                     protocol,
                 })));
                 if let Some(event_tx) = &event_tx {
-                    let _ = event_tx.send(Event::PreviewFinished);
+                    let _ = event_tx.send(Event::Tick);
                 }
             }
             // The protocol that is on screen stays; the pane only renders one it asked

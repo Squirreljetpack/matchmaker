@@ -39,7 +39,7 @@ title_style.modifier = "UNDERLINED"
 
 [[preview.layout]]
 command = '''
-mm --image {1} && exit 0
+mm -q --image {1} && exit 0
 if command -v fs >/dev/null 2>&1; then
     fs :tool pg -- {1}
 elif [ -d {1} ]; then
@@ -146,16 +146,22 @@ abort_empty = true
 # "pageup" = "HalfPageUp"
 # "shift-up" = "PreviewHalfPageUp"
 # "shift-down" = "PreviewHalfPageDown"
-# "ctrl-shift-up" = "VScroll(1)"
-# "ctrl-shift-down" = "VScroll(-1)"
-# "ctrl-shift-left" = "HScroll(-1)"
-# "ctrl-shift-right" = "HScroll(1)"
+# "alt-shift-up" = "VScroll(1)"
+# "alt-shift-down" = "VScroll(-1)"
+# "alt-shift-left" = "HScroll(-1)"
+# "alt-shift-right" = "HScroll(1)"
 # "alt-up" = "VScroll(1)"
 # "alt-down" = "VScroll(-1)"
 # "alt-left" = "HScroll(-1)"
 # "alt-right" = "HScroll(1)"
 # "alt-w" = "ToggleWrap",
 # "alt-shift-w" = "TogglePreviewWrap",
+
+# "ctrl-shift-right" = "PreviewHScroll(1)" # requires keyboard enhancement
+# "ctrl-shift-left" = "PreviewHScroll(-1)"
+# "ctrl-shift-up" = "PreviewScroll(1)" # zoom or row-based persistent scroll
+# "ctrl-shift-down" = "PreviewScroll(-1)"
+
 "alt-w" = ["ToggleWrap", "ToggleHeaderWrap"]
 
 # Columns

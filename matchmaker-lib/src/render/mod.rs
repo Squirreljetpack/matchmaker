@@ -1151,7 +1151,7 @@ fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {
         }
     }
 
-    let widget = ui.make_preview();
+    let widget = ui.make_preview(body.height);
     frame.render_widget(widget, body);
 }
 

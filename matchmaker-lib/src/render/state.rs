@@ -315,7 +315,7 @@ impl State {
         }
         // spurious
         if picker_ui.results.is_dirty() {
-            self.insert(Event::DirtyUI)
+            self.insert(Event::Tick)
         }
         // log::trace!("{self:?}");
     }

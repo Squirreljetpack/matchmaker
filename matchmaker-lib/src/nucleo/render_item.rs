@@ -113,8 +113,11 @@ pub fn render_cell<T: SSS>(
                 .sum::<usize>();
 
             let target_width = if let Some(x) = match_idx {
-                (width_limit as usize)
-                    .saturating_sub(autoscroll.context.min(line_graphemes.len() - x - 1))
+                (width_limit as usize).saturating_sub(
+                    autoscroll
+                        .context
+                        .min(line_graphemes.len().saturating_sub(x).saturating_sub(1)),
+                )
             } else {
                 width_limit as usize
             }
@@ -123,7 +126,7 @@ pub fn render_cell<T: SSS>(
             let mut current_width = 0;
 
             while i > autoscroll.initial_preserved {
-                let w = line_graphemes[i].0.width();
+                let w = line_graphemes.get(i).map(|(g, _)| g.width()).unwrap_or(0);
                 let indicator_width = if i - 1 > autoscroll.initial_preserved {
                     1
                 } else {
@@ -149,6 +152,7 @@ pub fn render_cell<T: SSS>(
             // Horizontal autoscrolling with context around the match:
             // Shift index leftwards to show context preceding the match.
             i = (m_idx as i32 - autoscroll.context as i32).max(0) as usize;
+            i = i.min(line_graphemes.len());
 
             let mut tail_width: usize = line_graphemes[i..].iter().map(|(g, _)| g.width()).sum();
 
@@ -160,7 +164,10 @@ pub fn render_cell<T: SSS>(
 
             // Expand leftwards as long as the total rendered width <= width_limit
             while i > autoscroll.initial_preserved {
-                let prev_width = line_graphemes[i - 1].0.width();
+                let prev_width = line_graphemes
+                    .get(i - 1)
+                    .map(|(g, _)| g.width())
+                    .unwrap_or(0);
                 // Only reserve space for "..." if we aren't reaching the very start
                 let indicator_width = if i - 1 > autoscroll.initial_preserved {
                     1
@@ -185,7 +192,12 @@ pub fn render_cell<T: SSS>(
             }
         } else {
             // No autoscrolling triggered; shift start index directly by the manual hscroll offset.
-            i = hscroll_offset.max(0) as usize;
+            let hscroll = hscroll_offset.max(0) as usize;
+            i = if hscroll > 0 && autoscroll.enabled && autoscroll.initial_preserved > 0 {
+                hscroll.saturating_add(autoscroll.initial_preserved)
+            } else {
+                hscroll
+            };
         };
 
         // Step 4: Apply standard wrapping and Span generation logic to the visible slice
@@ -195,10 +207,9 @@ pub fn render_cell<T: SSS>(
         let mut current_width = 0;
 
         // If shifting occurred, prepend the initial preserved segment and hscroll indicator (...)
-        if i > 0 && autoscroll.enabled {
-            for (g, s) in
-                line_graphemes.drain(..autoscroll.initial_preserved.min(line_graphemes.len()))
-            {
+        if i > 0 && autoscroll.enabled && !line_graphemes.is_empty() {
+            let preserved_count = autoscroll.initial_preserved.min(line_graphemes.len());
+            for (g, s) in line_graphemes.drain(..preserved_count) {
                 if s != current_style {
                     if !current_span.is_empty() {
                         current_spans.push(Span::styled(current_span, current_style));
@@ -211,7 +222,7 @@ pub fn render_cell<T: SSS>(
             if !current_span.is_empty() {
                 current_spans.push(Span::styled(current_span, current_style));
             }
-            i -= autoscroll.initial_preserved;
+            i = i.saturating_sub(preserved_count);
 
             current_width += current_spans.iter().map(|x| x.width()).sum::<usize>();
             current_spans.push(hscroll_indicator());
@@ -224,8 +235,8 @@ pub fn render_cell<T: SSS>(
         // Prevent rendering lockups on empty/invisible cells.
         if !line_graphemes.is_empty() {
             cell_width = cell_width.max(1);
-            i = i.min(line_graphemes.len())
         }
+        i = i.min(line_graphemes.len());
 
         let mut graphemes = line_graphemes.drain(i..);
 

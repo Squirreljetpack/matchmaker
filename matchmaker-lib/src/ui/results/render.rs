@@ -174,6 +174,9 @@ pub fn render_row<T: SSS, D>(
     // Determine which columns are visible and their width limits
     let mut visible_cols = vec![];
     for (i, _) in columns.iter().enumerate() {
+        if hidden_cols.contains(i) {
+            continue;
+        }
         if i < width_limits.len() {
             if width_limits[i] != 0 {
                 visible_cols.push((i, width_limits[i]));

@@ -8,10 +8,20 @@ directory = { value = "git rev-parse --show-toplevel", exec = true, force = true
 "alt-d" = "@diff"
 "alt-l" = "@log"
 
-"@reload" = ["#next view", "ReloadNext"]
-"@reload_2" = ["#prev view", "ReloadPrev"]
+"@reload" = ["#next tab", "ReloadNext"]
+"@reload_2" = ["#prev tab", "ReloadPrev"]
 
-"@diff" = "Execute({ git --paginate diff --color=always --exit-code {1} && echo no change; })"
+"@diff" = '''Execute(
+set -- {+1}
+if [ "$#" -eq 1 ] && [ {1} != "$1" ]; then
+  set -- "$1" {1}
+fi
+if [ "$#" -eq 2 ]; then
+  git --paginate diff --color=always --exit-code "$1" "$2" && echo no change
+else
+  git --paginate diff --color=always --exit-code {1} && echo no change
+fi
+)'''
 "@show" = "Execute(git --paginate show --color=always {1} -- {$0})"
 "@log" = '''Execute(
 git --paginate log --graph --decorate=short --date=short \

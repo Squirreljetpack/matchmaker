@@ -52,6 +52,8 @@ top-level `tab` block; swap variants skipped). Extra layout names can be passed
 as arguments to `zellij.sh layouts` to include them; a bare name resolves to
 the user layout dir first, then zellij's built-ins.
 
+<img src=".README.assets/Screenshot 2026-08-14 at 12.34.23 AM.png" alt="Screenshot 2026-08-14 at 12.34.23 AM" style="width:416px;" />
+
 ## Mutagen session picker
 
 ### `mutagen` -- inspect and manage Mutagen sync sessions
@@ -68,5 +70,3 @@ the user layout dir first, then zellij's built-ins.
 - `ctrl-d` (`@rm`): terminate session (with confirmation)
 - main preview: `mutagen sync list <name>`
 - secondary previews: detailed info (`-l`), conflicting files list
-
-<img src=".README.assets/Screenshot 2026-08-14 at 12.34.23 AM.png" alt="Screenshot 2026-08-14 at 12.34.23 AM" style="zoom:33%;" />

@@ -98,8 +98,8 @@ fi
 # --- UI ---
 
 [binds]
-"@reload" = ["#next view", "ReloadNext"]
-"@reload_2" = ["#prev view", "ReloadPrev"]
+"@reload" = ["#next tab", "ReloadNext"]
+"@reload_2" = ["#prev tab", "ReloadPrev"]
 
 "@show" = '''RunPreview(
     if ((MM_INDEX == 0)); then

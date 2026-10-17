@@ -91,7 +91,10 @@ fi
 
 "@copy" = '''CopyAsync(printf '%s\n' {+session})'''
 
-"@new" = '''Become(zellij options --on-force-close detach)'''
+"@new" = [
+    "#new session",
+    "Become(zellij)",
+]
 
 "@rm" = [
     "#kill",
@@ -121,6 +124,9 @@ exit 0
 )''',
     "Reload",
 ]
+
+# base keymap binds alt-n to SortNumeric
+"alt-n" = "@new"
 
 # ring navigation (skip [current]/[other] when they would list no panes)
 "@next" = '''BecomeSilent(

@@ -83,6 +83,11 @@ for s in {+session}; do
 done
 )'''
 
+"@new" = [
+    "#new session",
+    "Become(zellij)",
+]
+
 "@rm" = [
     "#kill",
     '''ExecuteOrConfirm(
@@ -112,6 +117,9 @@ exit 0
 )''',
     "Reload",
 ]
+
+# base keymap binds alt-n to SortNumeric
+"alt-n" = "@new"
 
 # ring navigation
 "@next" = "BecomeSilent(mm -o terminal/zellij_layout)"

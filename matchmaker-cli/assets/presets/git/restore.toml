@@ -30,7 +30,7 @@ output_template = '{=ref}'
 
 [columns]
 split = "\\x00"
-names = [ "ref", "time", "message" ]
+names = ["ref", "time", "message"]
 default = 1
 
 [matcher]
@@ -154,24 +154,41 @@ prompt = "restore> "
 "@open_2" = []
 
 "@compare" = '''RunPreview(
-set -- $(git rev-list --left-right --count HEAD..{1})
+set -- {+1}
+if [ "$#" -eq 1 ] && [ {1} != "$1" ]; then
+  set -- "$1" {1}
+fi
+if [ "$#" -eq 2 ]; then
+  a="$1"
+  b="$2"
+  set -- $(git rev-list --left-right --count "$1"..."$2")
+else
+  a=HEAD
+  b={1}
+  set -- $(git rev-list --left-right --count HEAD..{1})
+fi
 behind=$1
 ahead=$2
-commits=$(git rev-list --count {1})
+commits=$(git rev-list --count "$b")
 echo "behind: $behind ahead: $ahead commits: $commits"
 printf "%${COLUMNS}s\n" | tr ' ' '-'
-git log --color=always --left-right --oneline ...{1}
+git log --color=always --left-right --oneline "$a"..."$b"
 )'''
 
 "@diffstat" = '''RunPreview(
-case $MM_INDEX in
-  1)
+if [ "$MM_INDEX" = 1 ]; then
   git stash show -u {1}
-  ;;
-  *)
-  git --no-pager diff --color=always --stat {1}
-  ;;
-esac
+else
+  set -- {+1}
+  if [ "$#" -eq 1 ] && [ {1} != "$1" ]; then
+    set -- "$1" {1}
+  fi
+  if [ "$#" -eq 2 ]; then
+    git --no-pager diff --color=always --stat --summary "$1" "$2"
+  else
+    git --no-pager diff --color=always --stat --summary {1}
+  fi
+fi
 exit 1
 )'''
 

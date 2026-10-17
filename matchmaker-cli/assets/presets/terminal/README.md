@@ -14,6 +14,7 @@ Every session, active and otherwise.
 - `@print`: print the name of every selected session
 - `@copy`: copy the name of every selected session to the clipboard
 - `@rm`: kill the selected session(s) (with confirmation)
+- `alt-n` (`@new`): start a new session with zellij's generated name
 - main preview: tab summary with pane titles
 - secondary preview: active pane screen dump (active sessions) / session KDL layout (inactive sessions)
 
@@ -33,6 +34,7 @@ For both pane pickers:
 - `@print`: print `session<TAB>pane` for every selected pane
 - `@copy`: copy `session:pane` for every selected pane to the clipboard
 - `@rm`: close the selected pane(s) (with confirmation)
+- `alt-n` (`@new`): start a new session with zellij's generated name
 - main preview: the pane's live screen dump
 
 ## Zellij layout picker

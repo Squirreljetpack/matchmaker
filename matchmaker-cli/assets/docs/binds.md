@@ -292,8 +292,8 @@ Sort the results by one of the columns in the active row.
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `Execute(cmd)`         | Run a shell command.                                                                                                                |
 | `ExecuteSilent(c)`     | Run and detach a shell command silently.                                                                                            |
-| `ExecuteAsync(cmd)`    | Run asynchronously; subsequent actions in the same batch execute after its completion.                                              |
-| `ExecuteThen(cmd)`     | Run asynchronously; subsequent actions execute after completion and only if it succeeds.                                            |
+| `ExecuteAsync(cmd)`    | Run in the background; subsequent actions in the same batch execute after its completion.                                              |
+| `ExecuteThen(cmd)`     | Run in the background; subsequent actions execute after completion and only if it succeeds.                                            |
 | `CopyAsync(cmd)`       | Run a command asynchronously and copy its output to the clipboard (works across ssh: see `tui.osc52`).                              |
 | `Copy(cmd)`            | Same as CopyAsync but run synchronously. Use in chained actions which exit on completion                                            |
 | `ExecuteOrConfirm(c)`  | Run a shell command, and prompt for confirmation if failed.                                                                         |

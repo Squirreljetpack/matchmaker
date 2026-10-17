@@ -110,6 +110,7 @@ impl ResultsUI {
             selector,
             !self.cursor_disabled,
             (self.height, false),
+            !self.reverse(),
             &mut rows,
             None,
         ) {
@@ -143,6 +144,7 @@ impl ResultsUI {
                     selector,
                     false,
                     (scroll_padding.saturating_sub(after_height), self.reverse()),
+                    self.reverse(),
                     &mut after_rows,
                     Some(&mut after_row_data),
                 ) {
@@ -200,6 +202,7 @@ impl ResultsUI {
                 selector,
                 false,
                 (max_h, !self.reverse()),
+                !self.reverse(),
                 &mut rows,
                 None,
             ) {
@@ -214,8 +217,13 @@ impl ResultsUI {
             }
         }
 
-        rows.reverse();
-        self.row_data.reverse();
+        // Step 4: Normalize the walk buffers. `rows` and `row_data` are
+        // reversed together in normal mode; in reverse mode both stay in walk
+        // order for Step 6 to emit alongside the after-cursor buffers.
+        if !self.reverse() {
+            rows.reverse();
+            self.row_data.reverse();
+        }
 
         // Step 5: Set bottom to new screen bottom
         if remaining_height == 0 {
@@ -224,17 +232,13 @@ impl ResultsUI {
                 .row_data
                 .iter()
                 .filter_map(|(i, _)| (*i != u32::MAX).then_some(*i))
-                .next()
+                .min()
                 && lowest_idx > self.bottom
             {
                 let delta = lowest_idx - self.bottom;
                 self.bottom += delta;
                 self.cursor -= delta as u16;
             }
-
-            // Append after_rows
-            rows.extend(after_rows);
-            self.row_data.extend(after_row_data);
         } else {
             // pop last truncated row, leaving the maybe_separator
             if after_truncated {
@@ -265,13 +269,9 @@ impl ResultsUI {
                 "from INDEX ": idx;
             );
 
-            // Append after_rows to rows
-            rows.extend(after_rows);
-            self.row_data.extend(after_row_data);
-
             if !after_truncated && remaining_height > 0 && self.bottom + idx < mc && self.hr() {
-                rows.push(Row::default().height(1));
-                self.row_data.push((u32::MAX, 1));
+                after_rows.push(Row::default().height(1));
+                after_row_data.push((u32::MAX, 1));
                 remaining_height = remaining_height.saturating_sub(1);
             }
 
@@ -287,8 +287,9 @@ impl ResultsUI {
                     selector,
                     false,
                     max_h,
-                    &mut rows,
-                    None,
+                    self.reverse(),
+                    &mut after_rows,
+                    Some(&mut after_row_data),
                 ) {
                     remaining_height = remaining_height.saturating_sub(h);
                 } else {
@@ -297,13 +298,28 @@ impl ResultsUI {
 
                 // Add separator if needed and we have more items
                 if remaining_height > 0 && idx + 1 < mc && self.hr() {
-                    rows.push(Row::default().height(1));
-                    self.row_data.push((u32::MAX, 1));
+                    after_rows.push(Row::default().height(1));
+                    after_row_data.push((u32::MAX, 1));
                     remaining_height = remaining_height.saturating_sub(1);
                 }
 
                 idx += 1;
             }
+        }
+
+        // Step 6: Emit the buffers in display order. `after_rows` and
+        // `after_row_data` are built in walk order, so when they are reversed
+        // here every item's rows and entries were pre-reversed by `get_row`.
+        if self.reverse() {
+            after_rows.reverse();
+            after_rows.append(&mut rows);
+            rows = after_rows;
+            after_row_data.reverse();
+            after_row_data.append(&mut self.row_data);
+            self.row_data = after_row_data;
+        } else {
+            rows.append(&mut after_rows);
+            self.row_data.append(&mut after_row_data);
         }
 
         _info!(rows.len());
@@ -387,39 +403,25 @@ impl ResultsUI {
             return;
         }
 
-        // Section 7: Table assembly & reversing.
-        // Convert collected items into the final flattened row list, reversing row ordering
-        // if `reverse = true`. All styling is already applied to rows inside `get_row`.
+        // Section 7: Table assembly.
+        // Rows and row_data are already in display order; all styling is
+        // applied inside `get_row`.
         let mut final_rows: Vec<Row> = rows;
+        self.pad_top = if self.reverse() { remaining_height } else { 0 };
 
         self.separator_offsets.clear();
         if self.hr() {
-            let mut current_y = 0u16;
-            if self.reverse() {
-                if remaining_height > 0 {
-                    current_y += remaining_height;
+            let mut current_y = self.pad_top;
+            for &(idx, h) in &self.row_data {
+                if idx == u32::MAX {
+                    self.separator_offsets.push(current_y);
                 }
-                for &(idx, h) in self.row_data.iter().rev() {
-                    if idx == u32::MAX {
-                        self.separator_offsets.push(current_y);
-                    }
-                    current_y += h;
-                }
-            } else {
-                for &(idx, h) in &self.row_data {
-                    if idx == u32::MAX {
-                        self.separator_offsets.push(current_y);
-                    }
-                    current_y += h;
-                }
+                current_y += h;
             }
         }
 
-        if self.reverse() {
-            final_rows.reverse();
-            if remaining_height > 0 {
-                final_rows.insert(0, Row::new(vec![vec![]]).height(remaining_height));
-            }
+        if self.pad_top > 0 {
+            final_rows.insert(0, Row::new(vec![vec![]]).height(self.pad_top));
         }
 
         // Section 8: Final Table layout construction.

@@ -252,6 +252,9 @@ impl ResultsUI {
         selector: &Selector,
         is_current: bool,
         (max_h, from_end): (u16, bool), // from_end
+        // pre-reverse this item's rows and row_data entries so a whole-buffer
+        // `reverse` keeps both in build order
+        flip_chunk: bool,
         // output
         rows: &mut Vec<Row<'static>>,
         row_data: Option<&mut Vec<(u32, u16)>>,
@@ -446,6 +449,7 @@ impl ResultsUI {
             // Stacked mode: split into multiple rows, one per cell
             let mut total_height = 0u16;
             let mut entries: Vec<(u32, u16)> = Vec::with_capacity(row_texts.len());
+            let rows_start = rows.len();
             for mut cell in row_texts {
                 truncated |= crate::utils::text::take_lines(
                     &mut cell,
@@ -460,6 +464,10 @@ impl ResultsUI {
                 if truncated {
                     break;
                 }
+            }
+            if flip_chunk {
+                rows[rows_start..].reverse();
+                entries.reverse();
             }
             match row_data {
                 Some(rd) => rd.extend(entries),

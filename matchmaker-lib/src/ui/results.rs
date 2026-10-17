@@ -63,11 +63,14 @@ pub struct ResultsUI {
     row_cache: [Vec<(u32, Vec<Text<'static>>, Vec<u16>)>; 2],
     /// Need redraw, new preferred widths, new width limits, cache miss
     pub(crate) changed: [bool; 4],
-    /// Visual-order row metadata from the most recent successful build.
-    /// Each entry is `(item_idx, height)`; `u32::MAX` marks separator rows.
-    /// Kept around so click positions can be mapped back to absolute
-    /// indices after the table has been assembled.
+    /// Row metadata from the most recent successful build, in the same order
+    /// as the rendered rows. Each entry is `(item_idx, height)`; `u32::MAX`
+    /// marks separator rows. Multi-row items push one entry per row, in the
+    /// same order as their rows.
     row_data: Vec<(u32, u16)>,
+    /// Height of the blank rows rendered above the content in reverse mode;
+    /// `get_index_of_row` starts its walk below them.
+    pad_top: u16,
     pub separator_offsets: Vec<u16>,
     pub table: Table<'static>,
 }
@@ -101,6 +104,7 @@ impl ResultsUI {
             changed: Default::default(),
             row_cache: [Vec::new(), Vec::new()],
             row_data: Vec::new(),
+            pad_top: 0,
             separator_offsets: Vec::new(),
             table: ratatui::widgets::Table::default(),
         }
@@ -197,18 +201,13 @@ impl ResultsUI {
         }
     }
 
-    /// Map a visual y-offset (in the rendered results table) back to the
+    /// Map a y-offset from the top of the rendered results table back to the
     /// absolute nucleo item index, or `None` if `y` falls outside the
     /// populated range (e.g. in a padding/spacer row).
     pub fn get_index_of_row(&self, y: u16) -> Option<u32> {
-        let target = if self.reverse() {
-            self.height.saturating_sub(y).saturating_sub(1)
-        } else {
-            y
-        };
-        let mut acc: u16 = 0;
+        let mut acc: u16 = self.pad_top;
         for &(idx, h) in &self.row_data {
-            if idx != u32::MAX && acc <= target && target < acc + h {
+            if idx != u32::MAX && acc <= y && y < acc + h {
                 return Some(idx);
             }
             acc += h;

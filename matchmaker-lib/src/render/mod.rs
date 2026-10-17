@@ -226,6 +226,8 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
 
                     match mouse.kind {
                         MouseEventKind::Down(MouseButton::Left) => {
+                            let results_inner =
+                                picker_ui.results.config.border.inner_of(layout.results);
                             if let Some(p) = preview_ui.as_mut()
                                 && p.visible()
                                 && let drag_width = p.drag_width()
@@ -274,14 +276,14 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                             {
                                 state.dragging = Some(Err(pos));
                                 _info!(state.dragging);
-                            } else if layout.results.contains(pos) {
-                                let relative_x = pos.x.saturating_sub(layout.results.x);
+                            } else if results_inner.contains(pos) {
+                                let relative_x = pos.x.saturating_sub(results_inner.x);
                                 if let Some(idx) = picker_ui.results.get_gutter_col_idx(relative_x)
                                 {
                                     _info!(state.dragging);
                                     state.dragging = Some(Ok((pos, idx)));
                                 } else {
-                                    let y = mouse.row - layout.results.top();
+                                    let y = mouse.row - results_inner.top();
                                     debug!("Results clicked at: {y}");
                                     click = Click::ResultPos(y);
                                 }

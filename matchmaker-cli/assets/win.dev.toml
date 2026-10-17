@@ -8,6 +8,7 @@ max = 120
 [query]
 
 [results]
+delay_clear = true
 wrap = true
 
 [status]

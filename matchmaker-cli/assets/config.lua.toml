@@ -17,6 +17,7 @@ prompt_style.modifier = "ITALIC"
 reset_cursor_on_query_change = true
 
 [results]
+delay_clear = true
 # wrap = true
 # uniformly_truncate_columns = false
 # reverse = false # set this to prevent flipping when using -F

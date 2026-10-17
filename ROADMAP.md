@@ -65,7 +65,6 @@
   - Non grapheme aware option to speed up rendering? This would require frizbee (and be required by?).
 
 - ord/name field on prev layouts for better composability?
-- flicker-free reload: if empty don't update?
 - just ran into a facepalm due to previewsetting not having deny_unknown_settings, maybe it would be better to actually flatten
 - Indentation style setting: active or first or custom: decided on active.
 - Does render refs (statusUI, overlay?) improve performance?

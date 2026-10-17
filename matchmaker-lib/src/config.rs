@@ -375,6 +375,11 @@ pub struct ResultsConfig {
     /// Always false if max_height is set
     pub vscroll_current_only: bool,
 
+    /// Keep the previous results visible while a reload is still injecting new
+    /// input instead of briefly clearing the table; the table is rebuilt once a
+    /// result arrives or the worker settles. Defaults to `false`.
+    pub delay_clear: bool,
+
     /// Truncate the row height instead of the columns individually
     pub uniformly_truncate_columns: bool,
 
@@ -466,6 +471,7 @@ impl Default for ResultsConfig {
             separator_style: Default::default(),
             show_skipped: true,
             vscroll_current_only: true,
+            delay_clear: false,
 
             width_overrides: vec![],
             resize_col_thresholds: [4, 4],

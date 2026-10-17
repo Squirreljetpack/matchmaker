@@ -56,7 +56,13 @@ impl ResultsUI {
         // Section 1: Boundaries alignment, update width limits, early returns
         // Ensure cursor is within matched bounds, and update scroll position if bounds changed.
         if mc == 0 {
-            self.table = Table::default(); // todo: maybe delay this, like waiting for a signal to reduce flicker?
+            // Hold the previous table while new input is still being injected
+            // so a reload doesn't flash an empty pane; rebuild once a result
+            // arrives or the worker settles (all injectors dropped and matched).
+            if self.config.delay_clear && self.status.running {
+                return;
+            }
+            self.table = Table::default();
             self.row_data.clear();
             self.separator_offsets.clear();
             return;

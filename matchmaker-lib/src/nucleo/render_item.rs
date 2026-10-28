@@ -7,12 +7,14 @@ use unicode_width::UnicodeWidthStr;
 use super::{Line, Span, Style, Text};
 
 use crate::{
-    SSS,
     config::AutoscrollSettings,
     utils::text::{hscroll_indicator, wrapping_indicator},
 };
 
 /// Renders a single cell by applying match highlighting, wrapping, and hscroll clipping.
+///
+/// ### Parameters:
+/// - `pattern`: Match pattern for the column being rendered.
 ///
 /// ### Mutations:
 /// - `matcher`: Mutated internally for calculating match sub-span indices.
@@ -20,11 +22,9 @@ use crate::{
 ///
 /// ### Returns:
 /// - `(Text<'static>, usize)`: A tuple where the first element is the styled static `Text`, and the second is the calculated maximum visual width of the cell.
-pub fn render_cell<T: SSS>(
+pub fn render_cell(
     cell: Text<'_>,
-    col_idx: usize,
-    snapshot: &nucleo::Snapshot<T>,
-    item: &nucleo::Item<T>,
+    pattern: &nucleo::pattern::Pattern,
     matcher: &mut nucleo::Matcher,
     highlight_style: Style,
     wrap: bool,
@@ -42,15 +42,33 @@ pub fn render_cell<T: SSS>(
     let mut cell_width = 0;
     let mut wrapped = false;
 
-    // Step 1: Query match indices for this specific column from nucleo snapshot.
-    // The indices tell us which character positions inside this column's text match the search query.
+    // Step 1: Query match indices against the displayed cell. The matcher's
+    // scored text may differ from the rendered text (icons, decoration), so
+    // re-matching the cell keeps the highlight positions aligned with what is
+    // actually shown.
     let indices_buffer = col_indices_buffer;
     indices_buffer.clear();
-    snapshot.pattern().column_pattern(col_idx).indices(
-        item.matcher_columns[col_idx].slice(..),
-        matcher,
-        indices_buffer,
-    );
+
+    // Nucleo indexes graphemes, while ratatui segments each span
+    // independently. Build the haystack the same way the render loop below
+    // counts graphemes, including one index per line boundary.
+    let mut display = Vec::new();
+    for (line_idx, line) in cell.iter().enumerate() {
+        if line_idx > 0 {
+            display.push('\n');
+        }
+        for span in line {
+            for grapheme in span.content.graphemes(true) {
+                display.push(if grapheme == "\r\n" {
+                    '\n'
+                } else {
+                    grapheme.chars().next().unwrap()
+                });
+            }
+        }
+    }
+
+    pattern.indices(nucleo::Utf32Str::Unicode(&display), matcher, indices_buffer);
     // Sort and remove duplicates to guarantee match indices are processed sequentially from left to right.
     indices_buffer.sort_unstable();
     indices_buffer.dedup();
@@ -76,8 +94,9 @@ pub fn render_cell<T: SSS>(
         let base_style = cell.style.patch(line.style);
 
         for span in line {
-            // We iterate graphemes but treat them as char indices. Nucleo matches on
-            // grapheme boundaries structurally so this mapping remains correct.
+            // Nucleo's Utf32Str stores one char per grapheme (its first
+            // codepoint), so match indices are grapheme ordinals. Step 1 builds
+            // the haystack with this same per-span segmentation.
             for grapheme in span.content.graphemes(true) {
                 let is_match = grapheme_idx == next_highlight_idx;
 
@@ -339,7 +358,7 @@ mod tests {
     use super::*;
     use nucleo::{Matcher, Nucleo};
     use ratatui::style::{Color, Style};
-    use ratatui::text::Text;
+    use ratatui::text::{Line, Span, Text};
     use std::sync::Arc;
 
     /// `Text::styled` keeps the style at the container (Text) level in
@@ -349,15 +368,12 @@ mod tests {
     fn render_cell_preserves_container_style() {
         let (mut nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("", "hello");
         nucleo.tick(10);
-        let snapshot = nucleo.snapshot();
-        let item = snapshot.get_item(0).unwrap();
+        let pattern = nucleo.snapshot().pattern().column_pattern(0);
 
         let cell = Text::styled("hello", Style::default().fg(Color::Red));
         let (out, _) = render_cell(
             cell,
-            0,
-            snapshot,
-            &item,
+            pattern,
             &mut matcher,
             Style::default(),
             false,
@@ -373,6 +389,63 @@ mod tests {
             Some(Color::Red),
             "container fg style must reach the rendered span"
         );
+    }
+
+    #[test]
+    fn render_cell_highlights_the_displayed_text() {
+        let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("path", "path");
+        let pattern = nucleo.snapshot().pattern().column_pattern(0);
+
+        // The matcher scored "path", but the cell has an icon-like prefix.
+        // Highlight indices must come from the cell, not from the raw column.
+        let (out, _) = render_cell(
+            Text::from("X path"),
+            pattern,
+            &mut matcher,
+            Style::default().fg(Color::Red),
+            false,
+            u16::MAX,
+            &mut buffer,
+            AutoscrollSettings::default(),
+            0,
+        );
+
+        let highlighted = out.lines[0]
+            .spans
+            .iter()
+            .filter(|span| span.style.fg == Some(Color::Red))
+            .map(|span| span.content.as_ref())
+            .collect::<String>();
+        assert_eq!(highlighted, "path");
+    }
+
+    #[test]
+    fn render_cell_counts_graphemes_per_span() {
+        let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("x", "x");
+        let pattern = nucleo.snapshot().pattern().column_pattern(0);
+
+        // Ratatui segments each span independently, so the combining mark is
+        // its own grapheme here. Flattening first would merge it with "e".
+        let cell = Text::from(Line::from(vec![Span::raw("e"), Span::raw("\u{301}x")]));
+        let (out, _) = render_cell(
+            cell,
+            pattern,
+            &mut matcher,
+            Style::default().fg(Color::Red),
+            false,
+            u16::MAX,
+            &mut buffer,
+            AutoscrollSettings::default(),
+            0,
+        );
+
+        let highlighted = out.lines[0]
+            .spans
+            .iter()
+            .filter(|span| span.style.fg == Some(Color::Red))
+            .map(|span| span.content.as_ref())
+            .collect::<String>();
+        assert_eq!(highlighted, "x");
     }
 
     /// Sets up the necessary Nucleo state to trigger a match
@@ -406,17 +479,14 @@ mod tests {
     #[test]
     fn test_no_scroll_context_renders_normally() {
         let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "hello match world");
-        let snapshot = nucleo.snapshot();
-        let item = snapshot.get_item(0).unwrap();
+        let pattern = nucleo.snapshot().pattern().column_pattern(0);
 
         let cell = Text::from("hello match world");
         let highlight = Style::default().fg(Color::Red);
 
         let (result_text, width) = render_cell(
             cell,
-            0,
-            snapshot,
-            &item,
+            pattern,
             &mut matcher,
             highlight,
             false,
@@ -437,17 +507,14 @@ mod tests {
     #[test]
     fn test_scroll_context_cuts_prefix_correctly() {
         let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "hello match world");
-        let snapshot = nucleo.snapshot();
-        let item = snapshot.get_item(0).unwrap();
+        let pattern = nucleo.snapshot().pattern().column_pattern(0);
 
         let cell = Text::from("hello match world");
         let highlight = Style::default().fg(Color::Red);
 
         let (result_text, _) = render_cell(
             cell,
-            0,
-            snapshot,
-            &item,
+            pattern,
             &mut matcher,
             highlight,
             false,
@@ -482,17 +549,14 @@ mod tests {
         // Result start_idx = 5. Output: "fghijmatch"
 
         let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "abcdefghijmatch");
-        let snapshot = nucleo.snapshot();
-        let item = snapshot.get_item(0).unwrap();
+        let pattern = nucleo.snapshot().pattern().column_pattern(0);
 
         let cell = Text::from("abcdefghijmatch");
         let highlight = Style::default().fg(Color::Red);
 
         let (result_text, width) = render_cell(
             cell,
-            0,
-            snapshot,
-            &item,
+            pattern,
             &mut matcher,
             highlight,
             false,
@@ -526,17 +590,14 @@ mod tests {
         // start_idx=9, preserved=3. 9 > 3 + 1 (9 > 4) -> preserved_prefix = "abc", output: "abc…jmatch"
 
         let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "abcdefghijmatch");
-        let snapshot = nucleo.snapshot();
-        let item = snapshot.get_item(0).unwrap();
+        let pattern = nucleo.snapshot().pattern().column_pattern(0);
 
         let cell = Text::from("abcdefghijmatch");
         let highlight = Style::default().fg(Color::Red);
 
         let (result_text, width) = render_cell(
             cell,
-            0,
-            snapshot,
-            &item,
+            pattern,
             &mut matcher,
             highlight,
             false,
@@ -558,17 +619,14 @@ mod tests {
     #[test]
     fn test_wrap() {
         let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "abcdefmatch");
-        let snapshot = nucleo.snapshot();
-        let item = snapshot.get_item(0).unwrap();
+        let pattern = nucleo.snapshot().pattern().column_pattern(0);
 
         let cell = Text::from("abcdefmatch");
         let highlight = Style::default().fg(Color::Red);
 
         let (result_text, width) = render_cell(
             cell,
-            0,
-            snapshot,
-            &item,
+            pattern,
             &mut matcher,
             highlight,
             true,
@@ -590,17 +648,14 @@ mod tests {
     #[test]
     fn test_wrap_edge_case_6_chars_width_5() {
         let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("", "123456");
-        let snapshot = nucleo.snapshot();
-        let item = snapshot.get_item(0).unwrap();
+        let pattern = nucleo.snapshot().pattern().column_pattern(0);
 
         let cell = Text::from("123456");
         let highlight = Style::default().fg(Color::Red);
 
         let (result_text, width) = render_cell(
             cell,
-            0,
-            snapshot,
-            &item,
+            pattern,
             &mut matcher,
             highlight,
             true,
@@ -622,17 +677,14 @@ mod tests {
     #[test]
     fn test_autoscroll_end() {
         let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("match", "abcdefghijmatch");
-        let snapshot = nucleo.snapshot();
-        let item = snapshot.get_item(0).unwrap();
+        let pattern = nucleo.snapshot().pattern().column_pattern(0);
 
         let cell = Text::from("abcdefghijmatch");
         let highlight = Style::default().fg(Color::Red);
 
         let (result_text, width) = render_cell(
             cell,
-            0,
-            snapshot,
-            &item,
+            pattern,
             &mut matcher,
             highlight,
             false,
@@ -654,17 +706,14 @@ mod tests {
     #[test]
     fn test_autoscroll_end_context() {
         let (nucleo, mut matcher, mut buffer) = setup_nucleo_mocks("ma", "abcdefghijmatch");
-        let snapshot = nucleo.snapshot();
-        let item = snapshot.get_item(0).unwrap();
+        let pattern = nucleo.snapshot().pattern().column_pattern(0);
 
         let cell = Text::from("abcdefghijmatch");
         let highlight = Style::default().fg(Color::Red);
 
         let (result_text, width) = render_cell(
             cell,
-            0,
-            snapshot,
-            &item,
+            pattern,
             &mut matcher,
             highlight,
             false,

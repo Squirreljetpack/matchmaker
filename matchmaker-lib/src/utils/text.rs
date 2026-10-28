@@ -253,15 +253,20 @@ pub fn wrap_text<'a>(text: Text<'a>, max_width: u16) -> (Text<'a>, bool) {
     (res, did_wrap_any)
 }
 
-/// Convenience wrapper around line wrapper
-pub fn wrap_text_static<'a>(text: &Text<'a>, max_width: u16) -> (Text<'static>, bool) {
-    let wrapping_span = wrapping_indicator();
-    let text = to_static(text);
+/// Convert to static text, apply hscroll, then wrap unless `max_width` is
+/// zero or [`u16::MAX`].
+pub fn wrap_text_static<'a>(
+    text: &Text<'a>,
+    max_width: u16,
+    hscroll_offset: i8,
+) -> (Text<'static>, bool) {
+    let text = to_static(text, hscroll_offset);
 
-    if max_width == 0 {
+    if max_width == 0 || max_width == u16::MAX {
         return (text, false);
     }
 
+    let wrapping_span = wrapping_indicator();
     let mut new_lines = Vec::new();
     let mut did_wrap_any = false;
     let style = text.style;
@@ -494,8 +499,8 @@ pub fn expand_indents<'a>(
     Line::from(new_spans)
 }
 
-// Convert to static lifetime for storage
-pub fn to_static(t: &ratatui::text::Text<'_>) -> ratatui::text::Text<'static> {
+// Convert to static lifetime for storage without hscroll.
+fn to_static_plain(t: &ratatui::text::Text<'_>) -> ratatui::text::Text<'static> {
     ratatui::text::Text {
         lines: t
             .iter()
@@ -512,6 +517,58 @@ pub fn to_static(t: &ratatui::text::Text<'_>) -> ratatui::text::Text<'static> {
                 alignment: l.alignment,
             })
             .collect(),
+        style: t.style,
+        alignment: t.alignment,
+    }
+}
+
+fn hscroll_line(line: &Line<'_>, offset: usize) -> Line<'static> {
+    let mut spans = Vec::new();
+    let mut remaining = offset;
+    let mut current = String::new();
+    let mut current_style = Style::default();
+    let mut has_content = false;
+
+    for span in &line.spans {
+        for grapheme in span.content.graphemes(true) {
+            has_content = true;
+            if remaining > 0 {
+                remaining -= 1;
+                continue;
+            }
+            if span.style != current_style {
+                if !current.is_empty() {
+                    spans.push(Span::styled(std::mem::take(&mut current), current_style));
+                }
+                current_style = span.style;
+            }
+            current.push_str(grapheme);
+        }
+    }
+
+    if !current.is_empty() {
+        spans.push(Span::styled(current, current_style));
+    }
+    if offset > 0 && has_content {
+        spans.insert(0, hscroll_indicator());
+    }
+
+    Line {
+        spans,
+        style: line.style,
+        alignment: line.alignment,
+    }
+}
+
+/// Convert to static lifetime for storage, applying horizontal scrolling.
+pub fn to_static(t: &ratatui::text::Text<'_>, hscroll_offset: i8) -> ratatui::text::Text<'static> {
+    if hscroll_offset <= 0 {
+        return to_static_plain(t);
+    }
+
+    let offset = hscroll_offset as usize;
+    ratatui::text::Text {
+        lines: t.lines.iter().map(|l| hscroll_line(l, offset)).collect(),
         style: t.style,
         alignment: t.alignment,
     }
@@ -572,6 +629,21 @@ pub fn apply_to_lines(text: &mut Text<'_>, transform: impl Fn(Line<'_>) -> Line<
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_to_static_applies_hscroll() {
+        let text = Text::from("abcdef");
+        assert_eq!(to_static(&text, 0).to_string(), "abcdef");
+        assert_eq!(to_static(&text, 2).to_string(), "…cdef");
+    }
+
+    #[test]
+    fn test_wrap_text_static_hscroll_without_wrapping() {
+        let text = Text::from("abcdef");
+        let (out, wrapped) = wrap_text_static(&text, u16::MAX, 2);
+        assert!(!wrapped);
+        assert_eq!(out.to_string(), "…cdef");
+    }
 
     #[test]
     fn test_no_wrap_needed() {

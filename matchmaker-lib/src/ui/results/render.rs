@@ -8,7 +8,7 @@ use crate::{
     config::AutoscrollSettings,
     nucleo::{Style, Text, Worker, render_item::render_cell},
     ui::ResultsUI,
-    utils::text::{to_static, truncation_indicator, wrap_text_static},
+    utils::text::{truncation_indicator, wrap_text_static},
 };
 
 /// Renders a single item into styled table cells.
@@ -171,36 +171,41 @@ pub fn render_row<T: SSS, D>(
     // - Columns where i >= width_limits.len() use u16::MAX (no wrapping)
     // - The width limit controls wrapping and/or clipping behavior
 
-    // Determine which columns are visible and their width limits
+    // Determine which columns are visible, their width limits, and their
+    // matcher pattern index. Patterns are indexed by filter-column ordinal.
     let mut visible_cols = vec![];
-    for (i, _) in columns.iter().enumerate() {
+    let mut filter_idx = 0;
+    for (i, column) in columns.iter().enumerate() {
+        let pattern_idx = filter_idx;
+        if column.filter() {
+            filter_idx += 1;
+        }
         if hidden_cols.contains(i) {
             continue;
         }
         if i < width_limits.len() {
             if width_limits[i] != 0 {
-                visible_cols.push((i, width_limits[i]));
+                visible_cols.push((i, width_limits[i], pattern_idx));
             }
         } else {
             // Columns beyond width_limits are rendered with no constraint
-            visible_cols.push((i, u16::MAX));
+            visible_cols.push((i, u16::MAX, pattern_idx));
         }
     }
 
     let row: Vec<Text<'static>> = row_candidates
         .into_iter()
         .zip(visible_cols.iter())
-        .map(|(cell, &(col_idx, width_limit))| {
+        .map(|(cell, &(col_idx, width_limit, pattern_idx))| {
             let column = &columns[col_idx];
 
             // Apply rendering based on column type and settings
-            let cell = if column.filter() {
+            let cell = if column.should_highlight(item.data, &d) {
                 // Filterable columns get match highlighting
+                let pattern = snapshot.pattern().column_pattern(pattern_idx);
                 let (t, _) = render_cell(
                     cell,
-                    col_idx,
-                    snapshot,
-                    item,
+                    pattern,
                     matcher,
                     highlight_style,
                     wrap,
@@ -210,13 +215,12 @@ pub fn render_row<T: SSS, D>(
                     hscroll_offset,
                 );
                 t
-            } else if wrap && width_limit != u16::MAX {
-                // Non-filter columns with wrapping enabled
-                let (cell, _) = wrap_text_static(&cell, width_limit);
-                cell
             } else {
-                // Non-filter columns without wrapping - just use as-is
-                to_static(&cell)
+                // Non-filtering columns and cells that opted out of
+                // highlighting only need hscroll + wrapping.
+                let max_width = if wrap { width_limit } else { u16::MAX };
+                let (cell, _) = wrap_text_static(&cell, max_width, hscroll_offset);
+                cell
             };
             if col_idx == 0 {
                 _info!("new row col": &cell; "limit" : width_limit);

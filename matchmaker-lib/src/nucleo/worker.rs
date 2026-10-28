@@ -17,12 +17,20 @@ use crate::{SSS, config::StringOrInt};
 
 type ColumnFormatFn<T, D> = Box<dyn for<'a> Fn(&'a T, &'a D) -> Text<'a> + Send + Sync>;
 type ColumnRawFn<T, D> = Box<dyn for<'a> Fn(&'a T, &'a D) -> Cow<'a, str> + Send + Sync>;
+type ColumnHighlightFn<T, D> = fn(&T, &D) -> bool;
+
+fn never<T, D>(_: &T, _: &D) -> bool {
+    false
+}
+
 pub struct Column<T, D = ()> {
     pub name: Arc<str>,
     pub(super) format: ColumnFormatFn<T, D>,
     pub(super) raw: Option<ColumnRawFn<T, D>>,
     /// Whether the column should be passed to nucleo for matching and filtering.
     pub(super) filter: bool,
+    /// Optional per-item suppression of highlighting.
+    pub(super) highlight: Option<ColumnHighlightFn<T, D>>,
 }
 
 impl<T, D> Column<T, D> {
@@ -32,6 +40,7 @@ impl<T, D> Column<T, D> {
             format,
             filter: true,
             raw: None,
+            highlight: None,
         }
     }
 
@@ -56,6 +65,23 @@ impl<T, D> Column<T, D> {
         self
     }
 
+    /// Suppress highlighting for items whose formatted cell is not the text
+    /// that was matched.
+    pub fn highlight_if(mut self, f: ColumnHighlightFn<T, D>) -> Self {
+        self.highlight = Some(f);
+        self
+    }
+
+    /// Disable highlighting for this column.
+    pub fn without_highlighting(mut self) -> Self {
+        self.highlight = Some(never::<T, D>);
+        self
+    }
+
+    pub fn should_highlight(&self, item: &T, d: &D) -> bool {
+        self.filter && self.highlight.map_or(true, |f| f(item, d))
+    }
+
     pub fn filter(&self) -> bool {
         self.filter
     }
@@ -64,7 +90,8 @@ impl<T, D> Column<T, D> {
         (self.format)(item, d)
     }
 
-    // Note: the characters should match the output of [`Self::format`]
+    /// Match/filter text. The renderer highlights the formatted cell, so this
+    /// may differ from [`Self::format`] when the displayed text is decorated.
     pub fn raw<'a>(&self, item: &'a T, d: &'a D) -> Cow<'a, str> {
         if let Some(r) = &self.raw {
             (r)(item, d)

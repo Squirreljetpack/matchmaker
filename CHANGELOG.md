@@ -1,3 +1,44 @@
+## [0.1.7] - 2026-10-29
+
+### 🚀 Features
+
+- *(presets)* AI generate presets (zellij)
+- *(lib)* ScrollStrategy
+- *(lib)* Termination signal propogation + iostream::auto
+- *(lib)* Change default status visibility to hidden
+- *(presets)* Mutagen preset, pager cb support, cfg fix
+- *(presets)* Rename @Accept -> @return, zellij + pi improvements
+- *(status)* Resolve interaction regions from template markers
+- *(results)* Render row separators over empty rows after table draw
+- *(lib)* Support % in field name
+- *(lib)* Apply results.reverse to header/footer
+- *(lib)* Adjust config defaults
+- *(lib)* Frizbee backend
+- *(presets)* Bat theme picker, preset picker update
+- *(lib)* <MM_IMAGE> preview images
+- *(cli)* Add --image helper for <MM_IMAGE> preview tokens
+- *(image preview)* Svg (+ refactor)
+- *(image preview)* Text + zoom
+- *(preview)* Reduce image flicker, support header wrapping
+- *(results)* results.delay_clear
+- *(presets/git)* Support multi-selection in diff/show/compare/diffstat
+
+### 🐛 Bug Fixes
+
+- More specific mode binds now reliably shadow general binds
+- Reduce idle cpu usage by removing spurious wakeups
+- *(lib)* Width override triggered RESULTS_MIN_W
+- *(render)* Prevent panic on HScroll with empty cells or preserved offsets
+- Stacked columns row reversal
+
+### 🚜 Refactor
+
+- Execution strategies + cleanup
+
+### 📚 Documentation
+
+- Update README
+
 ## [0.1.6] - 2026-08-19
 
 ### 🚀 Features

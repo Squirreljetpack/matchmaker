@@ -59,7 +59,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
@@ -74,5 +74,7 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_API_KEY }}
           SKIP_COMPLETIONS: "true"
-        run: cargo workspaces publish --from-git
+        # --allow-dirty: cargo-workspaces rewrites Cargo.lock while publishing a
+        # multi-crate workspace, then re-checks the tree before the next crate.
+        run: cargo workspaces publish --from-git --allow-dirty
 

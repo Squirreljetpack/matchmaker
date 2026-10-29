@@ -26,9 +26,12 @@ npm-scope = "@squirreljetpack"
 # Path that installers should place binaries in
 install-path = "CARGO_HOME"
 # Publish jobs to run in CI
-publish-jobs = ["homebrew"]
+publish-jobs = ["homebrew", "./npm-publish"]
 # Whether to install an updater program
 install-updater = false
 
 [dist.github-custom-runners]
 aarch64-pc-windows-msvc = "windows-11-arm"
+
+[dist.github-custom-job-permissions]
+npm-publish = { "actions" = "read", "contents" = "read", "id-token" = "write" }

@@ -1,0 +1,96 @@
+name: npm-publish
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
+  # Manual run used to validate the npm trusted publisher entry for this workflow.
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "stage = nothing public, publish = stub prerelease under the 'verify' dist-tag"
+        required: true
+        type: choice
+        default: stage
+        options:
+          - stage
+          - publish
+
+jobs:
+  publish:
+    if: ${{ github.event_name == 'workflow_call' }}
+    runs-on: "ubuntu-22.04"
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PLAN: ${{ inputs.plan }}
+    steps:
+      - name: Fetch npm packages
+        uses: actions/download-artifact@v8
+        with:
+          pattern: artifacts-*
+          path: npm/
+          merge-multiple: true
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+      - name: Publish to npm
+        run: |
+          for release in $(echo "$PLAN" | jq --compact-output '.releases[] | select([.artifacts[] | endswith("-npm-package.tar.gz")] | any)'); do
+            pkg=$(echo "$release" | jq '.artifacts[] | select(endswith("-npm-package.tar.gz"))' --raw-output)
+            npm publish --access public "./npm/${pkg}"
+          done
+
+  verify-trusted-publishing:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: "ubuntu-22.04"
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+      - name: Install npm with staged publishing support
+        run: |
+          npm install -g npm@latest
+          node --version
+          npm --version
+      - name: Assemble stub package
+        env:
+          VERSION: 0.0.1-verify.${{ github.run_number }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/stub"
+          cat > "$RUNNER_TEMP/stub/package.json" <<EOF
+          {
+            "name": "@squirreljetpack/matchmaker",
+            "version": "${VERSION}",
+            "description": "Stub used to validate npm trusted publishing. Safe to reject or unpublish.",
+            "license": "MIT",
+            "repository": {
+              "type": "git",
+              "url": "git+https://github.com/Squirreljetpack/matchmaker.git"
+            },
+            "files": ["README.md"]
+          }
+          EOF
+          printf '%s\n' "Trusted-publishing validation stub for ${VERSION}." > "$RUNNER_TEMP/stub/README.md"
+          npm pack --dry-run --json "$RUNNER_TEMP/stub"
+      - name: Stage publish
+        if: ${{ inputs.mode == 'stage' }}
+        working-directory: ${{ runner.temp }}/stub
+        run: npm stage publish --access public --tag verify
+      - name: Publish stub prerelease
+        if: ${{ inputs.mode == 'publish' }}
+        working-directory: ${{ runner.temp }}/stub
+        run: npm publish --access public --tag verify

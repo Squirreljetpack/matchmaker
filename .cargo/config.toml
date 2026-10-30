@@ -1,0 +1,4 @@
+[env]
+# clang defaults the deployment target to the build host's SDK, so a newer
+# macOS runner image would silently raise the floor of the shipped binaries.
+MACOSX_DEPLOYMENT_TARGET = "14.0"

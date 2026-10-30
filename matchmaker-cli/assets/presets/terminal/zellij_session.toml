@@ -3,7 +3,7 @@
 # Preview (hidden by default) shows a tab summary with pane titles
 
 [matcher]
-sort.threshold = 0
+sort.threshold = 20
 
 [start]
 command = "@./zellij.sh sessions"

@@ -7,6 +7,16 @@ import subprocess
 import sys
 import tempfile
 
+
+def shell_path(path):
+    """Quote a path for a POSIX shell, keeping a leading ~ expandable."""
+    if path == "~":
+        return '"$HOME"'
+    if path.startswith("~/"):
+        return f'"$HOME"/{shlex.quote(path[2:])}'
+    return shlex.quote(path)
+
+
 class Endpoint:
     def __init__(self, data):
         self.protocol = data.get("protocol", "local")
@@ -40,7 +50,7 @@ class Endpoint:
         if self.is_local:
             return os.path.lexists(target)
         else:
-            cmd = self._ssh_cmd(f"test -e {shlex.quote(target)} || test -L {shlex.quote(target)}")
+            cmd = self._ssh_cmd(f"test -e {shell_path(target)} || test -L {shell_path(target)}")
             res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return res.returncode == 0
 
@@ -52,7 +62,7 @@ class Endpoint:
             elif os.path.isdir(target):
                 shutil.rmtree(target, ignore_errors=True)
         else:
-            cmd = self._ssh_cmd(f"rm -rf -- {shlex.quote(target)}")
+            cmd = self._ssh_cmd(f"rm -rf -- {shell_path(target)}")
             subprocess.run(cmd, check=True)
 
     def fetch_to_temp(self, rel_path):
@@ -80,10 +90,13 @@ class Endpoint:
         src_path = src_endpoint.full_path(rel_path)
         dst_path = self.full_path(rel_path)
 
+        # Drop the existing destination first: read-only entries (e.g. git
+        # objects) cannot be overwritten in place.
+        if self.exists(rel_path):
+            self.remove(rel_path)
+
         if src_endpoint.is_local and self.is_local:
             if os.path.isdir(src_path):
-                if os.path.exists(dst_path):
-                    shutil.rmtree(dst_path, ignore_errors=True)
                 shutil.copytree(src_path, dst_path, symlinks=True)
             else:
                 os.makedirs(os.path.dirname(dst_path), exist_ok=True)
@@ -93,7 +106,7 @@ class Endpoint:
             # Local -> Remote (Overwrite Remote)
             # Ensure destination parent directory exists
             remote_dir = os.path.dirname(dst_path)
-            mkdir_cmd = self._ssh_cmd(f"mkdir -p -- {shlex.quote(remote_dir)}")
+            mkdir_cmd = self._ssh_cmd(f"mkdir -p -- {shell_path(remote_dir)}")
             subprocess.run(mkdir_cmd, check=True)
 
             scp_cmd = ["scp", "-r"]
@@ -105,11 +118,6 @@ class Endpoint:
         elif not src_endpoint.is_local and self.is_local:
             # Remote -> Local (Overwrite from Remote)
             os.makedirs(os.path.dirname(dst_path), exist_ok=True)
-            if os.path.exists(dst_path):
-                if os.path.isdir(dst_path) and not os.path.islink(dst_path):
-                    shutil.rmtree(dst_path, ignore_errors=True)
-                else:
-                    os.remove(dst_path)
 
             scp_cmd = ["scp", "-r"]
             if src_endpoint.port:
@@ -179,6 +187,59 @@ def show_diff(alpha, beta, rel_path):
             os.remove(f_beta)
 
 
+def take_alpha(alpha, beta, root):
+    """Make beta match alpha for root (overwrite or delete)."""
+    if alpha.exists(root):
+        beta.copy_from(alpha, root)
+        print(f"Overwrote remote with local: {beta.full_path(root)}")
+    else:
+        beta.remove(root)
+        print(f"Removed from remote: {beta.full_path(root)}")
+
+
+def take_beta(alpha, beta, root):
+    """Make alpha match beta for root (overwrite or delete)."""
+    if beta.exists(root):
+        alpha.copy_from(beta, root)
+        print(f"Overwrote local with remote: {alpha.full_path(root)}")
+    else:
+        alpha.remove(root)
+        print(f"Removed locally: {alpha.full_path(root)}")
+
+
+def flush_sessions(session_names):
+    for name in session_names:
+        print(f"Flushing session {name}...")
+        subprocess.run(["mutagen", "sync", "flush", name])
+
+
+def batch_resolve(sessions, favor):
+    """Resolve every conflict in favor of one side without prompting."""
+    affected_sessions = set()
+    for s in sessions:
+        sess_name = s.get("name") or s.get("identifier")
+        alpha = Endpoint(s.get("alpha", {}))
+        beta = Endpoint(s.get("beta", {}))
+        for c in s.get("conflicts", []):
+            _ctype, root = analyze_conflict(c)
+            print(f"[{sess_name}] {root}: keeping {favor}")
+            try:
+                if favor == "alpha":
+                    take_alpha(alpha, beta, root)
+                else:
+                    take_beta(alpha, beta, root)
+            except subprocess.CalledProcessError as e:
+                print(f"  failed: {e}", file=sys.stderr)
+                continue
+            affected_sessions.add(sess_name)
+
+    if affected_sessions:
+        flush_sessions(affected_sessions)
+        print(f"Done. Resolved all conflicts in favor of {favor}.")
+    else:
+        print("No conflicts to resolve.")
+
+
 def clean_untracked_noninteractive(sessions):
     """Automatically cleans orphaned folders containing untracked/ignored files."""
     cleaned = False
@@ -203,9 +264,7 @@ def clean_untracked_noninteractive(sessions):
                 affected_sessions.add(sess_name)
 
     if cleaned:
-        for name in affected_sessions:
-            print(f"Flushing session {name}...")
-            subprocess.run(["mutagen", "sync", "flush", name])
+        flush_sessions(affected_sessions)
         print("Orphaned untracked folder conflicts resolved.")
     else:
         print("No orphaned untracked directory conflicts found.")
@@ -267,24 +326,15 @@ def interactive_resolve(sessions):
         while True:
             print(f"Choice [{valid_choices}]: ", end="", flush=True)
             choice = tty_in.readline().strip().lower()
-            if choice == "a":
-                # Alpha -> Beta: Local wins
-                if alpha.exists(root):
-                    beta.copy_from(alpha, root)
-                    print(f"Overwrote remote with local: {beta.full_path(root)}")
-                else:
-                    beta.remove(root)
-                    print(f"Removed from remote: {beta.full_path(root)}")
-                affected_sessions.add(sess_name)
-                break
-            elif choice == "b":
-                # Beta -> Alpha: Remote wins
-                if beta.exists(root):
-                    alpha.copy_from(beta, root)
-                    print(f"Overwrote local with remote: {alpha.full_path(root)}")
-                else:
-                    alpha.remove(root)
-                    print(f"Removed locally: {alpha.full_path(root)}")
+            if choice in ("a", "b"):
+                try:
+                    if choice == "a":
+                        take_alpha(alpha, beta, root)
+                    else:
+                        take_beta(alpha, beta, root)
+                except subprocess.CalledProcessError as e:
+                    print(f"Failed: {e}")
+                    continue
                 affected_sessions.add(sess_name)
                 break
             elif choice == "c" and ctype == "ORPHAN_UNTRACKED_LOCAL":
@@ -307,22 +357,34 @@ def interactive_resolve(sessions):
                 return
 
     if affected_sessions:
-        for name in affected_sessions:
-            print(f"Flushing session {name}...")
-            subprocess.run(["mutagen", "sync", "flush", name])
+        flush_sessions(affected_sessions)
         print("Done. Flushed affected sessions.")
 
 
 def main():
     args = sys.argv[1:]
     clean_untracked_mode = False
+    favor = None
     session_names = []
 
-    for arg in args:
+    i = 0
+    while i < len(args):
+        arg = args[i]
         if arg == "--clean-untracked":
             clean_untracked_mode = True
-        elif not arg.startswith("-"):
+        elif arg == "--favor":
+            i += 1
+            if i >= len(args) or args[i] not in ("alpha", "beta"):
+                sys.exit("--favor requires 'alpha' or 'beta'")
+            favor = args[i]
+        elif arg.startswith("-"):
+            sys.exit(f"Unknown option: {arg}")
+        else:
             session_names.append(arg)
+        i += 1
+
+    if clean_untracked_mode and favor:
+        sys.exit("--clean-untracked and --favor are mutually exclusive")
 
     if not session_names:
         session_names = ["gh"]
@@ -331,6 +393,8 @@ def main():
 
     if clean_untracked_mode:
         clean_untracked_noninteractive(sessions)
+    elif favor:
+        batch_resolve(sessions, favor)
     else:
         interactive_resolve(sessions)
 

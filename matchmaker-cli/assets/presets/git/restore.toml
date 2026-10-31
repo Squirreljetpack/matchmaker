@@ -123,7 +123,7 @@ prompt = "restore> "
 "@return" = "Accept"
 "alt-r" = ["#reset/apply stash", "@reset"]
 "ctrl-t" = ["@tag", "Reload"]
-"@rm" = ["#squash/stash/drop/clean", "@clean", "Reload"]
+"@rm" = ["#stash (changes)/squash (commits)/drop (stash)/clean (refs)", "@clean", "Reload"]
 "ctrl-c" = "@compare"
 "alt-c" = "@diffstat"
 "alt-m" = ["@edit_msg", "Reload"]
@@ -418,24 +418,49 @@ set -e
 
 case $MM_INDEX in
 0)
-  set -- {+1};
-  if (($# > 1)) && command -v git-squash >/dev/null 2>&1; then
+  if ((MM_SELECT_COUNT)) && command -v git-squash >/dev/null 2>&1; then
+    set -- {+1}
     git-squash "$@" # git-squash will prompt
     exit 1 # keep output visible
-  else
-    printf "Stash all changes to HEAD? [Y, n, or type custom message]: "
-    read -r ans
-    case "$ans" in
-      [yY]*|"")
-        git stash
-        ;;
-      [nN]*)
-        ;;
-      *)
-        git stash push -u -m "$ans"
-        ;;
-      esac
   fi
+
+  printf "Stash all changes to HEAD? [Y, n, (a)mend {1}, or type custom message]: "
+  read -r ans
+  case "$ans" in
+    [yY]|"")
+      git stash
+      ;;
+    [nN])
+      ;;
+    [aA])
+      # warn: vulnerable to concrrent stashing since __stash isn't a stable id
+      if ! {
+          git stash push -u -m "pre-amend {=1}" &&
+          __stash='stash@\{0}' &&
+          GIT_SEQUENCE_EDITOR="sed -i.bak 's/^pick {=1}/edit {=1}/'" \
+              git -c rebase.autoStash=false rebase -i {=1}^ &&
+          git stash apply "$__stash" &&
+          git add -A &&
+          git commit --amend --no-verify --no-edit &&
+          git rebase --continue
+      }; then
+          printf 'Amend failed. Rollback? [Y/n] '
+          read -r choice
+          case "$choice" in
+              [yY]|"")
+                  git rebase --abort 2>/dev/null || :
+                  git stash pop "$__stash"
+                  ;;
+              *) ;;
+          esac
+      else 
+          git stash pop "$__stash"
+      fi
+      ;;
+    *)
+      git stash push -u -m "$ans"
+      ;;
+  esac
   ;;
 
 1)

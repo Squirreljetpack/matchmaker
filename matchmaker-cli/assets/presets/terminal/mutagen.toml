@@ -117,6 +117,18 @@ esac
     "Reload",
 ]
 
+"@resolve-alpha" = [
+    "#resolve all conflicts (favor Alpha)",
+    '''ExecuteOrConfirm("$(dirname -- "$MM_OVERRIDE")"/mutagen_resolve.py --favor alpha {+name})''',
+    "Reload",
+]
+
+"@resolve-beta" = [
+    "#resolve all conflicts (favor Beta)",
+    '''ExecuteOrConfirm("$(dirname -- "$MM_OVERRIDE")"/mutagen_resolve.py --favor beta {+name})''',
+    "Reload",
+]
+
 "ctrl-s" = "@show"
 "alt-f" = "@flush"
 "alt-p" = "@pause"
@@ -124,4 +136,6 @@ esac
 "alt-shift-r" = "@reset"
 "alt-c" = "@clean"
 "alt-v" = "@resolve"
+"alt-a" = "@resolve-alpha"
+"alt-b" = "@resolve-beta"
 "ctrl-d" = "@rm"

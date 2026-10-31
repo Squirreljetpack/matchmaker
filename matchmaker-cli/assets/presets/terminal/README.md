@@ -69,6 +69,8 @@ the user layout dir first, then zellij's built-ins.
 - `alt-shift-r` (`@reset`): reset sync history (clear merge state & rescan, with confirmation)
 - `alt-c` (`@clean`): clean orphaned folders containing ignored files deleted remotely (non-interactive)
 - `alt-v` (`@resolve`): interactive conflict resolver (diff, overwrite remote, overwrite from remote)
+- `alt-a` (`@resolve-alpha`): resolve every conflict in favor of Alpha (non-interactive, with confirmation)
+- `alt-b` (`@resolve-beta`): resolve every conflict in favor of Beta (non-interactive, with confirmation)
 - `ctrl-d` (`@rm`): terminate session (with confirmation)
 - main preview: `mutagen sync list <name>`
 - secondary previews: detailed info (`-l`), conflicting files list

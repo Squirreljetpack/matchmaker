@@ -332,13 +332,25 @@ impl ResultsUI {
         self.config.column_spacing.0 * (self.widths.len().saturating_sub(1) as u16)
     }
 
+    /// Width of the rendered table content, excluding the pane border.
     pub fn table_width(&self) -> u16 {
-        self.config.border.width()
-            + if self.config.stacked_columns {
-                self.width
-            } else {
-                self.widths.iter().sum::<u16>() + self.column_spacing_width()
-            }
+        if self.config.stacked_columns {
+            self.width
+        } else {
+            self.widths.iter().sum::<u16>() + self.column_spacing_width()
+        }
+    }
+
+    /// Render area for the table body within the pane's `inner` rect. In
+    /// `Capped` mode this is narrowed to the table content width so the row
+    /// style does not bleed across the pane; the pane border is drawn over the
+    /// full rect by the caller.
+    fn table_area(&self, inner: Rect) -> Rect {
+        let mut area = inner;
+        if matches!(self.config.row_connection, RowConnectionStyle::Capped) {
+            area.width = area.width.min(self.table_width());
+        }
+        area
     }
 
     /// Mark row cache as stale: forces a render but does not recompute width limits.

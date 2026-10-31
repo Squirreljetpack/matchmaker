@@ -7,7 +7,7 @@ use crate::{
     collections::HiddenColumns,
     config::AutoscrollSettings,
     nucleo::{Style, Text, Worker, render_item::render_cell},
-    ui::ResultsUI,
+    ui::{Frame, Rect, ResultsUI},
     utils::text::{truncation_indicator, wrap_text_static},
 };
 
@@ -501,25 +501,42 @@ impl ResultsUI {
         !matches!(self.config.separator, HorizontalSeparator::None)
     }
 
-    pub fn make_table(&self) -> (&Table<'static>, u16, Option<Line<'static>>) {
-        let separator = if self.hr() {
-            let unit = self.config.separator.as_str();
-            let line = unit.repeat(self.width as usize);
+    /// Draws the results pane: the border and row separators span the full
+    /// pane, while only the table body is narrowed to the table content width
+    /// in `Capped` mode so the row style does not bleed across the pane.
+    pub fn render(&self, frame: &mut Frame, area: Rect) {
+        frame.render_widget(self.config.border.as_static_block(), area);
 
-            let mut style: ratatui::style::Style =
-                if matches!(self.config.row_connection, RowConnectionStyle::Full) {
-                    self.config.style.into()
-                } else {
-                    ratatui::style::Style::default()
-                };
-            style = style.patch(self.config.separator_style);
+        let inner = self.config.border.inner_of(area);
+        frame.render_widget(&self.table, self.table_area(inner));
 
-            Some(Line::from(Span::styled(line, style)))
-        } else {
-            None
-        };
+        if let Some(separator) = self.separator_line() {
+            for &offset in &self.separator_offsets {
+                if offset < inner.height {
+                    let row_area = Rect::new(inner.x, inner.y + offset, inner.width, 1);
+                    frame.render_widget(separator.clone(), row_area);
+                }
+            }
+        }
+    }
 
-        (&self.table, self.table_width(), separator)
+    fn separator_line(&self) -> Option<Line<'static>> {
+        if !self.hr() {
+            return None;
+        }
+
+        let unit = self.config.separator.as_str();
+        let line = unit.repeat(self.width as usize);
+
+        // let mut style: ratatui::style::Style =
+        //     if matches!(self.config.row_connection, RowConnectionStyle::Full) {
+        //         self.config.style.into()
+        //     } else {
+        //         ratatui::style::Style::default()
+        //     };
+        // style = style.patch(self.config.separator_style);
+
+        Some(Line::from(Span::styled(line, self.config.separator_style)))
     }
 
     pub(super) fn vscroll_to_skip(&self, is_current: bool) -> usize {

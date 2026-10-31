@@ -434,8 +434,6 @@ impl ResultsUI {
         let mut table = Table::new(final_rows, self.widths.clone())
             .column_spacing(self.config.column_spacing.0);
 
-        table = table.block(self.config.border.as_static_block());
-
         if matches!(self.config.row_connection, RowConnectionStyle::Full) {
             table = table.style(self.config.style)
         }

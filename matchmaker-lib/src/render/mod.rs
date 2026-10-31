@@ -1000,7 +1000,7 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                         ui.area().width,
                     );
 
-                    render_results(frame, layout.results, &picker_ui);
+                    picker_ui.results.render(frame, layout.results);
                     render_display(
                         frame,
                         layout.header,
@@ -1155,35 +1155,6 @@ fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {
 
     let widget = ui.make_preview(body.height);
     frame.render_widget(widget, body);
-}
-
-fn render_results<T: SSS, D: 'static>(
-    frame: &mut Frame,
-    mut area: Rect,
-    picker_ui: &PickerUI<T, D>,
-) {
-    let cap = matches!(
-        picker_ui.results.config.row_connection,
-        RowConnectionStyle::Capped
-    );
-
-    let (table, width, separator) = picker_ui.results.make_table();
-
-    if cap {
-        area.width = area.width.min(width);
-    }
-
-    frame.render_widget(table, area);
-
-    if let Some(separator) = separator {
-        let inner = picker_ui.results.config.border.inner_of(area);
-        for &offset in &picker_ui.results.separator_offsets {
-            if offset < inner.height {
-                let row_area = Rect::new(inner.x, inner.y + offset, inner.width, 1);
-                frame.render_widget(separator.clone(), row_area);
-            }
-        }
-    }
 }
 
 /// Returns the offset of the cursor against the drawing area

@@ -204,12 +204,11 @@ mm -o rg
 <img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/docker-containers.png" alt="docker-containers" style="width:416px;" /> <img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/presets/unicode/.README.assets/unicode-square.png?raw=true" alt="unicode" style="width:416px" />
 <img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/presets/ai/.README.assets/image-20260627143155886.png?raw=true" alt="pi session picker" style="width:416px;" /> <img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/presets/macos/.README.assets/prefpanes.png?raw=true" alt="system-prefs" style="width:416px;" />
 
-
-<video src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/webm/git.mp4" controls width="416"></video>
-
-<video src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/webm/ps.mp4" controls width="416"></video>
-
 [^50]: Contributions welcome!
+
+### Themes
+
+https://github.com/user-attachments/assets/729b4b32-83fe-4b0a-a481-02225e982cc0
 
 ### Comparison with fzf
 

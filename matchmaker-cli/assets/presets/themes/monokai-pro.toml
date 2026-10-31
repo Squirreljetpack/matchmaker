@@ -1,0 +1,75 @@
+# Monokai Pro Theme
+
+[query]
+prompt = "FIND ❯ "
+prompt_style.fg = "#FFD866"
+prompt_style.modifier = "BOLD"
+style.fg = "#FCFCFA"
+style.bg = "#2D2A2E"
+
+[results]
+style.fg = "#FCFCFA"
+current_prefix = "⚡ "
+multi_prefix = "◆ "
+row_connection = "Capped"
+style.bg = "#2D2A2E"
+
+[results.border]
+type = "Double"
+color = "#727072"
+sides = "ALL"
+padding = 0
+bg = "#2D2A2E"
+
+[results.match_style]
+fg = "#A9DC76"
+modifier = "BOLD"
+
+[results.current_style]
+fg = "#FFD866"
+bg = "#403E41"
+modifier = "BOLD"
+
+[results.inactive_style]
+fg = "#5B595C"
+
+[results.inactive_current_style]
+fg = "#78DCE8"
+bg = "#403E41"
+
+[results.prefix_style]
+fg = "#FF6188"
+
+[status]
+show = true
+template = '{#FF6188,bold:●} {#A9DC76:\m} {#727072:matches} \s {#78DCE8:pos \r} {#5B595C:|} {#FFD866:\t} '
+style.fg = "#939293"
+style.bg = "#2D2A2E"
+
+[preview.border]
+type = "Double"
+color = "#727072"
+sides = "ALL"
+padding = 0
+title_style.fg = "#FFD866"
+title_style.modifier = "BOLD"
+bg = "#2D2A2E"
+
+[ui.outer_border]
+bg = "#2D2A2E"
+
+[ui.border]
+sides = ""
+bg = "#2D2A2E"
+
+[query.border]
+bg = "#2D2A2E"
+
+[footer.border]
+bg = "#2D2A2E"
+
+[header.border]
+bg = "#2D2A2E"
+
+[envs]
+BAT_THEME = "Monokai Extended"

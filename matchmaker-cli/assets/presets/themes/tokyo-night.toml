@@ -1,0 +1,78 @@
+# Tokyo Night Theme
+
+[query]
+prompt = "❯ "
+prompt_style.fg = "#7AA2F7"
+prompt_style.modifier = "BOLD"
+style.fg = "#C0CAF5"
+style.bg = "#1A1B26"
+
+[results]
+style.fg = "#A9B1D6"
+current_prefix = "▶ "
+multi_prefix = "● "
+row_connection = "Capped"
+separator = "Dashed"
+style.bg = "#1A1B26"
+
+[ui.border]
+type = "Rounded"
+color = "#3B4261"
+sides = "ALL"
+padding = [1, 0]
+bg = "#1A1B26"
+
+[results.match_style]
+fg = "#FF9E64"
+modifier = "BOLD"
+
+[results.current_style]
+fg = "#70A5FD"
+bg = "#283457"
+modifier = "BOLD"
+
+[results.inactive_style]
+fg = "#414868"
+
+[results.inactive_current_style]
+fg = "#7AA2F7"
+bg = "#283457"
+
+[results.prefix_style]
+fg = "#BB9AF7"
+
+[results.separator_style]
+fg = "#414868"
+
+[status]
+show = true
+template = '\s {#C0CAF5:\m} {#565F89:matches} {#BB9AF7:\r/\t}'
+style.fg = "#414868"
+style.bg = "#1A1B26"
+
+[preview.border]
+type = "Rounded"
+color = "#3B4261"
+sides = "ALL"
+padding = [1, 0]
+title_style.fg = "#7AA2F7"
+title_style.modifier = "BOLD"
+bg = "#1A1B26"
+
+[ui.outer_border]
+bg = "#1A1B26"
+
+[query.border]
+bg = "#1A1B26"
+
+[results.border]
+bg = "#1A1B26"
+
+[footer.border]
+bg = "#1A1B26"
+
+[header.border]
+bg = "#1A1B26"
+
+[envs]
+BAT_THEME = "TwoDark"

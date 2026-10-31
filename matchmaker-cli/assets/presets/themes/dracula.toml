@@ -1,0 +1,74 @@
+# Dracula Theme
+
+[query]
+prompt = "🧛: "
+prompt_style.fg = "#BD93F9"
+prompt_style.modifier = "BOLD"
+style.fg = "#F8F8F2"
+style.bg = "#282A36"
+
+[results]
+style.fg = "#F8F8F2"
+current_prefix = "› "
+multi_prefix = "🦇 "
+row_connection = "Capped"
+style.bg = "#282A36"
+
+[ui.border]
+sides = ""
+bg = "#282A36"
+
+[results.match_style]
+fg = "#FF79C6"
+modifier = "BOLD"
+
+[results.current_style]
+fg = "#50FA7B"
+bg = "#44475A"
+modifier = "BOLD"
+
+[results.inactive_style]
+fg = "#6272A4"
+
+[results.inactive_current_style]
+fg = "#8BE9FD"
+bg = "#44475A"
+
+[results.prefix_style]
+fg = "#FFB86C"
+
+[status]
+show = true
+template = '{#FF79C6:\m} {#6272A4:/} {#8BE9FD:\t} \s {#50FA7B:[\r]} '
+style.fg = "#6272A4"
+style.bg = "#282A36"
+
+[preview.border]
+type = "Plain"
+color = "#BD93F9"
+padding = 1
+title_style.fg = "#FF79C6"
+title_style.modifier = "BOLD"
+bg = "#282A36"
+
+[ui.outer_border]
+padding = 1
+type = "Rounded"
+color = "#BD93F9"
+sides = "ALL"
+bg = "#282A36"
+
+[query.border]
+bg = "#282A36"
+
+[results.border]
+bg = "#282A36"
+
+[footer.border]
+bg = "#282A36"
+
+[header.border]
+bg = "#282A36"
+
+[envs]
+BAT_THEME = "Dracula"

@@ -1,0 +1,80 @@
+# Gruvbox Dark Theme
+
+[query]
+prompt = ":: "
+prompt_style.fg = "#FE8019"
+prompt_style.modifier = "BOLD"
+style.fg = "#EBDBB2"
+style.bg = "#282828"
+
+[results]
+style.fg = "#EBDBB2"
+current_prefix = ">> "
+multi_prefix = "■ "
+row_connection = "Capped"
+separator = "Normal"
+style.bg = "#282828"
+
+[results.border]
+type = "Double"
+color = "#665C54"
+sides = "TOP | BOTTOM"
+padding = 0
+bg = "#282828"
+
+[results.match_style]
+fg = "#FABD2F"
+modifier = "BOLD"
+
+[results.current_style]
+fg = "#FBF1C7"
+bg = "#3C3836"
+modifier = "BOLD"
+
+[results.inactive_style]
+fg = "#7C6F64"
+
+[results.inactive_current_style]
+fg = "#A89984"
+bg = "#3C3836"
+
+[results.prefix_style]
+fg = "#B8BB26"
+
+[results.separator_style]
+fg = "#504945"
+
+[status]
+show = true
+row_connection = "Capped"
+template = '\s {#FABD2F:\m} {#A89984:matches} {#B8BB26:\r}/{\t} '
+style.fg = "#A89984"
+style.bg = "#282828"
+
+[preview.border]
+type = "Double"
+color = "#665C54"
+sides = "TOP | BOTTOM"
+padding = [0, 0, 0, 2]
+title_style.fg = "#FE8019"
+title_style.modifier = "BOLD"
+bg = "#282828"
+
+[ui.outer_border]
+bg = "#282828"
+
+[ui.border]
+sides = ""
+bg = "#282828"
+
+[query.border]
+bg = "#282828"
+
+[footer.border]
+bg = "#282828"
+
+[header.border]
+bg = "#282828"
+
+[envs]
+BAT_THEME = "gruvbox-dark"

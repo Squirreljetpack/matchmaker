@@ -1,0 +1,72 @@
+# One Dark Theme
+
+[query]
+prompt = "❯ "
+prompt_style.fg = "#61AFEF"
+prompt_style.modifier = "BOLD"
+style.fg = "#ABB2BF"
+style.bg = "#282C34"
+
+[results]
+style.fg = "#ABB2BF"
+inactive_style.fg = "#5C6370"
+current_prefix = "❯ "
+multi_prefix = "● "
+row_connection = "Capped"
+style.bg = "#282C34"
+
+[results.match_style]
+fg = "#98C379"
+modifier = "BOLD"
+
+[results.current_style]
+fg = "#E5C07B"
+bg = "#3E4451"
+modifier = "BOLD"
+
+[results.inactive_current_style]
+fg = "#ABB2BF"
+bg = "#3E4451"
+
+[results.prefix_style]
+fg = "#E06C75"
+
+[status]
+show = true
+template = '{#98C379:\m} {#5C6370:/} {#ABB2BF:\t} \s {#61AFEF:[\r]} '
+style.fg = "#5C6370"
+style.bg = "#282C34"
+
+[preview.border]
+type = "Plain"
+color = "#4B5263"
+padding = [1, 0]
+title_style.fg = "#61AFEF"
+title_style.modifier = "BOLD"
+bg = "#282C34"
+
+[ui.outer_border]
+padding = [1, 0]
+type = "Rounded"
+color = "#4B5263"
+sides = "ALL"
+bg = "#282C34"
+
+[ui.border]
+sides = ""
+bg = "#282C34"
+
+[query.border]
+bg = "#282C34"
+
+[results.border]
+bg = "#282C34"
+
+[footer.border]
+bg = "#282C34"
+
+[header.border]
+bg = "#282C34"
+
+[envs]
+BAT_THEME = "OneHalfDark"

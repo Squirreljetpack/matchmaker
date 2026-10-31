@@ -1,0 +1,72 @@
+# GitHub Light Theme
+
+[query]
+style.bg = "#FFFFFF"
+prompt = "❯ "
+prompt_style.fg = "#656D76"
+prompt_style.modifier = "BOLD"
+style.fg = "#1F2328"
+
+[results]
+style.bg = "#FFFFFF"
+style.fg = "#1F2328"
+inactive_style.fg = "#656D76"
+current_prefix = "❯ "
+multi_prefix = "● "
+row_connection = "Capped"
+
+[ui.outer_border]
+bg = "#FFFFFF"
+
+[ui.border]
+type = "Rounded"
+color = "#D0D7DE"
+sides = "ALL"
+padding = [1, 0]
+bg = "#FFFFFF"
+
+[results.match_style]
+fg = "#0969DA"
+modifier = "BOLD | UNDERLINED"
+
+[results.current_style]
+fg = "#0969DA"
+bg = "#EAEEF2"
+modifier = "BOLD"
+
+[results.inactive_current_style]
+fg = "#656D76"
+bg = "#EAEEF2"
+
+[results.prefix_style]
+fg = "#0969DA"
+
+[status]
+style.bg = "#FFFFFF"
+show = true
+template = '{#0969DA:\m}/{\t} \s {#656D76:[\r]} '
+style.fg = "#656D76"
+
+[preview.border]
+type = "Rounded"
+color = "#D0D7DE"
+sides = "ALL"
+padding = [1, 0]
+title_style.fg = "#0969DA"
+title_style.modifier = "BOLD"
+bg = "#FFFFFF"
+
+[query.border]
+bg = "#FFFFFF"
+
+[results.border]
+bg = "#FFFFFF"
+
+[footer.border]
+bg = "#FFFFFF"
+
+[header.border]
+bg = "#FFFFFF"
+
+[envs]
+BAT_THEME = "OneHalfLight"

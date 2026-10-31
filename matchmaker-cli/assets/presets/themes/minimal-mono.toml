@@ -1,0 +1,72 @@
+# Minimal Mono Theme
+
+[query]
+prompt = ""
+style.fg = "#FFFFFF"
+style.modifier = "BOLD"
+style.bg = "#0E0E0E"
+
+[results]
+style.fg = "#8A8A8A"
+current_prefix = "  "
+multi_prefix = "• "
+row_connection = "Capped"
+style.bg = "#0E0E0E"
+
+[results.match_style]
+fg = "#FFFFFF"
+modifier = "BOLD | UNDERLINED"
+
+[results.current_style]
+fg = "#FFFFFF"
+bg = "#262626"
+modifier = "BOLD"
+
+[results.inactive_style]
+fg = "#555555"
+
+[results.inactive_current_style]
+fg = "#CCCCCC"
+bg = "#262626"
+
+[results.prefix_style]
+fg = "#FFFFFF"
+
+[results.prefix_inactive_style]
+fg = "#444444"
+
+[status]
+show = true
+template = '{\m} {#555555:/} {\t} \s {#888888:\r} '
+style.fg = "#555555"
+style.bg = "#0E0E0E"
+
+[preview.border]
+sides = ""
+padding = [1, 0]
+title_style.fg = "#FFFFFF"
+title_style.modifier = "BOLD"
+bg = "#0E0E0E"
+
+[ui.outer_border]
+padding = 1
+bg = "#0E0E0E"
+
+[ui.border]
+sides = ""
+bg = "#0E0E0E"
+
+[query.border]
+bg = "#0E0E0E"
+
+[results.border]
+bg = "#0E0E0E"
+
+[footer.border]
+bg = "#0E0E0E"
+
+[header.border]
+bg = "#0E0E0E"
+
+[envs]
+BAT_THEME = "Coldark-Dark"

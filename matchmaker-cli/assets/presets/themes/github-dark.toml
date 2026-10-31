@@ -1,0 +1,73 @@
+# GitHub Dark Theme
+
+[query]
+prompt = "❯ "
+prompt_style.fg = "#7D8590"
+prompt_style.modifier = "BOLD"
+style.fg = "#E6EDF3"
+style.bg = "#1E1E1E"
+
+[results]
+style.fg = "#E6EDF3"
+inactive_style.fg = "#7D8590"
+current_prefix = "❯ "
+multi_prefix = "● "
+row_connection = "Capped"
+style.bg = "#1E1E1E"
+
+[ui.border]
+sides = ""
+bg = "#1E1E1E"
+
+[results.match_style]
+fg = "#58A6FF"
+modifier = "BOLD | UNDERLINED"
+
+[results.current_style]
+fg = "#FFFFFF"
+bg = "#1F242C"
+modifier = "BOLD"
+
+[results.inactive_current_style]
+fg = "#7D8590"
+bg = "#1F242C"
+
+[results.prefix_style]
+fg = "#2F81F7"
+
+[status]
+show = true
+template = '{#58A6FF:\m}/{\t} \s {#7D8590:[\r]} '
+style.fg = "#7D8590"
+style.bg = "#1E1E1E"
+
+[preview.border]
+type = "Plain"
+color = "#30363D"
+sides = "ALL"
+padding = [1, 0]
+title_style.fg = "#58A6FF"
+title_style.modifier = "BOLD"
+bg = "#1E1E1E"
+
+[ui.outer_border]
+padding = [1, 0]
+type = "Thick"
+color = "#30363D"
+sides = "ALL"
+bg = "#1E1E1E"
+
+[query.border]
+bg = "#1E1E1E"
+
+[results.border]
+bg = "#1E1E1E"
+
+[footer.border]
+bg = "#1E1E1E"
+
+[header.border]
+bg = "#1E1E1E"
+
+[envs]
+BAT_THEME = "OneHalfDark"

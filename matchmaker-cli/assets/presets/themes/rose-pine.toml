@@ -1,0 +1,72 @@
+# Rosé Pine Theme
+
+[query]
+prompt = "✦ "
+prompt_style.fg = "#EBBCBA"
+prompt_style.modifier = "BOLD"
+style.fg = "#E0DEF4"
+style.bg = "#191724"
+
+[results]
+style.fg = "#E0DEF4"
+inactive_style.fg = "#6E6A86"
+current_prefix = "❯ "
+multi_prefix = "● "
+row_connection = "Capped"
+style.bg = "#191724"
+
+[ui.border]
+type = "Rounded"
+color = "#403D52"
+sides = "ALL"
+padding = [1, 0]
+bg = "#191724"
+
+[results.match_style]
+fg = "#F6C177"
+modifier = "BOLD"
+
+[results.current_style]
+fg = "#9CCFD8"
+bg = "#26233A"
+modifier = "BOLD"
+
+[results.inactive_current_style]
+fg = "#E0DEF4"
+bg = "#26233A"
+
+[results.prefix_style]
+fg = "#EB6F92"
+
+[status]
+show = true
+template = '{#F6C177:\m} {#6E6A86:/} {#E0DEF4:\t} \s {#EBBCBA:[\r]} '
+style.fg = "#6E6A86"
+style.bg = "#191724"
+
+[preview.border]
+type = "Plain"
+color = "#403D52"
+sides = "ALL"
+padding = [1, 0]
+title_style.fg = "#EBBCBA"
+title_style.modifier = "BOLD"
+bg = "#191724"
+
+[ui.outer_border]
+bg = "#191724"
+
+[query.border]
+bg = "#191724"
+
+[results.border]
+bg = "#191724"
+
+[footer.border]
+bg = "#191724"
+
+[header.border]
+bg = "#191724"
+
+[envs]
+BAT_THEME = "Catppuccin Mocha"

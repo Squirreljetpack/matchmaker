@@ -1,0 +1,82 @@
+# Amber CRT Theme
+
+[query]
+prompt = "QUERY> "
+prompt_style.fg = "#FFB000"
+prompt_style.modifier = "BOLD"
+style.fg = "#FFCC00"
+style.bg = "#1A1200"
+
+[results]
+style.fg = "#D48800"
+current_prefix = "* "
+multi_prefix = "[X] "
+default_prefix = "[ ] "
+row_connection = "Full"
+separator = "Heavy"
+style.bg = "#1A1200"
+
+[results.border]
+type = "Double"
+color = "#FFB000"
+sides = "ALL"
+padding = 0
+bg = "#1A1200"
+
+[results.match_style]
+fg = "#FFFFFF"
+bg = "#7A4800"
+modifier = "BOLD"
+
+[results.current_style]
+fg = "#000000"
+bg = "#FFB000"
+modifier = "BOLD"
+
+[results.inactive_style]
+fg = "#8C5800"
+
+[results.inactive_current_style]
+fg = "#1A1000"
+bg = "#FFB000"
+
+[results.prefix_style]
+fg = "#FFB000"
+
+[results.separator_style]
+fg = "#995C00"
+
+[status]
+show = true
+template = '\s [MATCHED: \m / TOTAL: \t] [LINE: \r]'
+style.fg = "#FFB000"
+style.modifier = "BOLD"
+style.bg = "#1A1200"
+
+[preview.border]
+type = "Double"
+color = "#FFB000"
+sides = "ALL"
+padding = 0
+title_style.fg = "#FFB000"
+title_style.modifier = "BOLD"
+bg = "#1A1200"
+
+[ui.outer_border]
+bg = "#1A1200"
+
+[ui.border]
+sides = ""
+bg = "#1A1200"
+
+[query.border]
+bg = "#1A1200"
+
+[footer.border]
+bg = "#1A1200"
+
+[header.border]
+bg = "#1A1200"
+
+[envs]
+BAT_THEME = "gruvbox-dark"

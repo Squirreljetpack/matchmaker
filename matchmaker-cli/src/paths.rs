@@ -76,7 +76,14 @@ fn collect_preset_paths(dir: &Path, paths: &mut Vec<PathBuf>) -> io::Result<()> 
         let file_type = entry.file_type()?;
 
         if file_type.is_dir() {
-            collect_preset_paths(&path, paths)?;
+            if path.file_name() == Some(OsStr::new("themes")) {
+                let main_toml = path.join("main.toml");
+                if main_toml.is_file() {
+                    paths.push(main_toml.canonicalize()?);
+                }
+            } else {
+                collect_preset_paths(&path, paths)?;
+            }
         } else if file_type.is_file()
             && path.extension() == Some(OsStr::new("toml"))
             && path.file_name() != Some(OsStr::new("base.toml"))

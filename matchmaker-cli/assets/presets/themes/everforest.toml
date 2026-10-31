@@ -1,0 +1,72 @@
+# Everforest Theme
+
+[query]
+prompt = "🌲 "
+prompt_style.fg = "#A7C080"
+prompt_style.modifier = "BOLD"
+style.fg = "#D3C6AA"
+style.bg = "#2D353B"
+
+[results]
+style.fg = "#D3C6AA"
+inactive_style.fg = "#7A8478"
+current_prefix = "→ "
+multi_prefix = "● "
+row_connection = "Capped"
+style.bg = "#2D353B"
+
+[ui.border]
+type = "Rounded"
+color = "#4F585E"
+sides = "ALL"
+padding = [1, 0]
+bg = "#2D353B"
+
+[results.match_style]
+fg = "#DBBC7F"
+modifier = "BOLD"
+
+[results.current_style]
+fg = "#A7C080"
+bg = "#374145"
+modifier = "BOLD"
+
+[results.inactive_current_style]
+fg = "#D3C6AA"
+bg = "#374145"
+
+[results.prefix_style]
+fg = "#E67E80"
+
+[status]
+show = true
+template = '{#DBBC7F:\m}/{\t} \s {#A7C080:[\r]} '
+style.fg = "#7A8478"
+style.bg = "#2D353B"
+
+[preview.border]
+type = "Rounded"
+color = "#4F585E"
+sides = "ALL"
+padding = [1, 0]
+title_style.fg = "#A7C080"
+title_style.modifier = "BOLD"
+bg = "#2D353B"
+
+[ui.outer_border]
+bg = "#2D353B"
+
+[query.border]
+bg = "#2D353B"
+
+[results.border]
+bg = "#2D353B"
+
+[footer.border]
+bg = "#2D353B"
+
+[header.border]
+bg = "#2D353B"
+
+[envs]
+BAT_THEME = "TwoDark"

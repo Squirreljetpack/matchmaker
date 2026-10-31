@@ -1,0 +1,70 @@
+# Solarized Light Theme
+
+[query]
+style.bg = "#FDF6E3"
+prompt = "λ "
+prompt_style.fg = "#268BD2"
+prompt_style.modifier = "BOLD"
+style.fg = "#657B83"
+
+[results]
+style.bg = "#FDF6E3"
+style.fg = "#657B83"
+inactive_style.fg = "#93A1A1"
+current_prefix = "▶ "
+multi_prefix = "✦ "
+row_connection = "Capped"
+
+[ui.outer_border]
+padding = 1
+bg = "#FDF6E3"
+
+[ui.border]
+sides = ""
+bg = "#FDF6E3"
+
+[results.match_style]
+fg = "#B58900"
+modifier = "BOLD"
+
+[results.current_style]
+fg = "#073642"
+bg = "#EEE8D5"
+modifier = "BOLD"
+
+[results.inactive_current_style]
+fg = "#657B83"
+bg = "#EEE8D5"
+
+[results.prefix_style]
+fg = "#2AA198"
+
+[status]
+style.bg = "#FDF6E3"
+show = true
+row_connection = "Capped"
+template = '\s {#268BD2,bold:λ} {#657B83:\m items} {#B58900:\r}/{\t} \s '
+style.fg = "#93A1A1"
+
+[preview.border]
+type = "LightQuadrupleDashed"
+color = "#93A1A1"
+padding = [1, 0]
+title_style.fg = "#268BD2"
+title_style.modifier = "BOLD"
+bg = "#FDF6E3"
+
+[query.border]
+bg = "#FDF6E3"
+
+[results.border]
+bg = "#FDF6E3"
+
+[footer.border]
+bg = "#FDF6E3"
+
+[header.border]
+bg = "#FDF6E3"
+
+[envs]
+BAT_THEME = "OneHalfLight"

@@ -1,0 +1,51 @@
+# Magenta Line Theme
+
+[query]
+prompt = ""
+style.fg = "White"
+
+[results]
+style.fg = "LightBlue"
+inactive_style.fg = "LightBlue"
+current_prefix = "❯ "
+multi_prefix = "▌ "
+row_connection = "Capped"
+separator = "None"
+
+[results.border]
+type = "Plain"
+color = "Magenta"
+sides = "TOP"
+
+[results.match_style]
+fg = "LightBlue"
+bg = "Cyan"
+modifier = "BOLD"
+
+[results.current_style]
+fg = "Yellow"
+bg = "LightRed"
+modifier = "BOLD"
+
+[results.inactive_current_style]
+fg = "LightBlue"
+bg = "LightRed"
+
+[results.prefix_style]
+fg = "Magenta"
+
+[status]
+show = false
+
+[preview.border]
+sides = ""
+padding = [0, 0, 0, 1]
+
+[ui.outer_border]
+padding = 1
+
+[ui.border]
+sides = ""
+
+[envs]
+BAT_THEME = "Dracula"

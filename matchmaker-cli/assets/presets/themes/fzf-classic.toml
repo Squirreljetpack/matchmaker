@@ -1,0 +1,44 @@
+# FZF Classic Theme
+
+[query]
+prompt = "> "
+prompt_style.fg = "Red"
+prompt_style.modifier = "BOLD"
+style.fg = "White"
+
+[results]
+style.fg = "White"
+inactive_style.fg = "DarkGray"
+current_prefix = "> "
+default_prefix = "  "
+multi_prefix = "> "
+row_connection = "Full"
+
+[results.match_style]
+fg = "Green"
+modifier = "BOLD"
+
+[results.current_style]
+modifier = "REVERSED"
+
+[results.prefix_style]
+fg = "Red"
+modifier = "BOLD"
+
+[status]
+show = true
+template = '\m/\t '
+style.fg = "Yellow"
+
+[preview.border]
+type = "Plain"
+color = "DarkGray"
+padding = 1
+title_style.fg = "Yellow"
+title_style.modifier = "BOLD"
+
+[ui.border]
+sides = ""
+
+[envs]
+BAT_THEME = "Monokai Extended Bright"

@@ -1,0 +1,81 @@
+# Nord Theme
+
+[query]
+prompt = "» "
+prompt_style.fg = "#88C0D0"
+prompt_style.modifier = "ITALIC"
+style.fg = "#ECEFF4"
+
+style.bg = "#3B4252"
+
+[results]
+style.fg = "#D8DEE9"
+current_prefix = "→ "
+multi_prefix = "● "
+row_connection = "Capped"
+
+style.bg = "#3B4252"
+
+[results.border]
+type = "Plain"
+color = "#4C566A"
+sides = "ALL"
+padding = [1, 0]
+
+bg = "#3B4252"
+
+[results.match_style]
+fg = "#81A1C1"
+modifier = "BOLD"
+
+[results.current_style]
+fg = "#ECEFF4"
+bg = "#434C5E"
+modifier = "BOLD"
+
+[results.inactive_style]
+fg = "#4C566A"
+
+[results.inactive_current_style]
+fg = "#88C0D0"
+bg = "#434C5E"
+
+[results.prefix_style]
+fg = "#A3BE8C"
+
+[status]
+show = true
+template = '{#81A1C1:\m}/{\t} \s {#A3BE8C:[\r]} '
+style.fg = "#D8DEE9"
+
+style.bg = "#3B4252"
+
+[preview.border]
+type = "Plain"
+color = "#4C566A"
+sides = "ALL"
+padding = [1, 0]
+title_style.fg = "#88C0D0"
+title_style.modifier = "ITALIC"
+
+bg = "#3B4252"
+
+[ui.outer_border]
+padding = 1
+bg = "#3B4252"
+
+[ui.border]
+bg = "#3B4252"
+sides = ""
+
+[query.border]
+bg = "#3B4252"
+
+[footer.border]
+bg = "#3B4252"
+
+[header.border]
+bg = "#3B4252"
+
+[envs]
+BAT_THEME = "Nord"

@@ -62,6 +62,9 @@ Filter a specific column using `%name` or any abbreviation thereof:
 - `%path .toml`: Matches items where the `path` column ends with `.toml`.
 - `helix %p .toml !lang`: Match `helix`, path ends in `.toml`, exclude `lang`.
 
+> [!NOTE]
+> Field specifiers that match no column become literal queries.
+
 ---
 
 ### Testing presets

@@ -133,102 +133,96 @@ impl PickerQuery {
         let mut column_ranges: Vec<(std::ops::Range<usize>, Option<Arc<str>>)> =
             vec![(0..usize::MAX, Some(primary_field.clone()))];
 
-        let mut escaped = false;
-        let mut in_field = false;
-        let mut field = None;
+        // Column the current word feeds. A `%word` naming no column is pattern
+        // text, and stays in this column.
+        let mut field: Option<&Arc<str>> = None;
+        // Pattern text of the current word. Words are atoms, so the join
+        // re-inserts the separator between them.
         let mut text = String::new();
+        // Input offset of the `%` when the current word is a field selector.
+        let mut marker = None;
+        let mut word_start = true;
+        let mut escaped = false;
 
-        macro_rules! finish_field {
-            () => {
-                let key = field.take().unwrap_or(primary_field);
+        macro_rules! end_word {
+            () => {{
+                // A `%word` selects a column only if its name matches one;
+                // otherwise the word is pattern text.
+                if let Some(idx) = marker.take() {
+                    let name = &text[1..];
+                    let col = if name.is_empty() {
+                        self.empty_column
+                            .and_then(|index| self.column_names.get(index))
+                    } else {
+                        self.column_names
+                            .iter()
+                            .filter(|col| col.starts_with(name))
+                            .min_by_key(|col| col.len())
+                    };
 
-                // Trims one space from the end, enabling leading and trailing
-                // spaces in search patterns, while also retaining spaces as separators
-                // between column filters.
-                let pat = text.strip_suffix(' ').unwrap_or(&text);
+                    if let Some(col) = col {
+                        text.clear();
 
-                if let Some(pattern) = fields.get_mut(key) {
-                    pattern.push(' ');
-                    pattern.push_str(pat);
-                } else {
-                    fields.insert(key.clone(), pat.to_string());
+                        // The marker is syntax, so it owns no pattern text: the
+                        // previous column ends where the `%` starts.
+                        if let Some((range, _)) = column_ranges.last_mut() {
+                            range.end = idx;
+                        }
+                        column_ranges.push((idx + 1..usize::MAX, Some(col.clone())));
+                        field = Some(col);
+                    }
                 }
-                text.clear();
-            };
+
+                if !text.is_empty() {
+                    // Chunks of the same column are space-joined so they stay
+                    // separate atoms (terms) in the pattern.
+                    let pattern = fields
+                        .entry(field.unwrap_or(primary_field).clone())
+                        .or_default();
+                    if !pattern.is_empty() {
+                        pattern.push(' ');
+                    }
+                    pattern.push_str(&text);
+                    text.clear();
+                }
+            }};
         }
 
         for (idx, ch) in input.char_indices() {
             match ch {
                 // Backslash escaping
                 _ if escaped => {
-                    // '%' is the only character that is special cased.
-                    // You can escape it to prevent parsing the text that
-                    // follows it as a field name.
+                    // `\%` searches for a literal `%`; a backslash before any
+                    // other character is kept as written.
                     if ch != '%' {
                         text.push('\\');
                     }
                     text.push(ch);
                     escaped = false;
+                    word_start = false;
                 }
-                '\\' => escaped = !escaped,
-                '%' if !in_field => {
-                    if !text.is_empty() {
-                        finish_field!();
-                    }
-                    // Update the last column range end
-                    if let Some((range, _)) = column_ranges.last_mut() {
-                        range.end = idx;
-                    }
-                    in_field = true;
-                }
-                ' ' if in_field => {
-                    if text.is_empty()
-                        && let Some(index) = self.empty_column
-                    {
-                        field = self.column_names.get(index);
-                        // Update the column range for this column.
-                        if let Some((_range, current_field)) = column_ranges
-                            .last_mut()
-                            .filter(|(range, _)| range.end == usize::MAX)
-                        {
-                            *current_field = field.cloned();
-                        } else {
-                            column_ranges.push((idx..usize::MAX, field.cloned()));
-                        }
-                    } else {
-                        text.clear();
-                    }
-                    in_field = false;
-                }
-                _ if in_field => {
+                '\\' => escaped = true,
+                // A `%` opens a field name only at the start of a word.
+                '%' if word_start => {
+                    marker = Some(idx);
                     text.push(ch);
-                    // Go over all columns and their indices, find all that starts with field key,
-                    // select a column that fits key the most.
-                    field = self
-                        .column_names
-                        .iter()
-                        .filter(|col| col.starts_with(&text))
-                        // select "fittest" column
-                        .min_by_key(|col| col.len());
-
-                    // Update the column range for this column.
-                    if let Some((_range, current_field)) = column_ranges
-                        .last_mut()
-                        .filter(|(range, _)| range.end == usize::MAX)
-                    {
-                        *current_field = field.cloned();
-                    } else {
-                        column_ranges.push((idx..usize::MAX, field.cloned()));
-                    }
+                    word_start = false;
                 }
-                _ => text.push(ch),
+                c if c.is_whitespace() => {
+                    end_word!();
+                    word_start = true;
+                }
+                c => {
+                    text.push(c);
+                    word_start = false;
+                }
             }
         }
-
-        // Finish the last field if we're not in a field and there's leftover text
-        if !in_field && !text.is_empty() {
-            finish_field!();
+        // A trailing backslash is search text of its own.
+        if escaped {
+            text.push('\\');
         }
+        end_word!();
 
         let new_fields: HashMap<Arc<str>, Arc<str>> = fields
             .into_iter()

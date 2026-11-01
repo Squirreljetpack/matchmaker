@@ -178,7 +178,7 @@ All colors and modifiers come from ratatui:
 - `scroll_padding`: (bool) Maintain padding when moving the cursor in the query bar.
 - `cursor`: Cursor style.
 - `border`: [Border Settings](#border-settings).
-- `reset_cursor_on_query_change`: (bool) Reset cursor to initial position on query change (experimental).
+- `reset_cursor_on_query_change`: (bool) Reset cursor to initial position on query change, keeping the cursor disabled if it was disabled (experimental).
 
 #### Results Table (`results.`, `r`)
 

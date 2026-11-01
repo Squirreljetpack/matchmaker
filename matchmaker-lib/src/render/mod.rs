@@ -973,7 +973,11 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
         if state.update_input(&picker_ui.query.input()) {
             picker_ui.results.set_dirty();
             if picker_ui.query.config.reset_cursor_on_query_change {
+                let cursor_disabled = picker_ui.results.cursor_disabled();
                 picker_ui.results.cursor_jump(0);
+                if cursor_disabled {
+                    picker_ui.results.disable_cursor(true);
+                }
             }
             state.insert(Event::QueryChange)
         }

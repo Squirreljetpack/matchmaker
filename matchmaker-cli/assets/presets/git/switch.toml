@@ -109,7 +109,7 @@ prompt = "switch> "
 "alt-r" = ["@show_remotes"]
 
 "ctrl-a" = ["@add_remote", "Reload"]
-"ctrl-n" = ["@add_branch", "Reload"]
+"@new" = ["@add_branch", "Reload"]
 "alt-a" = "@copy_remote"
 # restore fetch spec to defaults (i.e. after cloning with --single-branch)
 "alt-u" = [

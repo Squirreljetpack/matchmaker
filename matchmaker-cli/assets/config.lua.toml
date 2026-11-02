@@ -218,6 +218,7 @@ abort_empty = true
 "ctrl-d" = "@rm"
 "Delete" = "@rm"
 "ctrl-s" = "@show"
+"ctrl-n" = "@new"
 
 "@accept" = "Accept"
 "@open" = [

@@ -61,7 +61,7 @@ percentage = 100
     '''Become(zellij action override-layout {name} --apply-only-to-active-tab)''',
 ]
 
-"ctrl-n" = [
+"@new" = [
     "#new tab",
     '''Become(zellij --layout {name})''',
 ]

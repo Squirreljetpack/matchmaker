@@ -118,9 +118,6 @@ exit 0
     "Reload",
 ]
 
-# base keymap binds alt-n to SortNumeric
-"alt-n" = "@new"
-
 # ring navigation
 "@next" = "BecomeSilent(mm -o terminal/zellij_layout)"
 "@prev" = "BecomeSilent(mm -o terminal/zellij_session)"

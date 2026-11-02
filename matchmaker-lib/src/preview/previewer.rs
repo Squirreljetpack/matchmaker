@@ -19,6 +19,7 @@ use crate::message::Event;
 use crate::preview::Preview;
 #[cfg(feature = "image")]
 use crate::preview::image_header::HeaderParser;
+use crate::utils::text::{scrub_line_styles, scrub_text_styles};
 
 #[derive(Debug, Default, strum_macros::Display, Clone)]
 pub enum PreviewMessage {
@@ -121,7 +122,10 @@ impl Previewer {
     fn parse_slice(valid_bytes: &[u8], try_lossy: bool, cmd_str: &str) -> Option<Text<'static>> {
         // better would be to look for utf-8 valid up to, then parse into Lines with utf-8-unchecked
         match valid_bytes.into_text() {
-            Ok(text) => Some(text),
+            Ok(mut text) => {
+                scrub_text_styles(&mut text);
+                Some(text)
+            }
             Err(e) => {
                 if try_lossy {
                     warn!("Error displaying {cmd_str} (falling back to lossy): {e:?}");
@@ -362,7 +366,13 @@ impl Previewer {
                                         };
                                         if valid_up_to > 0 {
                                             match (&raw_buf[..valid_up_to]).into_text() {
-                                                Ok(t) => t.into_iter().next(),
+                                                Ok(t) => {
+                                                    let mut line = t.into_iter().next();
+                                                    if let Some(line) = &mut line {
+                                                        scrub_line_styles(line);
+                                                    }
+                                                    line
+                                                }
                                                 Err(_) => None, // not try_lossy because we don't want to flash incomplete ansi seq
                                             }
                                         } else {
@@ -511,4 +521,20 @@ fn kill_child(child: &mut Child) {
         let _ = kill(pgid, Signal::SIGKILL);
     }
     let _ = child.kill();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::{style::Color, style::Style, text::Span};
+
+    #[test]
+    fn reset_backgrounds_are_transparent() {
+        let mut text = Text::from(Line::from(Span::styled(
+            "header",
+            Style::default().bg(Color::Reset),
+        )));
+        scrub_text_styles(&mut text);
+        assert_eq!(text.lines[0].spans[0].style.bg, None);
+    }
 }

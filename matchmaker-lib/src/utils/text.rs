@@ -369,20 +369,26 @@ pub fn slice_ratatui_text<'a>(text: &'a Text<'_>, range: Range<usize>) -> Text<'
 /// This allows the Text to properly inherit styles from its parent container.
 pub fn scrub_text_styles(text: &mut Text<'_>) {
     for line in &mut text.lines {
-        for span in &mut line.spans {
-            // 1. Handle Colors: If it's explicitly Reset, make it None (transparent/inherit)
-            if span.style.fg == Some(Color::Reset) {
-                span.style.fg = None;
-            }
-            if span.style.bg == Some(Color::Reset) {
-                span.style.bg = None;
-            }
-            if span.style.underline_color == Some(Color::Reset) {
-                span.style.underline_color = None;
-            }
+        scrub_line_styles(line);
+    }
+}
 
-            span.style.sub_modifier = Modifier::default();
+/// Cleans a Line by removing explicit 'Reset' colors and 'Not' modifiers.
+/// This allows the Line to properly inherit styles from its parent container.
+pub fn scrub_line_styles(line: &mut Line<'_>) {
+    for span in &mut line.spans {
+        // 1. Handle Colors: If it's explicitly Reset, make it None (transparent/inherit)
+        if span.style.fg == Some(Color::Reset) {
+            span.style.fg = None;
         }
+        if span.style.bg == Some(Color::Reset) {
+            span.style.bg = None;
+        }
+        if span.style.underline_color == Some(Color::Reset) {
+            span.style.underline_color = None;
+        }
+
+        span.style.sub_modifier = Modifier::default();
     }
 }
 

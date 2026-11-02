@@ -213,20 +213,33 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     // ---- 6. Optional `Merge` / `Clear` implementation ----
-    let merge_impl = if options.merge {
-        quote! {
-            impl #p_impl_generics matchmaker_partial::Merge for #partial_ident #p_ty_generics #p_where_clause {
-                fn merge(&mut self, other: Self) {
-                    #(#merge_field_stmts)*
-                }
+    let (merge_impl, partial_apply_impl) = if options.merge {
+        (
+            quote! {
+                impl #p_impl_generics matchmaker_partial::Merge for #partial_ident #p_ty_generics #p_where_clause {
+                    fn merge(&mut self, other: Self) {
+                        #(#merge_field_stmts)*
+                    }
 
-                fn clear(&mut self) {
-                    #(#clear_field_stmts)*
+                    fn clear(&mut self) {
+                        #(#clear_field_stmts)*
+                    }
                 }
-            }
-        }
+            },
+            // A field can store the partial type directly. Applying one
+            // partial onto another is just a merge, so this impl lets the
+            // regular recursive `Apply` code path handle those fields.
+            quote! {
+                impl #p_impl_generics matchmaker_partial::Apply for #partial_ident #p_ty_generics #p_where_clause {
+                    type Partial = Self;
+                    fn apply(&mut self, partial: Self) {
+                        matchmaker_partial::Merge::merge(self, partial);
+                    }
+                }
+            },
+        )
     } else {
-        quote! {}
+        (quote! {}, quote! {})
     };
 
     let vis = &input.vis;
@@ -250,6 +263,8 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         #merge_impl
+
+        #partial_apply_impl
 
         #path_setter_impl
     };
@@ -715,8 +730,9 @@ fn should_recurse_field(ctx: &FieldCtx, options: &FieldOptions) -> bool {
 }
 
 /// Rewrites the last path segment of a type with a `Partial` prefix
-/// (`Foo` → `PartialFoo`, `a::Foo` → `a::PartialFoo`); non-path types pass
-/// through unchanged.
+/// (`Foo` → `PartialFoo`, `a::Foo` → `a::PartialFoo`). Non-path types pass
+/// through unchanged. Fields that store a partial type directly must name the
+/// target explicitly with `#[partial(recurse = "PartialFoo")]`.
 fn partial_type_of(ty: &Type) -> proc_macro2::TokenStream {
     if let Type::Path(tp) = ty {
         let mut p = tp.path.clone();

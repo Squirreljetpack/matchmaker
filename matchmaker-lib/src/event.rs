@@ -22,6 +22,10 @@ pub type RenderSender<A = NullActionExt> = mpsc::UnboundedSender<RenderCommand<A
 pub type EventSender = mpsc::UnboundedSender<Event>;
 pub type BindSender<A> = mpsc::UnboundedSender<BindDirective<A>>;
 
+/// How long the render side gets to restore the terminal before the process
+/// exits regardless.
+const TEARDOWN_GRACE: time::Duration = time::Duration::from_millis(2000);
+
 #[derive(Debug)]
 pub struct EventLoop<A: ActionExt> {
     txs: Vec<RenderSender<A>>,
@@ -387,7 +391,7 @@ impl<A: ActionExt> EventLoop<A> {
                 // shell-conventional exit status for each signal.
                 status = &mut terminations => {
                     info!("Received termination signal, exiting with {status}");
-                    self.send(RenderCommand::quit_with(status));
+                    self.exit_after_teardown(status);
                 }
 
                 // Scroll debounce deadline — flush all buffered scroll events
@@ -505,9 +509,17 @@ impl<A: ActionExt> EventLoop<A> {
                                 _ => {},
                             }
                         }
-                        Some(Err(e)) => warn!("Failed to read crossterm event: {e}"),
+                        // The event source only errors once it has nothing left
+                        // to read from, and a stream that keeps yielding errors
+                        // would spin the loop.
+                        Some(Err(e)) => {
+                            warn!("Failed to read crossterm event: {e}");
+                            self.exit_after_teardown(129);
+                            break
+                        }
                         None => {
                             warn!("Reader closed");
+                            self.exit_after_teardown(129);
                             break
                         }
                     }
@@ -521,6 +533,17 @@ impl<A: ActionExt> EventLoop<A> {
             tx.send(action.clone())
                 .unwrap_or_else(|_| debug!("Failed to send {action}"));
         }
+    }
+
+    /// Ask the render side to restore the terminal and exit, without waiting on
+    /// it: a renderer stuck on a dead terminal never processes the request, and
+    /// the process would then keep running with no input source left.
+    fn exit_after_teardown(&self, status: i32) {
+        self.send(RenderCommand::quit_with(status));
+        tokio::spawn(async move {
+            time::sleep(TEARDOWN_GRACE).await;
+            std::process::exit(status);
+        });
     }
 
     fn record_key(&mut self, content: String) {

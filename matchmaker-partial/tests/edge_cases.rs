@@ -387,6 +387,66 @@ fn test_recursive_option_merge() {
 }
 
 // ---------------------------------------------------------------------------
+// Stored partial types
+// ---------------------------------------------------------------------------
+
+// A field can store its partial type directly; name the recursion target
+// explicitly so the macro does not add another `Partial` prefix. Applying one
+// stored partial onto another delegates to `Merge`.
+#[partial(path, merge)]
+#[derive(Debug, PartialEq, Default)]
+struct StoredField {
+    value: i32,
+    count: u32,
+}
+
+#[partial(path)]
+#[derive(Debug, PartialEq, Default)]
+struct StoredPartial {
+    #[partial(recurse = "PartialStoredField")]
+    field: Option<PartialStoredField>,
+}
+
+#[test]
+fn test_stored_partial_applies_as_merge() {
+    let mut target = StoredPartial {
+        field: Some(PartialStoredField {
+            value: Some(1),
+            count: None,
+        }),
+    };
+    target.apply(PartialStoredPartial {
+        field: Some(PartialStoredField {
+            value: Some(2),
+            count: Some(3),
+        }),
+    });
+
+    let field = target.field.unwrap();
+    assert_eq!(field.value, Some(2));
+    assert_eq!(field.count, Some(3));
+
+    let mut empty = StoredPartial::default();
+    empty.apply(PartialStoredPartial {
+        field: Some(PartialStoredField {
+            value: Some(4),
+            ..Default::default()
+        }),
+    });
+    assert_eq!(empty.field.unwrap().value, Some(4));
+}
+
+#[test]
+fn test_stored_partial_set_descends() {
+    let mut partial = PartialStoredPartial::default();
+    partial
+        .set(&["field".into(), "value".into()], &["7".into()])
+        .unwrap();
+
+    assert_eq!(partial.field.unwrap().value, Some(7));
+}
+
+// ---------------------------------------------------------------------------
 // Multiple aliases on one field
 // ---------------------------------------------------------------------------
 

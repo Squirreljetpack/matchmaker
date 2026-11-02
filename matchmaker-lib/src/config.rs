@@ -979,7 +979,7 @@ impl Default for HelpColorConfig {
 // ----------- SETTING TYPES -------------------------
 
 #[derive(Default, Debug, Clone, PartialEq, Deserialize, Serialize)]
-#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
+#[partial(path, merge, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[serde(default, deny_unknown_fields)]
 pub struct BorderSetting {
     #[serde(deserialize_with = "camelcase_normalized_option")]
@@ -1033,7 +1033,12 @@ impl BorderSetting {
         ret
     }
 
-    // note that matchmaker populates borders in branch 2 with opposite in the creation of PreviewUI, remapping ALL -> OPPOSITE
+    /// The sides drawn when `sides` is unset: all of them when the border has
+    /// a visible color or type, none otherwise. In the preview pane,
+    /// [`PreviewUI::border`] narrows the resolved border to the edge shared with
+    /// the results pane.
+    ///
+    /// [`PreviewUI::border`]: crate::ui::PreviewUI::border
     pub fn sides(&self) -> Borders {
         if let Some(s) = self.sides {
             s
@@ -1156,6 +1161,11 @@ impl Default for TerminalLayoutSettings {
     }
 }
 
+#[cfg(feature = "partial")]
+fn is_default_partial_border(border: &PartialBorderSetting) -> bool {
+    *border == PartialBorderSetting::default()
+}
+
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -1163,9 +1173,13 @@ pub struct PreviewSetting {
     #[serde(flatten)]
     #[partial(recurse)]
     pub layout: PreviewLayout,
-    // base title modifier cascades in hacky way for now, todo: figure out best partial merge strategy
-    #[partial(recurse)]
-    pub border: Option<BorderSetting>,
+    /// Layout-specific overrides layered over the global
+    /// [`PreviewConfig::border`]. An empty value means the layout has no
+    /// border overrides.
+    #[cfg(feature = "partial")]
+    #[serde(skip_serializing_if = "is_default_partial_border")]
+    #[partial(recurse = "PartialBorderSetting")]
+    pub border: PartialBorderSetting,
     #[serde(default, alias = "cmd", alias = "x")]
     pub command: String,
 

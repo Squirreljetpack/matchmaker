@@ -102,7 +102,6 @@ pub fn render_row<T: SSS, D>(
     let mut skip = true; // assume no visible lines until proven otherwise
     let mut row_candidates = vec![];
     let columns = &worker.columns;
-    let snapshot = worker.nucleo.snapshot();
     let d = (worker.text_preprocessor)(item.data);
 
     for (i, c) in columns.iter().enumerate() {
@@ -202,7 +201,7 @@ pub fn render_row<T: SSS, D>(
             // Apply rendering based on column type and settings
             let cell = if column.should_highlight(item.data, &d) {
                 // Filterable columns get match highlighting
-                let pattern = snapshot.pattern().column_pattern(pattern_idx);
+                let pattern = worker.nucleo.pattern.column_pattern(pattern_idx);
                 let (t, _) = render_cell(
                     cell,
                     pattern,

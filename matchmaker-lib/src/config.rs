@@ -530,7 +530,7 @@ pub struct StatusConfig {
     pub match_indent: bool,
 
     /// Supports replacements:
-    /// - `\r` -> cursor index
+    /// - `\r` -> cursor row (1-based, `-` when there is no current row)
     /// - `\m` -> match count
     /// - `\t` -> total count
     /// - `\s` -> available whitespace / # appearances

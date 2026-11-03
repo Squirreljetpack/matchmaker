@@ -227,7 +227,7 @@ All colors and modifiers come from ratatui:
 - `show`: (bool) Show/hide the status line.
 - `match_indent`: (bool) Indent the status to match the results table.
 - `template`: (string) The following replacements are available:
-  - `\r` -> current result index
+  - `\r` -> current result row (1-based, `-` when there is no current row)
   - `\m` -> match count
   - `\t` -> total item count
   - `\s` -> available whitespace / count appearances

@@ -179,11 +179,11 @@ You can style parts of the status line and input prompt using the `{fg,bg,..modi
 
 The following variables are available and must be prefixed with a backslash (`\`):
 
-| Variable | Description                                   |
-| -------- | --------------------------------------------- |
-| `\r`     | Current row index (0-indexed cursor position) |
-| `\m`     | Number of matched items                       |
-| `\t`     | Total number of items                         |
+| Variable | Description                                                    |
+| -------- | -------------------------------------------------------------- |
+| `\r`     | Current row number (1-based), `-` when there is no current row |
+| `\m`     | Number of matched items                                        |
+| `\t`     | Total number of items                                          |
 
 ### Alignment
 

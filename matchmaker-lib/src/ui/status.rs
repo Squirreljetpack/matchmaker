@@ -45,8 +45,14 @@ impl StatusUI {
     }
 
     pub fn make_status(&mut self, results_ui: &ResultsUI, full_width: u16) -> Paragraph<'_> {
+        let row = if results_ui.cursor_disabled() || results_ui.status.matched_count == 0 {
+            "-".to_string()
+        } else {
+            (results_ui.index() + 1).to_string()
+        };
+
         let replacements = [
-            ('r', results_ui.index().to_string()),
+            ('r', row),
             ('m', results_ui.status.matched_count.to_string()),
             ('t', results_ui.status.item_count.to_string()),
         ];
@@ -316,6 +322,28 @@ mod tests {
         assert_eq!(click(13), None);
         assert_eq!(click(14).as_deref(), Some("action"));
         assert_eq!(click(19).as_deref(), Some("action"));
+    }
+
+    #[test]
+    fn row_number_is_one_based() {
+        let mut status = StatusUI::new(StatusConfig {
+            show: true,
+            match_indent: false,
+            template: r"\r/\t".to_string(),
+            ..Default::default()
+        });
+        let mut results = ResultsUI::new(ResultsConfig::default());
+        results.status.matched_count = 17;
+        results.status.item_count = 17;
+
+        results.cursor_jump(16);
+        assert_eq!(render_status(&mut status, &results, 5), "17/17");
+
+        results.cursor_jump(0);
+        assert_eq!(render_status(&mut status, &results, 5), "1/17 ");
+
+        results.disable_cursor(true);
+        assert_eq!(render_status(&mut status, &results, 5), "-/17 ");
     }
 
     #[test]

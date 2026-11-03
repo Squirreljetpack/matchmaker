@@ -30,7 +30,7 @@ use std::{
 };
 
 #[cfg(feature = "pager")]
-use minus::{LineNumbers, Pager, hooks::Hook};
+use minus::{LineNumbers, Pager, hooks::Hook, input::InputEvent};
 
 /// Common pager configuration for `ShowPreview`: line numbers, follow mode,
 /// horizontal scroll, smart case, prompt, and the no-op `PostPagerExit`
@@ -60,12 +60,28 @@ fn configure_pager(pager: &Pager, cfg: &PagerConfig) {
     // Default bindings plus the Alt-h help binding.
     let mut input_register = minus::input::HashedEventRegister::default();
     input_register.add_help_key(&[]);
-    let _ = pager.set_input_classifier(Box::new(input_register));
 
-    // Route pager selection copies through host clipboard.
-    let _ = pager.set_clipboard_handler(Box::new(|text| {
-        let _ = crate::register::set_host_clipboard_universal(text);
-    }));
+    // Copy selection to host clipboard with toast acknowledgment
+    let toast_pager = pager.clone();
+    if cfg.copy_on_select {
+        input_register.add_mouse_events(&["left:up"], move |_, ps| {
+            if ps.selection.is_some()
+                && ps.selection != ps.selection_anchor
+                && let Some(text) = ps.extract_selection()
+            {
+                let _ = crate::register::set_host_clipboard_universal(&text);
+                let _ = toast_pager.send_toast("Copied!");
+            }
+            InputEvent::ClearSelection
+        });
+    } else {
+        input_register.add_copy_key(&["y"], move |text| {
+            let _ = crate::register::set_host_clipboard_universal(text);
+            let _ = toast_pager.send_toast("Copied!");
+        });
+        let _ = pager.set_selection_hint("y to copy, Esc to clear");
+    }
+    let _ = pager.set_input_classifier(Box::new(input_register));
 
     let _ = pager.remove_hook(Hook::PostPagerExit, 1);
     let _ = pager.add_hook(Hook::PostPagerExit, 1, Box::new(|_| {}));

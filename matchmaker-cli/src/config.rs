@@ -205,6 +205,8 @@ pub struct PagerConfig {
     /// Queries with no uppercase chars match case-insensitively; queries
     /// with uppercase remain case-sensitive.
     pub smart_case: bool,
+    /// Copy selection immediately on mouse release instead of waiting for explicit key.
+    pub copy_on_select: bool,
 }
 
 #[cfg(test)]

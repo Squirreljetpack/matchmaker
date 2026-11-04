@@ -5,7 +5,7 @@ Four presets, connected into a ring with `@next` / `@prev` (cycle with
 
 Presets are skipped in the cycle when empty.
 
-### `zellij_session` -- switch sessions
+### `session` -- switch sessions
 
 Every session, active and otherwise.
 
@@ -18,18 +18,18 @@ Every session, active and otherwise.
 - main preview: tab summary with pane titles
 - secondary preview: active pane screen dump (active sessions) / session KDL layout (inactive sessions)
 
-### `zellij_current` -- panes of the current session
+### `current` -- panes of the current session
 
 Every pane of the current session except the one you're in.
 
-### `zellij_other` -- panes of other sessions
+### `other` -- panes of other sessions
 
 Every pane of every other active session.
 
 For both pane pickers:
 
-- `<enter>`: focus the selected pane (`zellij_current`) or switch to it in its
-  session (`zellij_other`; from outside zellij this attaches to that session
+- `<enter>`: focus the selected pane (`current`) or switch to it in its
+  session (`other`; from outside zellij this attaches to that session
   with the pane focused)
 - `@print`: print `session<TAB>pane` for every selected pane
 - `@copy`: copy `session:pane` for every selected pane to the clipboard
@@ -55,22 +55,3 @@ as arguments to `zellij.sh layouts` to include them; a bare name resolves to
 the user layout dir first, then zellij's built-ins.
 
 <img src=".README.assets/Screenshot 2026-08-14 at 12.34.23 AM.png" alt="Screenshot 2026-08-14 at 12.34.23 AM" style="width:416px;" />
-
-## Mutagen session picker
-
-### `mutagen` -- inspect and manage Mutagen sync sessions
-
-- `@show` (`ctrl-s`): show detailed session information (`mutagen sync list -l <name>`)
-- `@copy_all` (`ctrl-shift-y` / `alt-shift-y`): copy all conflicting file paths to clipboard
-- `@copy` (`ctrl-y` / `alt-p`): copy selected session name to clipboard
-- `alt-f` (`@flush`): flush (force synchronization cycle)
-- `alt-p` (`@pause`): pause synchronization
-- `alt-r` (`@resume`): resume synchronization
-- `alt-shift-r` (`@reset`): reset sync history (clear merge state & rescan, with confirmation)
-- `alt-c` (`@clean`): clean orphaned folders containing ignored files deleted remotely (non-interactive)
-- `alt-v` (`@resolve`): interactive conflict resolver (diff, overwrite remote, overwrite from remote)
-- `alt-a` (`@resolve-alpha`): resolve every conflict in favor of Alpha (non-interactive, with confirmation)
-- `alt-b` (`@resolve-beta`): resolve every conflict in favor of Beta (non-interactive, with confirmation)
-- `ctrl-d` (`@rm`): terminate session (with confirmation)
-- main preview: `mutagen sync list <name>`
-- secondary previews: detailed info (`-l`), conflicting files list

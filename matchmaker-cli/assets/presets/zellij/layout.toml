@@ -2,17 +2,12 @@
 
 # Lists only single-tab layouts by default, extra layouts can be specified as extra arguments to the populating command
 
-[matcher]
-sort.threshold = 20
+source = "base.toml"
 
 [start]
 command = "@./zellij.sh layouts"
 
-[envs]
-CATcmd = { value = 'command -v bat >/dev/null 2>&1 && echo bat --wrap=never --color=always -pp || echo cat', exec = true, force = true }
-
 [columns]
-split = "tsv"
 max = 3
 default = "name"
 names = [
@@ -40,14 +35,9 @@ max = 0
 # --- UI --------------------------------------------------------------------
 [header]
 content = ["FILE", "NAME", "SOURCE"]
-style.modifier = ""
 
 [query]
 prompt = "layout> "
-prompt_style.fg = "Cyan"
-
-[tui]
-percentage = 100
 
 # --- Binds -----------------------------------------------------------------
 [binds]
@@ -69,15 +59,15 @@ percentage = 100
 # ring navigation (skip [other]/[current] when they would list no panes)
 "@next" = '''BecomeSilent(
 if "$(dirname -- "$MM_OVERRIDE")"/zellij.sh has-other-panes; then
-    exec mm -o terminal/zellij_other
+    exec mm -o zellij/other
 else
-    exec mm -o terminal/zellij_session
+    exec mm -o zellij/session
 fi
 )'''
 "@prev" = '''BecomeSilent(
 if "$(dirname -- "$MM_OVERRIDE")"/zellij.sh has-current-panes; then
-    exec mm -o terminal/zellij_current
+    exec mm -o zellij/current
 else
-    exec mm -o terminal/zellij_session
+    exec mm -o zellij/session
 fi
 )'''

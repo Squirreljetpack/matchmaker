@@ -1,19 +1,11 @@
 # Focus a pane in another zellij session
 
-[matcher]
-sort.threshold = 20
+source = "base.toml"
 
 [start]
 command = "@./zellij.sh other"
 
-[exit]
-abort_empty = false
-
-[envs]
-CATcmd = { value = 'command -v bat >/dev/null 2>&1 && echo bat --wrap=never --color=always -pp || echo cat', exec = true, force = true }
-
 [columns]
-split = "tsv"
 max = 5
 default = "session"
 names = [
@@ -25,10 +17,6 @@ names = [
 ]
 
 # --- Preview ---------------------------------------------------------------
-[preview]
-wrap = false
-show = true
-
 # live screen of the selected pane
 [[preview.layout]]
 side = "top"
@@ -50,14 +38,9 @@ max = 0
 # --- UI --------------------------------------------------------------------
 [header]
 content = ["AGE", "SESSION", "PANE", "TAB", "TITLE"]
-style.modifier = ""
 
 [query]
 prompt = "other> "
-prompt_style.fg = "Cyan"
-
-[tui]
-percentage = 100
 
 # --- Binds -----------------------------------------------------------------
 [binds]
@@ -69,7 +52,6 @@ else
     exec zellij attach {session}
 fi
 )'''
-"@return" = "Accept"
 
 "@print" = [
     "#print",
@@ -89,11 +71,6 @@ for s in {+session}; do
     shift
 done
 )'''
-
-"@new" = [
-    "#new session",
-    "Become(zellij)",
-]
 
 "@rm" = [
     "#kill",
@@ -163,5 +140,5 @@ exit 0
 ]
 
 # ring navigation
-"@next" = "BecomeSilent(mm -o terminal/zellij_session)"
-"@prev" = "BecomeSilent(mm -o terminal/zellij_layout)"
+"@next" = "BecomeSilent(mm -o zellij/session)"
+"@prev" = "BecomeSilent(mm -o zellij/layout)"

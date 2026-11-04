@@ -1,0 +1,36 @@
+# Common configuration for Zellij presets
+
+[matcher]
+sort.threshold = 20
+
+[exit]
+abort_empty = false
+
+[results]
+scroll_wrap = true
+
+[tui]
+percentage = 100
+
+[query]
+prompt_style.fg = "Cyan"
+
+[header]
+style.modifier = ""
+
+[columns]
+split = "tsv"
+
+[envs]
+CATcmd = { value = 'command -v bat >/dev/null 2>&1 && echo bat --wrap=never --color=always -pp || echo cat', exec = true, force = true }
+
+[preview]
+wrap = false
+show = true
+
+[binds]
+"@return" = "Accept"
+"@new" = [
+    "#new session",
+    "Become(zellij)",
+]

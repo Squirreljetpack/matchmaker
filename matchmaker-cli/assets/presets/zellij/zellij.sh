@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2016 # single-quoted snippets expand at runtime (awk / jq filters)
-# All shell logic behind the terminal/zellij_* presets -- one subcommand per
+# All shell logic behind the zellij presets -- one subcommand per
 # function the presets need, TSV rows on stdout (\t = tab separator):
 #
 #   zellij.sh sessions           every session, active and otherwise (newest first)

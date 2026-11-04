@@ -3,7 +3,7 @@
 [envs]
 OBSIDIAN_VAULTS_FILE = { value = 'echo "$(dirname -- "$MM_OVERRIDE")"/.__vaults', exec = true }
 PATH = { value = 'echo "$(dirname -- "$MM_OVERRIDE"):$PATH"', exec = true, force = true }
-OPENcmd = { value = '''if command -v fs >/dev/null 2>&1; then  echo fs :oelif [ "${OSTYPE#darwin}" = "$OSTYPE" ]; then  echo xdg-openelse  echo openfi''', exec = true }
+OPENcmd = { value = '''if command -v fs >/dev/null 2>&1; then  echo fs :o elif [ "${OSTYPE#darwin}" = "$OSTYPE" ]; then  echo xdg-open else  echo open fi''', exec = true }
 
 [start]
 command = 'ob-vaults -c'
@@ -38,7 +38,7 @@ FS_OPTS='opener=ob-open' fs
     shift
   done
   
-  fs :rg '^#{1,6} ' --filtering --rebase --no-fixed-strings --query '% ' "$@"
+  fs :rg '^#{1,6} ' --filtering --rebase --no-fixed-strings --opener 'ob-open' --query '% ' "$@"
 )''',
 ]
 "ctrl-f" = [
@@ -48,7 +48,7 @@ FS_OPTS='opener=ob-open' fs
 
 "@open" = "ExecuteSilent(eval $OPENcmd {+path})"
 "@open_2" = "ExecuteSilent(fs :tool lessfilter edit {path})"
-"ctrl-d" = "ExecuteSilent(eval $OPENcmd $(dirname -- {+path}))"
+"ctrl-d" = ["#reveal", "ExecuteSilent(eval $OPENcmd $(dirname -- {+path}))"]
 "@copy" = "CopyAsync(echo {path})"
 "Start" = 'ToggleExitFirst(false)'
 

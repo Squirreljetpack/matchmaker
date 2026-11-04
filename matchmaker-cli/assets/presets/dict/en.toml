@@ -58,11 +58,7 @@ echo {etymology}
 '''
 "Start" = '''Transform(
     set -- {$0}
-    if [ "$#" -eq 1 ]; then
-        printf 'SetQuery(^%s$)\n' "$1"
-    elif [ "$#" -gt 1 ]; then
-        printf 'SetQuery(%s)\n' "$@"
-    fi
+    printf 'SetQuery(%s)\n' "$@"
 )
 '''
 

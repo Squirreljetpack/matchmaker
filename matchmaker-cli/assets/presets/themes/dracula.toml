@@ -52,7 +52,7 @@ title_style.modifier = "BOLD"
 bg = "#282A36"
 
 [ui.outer_border]
-padding = 1
+padding = [2, 1]
 type = "Rounded"
 color = "#BD93F9"
 sides = "ALL"

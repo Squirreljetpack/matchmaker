@@ -121,8 +121,7 @@ pub struct SortSetting {
     pub threshold: SortThreshold,
 }
 
-/// (client-app responsibility). Configures how input is fed to to the worker(s).
-/// Unfortunately, we cannot use deny_unknown_fields if we want to flatten PreprocessConfig
+/// Configures how input is fed to to the worker(s).
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]

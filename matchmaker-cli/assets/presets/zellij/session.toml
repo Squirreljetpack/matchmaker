@@ -1,22 +1,16 @@
 # Switch between zellij sessions
 
-# Preview (hidden by default) shows a tab summary with pane titles
+# Preview shows a tab summary with pane titles
 
-[matcher]
-sort.threshold = 20
+source = "base.toml"
 
 [start]
 command = "@./zellij.sh sessions"
 
-[exit]
-abort_empty = false
-
 [envs]
-CATcmd = { value = 'command -v bat >/dev/null 2>&1 && echo bat --wrap=never --color=always -pp || echo cat', exec = true, force = true }
 ZELLIJ_CACHE_DIR = { value = 'zellij setup --check 2>/dev/null | sed -n "s/^\\[CACHE DIR\\]: *//p" | tr -d "\"\\r"', exec = true, force = true }
 
 [columns]
-split = "tsv"
 max = 5
 default = "session"
 names = [
@@ -28,10 +22,6 @@ names = [
 ]
 
 # --- Preview ---------------------------------------------------------------
-[preview]
-wrap = false
-show = true
-
 # tab summary with pane titles (live for running, cached for EXITED)
 [[preview.layout]]
 command = '''"$(dirname -- "$MM_OVERRIDE")"/zellij.sh session-preview {session} {title} {age}'''
@@ -57,14 +47,9 @@ max = 0
 # --- UI --------------------------------------------------------------------
 [header]
 content = ["AGE", "SESSION", "PANE", "TAB", "STATE"]
-style.modifier = ""
 
 [query]
 prompt = "session> "
-prompt_style.fg = "Cyan"
-
-[tui]
-percentage = 100
 
 # --- Binds -----------------------------------------------------------------
 [binds]
@@ -82,7 +67,6 @@ else
     exec zellij attach {session}
 fi
 )'''
-"@return" = "Accept"
 
 "@print" = [
     "#print",
@@ -90,11 +74,6 @@ fi
 ]
 
 "@copy" = '''CopyAsync(printf '%s\n' {+session})'''
-
-"@new" = [
-    "#new session",
-    "Become(zellij)",
-]
 
 "@rm" = [
     "#kill",
@@ -128,15 +107,15 @@ exit 0
 # ring navigation (skip [current]/[other] when they would list no panes)
 "@next" = '''BecomeSilent(
 if "$(dirname -- "$MM_OVERRIDE")"/zellij.sh has-current-panes; then
-    exec mm -o terminal/zellij_current
+    exec mm -o zellij/current
 else
-    exec mm -o terminal/zellij_layout
+    exec mm -o zellij/layout
 fi
 )'''
 "@prev" = '''BecomeSilent(
 if "$(dirname -- "$MM_OVERRIDE")"/zellij.sh has-other-panes; then
-    exec mm -o terminal/zellij_other
+    exec mm -o zellij/other
 else
-    exec mm -o terminal/zellij_layout
+    exec mm -o zellij/layout
 fi
 )'''

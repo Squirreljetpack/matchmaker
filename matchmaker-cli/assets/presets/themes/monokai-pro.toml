@@ -42,9 +42,10 @@ fg = "#FF6188"
 
 [status]
 show = true
-template = '{#FF6188,bold:●} {#A9DC76:\m} {#727072:matches} \s {#78DCE8:pos \r} {#5B595C:|} {#FFD866:\t} '
+template = '{#FF6188,bold:●} {#A9DC76:\m} {#727072:matches}'
 style.fg = "#939293"
 style.bg = "#2D2A2E"
+row_connection = "Capped"
 
 [preview.border]
 type = "Double"

@@ -29,8 +29,8 @@ pub const RESULTS_MIN_H: u16 = 1;
 use crate::{
     SSS, Selector,
     config::{
-        BorderSetting, DisplayConfig, QueryConfig, RenderConfig, ResultsConfig, StatusConfig,
-        TerminalLayoutSettings, UiConfig,
+        BorderSetting, DisplayConfig, QueryConfig, RenderConfig, ResultsConfig, RowConnectionStyle,
+        StatusConfig, TerminalLayoutSettings, UiConfig,
     },
     nucleo::Worker,
     preview::Preview,
@@ -276,9 +276,17 @@ impl<T: SSS, D: 'static> PickerUI<T, D> {
             ..
         } = self;
 
+        let status_height = if status.status_config.show
+            && status.status_config.row_connection != RowConnectionStyle::Capped
+        {
+            1
+        } else {
+            0
+        };
+
         let mut constraints = [
-            Constraint::Length(query.height()),                   // input
-            Constraint::Length(status.status_config.show as u16), // status
+            Constraint::Length(query.height()), // input
+            Constraint::Length(status_height),  // status
             Constraint::Length(header.height()),
             Constraint::Fill(1), // results
         ];

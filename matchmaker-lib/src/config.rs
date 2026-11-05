@@ -541,8 +541,8 @@ pub struct StatusConfig {
     pub template: String,
 
     /// - Full: available whitespace is computed using the full ui width when replacing `\s` in the template.
-    /// - Disjoint: no effect.
-    /// - Capped: no effect. (Since, unlike [`DisplayConfig`], status line can not display over the preview).
+    /// - Disjoint: available whitespace is computed using the width of the results pane (preventing overflow into preview).
+    /// - Capped: status sits inline with the query bar, aligned to the right (and left of the preview when on the right), with `\s` expanding to 0.
     pub row_connection: RowConnectionStyle,
 
     pub interactions: StatusInteractionSetting,
@@ -558,7 +558,7 @@ impl Default for StatusConfig {
             show: false,
             match_indent: true,
             template: String::new(),
-            row_connection: RowConnectionStyle::Full,
+            row_connection: RowConnectionStyle::Disjoint,
 
             interactions: Default::default(),
         }

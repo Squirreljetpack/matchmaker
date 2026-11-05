@@ -996,14 +996,6 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
 
                     render_ui(frame, area, &ui);
 
-                    render_status(
-                        frame,
-                        layout.status,
-                        &mut picker_ui.status,
-                        &picker_ui.results,
-                        ui.area().width,
-                    );
-
                     picker_ui.results.render(frame, layout.results);
                     render_display(
                         frame,
@@ -1026,8 +1018,22 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                         render_preview(frame, layout.preview, preview_ui);
                     }
 
-                    // putting after doesn't help with text hidden by preview
-                    cursor_y_offset = render_input(frame, layout.input, &mut picker_ui.query).y;
+                    let inline_status_w = if layout.status.y == layout.input.y {
+                        layout.status.width
+                    } else {
+                        0
+                    };
+
+                    cursor_y_offset =
+                        render_input(frame, layout.input, &mut picker_ui.query, inline_status_w).y;
+
+                    render_status(
+                        frame,
+                        layout.status,
+                        &mut picker_ui.status,
+                        &picker_ui.results,
+                        ui.area().width,
+                    );
 
                     if let Some(x) = overlay_ui.as_mut() {
                         x.draw(frame);
@@ -1162,8 +1168,8 @@ fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {
 }
 
 /// Returns the offset of the cursor against the drawing area
-fn render_input(frame: &mut Frame, area: Rect, ui: &mut QueryUI) -> Position {
-    ui.update_width(area.width);
+fn render_input(frame: &mut Frame, area: Rect, ui: &mut QueryUI, reserved_width: u16) -> Position {
+    ui.update_width(area.width.saturating_sub(reserved_width));
     ui.scroll_to_cursor();
     let widget = ui.make_input();
     let p = ui.cursor_offset(&area);
@@ -1302,8 +1308,24 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
         [Rect::default(), _area, ui.border().inner_of(_area), footer]
     };
 
-    let [input, status, mut header, mut results] = picker_ui.layout(picker_area);
+    let [input, mut status, mut header, mut results] = picker_ui.layout(picker_area);
     let mut footer = footer;
+
+    if picker_ui.status.status_config.show
+        && picker_ui.status.status_config.row_connection == RowConnectionStyle::Capped
+    {
+        let raw_status_w = picker_ui.status.content_width(&picker_ui.results);
+        let max_status_w = results.width.saturating_sub(crate::ui::RESULTS_MIN_W);
+        let status_w = raw_status_w.min(max_status_w);
+
+        let status_h = input.height.min(1);
+        status = Rect {
+            x: input.x + input.width.saturating_sub(status_w),
+            y: input.y,
+            width: status_w,
+            height: status_h,
+        };
+    }
 
     if results.height <= crate::ui::RESULTS_MIN_H {
         let mut needed = crate::ui::RESULTS_MIN_H.saturating_sub(results.height);
@@ -1342,7 +1364,10 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
     // Update state layout
     if state.update_layout(layout) {
         picker_ui.results.update_dimensions(results);
-        picker_ui.query.update_width(input.width);
+        let inline_status_w = if status.y == input.y { status.width } else { 0 };
+        picker_ui
+            .query
+            .update_width(input.width.saturating_sub(inline_status_w));
         footer_ui.update_width(
             if footer_ui.config.row_connection == RowConnectionStyle::Capped {
                 area.width
@@ -1430,7 +1455,9 @@ mod test {
     ) -> Layout {
         update_layout_and_state::<&'static str, (), NullActionExt>(
             area, state, picker, footer, preview, ui, None,
-        )
+        );
+        picker.results.update_dimensions(state.layout.results);
+        state.layout
     }
 
     fn test_preview() -> PreviewUI {
@@ -1863,6 +1890,115 @@ mod test {
         let buffer = terminal.backend().buffer();
         assert_eq!(buffer[(0, 0)].symbol(), " ");
         assert_eq!(buffer[(79, 23)].symbol(), " ");
+    }
+
+    #[test]
+    fn layout_capped_status_inline_with_query() {
+        let mut config = RenderConfig::default();
+        config.status.show = true;
+        config.status.match_indent = false;
+        config.status.row_connection = RowConnectionStyle::Capped;
+        config.status.template = r"\m/\t\s".to_string();
+
+        let (mut ui, mut picker, mut state, mut footer) = setup(config);
+        picker.results.status.matched_count = 10;
+        picker.results.status.item_count = 20;
+
+        let area = rect(80, 24);
+        let layout = layout_of(&mut ui, &mut picker, &mut state, &mut footer, None, area);
+
+        // "10/20" has width 5; \s expands to 0; total width = 5.
+        // It sits inline with the query bar on line y=0.
+        // input Rect keeps full width 80 so its border is intact.
+        // status gets x = 75, width = 5, y = 0, height = 1.
+        // query text width is capped by status width (80 - 5 - 2 prompt = 73).
+        assert_eq!(
+            layout.input,
+            Rect {
+                x: 0,
+                y: 0,
+                width: 80,
+                height: 1,
+            }
+        );
+        assert_eq!(
+            layout.status,
+            Rect {
+                x: 75,
+                y: 0,
+                width: 5,
+                height: 1,
+            }
+        );
+        assert_eq!(picker.query.width(), 73);
+        // results is not pushed down by a separate status line
+        assert_eq!(
+            layout.results,
+            Rect {
+                x: 0,
+                y: 1,
+                width: 80,
+                height: 23,
+            }
+        );
+    }
+
+    #[test]
+    fn layout_capped_status_with_preview_on_right() {
+        let mut config = RenderConfig::default();
+        config.status.show = true;
+        config.status.match_indent = false;
+        config.status.row_connection = RowConnectionStyle::Capped;
+        config.status.template = r"\m/\t".to_string();
+
+        let (mut ui, mut picker, mut state, mut footer) = setup(config);
+        let mut preview = test_preview();
+        picker.results.status.matched_count = 5;
+        picker.results.status.item_count = 10;
+
+        let area = rect(80, 24);
+        let layout = layout_of(
+            &mut ui,
+            &mut picker,
+            &mut state,
+            &mut footer,
+            Some(&mut preview),
+            area,
+        );
+
+        // preview is on the right with width 48, x=32
+        // picker pane is x=0, width=32
+        // status "5/10" is width 4.
+        // max width = results.width - RESULTS_MIN_W = 32 - 5 = 27.
+        // status is at x = 32 - 4 = 28, left of preview.
+        assert_eq!(
+            layout.preview,
+            Rect {
+                x: 32,
+                y: 0,
+                width: 48,
+                height: 24,
+            }
+        );
+        assert_eq!(
+            layout.input,
+            Rect {
+                x: 0,
+                y: 0,
+                width: 32,
+                height: 1,
+            }
+        );
+        assert_eq!(
+            layout.status,
+            Rect {
+                x: 28,
+                y: 0,
+                width: 4,
+                height: 1,
+            }
+        );
+        assert_eq!(picker.query.width(), 26);
     }
 }
 

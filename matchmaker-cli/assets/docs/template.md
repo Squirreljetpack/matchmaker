@@ -164,16 +164,24 @@ mm b.ctrl-x "ExecuteSilent(rm {+}) Reload" x ls # Delete items then reload
 
 ## Status Line and Input Prompt Templates
 
-The status line supports dynamic variables, and alignment.
-With the `SetStyledStatus` action, it, along with the input prompt (by `SetStyledPrompt`), also supports styling.
+The status line supports dynamic variables, alignment, and layout positioning.
+Status templates can be configured in `[status]` (with `template = "..."`) or dynamically via the `SetStyledStatus` action. Input prompt templates are supported via `SetStyledPrompt`.
 
 ### Styling
 
 You can style parts of the status line and input prompt using the `{fg,bg,..modifiers:text}` syntax.
+Multiple style attributes and modifiers can be comma-separated:
 
 - `{red:Error:}` renders "Error:" in red.
 - `{,blue:Matchmaker}` renders "Matchmaker" in a blue background.
 - `{red,bold,italic:Caution}` renders "Caution" in red, with bold and italic modifiers.
+- `{bg=green,fg=black:OK}` explicit `fg=` and `bg=` color keys.
+
+#### Supported Modifiers
+
+- Positive: `bold`, `dim`, `italic`, `underlined`, `slow_blink`, `rapid_blink`, `reversed`, `hidden`, `crossed_out`
+- Negative (cancels inherited modifiers): `no_bold`, `no_dim`, `no_italic`, `no_underlined`, `no_slow_blink`, `no_rapid_blink`, `no_reversed`, `no_hidden`, `no_crossed_out`
+- Interactive markers: `i` or `interactive` (marks the span as an interaction region for clicks).
 
 ### Variables
 
@@ -185,13 +193,19 @@ The following variables are available and must be prefixed with a backslash (`\`
 | `\m`     | Number of matched items                                        |
 | `\t`     | Total number of items                                          |
 
-### Alignment
+### Alignment and Row Connection
 
 Use `\s` and `\S` to insert flexible whitespace for alignment.
 
-- A single `\s` will expand to fill the remaining width of the terminal, pushing subsequent text to the right.
+- A single `\s` will expand to fill the available width, pushing subsequent text to the right.
 - If multiple `\s` are used, the available space is distributed equally between them.
 - `\S` increases the distribution denominator without adding any whitespace.
+
+The space available to `\s` depends on `status.row_connection`:
+
+- `Full`: Available whitespace is computed across the full UI width.
+- `Disjoint`: Available whitespace is computed using only the width of the results pane, preventing right-aligned status elements (e.g. `\s\m/\t`) from expanding into or hiding behind the preview pane.
+- `Capped`: The status line sits **inline with the query bar**, right-aligned within the results/picker pane (and always to the left of the preview window when the preview is placed on the right). Its maximum width is bounded by `results_width - RESULTS_MIN_WIDTH`. In this mode, `\s` expands to 0 spaces, and the query bar adjusts its width to prevent overlapping with the status widget.
 
 ## Environment Variables
 

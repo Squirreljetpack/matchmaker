@@ -4,6 +4,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::Paragraph,
 };
+use unicode_width::UnicodeWidthStr;
 
 use crate::{
     config::{RowConnectionStyle, StatusConfig, StatusInteractionSetting},
@@ -44,7 +45,7 @@ impl StatusUI {
         }
     }
 
-    pub fn make_status(&mut self, results_ui: &ResultsUI, full_width: u16) -> Paragraph<'_> {
+    pub fn substituted_line(&self, results_ui: &ResultsUI) -> Line<'static> {
         let row = if results_ui.cursor_disabled() || results_ui.status.matched_count == 0 {
             "-".to_string()
         } else {
@@ -68,11 +69,30 @@ impl StatusUI {
             new_spans.push(Span::styled(subbed, span.style));
         }
 
-        let substituted_line = Line::from(new_spans);
+        Line::from(new_spans)
+    }
+
+    /// Evaluates the rendered status width before whitespace expansion.
+    /// In `RowConnectionStyle::Capped`, `\s` expands to 0 spaces.
+    // TODO: lowpri: pre-computing substituted_line an extra time
+    pub fn content_width(&self, results_ui: &ResultsUI) -> u16 {
+        let line = self.substituted_line(results_ui);
+        // Stripping placeholders \s and \S
+        let mut width = 0usize;
+        for span in &line.spans {
+            let clean = span.content.replace(r"\s", "").replace(r"\S", "");
+            width += clean.width();
+        }
+        u16::try_from(width).unwrap_or(u16::MAX)
+    }
+
+    pub fn make_status(&mut self, results_ui: &ResultsUI, full_width: u16) -> Paragraph<'_> {
+        let substituted_line = self.substituted_line(results_ui);
         let effective_width = match self.status_config.row_connection {
-            RowConnectionStyle::Full => full_width,
-            _ => results_ui.width(),
-        } as usize;
+            RowConnectionStyle::Full => full_width as usize,
+            RowConnectionStyle::Capped => 0,
+            _ => results_ui.width() as usize,
+        };
 
         let mut style = Style::from(self.status_config.style);
         if let Some(s) = self.dim {
@@ -232,6 +252,34 @@ impl StatusUI {
                 }
                 "crossed_out" => {
                     style = style.add_modifier(Modifier::CROSSED_OUT);
+                }
+                // Negative modifiers
+                "no_bold" => {
+                    style = style.remove_modifier(Modifier::BOLD);
+                }
+                "no_dim" => {
+                    style = style.remove_modifier(Modifier::DIM);
+                }
+                "no_italic" => {
+                    style = style.remove_modifier(Modifier::ITALIC);
+                }
+                "no_underlined" => {
+                    style = style.remove_modifier(Modifier::UNDERLINED);
+                }
+                "no_slow_blink" => {
+                    style = style.remove_modifier(Modifier::SLOW_BLINK);
+                }
+                "no_rapid_blink" => {
+                    style = style.remove_modifier(Modifier::RAPID_BLINK);
+                }
+                "no_reversed" => {
+                    style = style.remove_modifier(Modifier::REVERSED);
+                }
+                "no_hidden" => {
+                    style = style.remove_modifier(Modifier::HIDDEN);
+                }
+                "no_crossed_out" => {
+                    style = style.remove_modifier(Modifier::CROSSED_OUT);
                 }
                 _ => {
                     if let Some(color_str) = token.strip_prefix("bg=") {

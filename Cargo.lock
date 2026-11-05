@@ -1546,6 +1546,7 @@ dependencies = [
  "regex",
  "textwrap",
  "thiserror 2.0.21",
+ "unicode-width 0.2.3",
 ]
 
 [[package]]

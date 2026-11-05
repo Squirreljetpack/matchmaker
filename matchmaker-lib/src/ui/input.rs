@@ -65,6 +65,10 @@ impl InputUI {
         self.cursor as u16
     }
 
+    pub fn width(&self) -> u16 {
+        self.width
+    }
+
     // ------------ SETTERS ---------------
     pub fn set(&mut self, input: impl Into<Option<String>>, cursor: u16) {
         if let Some(input) = input.into() {

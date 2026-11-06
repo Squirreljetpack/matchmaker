@@ -10,6 +10,9 @@ ACTIVE_DICT = "english"
 [query]
 prompt = "en> "
 
+[status]
+row_connection = "Capped"
+
 [header]
 content = ['word', 'pos', 'definition']
 

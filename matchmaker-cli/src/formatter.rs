@@ -302,7 +302,12 @@ fn get_val<'a>(
         None
     } else {
         if key.is_empty() {
-            Some(Cow::Borrowed(item.as_str()))
+            let d = (state.picker_ui.worker.raw_preprocessor)(item)?;
+            let plain = match d.0 {
+                Err(s) => s,
+                Ok(text) => text.to_string(),
+            };
+            Some(Cow::Owned(plain))
         } else if key == "#" {
             Some(index.to_string().into())
         } else {

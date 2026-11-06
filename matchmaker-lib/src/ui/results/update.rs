@@ -134,12 +134,14 @@ impl ResultsUI {
         let mut after_truncated = false;
 
         if scroll_padding > 0 && total_height < self.height {
-            while after_height < scroll_padding && idx + self.bottom < mc {
+            while after_height < scroll_padding && after_idx + self.bottom < mc {
                 // Add separator if needed
+                let mut pushed_hr = false;
                 if self.hr() {
                     after_rows.push(Row::default().height(1));
                     after_row_data.push((u32::MAX, 1));
                     after_height += 1;
+                    pushed_hr = true;
                 }
 
                 // Add item
@@ -157,6 +159,11 @@ impl ResultsUI {
                     after_height += h;
                     after_truncated = truncated;
                 } else {
+                    if pushed_hr {
+                        after_rows.pop();
+                        after_row_data.pop();
+                        after_height -= 1;
+                    }
                     break;
                 }
 
@@ -170,7 +177,12 @@ impl ResultsUI {
         _info!("RENDER: BEFORE ROWS with remaining height": remaining_height);
 
         while remaining_height > 0 {
+            if self.hr() && remaining_height <= 1 {
+                break;
+            }
+
             let mut max_h = remaining_height;
+            let mut bottom_adjusted = false;
 
             if idx > 0 {
                 idx -= 1;
@@ -182,22 +194,21 @@ impl ResultsUI {
                 self.bottom -= 1;
                 self.cursor += 1;
                 after_idx += 1;
-                max_h = max_h.min(scroll_padding.saturating_sub(before_height))
+                bottom_adjusted = true;
+                max_h = max_h.min(scroll_padding.saturating_sub(before_height));
                 // keep adding
             } else {
                 break;
             }
 
             // Add separator if needed
+            let mut pushed_hr = false;
             if self.hr() {
                 rows.push(Row::default().height(1));
                 self.row_data.push((u32::MAX, 1));
                 before_height += 1;
                 remaining_height = remaining_height.saturating_sub(1);
-
-                if remaining_height == 0 {
-                    break;
-                }
+                pushed_hr = true;
             }
 
             // Add item
@@ -219,6 +230,16 @@ impl ResultsUI {
                 before_height += h;
                 remaining_height = remaining_height.saturating_sub(h);
             } else {
+                if pushed_hr {
+                    rows.pop();
+                    self.row_data.pop();
+                    remaining_height += 1;
+                }
+                if bottom_adjusted {
+                    self.bottom += 1;
+                    self.cursor -= 1;
+                    after_idx -= 1;
+                }
                 break;
             }
         }
@@ -246,7 +267,7 @@ impl ResultsUI {
                 self.cursor -= delta as u16;
             }
         } else {
-            // pop last truncated row, leaving the maybe_separator
+            // pop last truncated row and its separator
             if after_truncated {
                 let last_item_idx = after_row_data.last().unwrap().0;
                 let mut removed = false;
@@ -263,6 +284,11 @@ impl ResultsUI {
 
                 if removed {
                     after_idx -= 1;
+                    if self.hr() && after_row_data.last().is_some_and(|(i, _)| *i == u32::MAX) {
+                        after_rows.pop();
+                        let popped_height = after_row_data.pop().unwrap().1;
+                        remaining_height += popped_height;
+                    }
                 }
             }
 
@@ -275,13 +301,19 @@ impl ResultsUI {
                 "from INDEX ": idx;
             );
 
-            if !after_truncated && remaining_height > 0 && self.bottom + idx < mc && self.hr() {
-                after_rows.push(Row::default().height(1));
-                after_row_data.push((u32::MAX, 1));
-                remaining_height = remaining_height.saturating_sub(1);
-            }
-
             while remaining_height > 0 && self.bottom + idx < mc {
+                // Add separator if needed
+                let mut pushed_hr = false;
+                if self.hr() {
+                    if remaining_height <= 1 {
+                        break;
+                    }
+                    after_rows.push(Row::default().height(1));
+                    after_row_data.push((u32::MAX, 1));
+                    remaining_height = remaining_height.saturating_sub(1);
+                    pushed_hr = true;
+                }
+
                 // Check if we need to truncate
                 let max_h = (remaining_height, self.reverse());
 
@@ -299,14 +331,12 @@ impl ResultsUI {
                 ) {
                     remaining_height = remaining_height.saturating_sub(h);
                 } else {
+                    if pushed_hr {
+                        after_rows.pop();
+                        after_row_data.pop();
+                        remaining_height += 1;
+                    }
                     break;
-                }
-
-                // Add separator if needed and we have more items
-                if remaining_height > 0 && idx + 1 < mc && self.hr() {
-                    after_rows.push(Row::default().height(1));
-                    after_row_data.push((u32::MAX, 1));
-                    remaining_height = remaining_height.saturating_sub(1);
                 }
 
                 idx += 1;

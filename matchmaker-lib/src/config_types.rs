@@ -182,19 +182,34 @@ impl<'de> Deserialize<'de> for Padding {
         D: Deserializer<'de>,
     {
         use serde::de::Error;
+
+        #[derive(Deserialize, Default)]
+        #[serde(default, deny_unknown_fields)]
+        struct PaddingHelper {
+            left: u16,
+            right: u16,
+            top: u16,
+            bottom: u16,
+        }
+
         #[derive(Deserialize)]
         #[serde(untagged)]
         enum PaddingFormat {
             Sequence(Vec<u16>),
             Single(u16),
-            Object(rPadding), // arrays can be deserialized into objects so it must be after sequence
+            Object(PaddingHelper), // arrays can be deserialized into objects so it must be after sequence
         }
 
         let format = PaddingFormat::deserialize(deserializer)?;
 
         let inner = match format {
             // Handle { "top": 10 } or {}
-            PaddingFormat::Object(obj) => obj,
+            PaddingFormat::Object(obj) => rPadding {
+                left: obj.left,
+                right: obj.right,
+                top: obj.top,
+                bottom: obj.bottom,
+            },
 
             // Handle a raw number: 10
             PaddingFormat::Single(v) => rPadding {

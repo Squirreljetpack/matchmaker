@@ -25,6 +25,8 @@ nucleo = { package = "matchmaker-nucleo", version = "0.1.*" }
 
 [workspace.lints.clippy]
 single_match = "allow"
+too_many_arguments = "allow"
+type_complexity = "allow"
 
 # [profile.release]
 # opt-level = 0

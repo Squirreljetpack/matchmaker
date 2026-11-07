@@ -118,6 +118,7 @@ pub fn take_lines<'a, 'b: 'a>(original: &'a mut Text<'b>, max_lines: u16, from_e
 }
 
 pub fn debug_row(row: &[Text<'_>]) {
+    #[allow(unused_variables)]
     let cols = row.iter().map(|text| {
         text.lines
             .iter()

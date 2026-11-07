@@ -229,7 +229,8 @@ mm b.ctrl-o="Execute($EDITOR {+})" # 'execute' also works, as action names are c
 ```
 
 > [!NOTE]
-> Note that [templates](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md) can be named in matchmaker, but they only replace valid keys.
+> If you are worried about the differences in syntax, don't be! For the most part, matchmaker is most useful when run through a preset, (which are themselves self-documenting via `alt-h`). For the rare occaissions where you do need to override a specific option, `mm --doc options` lands you in directly a searchable reference.
+> There are also a multitude of other slight differences, usually due to extra functionality. For example, in matchmaker, [templates](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md) can be named, but valid keys are replaced. Don't expect these to be an impediment either, but if you really don't want any surprises, `mm --doc (template)` has got you covered.
 
 Here is a second demonstration, taken from [zoxide](https://github.com/ajeetdsouza/zoxide/blob/main/src/cmd/query.rs).
 
@@ -268,7 +269,7 @@ mm \
   exit.abort_empty=true
 
 # Notes:
-# - results.autoscroll.context=0 is a setting which does not appear in fzf but which is 4 by default in mm.
+# - results.autoscroll.context=0 does not appear in fzf but it is 4 by default in mm.
 ```
 
 - In `mm` using aliases (and omitting defaults):

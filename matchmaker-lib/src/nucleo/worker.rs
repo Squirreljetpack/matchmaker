@@ -79,7 +79,7 @@ impl<T, D> Column<T, D> {
     }
 
     pub fn should_highlight(&self, item: &T, d: &D) -> bool {
-        self.filter && self.highlight.map_or(true, |f| f(item, d))
+        self.filter && self.highlight.is_none_or(|f| f(item, d))
     }
 
     pub fn filter(&self) -> bool {

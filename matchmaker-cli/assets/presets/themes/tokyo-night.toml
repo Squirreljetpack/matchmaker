@@ -46,7 +46,7 @@ fg = "#414868"
 
 [status]
 show = true
-template = '\s {#C0CAF5:\m} {#565F89:matches} {#BB9AF7:\r/\t}'
+template = '\s {#C0CAF5:\t} {#565F89:total,} {#BB9AF7:\r/\m}'
 style.fg = "#414868"
 style.bg = "#1A1B26"
 

@@ -21,6 +21,11 @@ Theme borders follow one of these patterns: picker and preview framed, an outer 
 | Theme                  | Description                                                                                                  |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------ |
 | **`amber-crt`**        | Nostalgic monochrome amber phosphor CRT monitor with heavy grid separators and inverted cursor bar           |
+| **`ansi-blue`**        | Deep twilight slate in 16 ANSI colors with blue outer framing, cool blue accents, and dark pill              |
+| **`ansi-cyan`**        | Classic 16-color ANSI terminal palette with rounded frame, cyan selection pill, and cyan arrow prompt        |
+| **`ansi-gold`**        | Vintage amber CRT terminal with rounded yellow frame, empty row separators, and arrow prompt                 |
+| **`ansi-line`**        | Cyberpunk aesthetic with a magenta top rule and yellow-on-red selection bar in 16 ANSI colors                |
+| **`ansi-monochrome`**  | Full-bleed borderless stark monochrome theme with reverse-video selection and underline matches              |
 | **`catppuccin-mocha`** | Soothing pastel dark palette with rounded framing, soft mauve prompt, and flamingo match highlights          |
 | **`dracula`**          | Iconic dark gothic palette with a purple outer frame, automatic preview divider, and hot pink matches        |
 | **`everforest`**       | Comfortable, warm nature-inspired palette with forest green accents and warm amber match highlights          |

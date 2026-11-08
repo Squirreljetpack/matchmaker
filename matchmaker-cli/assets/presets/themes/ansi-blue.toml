@@ -1,0 +1,73 @@
+# ANSI Blue Theme
+
+[ui.outer_border]
+type = "Rounded"
+color = "Blue"
+sides = "ALL"
+bg = "Black"
+
+[ui.border]
+sides = ""
+padding = [1, 0]
+bg = "Black"
+
+[query]
+prompt = "› "
+prompt_style.fg = "LightBlue"
+prompt_style.modifier = "BOLD"
+style.fg = "White"
+style.bg = "Black"
+
+[query.border]
+sides = ""
+padding = [1, 0]
+bg = "Black"
+
+[results.border]
+sides = ""
+bg = "Black"
+
+[results]
+separator = "None"
+style.fg = "Gray"
+current_style.fg = "White"
+current_style.bg = "DarkGray"
+current_style.modifier = "BOLD"
+inactive_style.fg = "DarkGray"
+inactive_style.modifier = "DIM"
+inactive_current_style.fg = "LightBlue"
+inactive_current_style.bg = "DarkGray"
+match_style.fg = "LightBlue"
+match_style.modifier = "BOLD"
+prefix_style.fg = "LightBlue"
+prefix_style.modifier = "BOLD"
+row_connection = "Capped"
+
+[header.style]
+fg = "LightBlue"
+modifier = "BOLD"
+
+[header.border]
+sides = ""
+padding = [1, 0]
+bg = "Black"
+
+[status]
+show = true
+row_connection = "Capped"
+template = '\m/\t '
+style.fg = "LightBlue"
+style.bg = "Black"
+
+[preview.border]
+type = "Plain"
+sides = "LEFT"
+color = "DarkGray"
+padding = [1, 0]
+bg = "Black"
+title_style.fg = "LightBlue"
+title_style.modifier = "BOLD"
+
+[footer.style]
+fg = "DarkGray"
+modifier = "DIM"

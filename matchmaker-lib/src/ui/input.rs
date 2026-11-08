@@ -371,6 +371,10 @@ impl QueryUI {
         self.border().map_or(0, BorderSetting::left) + self.prompt.width() as u16
     }
 
+    pub fn top(&self) -> u16 {
+        self.border().map_or(0, BorderSetting::top)
+    }
+
     /// Total height of the input bar, including the border.
     pub fn height(&self) -> u16 {
         1 + self.border().map_or(0, BorderSetting::height)
@@ -378,10 +382,9 @@ impl QueryUI {
 
     /// Given a rect the widget is rendered with, produce the absolute position the cursor is rendered at.
     pub fn cursor_offset(&self, rect: &Rect) -> Position {
-        let top = self.border().map_or(0, BorderSetting::top);
         Position::new(
             rect.x + self.left() + self.cursor_rel_offset(),
-            rect.y + top,
+            rect.y + self.top(),
         )
     }
 

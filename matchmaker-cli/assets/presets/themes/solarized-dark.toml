@@ -43,7 +43,7 @@ fg = "#268BD2"
 [status]
 show = true
 row_connection = "Capped"
-template = '\s {#2AA198,bold:λ} {#839496:\m items} {#B58900:\r} {#586E75:/} {#657B83:\t} \s '
+template = '\s {#2AA198,bold:λ} {#B58900:\r} {#586E75:/} {#839496:\m} \s '
 style.fg = "#586E75"
 style.bg = "#002B36"
 

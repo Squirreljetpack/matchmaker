@@ -45,7 +45,7 @@ fg = "#585B70"
 
 [status]
 show = true
-template = '{#89B4FA,bold:●} {#CDD6F4:\m} {#6C7086:matched} \s {#CBA6F7:line \r} {#585B70:|} {#A6ADC8:\t total} '
+template = '{#89B4FA,bold:●} \s {#CBA6F7:line \r} {#585B70:/} {#CDD6F4:\m} '
 style.fg = "#6C7086"
 style.bg = "#1E1E2E"
 

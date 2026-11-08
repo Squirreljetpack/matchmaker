@@ -47,7 +47,7 @@ fg = "#504945"
 [status]
 show = true
 row_connection = "Capped"
-template = '\s {#FABD2F:\m} {#A89984:matches} {#B8BB26:\r}/{\t} '
+template = '\s {#B8BB26:\r}/{#FABD2F:\m} '
 style.fg = "#A89984"
 style.bg = "#282828"
 

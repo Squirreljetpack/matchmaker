@@ -43,7 +43,7 @@ fg = "#2AA198"
 style.bg = "#FDF6E3"
 show = true
 row_connection = "Capped"
-template = '\s {#268BD2,bold:λ} {#657B83:\m items} {#B58900:\r}/{\t} \s '
+template = '\s {#268BD2,bold:λ} {#B58900:\r}/{#657B83:\m} \s '
 style.fg = "#93A1A1"
 
 [preview.border]

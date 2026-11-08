@@ -1,0 +1,54 @@
+# ANSI Cyan Theme
+
+[ui.outer_border]
+type = "Rounded"
+color = "DarkGray"
+sides = "ALL"
+bg = "Black"
+
+[ui.border]
+sides = ""
+padding = [1, 0]
+bg = "Black"
+
+[query]
+prompt = "› "
+prompt_style.fg = "LightCyan"
+prompt_style.modifier = "BOLD"
+style.fg = "White"
+style.bg = "Black"
+
+[query.border]
+sides = ""
+padding = [1, 0]
+bg = "Black"
+
+[results.border]
+sides = ""
+bg = "Black"
+
+[results]
+style.fg = "Gray"
+current_style.fg = "Black"
+current_style.bg = "LightCyan"
+current_style.modifier = "BOLD"
+inactive_style.fg = "DarkGray"
+inactive_current_style.fg = "Black"
+inactive_current_style.bg = "Cyan"
+match_style.modifier = "BOLD | UNDERLINED"
+
+[status]
+show = true
+row_connection = "Capped"
+template = '\m/\t '
+style.fg = "LightCyan"
+style.bg = "Black"
+
+[preview.border]
+type = "Plain"
+sides = "LEFT"
+color = "DarkGray"
+padding = [1, 0]
+bg = "Black"
+title_style.fg = "LightCyan"
+title_style.modifier = "BOLD"

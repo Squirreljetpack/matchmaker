@@ -48,7 +48,7 @@ fg = "#995C00"
 
 [status]
 show = true
-template = '\s [MATCHED: \m / TOTAL: \t] [LINE: \r]'
+template = '\s [LINE: \r / MATCHED: \m]'
 style.fg = "#FFB000"
 style.modifier = "BOLD"
 style.bg = "#1A1200"

@@ -1,0 +1,55 @@
+# ANSI Gold Theme
+
+ui.outer_border.padding.top = 1
+ui.outer_border.bg = "Black"
+
+[ui.border]
+sides = ""
+padding = [1, 0]
+bg = "Black"
+
+[query]
+prompt = "◌ "
+prompt_style.fg = "LightYellow"
+prompt_style.modifier = "BOLD"
+style.fg = "White"
+style.bg = "Black"
+
+[query.border]
+sides = ""
+padding = [0, 1, 1, 0]
+bg = "Black"
+
+[results.border]
+sides = ""
+bg = "Black"
+
+[results]
+separator = "Empty"
+separator_style.bg = "Black"
+style.fg = "Yellow"
+current_style.fg = "Black"
+current_style.bg = "LightYellow"
+current_style.modifier = "BOLD"
+inactive_style.fg = "DarkGray"
+inactive_current_style.fg = "Black"
+inactive_current_style.bg = "Yellow"
+match_style.modifier = "BOLD | UNDERLINED"
+prefix_style.fg = "LightYellow"
+prefix_style.modifier = "BOLD"
+
+[status]
+show = true
+row_connection = "Capped"
+template = '\m/\t '
+style.fg = "LightYellow"
+style.bg = "Black"
+
+[preview.border]
+type = "Plain"
+sides = "LEFT"
+color = "Yellow"
+padding = [1, 0]
+bg = "Black"
+title_style.fg = "LightYellow"
+title_style.modifier = "BOLD"

@@ -167,10 +167,10 @@ pub struct QueryConfig {
     pub border: BorderSetting,
 
     // text styles
-    #[partial(recurse)]
+    #[partial(recurse = "")]
     pub style: StyleSetting,
 
-    #[partial(recurse)]
+    #[partial(recurse = "")]
     pub prompt_style: StyleSetting,
 
     /// The prompt prefix.
@@ -301,37 +301,37 @@ pub struct ResultsConfig {
     pub default_prefix: String,
 
     #[serde(alias = "prefix")]
-    #[partial(recurse)]
+    #[partial(recurse = "")]
     pub prefix_style: StyleSetting,
 
     #[serde(alias = "prefix_inactive")]
-    #[partial(recurse)]
+    #[partial(recurse = "")]
     pub prefix_inactive_style: StyleSetting,
 
     /// Enable selections
     pub multi: bool,
 
     // text styles
-    #[partial(recurse)]
+    #[partial(recurse = "")]
     pub style: StyleSetting,
 
     // inactive_col styles
     #[serde(alias = "inactive")]
-    #[partial(recurse)]
+    #[partial(recurse = "")]
     pub inactive_style: StyleSetting,
 
     // inactive_col styles on the current item
     #[serde(alias = "inactive_current")]
-    #[partial(recurse)]
+    #[partial(recurse = "")]
     pub inactive_current_style: StyleSetting,
 
     #[serde(alias = "match")]
-    #[partial(recurse)]
+    #[partial(recurse = "")]
     pub match_style: StyleSetting,
 
     /// current item style
     #[serde(alias = "current")]
-    #[partial(recurse)]
+    #[partial(recurse = "")]
     pub current_style: StyleSetting,
 
     /// How the styles are applied across the row:
@@ -394,7 +394,7 @@ pub struct ResultsConfig {
     #[serde(deserialize_with = "camelcase_normalized")]
     pub separator: HorizontalSeparator,
 
-    #[partial(recurse)]
+    #[partial(recurse = "")]
     pub separator_style: StyleSetting,
 
     pub width_overrides: Vec<u16>,
@@ -521,7 +521,7 @@ impl<'de> Deserialize<'de> for StatusInteractionSetting {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct StatusConfig {
-    #[partial(recurse)]
+    #[partial(recurse = "")]
     pub style: StyleSetting,
 
     /// Whether the status is visible.
@@ -575,7 +575,7 @@ pub struct DisplayConfig {
     #[partial(alias = "b")]
     pub border: BorderSetting,
 
-    #[partial(recurse)]
+    #[partial(recurse = "")]
     pub style: StyleSetting,
 
     /// Indent content to match the results table.
@@ -1005,6 +1005,7 @@ pub struct BorderSetting {
     pub padding: Padding,
     pub title: String,
     // #[serde(deserialize_with = "transform_uppercase")]
+    #[partial(recurse = "")]
     pub title_style: StyleSetting,
     pub modifier: Modifier,
     #[serde(deserialize_with = "camelcase_normalized")]

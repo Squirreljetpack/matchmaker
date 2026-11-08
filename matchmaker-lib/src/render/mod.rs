@@ -1018,11 +1018,12 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                         render_preview(frame, layout.preview, preview_ui);
                     }
 
-                    let inline_status_w = if layout.status.y == layout.input.y {
-                        layout.status.width
-                    } else {
-                        0
-                    };
+                    let inline_status_w =
+                        if layout.status.y == layout.input.y + picker_ui.query.top() {
+                            layout.status.width
+                        } else {
+                            0
+                        };
 
                     cursor_y_offset =
                         render_input(frame, layout.input, &mut picker_ui.query, inline_status_w).y;
@@ -1318,10 +1319,10 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
         let max_status_w = results.width.saturating_sub(crate::ui::RESULTS_MIN_W);
         let status_w = raw_status_w.min(max_status_w);
 
-        let status_h = input.height.min(1);
+        let status_h = input.height.saturating_sub(picker_ui.query.top()).min(1);
         status = Rect {
             x: input.x + input.width.saturating_sub(status_w),
-            y: input.y,
+            y: input.y + picker_ui.query.top(),
             width: status_w,
             height: status_h,
         };
@@ -1364,7 +1365,11 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
     // Update state layout
     if state.update_layout(layout) {
         picker_ui.results.update_dimensions(results);
-        let inline_status_w = if status.y == input.y { status.width } else { 0 };
+        let inline_status_w = if status.y == input.y + picker_ui.query.top() {
+            status.width
+        } else {
+            0
+        };
         picker_ui
             .query
             .update_width(input.width.saturating_sub(inline_status_w));
@@ -1999,6 +2004,77 @@ mod test {
             }
         );
         assert_eq!(picker.query.width(), 26);
+    }
+
+    #[test]
+    fn layout_capped_status_accounts_for_input_top_border() {
+        let mut config = RenderConfig::default();
+        config.status.show = true;
+        config.status.match_indent = false;
+        config.status.row_connection = RowConnectionStyle::Capped;
+        config.status.template = r"\m/\t\s".to_string();
+        config.query.border = BorderSetting {
+            sides: Some(Borders::TOP),
+            ..Default::default()
+        };
+
+        let (mut ui, mut picker, mut state, mut footer) = setup(config);
+        picker.results.status.matched_count = 10;
+        picker.results.status.item_count = 20;
+
+        let area = rect(80, 24);
+        let layout = layout_of(&mut ui, &mut picker, &mut state, &mut footer, None, area);
+
+        assert_eq!(picker.query.top(), 1);
+        assert_eq!(
+            layout.input,
+            Rect {
+                x: 0,
+                y: 0,
+                width: 80,
+                height: 2,
+            }
+        );
+        assert_eq!(
+            layout.status,
+            Rect {
+                x: 75,
+                y: 1,
+                width: 5,
+                height: 1,
+            }
+        );
+        assert_eq!(picker.query.width(), 73);
+
+        // Also verify reversed layout
+        let mut config_rev = RenderConfig::default();
+        config_rev.status.show = true;
+        config_rev.status.match_indent = false;
+        config_rev.status.row_connection = RowConnectionStyle::Capped;
+        config_rev.status.template = r"\m/\t\s".to_string();
+        config_rev.query.border = BorderSetting {
+            sides: Some(Borders::TOP),
+            ..Default::default()
+        };
+        config_rev.results.reverse = Some(true);
+
+        let (mut ui, mut picker, mut state, mut footer) = setup(config_rev);
+        picker.results.status.matched_count = 10;
+        picker.results.status.item_count = 20;
+
+        let layout_rev = layout_of(&mut ui, &mut picker, &mut state, &mut footer, None, area);
+        assert_eq!(layout_rev.input.y, 22);
+        assert_eq!(layout_rev.input.height, 2);
+        assert_eq!(
+            layout_rev.status,
+            Rect {
+                x: 75,
+                y: 23,
+                width: 5,
+                height: 1,
+            }
+        );
+        assert_eq!(picker.query.width(), 73);
     }
 }
 

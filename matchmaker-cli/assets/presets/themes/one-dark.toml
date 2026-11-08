@@ -37,36 +37,36 @@ template = '{#98C379:\m} {#5C6370:/} {#ABB2BF:\t} \s {#61AFEF:[\r]} '
 style.fg = "#5C6370"
 style.bg = "#282C34"
 
-[preview.border]
-type = "Plain"
-color = "#4B5263"
+[preview.frame]
+border_type = "Plain"
+fg = "#4B5263"
 padding = [1, 0]
 title_style.fg = "#61AFEF"
 title_style.modifier = "BOLD"
-bg = "#282C34"
+style.bg = "#282C34"
 
-[ui.outer_border]
+[ui.outer_frame]
 padding = [1, 0]
-type = "Rounded"
-color = "#4B5263"
+border_type = "Rounded"
+fg = "#4B5263"
 sides = "ALL"
-bg = "#282C34"
+style.bg = "#282C34"
 
-[ui.border]
+[ui.frame]
 sides = ""
-bg = "#282C34"
+style.bg = "#282C34"
 
-[query.border]
-bg = "#282C34"
+[query.frame]
+style.bg = "#282C34"
 
-[results.border]
-bg = "#282C34"
+[results.frame]
+style.bg = "#282C34"
 
-[footer.border]
-bg = "#282C34"
+[footer.frame]
+style.bg = "#282C34"
 
-[header.border]
-bg = "#282C34"
+[header.frame]
+style.bg = "#282C34"
 
 [envs]
 BAT_THEME = "OneHalfDark"

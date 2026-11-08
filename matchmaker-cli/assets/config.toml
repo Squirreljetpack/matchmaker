@@ -35,9 +35,9 @@ show = true
 wrap = true
 scroll_wrap = true
 
-[preview.border]
+[preview.frame]
 title_style.modifier = "UNDERLINED"
-type = "Plain"
+border_type = "Plain"
 padding = [2, 0]
 
 [[preview.layout]]

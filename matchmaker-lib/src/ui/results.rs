@@ -141,7 +141,7 @@ impl ResultsUI {
     }
 
     pub fn update_dimensions(&mut self, area: Rect) {
-        let new = self.config.border.inner_of(area);
+        let new = self.config.frame.inner_of(area);
         if self.width != new.width || self.height != new.height {
             _info!("results area": area);
             if self.width != new.width {

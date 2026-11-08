@@ -12,9 +12,9 @@ multi_prefix = "▌ "
 row_connection = "Capped"
 separator = "None"
 
-[results.border]
-type = "Plain"
-color = "Magenta"
+[results.frame]
+border_type = "Plain"
+fg = "Magenta"
 sides = "TOP"
 
 [results.match_style]
@@ -36,14 +36,14 @@ fg = "Magenta"
 [status]
 show = false
 
-[preview.border]
+[preview.frame]
 sides = ""
 padding = [0, 0, 0, 1]
 
-[ui.outer_border]
+[ui.outer_frame]
 padding = 1
 
-[ui.border]
+[ui.frame]
 sides = ""
 
 [envs]

@@ -15,13 +15,13 @@ current_prefix = "▶ "
 multi_prefix = "✦ "
 row_connection = "Capped"
 
-[ui.outer_border]
+[ui.outer_frame]
 padding = 1
-bg = "#FDF6E3"
+style.bg = "#FDF6E3"
 
-[ui.border]
+[ui.frame]
 sides = ""
-bg = "#FDF6E3"
+style.bg = "#FDF6E3"
 
 [results.match_style]
 fg = "#B58900"
@@ -46,25 +46,25 @@ row_connection = "Capped"
 template = '\s {#268BD2,bold:λ} {#B58900:\r}/{#657B83:\m} \s '
 style.fg = "#93A1A1"
 
-[preview.border]
-type = "LightQuadrupleDashed"
-color = "#93A1A1"
+[preview.frame]
+border_type = "LightQuadrupleDashed"
+fg = "#93A1A1"
 padding = [1, 0]
 title_style.fg = "#268BD2"
 title_style.modifier = "BOLD"
-bg = "#FDF6E3"
+style.bg = "#FDF6E3"
 
-[query.border]
-bg = "#FDF6E3"
+[query.frame]
+style.bg = "#FDF6E3"
 
-[results.border]
-bg = "#FDF6E3"
+[results.frame]
+style.bg = "#FDF6E3"
 
-[footer.border]
-bg = "#FDF6E3"
+[footer.frame]
+style.bg = "#FDF6E3"
 
-[header.border]
-bg = "#FDF6E3"
+[header.frame]
+style.bg = "#FDF6E3"
 
 [envs]
 BAT_THEME = "OneHalfLight"

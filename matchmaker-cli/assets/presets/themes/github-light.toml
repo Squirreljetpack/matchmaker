@@ -15,15 +15,15 @@ current_prefix = "❯ "
 multi_prefix = "● "
 row_connection = "Capped"
 
-[ui.outer_border]
-bg = "#FFFFFF"
+[ui.outer_frame]
+style.bg = "#FFFFFF"
 
-[ui.border]
-type = "Rounded"
-color = "#D0D7DE"
+[ui.frame]
+border_type = "Rounded"
+fg = "#D0D7DE"
 sides = "ALL"
 padding = [1, 0]
-bg = "#FFFFFF"
+style.bg = "#FFFFFF"
 
 [results.match_style]
 fg = "#0969DA"
@@ -47,26 +47,26 @@ show = true
 template = '{#0969DA:\m}/{\t} \s {#656D76:[\r]} '
 style.fg = "#656D76"
 
-[preview.border]
-type = "Rounded"
-color = "#D0D7DE"
+[preview.frame]
+border_type = "Rounded"
+fg = "#D0D7DE"
 sides = "ALL"
 padding = [1, 0]
 title_style.fg = "#0969DA"
 title_style.modifier = "BOLD"
-bg = "#FFFFFF"
+style.bg = "#FFFFFF"
 
-[query.border]
-bg = "#FFFFFF"
+[query.frame]
+style.bg = "#FFFFFF"
 
-[results.border]
-bg = "#FFFFFF"
+[results.frame]
+style.bg = "#FFFFFF"
 
-[footer.border]
-bg = "#FFFFFF"
+[footer.frame]
+style.bg = "#FFFFFF"
 
-[header.border]
-bg = "#FFFFFF"
+[header.frame]
+style.bg = "#FFFFFF"
 
 [envs]
 BAT_THEME = "OneHalfLight"

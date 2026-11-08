@@ -263,7 +263,7 @@ mm \
   results.wrap=false \
   results.autoscroll.end=true \
   results.autoscroll.context=0 \
-  ui.border.type=Plain \
+  ui.frame.type=Plain \
   tui.percentage=45 \
   results.reverse=true \
   exit.abort_empty=true

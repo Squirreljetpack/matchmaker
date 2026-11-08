@@ -41,32 +41,32 @@ template = '{\m} {#555555:/} {\t} \s {#888888:\r} '
 style.fg = "#555555"
 style.bg = "#0E0E0E"
 
-[preview.border]
+[preview.frame]
 sides = ""
 padding = [1, 0]
 title_style.fg = "#FFFFFF"
 title_style.modifier = "BOLD"
-bg = "#0E0E0E"
+style.bg = "#0E0E0E"
 
-[ui.outer_border]
+[ui.outer_frame]
 padding = 1
-bg = "#0E0E0E"
+style.bg = "#0E0E0E"
 
-[ui.border]
+[ui.frame]
 sides = ""
-bg = "#0E0E0E"
+style.bg = "#0E0E0E"
 
-[query.border]
-bg = "#0E0E0E"
+[query.frame]
+style.bg = "#0E0E0E"
 
-[results.border]
-bg = "#0E0E0E"
+[results.frame]
+style.bg = "#0E0E0E"
 
-[footer.border]
-bg = "#0E0E0E"
+[footer.frame]
+style.bg = "#0E0E0E"
 
-[header.border]
-bg = "#0E0E0E"
+[header.frame]
+style.bg = "#0E0E0E"
 
 [envs]
 BAT_THEME = "Coldark-Dark"

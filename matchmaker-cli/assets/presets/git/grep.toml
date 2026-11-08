@@ -48,7 +48,7 @@ show = false
 command = '''
 git show --color=always --stat --summary {1}
 '''
-border = { title = "Commit Summary" }
+frame = { title = "Commit Summary" }
 
 # side = "right"
 # percentage = 40
@@ -60,7 +60,7 @@ command = '''
 git diff --color=always {1}\^ {1} -- {2} ||
 git show --color=always {1} -- {2}
 '''
-border = { title = "File Diff" }
+frame = { title = "File Diff" }
 
 # side = "top"
 # percentage = 50
@@ -71,7 +71,7 @@ border = { title = "File Diff" }
 command = '''
 git show --ext-diff --color=always {1} -- {2}
 '''
-border = { title = "File Contents" }
+frame = { title = "File Contents" }
 
 # --- UI ---
 [tui]

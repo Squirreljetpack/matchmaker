@@ -198,7 +198,7 @@ pub fn partial(attr: TokenStream, item: TokenStream) -> TokenStream {
                         _ => {
                             #(
                                 match matchmaker_partial::Set::set(#flattened_field_targets, path, val) {
-                                    Err(matchmaker_partial::PartialSetError::Missing(_)) => {}
+                                    Err(matchmaker_partial::PartialSetError::Missing(ref m)) if m == head => {}
                                     x => return x,
                                 }
                             )*

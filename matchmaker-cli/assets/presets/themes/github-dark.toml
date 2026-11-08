@@ -15,9 +15,9 @@ multi_prefix = "● "
 row_connection = "Capped"
 style.bg = "#1E1E1E"
 
-[ui.border]
+[ui.frame]
 sides = ""
-bg = "#1E1E1E"
+style.bg = "#1E1E1E"
 
 [results.match_style]
 fg = "#58A6FF"
@@ -41,33 +41,33 @@ template = '{#58A6FF:\m}/{\t} \s {#7D8590:[\r]} '
 style.fg = "#7D8590"
 style.bg = "#1E1E1E"
 
-[preview.border]
-type = "Plain"
-color = "#30363D"
+[preview.frame]
+border_type = "Plain"
+fg = "#30363D"
 sides = "ALL"
 padding = [1, 0]
 title_style.fg = "#58A6FF"
 title_style.modifier = "BOLD"
-bg = "#1E1E1E"
+style.bg = "#1E1E1E"
 
-[ui.outer_border]
+[ui.outer_frame]
 padding = [1, 0]
-type = "Thick"
-color = "#30363D"
+border_type = "Thick"
+fg = "#30363D"
 sides = "ALL"
-bg = "#1E1E1E"
+style.bg = "#1E1E1E"
 
-[query.border]
-bg = "#1E1E1E"
+[query.frame]
+style.bg = "#1E1E1E"
 
-[results.border]
-bg = "#1E1E1E"
+[results.frame]
+style.bg = "#1E1E1E"
 
-[footer.border]
-bg = "#1E1E1E"
+[footer.frame]
+style.bg = "#1E1E1E"
 
-[header.border]
-bg = "#1E1E1E"
+[header.frame]
+style.bg = "#1E1E1E"
 
 [envs]
 BAT_THEME = "OneHalfDark"

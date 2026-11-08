@@ -29,7 +29,7 @@ pub const RESULTS_MIN_H: u16 = 1;
 use crate::{
     SSS, Selector,
     config::{
-        BorderSetting, DisplayConfig, QueryConfig, RenderConfig, ResultsConfig, RowConnectionStyle,
+        DisplayConfig, FrameSetting, QueryConfig, RenderConfig, ResultsConfig, RowConnectionStyle,
         StatusConfig, TerminalLayoutSettings, UiConfig,
     },
     nucleo::Worker,
@@ -65,17 +65,15 @@ impl UI {
         }
 
         let ui_area = [
-            tui.area
-                .width
-                .saturating_sub(config.ui.outer_border.width()),
+            tui.area.width.saturating_sub(config.ui.outer_frame.width()),
             tui.area
                 .height
-                .saturating_sub(config.ui.outer_border.height()),
+                .saturating_sub(config.ui.outer_frame.height()),
         ];
 
         let area = Rect {
-            x: tui.area.x + config.ui.outer_border.left(),
-            y: tui.area.y + config.ui.outer_border.top(),
+            x: tui.area.x + config.ui.outer_frame.left(),
+            y: tui.area.y + config.ui.outer_frame.top(),
             width: ui_area[0],
             height: ui_area[1],
         };
@@ -145,19 +143,19 @@ impl UI {
     }
 
     pub fn update_dimensions(&mut self, area: Rect) {
-        self.area = self.outer_border().inner_of(area);
+        self.area = self.outer_frame().inner_of(area);
     }
 
     pub fn make_ui(&self) -> ratatui::widgets::Block<'_> {
-        self.config.outer_border.as_block()
+        self.config.outer_frame.as_block()
     }
 
-    pub fn outer_border(&self) -> &BorderSetting {
-        &self.config.outer_border
+    pub fn outer_frame(&self) -> &FrameSetting {
+        &self.config.outer_frame
     }
 
-    pub fn border(&self) -> &BorderSetting {
-        &self.config.border
+    pub fn frame(&self) -> &FrameSetting {
+        &self.config.frame
     }
 
     pub fn picker_area(&self) -> Rect {
@@ -173,12 +171,12 @@ impl UI {
     }
 
     pub fn full_area(&self) -> Rect {
-        let outer_border = &self.config.outer_border;
+        let outer_frame = &self.config.outer_frame;
         Rect {
-            x: self.area.x - outer_border.left(),
-            y: self.area.y - outer_border.top(),
-            width: self.area.width + outer_border.width(),
-            height: self.area.height + outer_border.height(),
+            x: self.area.x - outer_frame.left(),
+            y: self.area.y - outer_frame.top(),
+            width: self.area.width + outer_frame.width(),
+            height: self.area.height + outer_frame.height(),
         }
     }
 }
@@ -339,11 +337,11 @@ mod tests {
     #[test]
     fn full_area_roundtrips_outer_area() {
         let mut config = RenderConfig::default();
-        config.ui.outer_border = BorderSetting {
+        config.ui.outer_frame = FrameSetting {
             sides: Some(Borders::ALL),
             ..Default::default()
         };
-        config.ui.border = BorderSetting {
+        config.ui.frame = FrameSetting {
             sides: Some(Borders::ALL),
             ..Default::default()
         };
@@ -360,9 +358,9 @@ mod tests {
     }
 
     #[test]
-    fn make_ui_renders_outer_border() {
+    fn make_ui_renders_outer_frame() {
         let mut config = RenderConfig::default();
-        config.ui.outer_border = BorderSetting {
+        config.ui.outer_frame = FrameSetting {
             sides: Some(Borders::ALL),
             ..Default::default()
         };

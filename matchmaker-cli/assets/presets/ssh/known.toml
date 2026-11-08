@@ -20,11 +20,11 @@ show = true
 
 [[preview.layout]]
 command = "echo {} | ssh-keygen -lf -"
-border = { title = "Key Fingerprint" }
+frame = { title = "Key Fingerprint" }
 
 [[preview.layout]]
 command = "ssh-keyscan {host}"
-border = { title = "Host Keys" }
+frame = { title = "Host Keys" }
 
 # --- UI ---
 [header]

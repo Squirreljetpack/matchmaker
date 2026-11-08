@@ -50,7 +50,7 @@ echo "behind: $behind ahead: $ahead commits: $commits"
 printf "%${COLUMNS}s\n" | tr ' ' '-'
 git log --color=always --left-right --oneline ...{1}
 '''
-border = { title = "Ahead/Behind" }
+frame = { title = "Ahead/Behind" }
 # side = "right"
 # percentage = 40
 # min = 30
@@ -64,7 +64,7 @@ else
   git diff --color=always {1}
 fi
 '''
-border = { title = "Branch Diff" }
+frame = { title = "Branch Diff" }
 # side = "top"
 # percentage = 50
 # min = 5
@@ -74,7 +74,7 @@ border = { title = "Branch Diff" }
 command = '''
 git log --color=always --graph --decorate --pretty=oneline --abbrev-commit {1}
 '''
-border = { title = "Commit Graph" }
+frame = { title = "Commit Graph" }
 # side = "right"
 # percentage = 75
 # min = 5
@@ -88,9 +88,9 @@ side = "right"
 percentage = 40
 min = 30
 max = 120
-border.type = "Plain"
-border.padding = [2, 0]
-border.title = "Commit Stat"
+frame.border_type = "Plain"
+frame.padding = [2, 0]
+frame.title = "Commit Stat"
 
 # --- UI ---
 [tui]

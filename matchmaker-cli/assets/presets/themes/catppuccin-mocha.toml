@@ -14,12 +14,12 @@ multi_prefix = "✔ "
 row_connection = "Capped"
 style.bg = "#1E1E2E"
 
-[ui.border]
-type = "Rounded"
-color = "#45475A"
+[ui.frame]
+border_type = "Rounded"
+fg = "#45475A"
 sides = "ALL"
 padding = [2, 0]
-bg = "#1E1E2E"
+style.bg = "#1E1E2E"
 
 [results.match_style]
 fg = "#F38BA8"
@@ -49,29 +49,29 @@ template = '{#89B4FA,bold:●} \s {#CBA6F7:line \r} {#585B70:/} {#CDD6F4:\m} '
 style.fg = "#6C7086"
 style.bg = "#1E1E2E"
 
-[preview.border]
-type = "Rounded"
-color = "#45475A"
+[preview.frame]
+border_type = "Rounded"
+fg = "#45475A"
 sides = "ALL"
 padding = [2, 0]
 title_style.fg = "#CBA6F7"
 title_style.modifier = "BOLD"
-bg = "#1E1E2E"
+style.bg = "#1E1E2E"
 
-[ui.outer_border]
-bg = "#1E1E2E"
+[ui.outer_frame]
+style.bg = "#1E1E2E"
 
-[query.border]
-bg = "#1E1E2E"
+[query.frame]
+style.bg = "#1E1E2E"
 
-[results.border]
-bg = "#1E1E2E"
+[results.frame]
+style.bg = "#1E1E2E"
 
-[footer.border]
-bg = "#1E1E2E"
+[footer.frame]
+style.bg = "#1E1E2E"
 
-[header.border]
-bg = "#1E1E2E"
+[header.frame]
+style.bg = "#1E1E2E"
 
 [envs]
 BAT_THEME = "Catppuccin Mocha"

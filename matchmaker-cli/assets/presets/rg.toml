@@ -32,7 +32,7 @@ else
     cat {1}
 fi
 '''
-border = { type = "LightDoubleDashed", color = "DarkGray", title = "File Contents" }
+frame = { border_type = "LightDoubleDashed", fg = "DarkGray", title = "File Contents" }
 side = "top"
 percentage = 50
 min = 5

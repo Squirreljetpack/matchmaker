@@ -23,7 +23,7 @@ side = "top"
 percentage = 55
 min = 5
 max = 50
-border.type = "Plain"
+frame.border_type = "Plain"
 command = '''
 zellij action dump-screen --pane-id {pane} 2>/dev/null || true
 '''

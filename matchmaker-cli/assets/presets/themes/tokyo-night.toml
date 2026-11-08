@@ -15,12 +15,12 @@ row_connection = "Capped"
 separator = "Dashed"
 style.bg = "#1A1B26"
 
-[ui.border]
-type = "Rounded"
-color = "#3B4261"
+[ui.frame]
+border_type = "Rounded"
+fg = "#3B4261"
 sides = "ALL"
 padding = [1, 0]
-bg = "#1A1B26"
+style.bg = "#1A1B26"
 
 [results.match_style]
 fg = "#FF9E64"
@@ -50,29 +50,29 @@ template = '\s {#C0CAF5:\t} {#565F89:total,} {#BB9AF7:\r/\m}'
 style.fg = "#414868"
 style.bg = "#1A1B26"
 
-[preview.border]
-type = "Rounded"
-color = "#3B4261"
+[preview.frame]
+border_type = "Rounded"
+fg = "#3B4261"
 sides = "ALL"
 padding = [1, 0]
 title_style.fg = "#7AA2F7"
 title_style.modifier = "BOLD"
-bg = "#1A1B26"
+style.bg = "#1A1B26"
 
-[ui.outer_border]
-bg = "#1A1B26"
+[ui.outer_frame]
+style.bg = "#1A1B26"
 
-[query.border]
-bg = "#1A1B26"
+[query.frame]
+style.bg = "#1A1B26"
 
-[results.border]
-bg = "#1A1B26"
+[results.frame]
+style.bg = "#1A1B26"
 
-[footer.border]
-bg = "#1A1B26"
+[footer.frame]
+style.bg = "#1A1B26"
 
-[header.border]
-bg = "#1A1B26"
+[header.frame]
+style.bg = "#1A1B26"
 
 [envs]
 BAT_THEME = "TwoDark"

@@ -26,16 +26,16 @@ show = true
 
 [[preview.layout]]
 command = 'mutagen sync list {name}'
-border = { title = "Status" }
+frame = { title = "Status" }
 
 [[preview.layout]]
 command = 'mutagen sync monitor {name}'
-border = { title = "Mutagen Sync Monitor" }
+frame = { title = "Mutagen Sync Monitor" }
 initial.tail = true
 
 [[preview.layout]]
 command = 'mutagen sync list -l {name}'
-border = { title = "Details" }
+frame = { title = "Details" }
 
 # --- UI --------------------------------------------------------------------
 [header]

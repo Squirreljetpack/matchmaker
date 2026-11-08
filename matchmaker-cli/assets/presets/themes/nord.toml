@@ -16,13 +16,13 @@ row_connection = "Capped"
 
 style.bg = "#3B4252"
 
-[results.border]
-type = "Plain"
-color = "#4C566A"
+[results.frame]
+border_type = "Plain"
+fg = "#4C566A"
 sides = "ALL"
 padding = [1, 0]
 
-bg = "#3B4252"
+style.bg = "#3B4252"
 
 [results.match_style]
 fg = "#81A1C1"
@@ -50,32 +50,32 @@ style.fg = "#D8DEE9"
 
 style.bg = "#3B4252"
 
-[preview.border]
-type = "Plain"
-color = "#4C566A"
+[preview.frame]
+border_type = "Plain"
+fg = "#4C566A"
 sides = "ALL"
 padding = [1, 0]
 title_style.fg = "#88C0D0"
 title_style.modifier = "ITALIC"
 
-bg = "#3B4252"
+style.bg = "#3B4252"
 
-[ui.outer_border]
+[ui.outer_frame]
 padding = 1
-bg = "#3B4252"
+style.bg = "#3B4252"
 
-[ui.border]
-bg = "#3B4252"
+[ui.frame]
+style.bg = "#3B4252"
 sides = ""
 
-[query.border]
-bg = "#3B4252"
+[query.frame]
+style.bg = "#3B4252"
 
-[footer.border]
-bg = "#3B4252"
+[footer.frame]
+style.bg = "#3B4252"
 
-[header.border]
-bg = "#3B4252"
+[header.frame]
+style.bg = "#3B4252"
 
 [envs]
 BAT_THEME = "Nord"

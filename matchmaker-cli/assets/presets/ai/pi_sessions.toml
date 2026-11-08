@@ -1,7 +1,6 @@
 # Pi agent sessions browser
 
 [start]
-
 command = '@./pi_sessions.py'
 # command = '''
 # if stat --version 2>/dev/null | grep -q GNU; then
@@ -9,12 +8,12 @@ command = '@./pi_sessions.py'
 # else
 #     get_mtime() { stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" -- "$1"; }
 # fi
-# 
+#
 # for f in **/*.jsonl; do
 #     base=$(basename -- "$f" .jsonl)
 #     session=${base##*_}
 #     ts=$(get_mtime "$f")
-# 
+#
 #     cwd=$(head -n 1 -- "$f" | jq -r '.cwd')
 #     printf "%s\t%s\t%s\t%s\n" "$f" "$ts" "${cwd/#$HOME\//~/}" "$session"
 # done
@@ -105,7 +104,7 @@ jq -rs '
 command = '''
 "$(dirname -- "$MM_OVERRIDE")"/session_stats.py --price -- {+file} 2>&1
 '''
-border = { title = "Usage Stats" }
+frame = { title = "Usage Stats" }
 
 [[preview.layout]]
 command = '''
@@ -115,7 +114,7 @@ else
     cat -- "$PWD"/{file}
 fi
 '''
-border = { title = "Raw Session" }
+frame = { title = "Raw Session" }
 
 # --- Binds ---
 [binds]

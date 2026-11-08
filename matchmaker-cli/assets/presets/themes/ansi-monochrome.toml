@@ -1,8 +1,8 @@
 # ANSI Monochrome Theme
 
-[ui.border]
+[ui.frame]
 sides = ""
-bg = "Black"
+style.bg = "Black"
 
 [query]
 prompt = ":: "
@@ -11,13 +11,13 @@ prompt_style.modifier = "BOLD"
 style.fg = "White"
 style.bg = "Black"
 
-[query.border]
+[query.frame]
 sides = ""
-bg = "Black"
+style.bg = "Black"
 
-[results.border]
+[results.frame]
 sides = ""
-bg = "Black"
+style.bg = "Black"
 
 [results]
 separator = "None"
@@ -36,11 +36,11 @@ template = '\m/\t '
 style.fg = "White"
 style.bg = "Black"
 
-[preview.border]
-type = "Plain"
-color = "DarkGray"
+[preview.frame]
+border_type = "Plain"
+fg = "DarkGray"
 sides = "LEFT"
-bg = "Black"
+style.bg = "Black"
 padding = [1, 0]
 title_style.fg = "White"
 title_style.modifier = "BOLD"

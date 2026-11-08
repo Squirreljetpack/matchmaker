@@ -9,7 +9,7 @@ use ratatui::{
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
-use crate::config::{BorderSetting, QueryConfig};
+use crate::config::{FrameSetting, QueryConfig};
 
 #[derive(Debug, Default, Clone)]
 pub struct InputUI {
@@ -362,22 +362,22 @@ impl QueryUI {
         ui
     }
 
-    /// The effective border setting: `None` while `show_border` is false.
-    fn border(&self) -> Option<&BorderSetting> {
-        self.show_border.then_some(&self.config.border)
+    /// The effective frame setting: `None` while `show_border` is false.
+    fn frame(&self) -> Option<&FrameSetting> {
+        self.show_border.then_some(&self.config.frame)
     }
 
     pub fn left(&self) -> u16 {
-        self.border().map_or(0, BorderSetting::left) + self.prompt.width() as u16
+        self.frame().map_or(0, FrameSetting::left) + self.prompt.width() as u16
     }
 
     pub fn top(&self) -> u16 {
-        self.border().map_or(0, BorderSetting::top)
+        self.frame().map_or(0, FrameSetting::top)
     }
 
-    /// Total height of the input bar, including the border.
+    /// Total height of the input bar, including the frame.
     pub fn height(&self) -> u16 {
-        1 + self.border().map_or(0, BorderSetting::height)
+        1 + self.frame().map_or(0, FrameSetting::height)
     }
 
     /// Given a rect the widget is rendered with, produce the absolute position the cursor is rendered at.
@@ -392,7 +392,7 @@ impl QueryUI {
     pub fn update_width(&mut self, width: u16) {
         let text_width = width
             .saturating_sub(self.prompt.width() as u16)
-            .saturating_sub(self.border().map_or(0, BorderSetting::width));
+            .saturating_sub(self.frame().map_or(0, FrameSetting::width));
         if self.width != text_width {
             self.width = text_width;
         }
@@ -413,8 +413,8 @@ impl QueryUI {
         ));
 
         let paragraph = Paragraph::new(line);
-        match self.border() {
-            Some(border) => paragraph.block(border.as_block()),
+        match self.frame() {
+            Some(frame) => paragraph.block(frame.as_block()),
             None => paragraph,
         }
     }

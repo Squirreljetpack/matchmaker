@@ -80,7 +80,7 @@ if [ -n {1} ]; then
     "$base"/pi_extensions_preview.py {1}
 fi
 '''
-border = { title = "Extension Info" }
+frame = { title = "Extension Info" }
 
 [[preview.layout]]
 command = '''
@@ -94,7 +94,7 @@ The rows shown may not reflect your current pi settings! Trigger `@reconcile` (c
 `@prune` to uninstall extensions found in the global/project git and npm install folders that are not in this list (preview with `pi_extensions_prune.py -n`).
 EOF
 '''
-border = { title = "Usage" }
+frame = { title = "Usage" }
 
 [[preview.layout]]
 command = '''
@@ -110,7 +110,7 @@ if [ -n {1} ]; then
     fi
 fi
 '''
-border = { title = "README" }
+frame = { title = "README" }
 
 # --- Binds ---
 [binds]

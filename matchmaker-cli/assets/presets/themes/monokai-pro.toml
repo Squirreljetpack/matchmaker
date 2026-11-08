@@ -14,12 +14,12 @@ multi_prefix = "◆ "
 row_connection = "Capped"
 style.bg = "#2D2A2E"
 
-[results.border]
-type = "Double"
-color = "#727072"
+[results.frame]
+border_type = "Double"
+fg = "#727072"
 sides = "ALL"
 padding = 0
-bg = "#2D2A2E"
+style.bg = "#2D2A2E"
 
 [results.match_style]
 fg = "#A9DC76"
@@ -47,30 +47,30 @@ style.fg = "#939293"
 style.bg = "#2D2A2E"
 row_connection = "Capped"
 
-[preview.border]
-type = "Double"
-color = "#727072"
+[preview.frame]
+border_type = "Double"
+fg = "#727072"
 sides = "ALL"
 padding = 0
 title_style.fg = "#FFD866"
 title_style.modifier = "BOLD"
-bg = "#2D2A2E"
+style.bg = "#2D2A2E"
 
-[ui.outer_border]
-bg = "#2D2A2E"
+[ui.outer_frame]
+style.bg = "#2D2A2E"
 
-[ui.border]
+[ui.frame]
 sides = ""
-bg = "#2D2A2E"
+style.bg = "#2D2A2E"
 
-[query.border]
-bg = "#2D2A2E"
+[query.frame]
+style.bg = "#2D2A2E"
 
-[footer.border]
-bg = "#2D2A2E"
+[footer.frame]
+style.bg = "#2D2A2E"
 
-[header.border]
-bg = "#2D2A2E"
+[header.frame]
+style.bg = "#2D2A2E"
 
 [envs]
 BAT_THEME = "Monokai Extended"

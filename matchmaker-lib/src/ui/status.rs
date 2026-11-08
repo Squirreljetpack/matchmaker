@@ -340,6 +340,7 @@ mod tests {
         let mut status = StatusUI::new(StatusConfig {
             show: true,
             match_indent: false,
+            row_connection: RowConnectionStyle::Full,
             template: r#"{i:prefix}\s{interactive:action}"#.to_string(),
             interactions: StatusInteractionSetting::Actions(vec![
                 "prefix".to_string(),

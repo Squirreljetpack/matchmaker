@@ -130,12 +130,12 @@ impl Default for TerminalConfig {
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct UiConfig {
     #[partial(recurse)]
-    #[partial(alias = "b")]
-    pub border: BorderSetting,
+    #[partial(alias = "f")]
+    pub frame: FrameSetting,
     /// Border drawn around the entire ui, outside the picker pane.
     #[partial(recurse)]
-    #[partial(alias = "ob")]
-    pub outer_border: BorderSetting,
+    #[partial(alias = "of")]
+    pub outer_frame: FrameSetting,
     pub tick_rate: u8, // separate from render, but best place ig
     pub mouse_events: bool,
     /// Debounce interval for mouse scroll events in milliseconds.
@@ -148,8 +148,8 @@ pub struct UiConfig {
 impl Default for UiConfig {
     fn default() -> Self {
         Self {
-            border: Default::default(),
-            outer_border: Default::default(),
+            frame: Default::default(),
+            outer_frame: Default::default(),
             tick_rate: 60,
             mouse_events: true,
             mouse_scroll_debounce_ms: 0,
@@ -163,8 +163,8 @@ impl Default for UiConfig {
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct QueryConfig {
     #[partial(recurse)]
-    #[partial(alias = "b")]
-    pub border: BorderSetting,
+    #[partial(alias = "f")]
+    pub frame: FrameSetting,
 
     // text styles
     #[partial(recurse = "")]
@@ -197,7 +197,7 @@ pub struct QueryConfig {
 impl Default for QueryConfig {
     fn default() -> Self {
         Self {
-            border: Default::default(),
+            frame: Default::default(),
             style: Default::default(),
             prompt_style: StyleSetting {
                 modifier: Modifier::ITALIC,
@@ -221,8 +221,8 @@ impl QueryConfig {}
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct OverlayConfig {
     #[partial(recurse)]
-    #[partial(alias = "b")]
-    pub border: BorderSetting,
+    #[partial(alias = "f")]
+    pub frame: FrameSetting,
     pub outer_dim: bool,
     pub layout: OverlayLayoutSettings,
 }
@@ -292,8 +292,8 @@ impl Default for AutoscrollSettings {
 #[serde(default, deny_unknown_fields)]
 pub struct ResultsConfig {
     #[partial(recurse)]
-    #[partial(alias = "b")]
-    pub border: BorderSetting,
+    #[partial(alias = "f")]
+    pub frame: FrameSetting,
 
     // prefixes
     #[serde(deserialize_with = "deserialize_string_or_char_as_double_width")]
@@ -419,7 +419,7 @@ pub struct ResultsConfig {
 impl Default for ResultsConfig {
     fn default() -> Self {
         ResultsConfig {
-            border: Default::default(),
+            frame: Default::default(),
 
             multi_prefix: "▌ ".to_string(),
             default_prefix: Default::default(),
@@ -572,8 +572,8 @@ impl StatusConfig {}
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 pub struct DisplayConfig {
     #[partial(recurse)]
-    #[partial(alias = "b")]
-    pub border: BorderSetting,
+    #[partial(alias = "f")]
+    pub frame: FrameSetting,
 
     #[partial(recurse = "")]
     pub style: StyleSetting,
@@ -612,7 +612,7 @@ pub type ResolvedInteractionRegionSetting = Vec<(u16, String)>;
 impl Default for DisplayConfig {
     fn default() -> Self {
         DisplayConfig {
-            border: Default::default(),
+            frame: Default::default(),
             match_indent: true,
             style: StyleSetting {
                 fg: Some(Color::Cyan),
@@ -648,8 +648,8 @@ impl Default for DisplayConfig {
 #[serde(default, deny_unknown_fields)]
 pub struct PreviewConfig {
     #[partial(recurse)]
-    #[partial(alias = "b")]
-    pub border: BorderSetting,
+    #[partial(alias = "f")]
+    pub frame: FrameSetting,
     #[partial(recurse, set = "recurse")]
     #[partial(alias = "l")]
     pub layout: Vec<PreviewSetting>,
@@ -672,7 +672,7 @@ pub struct PreviewConfig {
     pub reevaluate_show_on_resize: bool,
 
     /// Width of the drag area for resizing the preview pane.
-    /// If `None`, it defaults to the width of the preview border.
+    /// If `None`, it defaults to the width of the preview frame.
     /// If `0`, drag resizing is disabled.
     pub drag_width: Option<u16>,
 
@@ -684,7 +684,7 @@ pub struct PreviewConfig {
 impl Default for PreviewConfig {
     fn default() -> Self {
         PreviewConfig {
-            border: BorderSetting {
+            frame: FrameSetting {
                 padding: Padding(ratatui::widgets::Padding::left(2)),
                 ..Default::default()
             },
@@ -981,11 +981,9 @@ impl Default for HelpColorConfig {
 #[derive(Default, Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[partial(path, merge, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
 #[serde(default, deny_unknown_fields)]
-pub struct BorderSetting {
-    #[serde(deserialize_with = "camelcase_normalized_option")]
-    pub r#type: Option<BorderType>,
-    #[serde(deserialize_with = "camelcase_normalized")]
-    pub color: Color,
+pub struct FrameSetting {
+    #[serde(alias = "type", deserialize_with = "camelcase_normalized_option")]
+    pub border_type: Option<BorderType>,
     /// Given as sides joined by `|`. i.e.:
     /// `sides = "TOP | BOTTOM"``
     /// `sides = "ALL"`
@@ -1005,21 +1003,21 @@ pub struct BorderSetting {
     pub padding: Padding,
     pub title: String,
     // #[serde(deserialize_with = "transform_uppercase")]
-    #[partial(recurse = "")]
     pub title_style: StyleSetting,
-    pub modifier: Modifier,
-    #[serde(deserialize_with = "camelcase_normalized")]
-    pub bg: Color,
+    pub style: StyleSetting,
+    #[serde(flatten)]
+    #[partial(recurse)]
+    pub border_style: StyleSetting,
 }
 
-impl BorderSetting {
+impl FrameSetting {
     pub fn as_block(&self) -> ratatui::widgets::Block<'_> {
         let mut ret = ratatui::widgets::Block::default()
             .padding(self.padding.0)
-            .style(Style::default().bg(self.bg).add_modifier(self.modifier));
+            .style(Style::from(self.style));
 
         if !self.title.is_empty() {
-            let title = Span::styled(&self.title, self.title_style.into_style_no_submodifiers());
+            let title = Span::styled(&self.title, Style::from(self.title_style));
 
             ret = ret.title(title)
         };
@@ -1027,23 +1025,24 @@ impl BorderSetting {
         if !self.is_empty() {
             ret = ret
                 .borders(self.sides())
-                .border_type(self.r#type.unwrap_or_default())
-                .border_style(ratatui::style::Style::default().fg(self.color))
+                .border_type(self.border_type.unwrap_or_default())
+                .border_style(Style::from(self.border_style));
         }
 
         ret
     }
 
     /// The sides drawn when `sides` is unset: all of them when the border has
-    /// a visible color or type, none otherwise. In the preview pane,
-    /// [`PreviewUI::border`] narrows the resolved border to the edge shared with
+    /// a visible border_style or type, none otherwise. In the preview pane,
+    /// [`PreviewUI::frame`] narrows the resolved border to the edge shared with
     /// the results pane.
     ///
-    /// [`PreviewUI::border`]: crate::ui::PreviewUI::border
+    /// [`PreviewUI::frame`]: crate::ui::PreviewUI::frame
     pub fn sides(&self) -> Borders {
         if let Some(s) = self.sides {
             s
-        } else if self.color != Default::default() || self.r#type != Default::default() {
+        } else if self.border_type != Default::default() || self.border_style != Default::default()
+        {
             Borders::ALL
         } else {
             Borders::NONE
@@ -1053,13 +1052,11 @@ impl BorderSetting {
     pub fn as_static_block(&self) -> ratatui::widgets::Block<'static> {
         let mut ret = ratatui::widgets::Block::default()
             .padding(self.padding.0)
-            .style(Style::default().bg(self.bg).add_modifier(self.modifier));
+            .style(Style::from(self.style));
 
         if !self.title.is_empty() {
-            let title: Span<'static> = Span::styled(
-                self.title.clone(),
-                self.title_style.into_style_no_submodifiers(),
-            );
+            let title: Span<'static> =
+                Span::styled(self.title.clone(), Style::from(self.title_style));
 
             ret = ret.title(title)
         };
@@ -1067,8 +1064,8 @@ impl BorderSetting {
         if !self.is_empty() {
             ret = ret
                 .borders(self.sides())
-                .border_type(self.r#type.unwrap_or_default())
-                .border_style(ratatui::style::Style::default().fg(self.color))
+                .border_type(self.border_type.unwrap_or_default())
+                .border_style(Style::from(self.border_style));
         }
 
         ret
@@ -1163,8 +1160,8 @@ impl Default for TerminalLayoutSettings {
 }
 
 #[cfg(feature = "partial")]
-fn is_default_partial_border(border: &PartialBorderSetting) -> bool {
-    *border == PartialBorderSetting::default()
+fn is_default_partial_frame(frame: &PartialFrameSetting) -> bool {
+    *frame == PartialFrameSetting::default()
 }
 
 #[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
@@ -1175,12 +1172,12 @@ pub struct PreviewSetting {
     #[partial(recurse)]
     pub layout: PreviewLayout,
     /// Layout-specific overrides layered over the global
-    /// [`PreviewConfig::border`]. An empty value means the layout has no
-    /// border overrides.
+    /// [`PreviewConfig::frame`]. An empty value means the layout has no
+    /// frame overrides.
     #[cfg(feature = "partial")]
-    #[serde(skip_serializing_if = "is_default_partial_border")]
-    #[partial(recurse = "PartialBorderSetting")]
-    pub border: PartialBorderSetting,
+    #[serde(skip_serializing_if = "is_default_partial_frame")]
+    #[partial(recurse = "PartialFrameSetting")]
+    pub frame: PartialFrameSetting,
     #[serde(default, alias = "cmd", alias = "x")]
     pub command: String,
 
@@ -1325,7 +1322,7 @@ mod tests {
 
     #[test]
     fn inner_of_all_sides() {
-        let b = BorderSetting {
+        let b = FrameSetting {
             sides: Some(Borders::ALL),
             ..Default::default()
         };
@@ -1348,7 +1345,7 @@ mod tests {
 
     #[test]
     fn inner_of_partial_sides() {
-        let b = BorderSetting {
+        let b = FrameSetting {
             sides: Some(Borders::TOP | Borders::BOTTOM),
             ..Default::default()
         };
@@ -1371,7 +1368,7 @@ mod tests {
 
     #[test]
     fn inner_of_padding() {
-        let b = BorderSetting {
+        let b = FrameSetting {
             padding: Padding(ratatui::widgets::Padding::left(1)),
             ..Default::default()
         };
@@ -1394,7 +1391,7 @@ mod tests {
 
     #[test]
     fn inner_of_saturates_at_zero() {
-        let b = BorderSetting {
+        let b = FrameSetting {
             sides: Some(Borders::ALL),
             ..Default::default()
         };
@@ -1413,5 +1410,25 @@ mod tests {
                 height: 0
             }
         );
+    }
+
+    #[test]
+    fn frame_setting_deserializes_border_type_and_alias_type() {
+        let with_border_type: FrameSetting = toml::from_str("border_type = \"Rounded\"").unwrap();
+        assert_eq!(with_border_type.border_type, Some(BorderType::Rounded));
+
+        let with_type_alias: FrameSetting = toml::from_str("type = \"Plain\"").unwrap();
+        assert_eq!(with_type_alias.border_type, Some(BorderType::Plain));
+
+        #[cfg(feature = "partial")]
+        {
+            let partial_border_type: PartialFrameSetting =
+                toml::from_str("border_type = \"Thick\"").unwrap();
+            assert_eq!(partial_border_type.border_type, Some(BorderType::Thick));
+
+            let partial_type_alias: PartialFrameSetting =
+                toml::from_str("type = \"Double\"").unwrap();
+            assert_eq!(partial_type_alias.border_type, Some(BorderType::Double));
+        }
     }
 }

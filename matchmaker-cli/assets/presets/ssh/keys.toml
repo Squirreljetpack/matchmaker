@@ -16,7 +16,7 @@ bat --wrap=never --color=always -pp {1}
 echo
 ssh-keygen -lf {1} -E sha256
 '''
-border = { title = "Key Fingerprint" }
+frame = { title = "Key Fingerprint" }
 
 # --- UI ---
 [query]

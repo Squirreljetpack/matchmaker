@@ -1,27 +1,27 @@
 # ANSI Line Theme
 
-[ui.outer_border]
+[ui.outer_frame]
 padding = 1
-bg = "Black"
+style.bg = "Black"
 
-[ui.border]
+[ui.frame]
 sides = ""
-bg = "Black"
+style.bg = "Black"
 
 [query]
 prompt = ""
 style.fg = "White"
 style.bg = "Black"
 
-[query.border]
+[query.frame]
 sides = ""
-bg = "Black"
+style.bg = "Black"
 
-[results.border]
-type = "Plain"
-color = "Magenta"
+[results.frame]
+border_type = "Plain"
+fg = "Magenta"
 sides = "TOP"
-bg = "Black"
+style.bg = "Black"
 
 [results]
 separator = "None"
@@ -51,10 +51,10 @@ fg = "Magenta"
 [status]
 show = false
 
-[preview.border]
+[preview.frame]
 sides = ""
 padding = [0, 0, 0, 1]
-bg = "Black"
+style.bg = "Black"
 
 [envs]
 BAT_THEME = "Dracula"

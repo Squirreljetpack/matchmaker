@@ -16,12 +16,12 @@ row_connection = "Full"
 separator = "Heavy"
 style.bg = "#1A1200"
 
-[results.border]
-type = "Double"
-color = "#FFB000"
+[results.frame]
+border_type = "Double"
+fg = "#FFB000"
 sides = "ALL"
 padding = 0
-bg = "#1A1200"
+style.bg = "#1A1200"
 
 [results.match_style]
 fg = "#FFFFFF"
@@ -53,30 +53,30 @@ style.fg = "#FFB000"
 style.modifier = "BOLD"
 style.bg = "#1A1200"
 
-[preview.border]
-type = "Double"
-color = "#FFB000"
+[preview.frame]
+border_type = "Double"
+fg = "#FFB000"
 sides = "ALL"
 padding = 0
 title_style.fg = "#FFB000"
 title_style.modifier = "BOLD"
-bg = "#1A1200"
+style.bg = "#1A1200"
 
-[ui.outer_border]
-bg = "#1A1200"
+[ui.outer_frame]
+style.bg = "#1A1200"
 
-[ui.border]
+[ui.frame]
 sides = ""
-bg = "#1A1200"
+style.bg = "#1A1200"
 
-[query.border]
-bg = "#1A1200"
+[query.frame]
+style.bg = "#1A1200"
 
-[footer.border]
-bg = "#1A1200"
+[footer.frame]
+style.bg = "#1A1200"
 
-[header.border]
-bg = "#1A1200"
+[header.frame]
+style.bg = "#1A1200"
 
 [envs]
 BAT_THEME = "gruvbox-dark"

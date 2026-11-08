@@ -19,8 +19,8 @@ show = true
 show = true
 wrap = true
 
-[preview.border]
-type = "Plain"
+[preview.frame]
+border_type = "Plain"
 padding = [2, 0]
 
 [[preview.layout]]

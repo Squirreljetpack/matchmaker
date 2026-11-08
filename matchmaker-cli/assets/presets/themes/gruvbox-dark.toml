@@ -15,12 +15,12 @@ row_connection = "Capped"
 separator = "Normal"
 style.bg = "#282828"
 
-[results.border]
-type = "Double"
-color = "#665C54"
+[results.frame]
+border_type = "Double"
+fg = "#665C54"
 sides = "TOP | BOTTOM"
 padding = 0
-bg = "#282828"
+style.bg = "#282828"
 
 [results.match_style]
 fg = "#FABD2F"
@@ -51,30 +51,30 @@ template = '\s {#B8BB26:\r}/{#FABD2F:\m} '
 style.fg = "#A89984"
 style.bg = "#282828"
 
-[preview.border]
-type = "Double"
-color = "#665C54"
+[preview.frame]
+border_type = "Double"
+fg = "#665C54"
 sides = "TOP | BOTTOM"
 padding = [0, 0, 0, 2]
 title_style.fg = "#FE8019"
 title_style.modifier = "BOLD"
-bg = "#282828"
+style.bg = "#282828"
 
-[ui.outer_border]
-bg = "#282828"
+[ui.outer_frame]
+style.bg = "#282828"
 
-[ui.border]
+[ui.frame]
 sides = ""
-bg = "#282828"
+style.bg = "#282828"
 
-[query.border]
-bg = "#282828"
+[query.frame]
+style.bg = "#282828"
 
-[footer.border]
-bg = "#282828"
+[footer.frame]
+style.bg = "#282828"
 
-[header.border]
-bg = "#282828"
+[header.frame]
+style.bg = "#282828"
 
 [envs]
 BAT_THEME = "gruvbox-dark"

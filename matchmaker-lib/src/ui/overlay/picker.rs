@@ -236,9 +236,9 @@ where
         }
 
         frame.render_widget(Clear, self.area);
-        frame.render_widget(self.config.border.as_block(), self.area);
+        frame.render_widget(self.config.frame.as_block(), self.area);
 
-        let inner = self.config.border.inner_of(self.area);
+        let inner = self.config.frame.inner_of(self.area);
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Length(self.query.height()), Constraint::Fill(1)])
@@ -260,7 +260,7 @@ where
     fn area(&mut self, ui_area: &Rect, layout: &OverlayLayoutSettings) {
         self.area = default_area([SizeHint::from(0), SizeHint::from(0)], layout, ui_area);
 
-        let inner = self.config.border.inner_of(self.area);
+        let inner = self.config.frame.inner_of(self.area);
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Length(self.query.height()), Constraint::Fill(1)])

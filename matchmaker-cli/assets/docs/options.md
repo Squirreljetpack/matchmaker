@@ -44,7 +44,7 @@ The `-o` flag allows you to layer additional configuration files on top of your 
 
 ### Values
 
-If a "leaf" value contains multiple settings (like a [border](#border-settings) or a bind with multiple actions), you can specify them within a single string joined by `,` (which can be escaped by doubling: `,,`).
+If a "leaf" value contains multiple settings (like a [frame](#frame-settings) or a bind with multiple actions), you can specify them within a single string joined by `,` (which can be escaped by doubling: `,,`).
 
 A few illustrative (but not very practical) examples:
 
@@ -167,7 +167,8 @@ All colors and modifiers come from ratatui:
 - `tick_rate`: (number) Refresh rate of the UI (default 60).
 - `mouse_events`: (bool) Toggle mouse events (default true).
 - `mouse_scroll_debounce_ms`: (number) Debounce mouse scroll events in milliseconds. Set to 0 to disable debouncing.
-- `border`: [Border Settings](#border-settings).
+- `frame`: [Frame Settings](#frame-settings).
+- `outer_frame`: [Frame Settings](#frame-settings) drawn around the entire UI.
 
 #### Query Bar (`query.`, `q`)
 
@@ -177,7 +178,7 @@ All colors and modifiers come from ratatui:
 - `prompt_style`: [Style Settings](#style-settings) for the prompt.
 - `scroll_padding`: (bool) Maintain padding when moving the cursor in the query bar.
 - `cursor`: Cursor style.
-- `border`: [Border Settings](#border-settings).
+- `frame`: [Frame Settings](#frame-settings).
 - `reset_cursor_on_query_change`: (bool) Reset cursor to initial position on query change, keeping the cursor disabled if it was disabled (experimental).
 
 #### Results Table (`results.`, `r`)
@@ -219,7 +220,7 @@ All colors and modifiers come from ratatui:
   - `end`: (bool) Whether to autoscroll to the end of the line.
   - `always`: (bool) Enable autoscroll even when wrapping is enabled.
 - `rct`, `resize_col_thresholds`: ([number, number]) Pixel deltas required before a column's preferred width is recomputed.
-- `border`: [Border Settings](#border-settings).
+- `frame`: [Frame Settings](#frame-settings).
 
 #### Status Line (`status.`)
 
@@ -249,8 +250,8 @@ All colors and modifiers come from ratatui:
     - `percentage`: Percentage of the screen to occupy.
     - `min`, `max`: Pixel constraints for the preview size. Setting `max` to 0 disables a preview layout.
     - `scroll` *(flattened)*: Initial scroll settings for this layout. See the initial scroll settings below.
-    - `border`: Optional per-layout [Border Settings](#border-settings).
-- `border`: [Border Settings](#border-settings).
+    - `frame`: Optional per-layout [Frame Settings](#frame-settings).
+- `frame`: [Frame Settings](#frame-settings).
 - `initial`, `i`: Control the initial scroll offset of the preview window.
   - `index` (string or integer, optional) – Extract the initial display index `n` of the preview window from this column. `n` lines are skipped after the header lines are consumed.
   - `o`, `offset` (integer) – Adjust the initial scroll index relative to `index`.
@@ -260,7 +261,7 @@ All colors and modifiers come from ratatui:
 - `initial_layout`: (number) Index of the initially selected preview layout.
 - `trim_ends`: (bool) Trim leading and trailing newlines from preview output.
 - `reevaluate_show_on_resize`: (bool) Re-evaluate the `show` condition after a resize.
-- `drag_width`: (integer, optional) Width of the divider strip used for mouse resizing. `0` disables drag resizing; omitted uses the preview border width.
+- `drag_width`: (integer, optional) Width of the divider strip used for mouse resizing. `0` disables drag resizing; omitted uses the preview frame width.
 - `image`: How `<MM_IMAGE>` preview images are displayed. See `mm --doc image` for the full guide.
   - `protocol`: Graphics protocol to render with: `auto`, `half_blocks`, `sixel`, `kitty`, `iterm2`, or `none` to disable images (default `auto`). Anything but `auto` wins over what the terminal reported, so a protocol the terminal cannot render is drawn as garbage rather than replaced; use `auto` to go by detection.
   - `horizontal_fit`, `vertical_fit`: How each axis is fitted to the preview pane: `contain` (shrink to the pane, never enlarge), `fill` (scale to the pane extent, may enlarge) or `crop` (leave unconstrained and clip). Defaults to `horizontal_fit = "contain"`, `vertical_fit = "crop"`. Either may name its own extent in cells instead of the pane, e.g. `"fill:16"`, with `0` meaning the pane. The image keeps its proportions, so the two axes resolve together; `mm --doc image` lists the combinations.
@@ -318,7 +319,7 @@ back to the external pager chain `MM_PAGER` → `$PAGER` → `less` → `more`.
 - `row_connection`: Controls the effective width of the displayed content. See [Results Table](#results-table-results-r) for variants.
 - `h`, `header_lines`: (number, header only) Number of lines to read from input for the header.
 - `interactions`: ([index, action]) Define interactive regions per line. See [Interactions](template.md#interaction-regions).
-- `border`: [Border Settings](#border-settings).
+- `frame`: [Frame Settings](#frame-settings).
 
 ### TUI Settings (`tui.`)
 
@@ -352,18 +353,18 @@ Several UI components have a `style` block (or similar, like `prompt_style`):
 - `bg`: (color) Background color.
 - `modifier`: (modifier) Style modifier (e.g., `BOLD`, `ITALIC`, `DIM`, joined by `|`).
 
-### Border Settings
+### Frame Settings
 
-Most UI components have a `border` block:
+Most UI components have a `frame` block:
 
-- `type`: See <https://docs.rs/matetui/latest/matetui/ratatui/widgets/enum.BorderType.html>.
-- `color`: CSS-style colors or named colors (e.g., `blue`, `red`, `#ff0000`).
-- `bg`: Background color of the bordered area.
+- `border_type`: (alias `type`) See <https://docs.rs/matetui/latest/matetui/ratatui/widgets/enum.BorderType.html>.
+- `color`: CSS-style colors or named colors (e.g., `blue`, `red`, `#ff0000`) for the border line.
 - `sides`: Which sides to show (e.g., `TOP | BOTTOM | LEFT | RIGHT`). Empty string for none.
-- `padding`: Padding inside the border. Can be 1 value (all), 2 (vertical, horizontal), or 4 (top, right, bottom, left).
-- `title`: Optional text to display on the border.
-- `title_style`: Style (`fg`, `bg`, `modifier`) applied to the title.
-- `modifier`: Style modifier applied to the bordered area.
+- `padding`: Padding inside the frame. Can be 1 value (all), 2 (vertical, horizontal), or 4 (top, right, bottom, left).
+- `title`: Optional text to display on the frame border.
+- `title_style`: [Style Settings](#style-settings) applied to the title.
+- `style`: [Style Settings](#style-settings) applied to the framed container area.
+- `border_style`: [Style Settings](#style-settings) applied strictly to the border glyphs.
 
 ### Key Binds (`binds.`, `b`)
 

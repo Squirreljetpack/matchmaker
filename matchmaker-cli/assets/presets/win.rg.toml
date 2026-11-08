@@ -31,7 +31,7 @@ if (Get-Command bat -ErrorAction SilentlyContinue) {
     Get-Content -LiteralPath $file -Raw
 }
 '''
-border = { type = "LightDoubleDashed", color = "DarkGray", title = "File Contents" }
+frame = { border_type = "LightDoubleDashed", fg = "DarkGray", title = "File Contents" }
 side = "top"
 percentage = 50
 min = 5

@@ -1,12 +1,12 @@
 # ANSI Gold Theme
 
-ui.outer_border.padding.top = 1
-ui.outer_border.bg = "Black"
+ui.outer_frame.padding.top = 1
+ui.outer_frame.style.bg = "Black"
 
-[ui.border]
+[ui.frame]
 sides = ""
 padding = [1, 0]
-bg = "Black"
+style.bg = "Black"
 
 [query]
 prompt = "◌ "
@@ -15,14 +15,14 @@ prompt_style.modifier = "BOLD"
 style.fg = "White"
 style.bg = "Black"
 
-[query.border]
+[query.frame]
 sides = ""
 padding = [0, 1, 1, 0]
-bg = "Black"
+style.bg = "Black"
 
-[results.border]
+[results.frame]
 sides = ""
-bg = "Black"
+style.bg = "Black"
 
 [results]
 separator = "Empty"
@@ -45,11 +45,11 @@ template = '\m/\t '
 style.fg = "LightYellow"
 style.bg = "Black"
 
-[preview.border]
-type = "Plain"
+[preview.frame]
+border_type = "Plain"
 sides = "LEFT"
-color = "Yellow"
+fg = "Yellow"
 padding = [1, 0]
-bg = "Black"
+style.bg = "Black"
 title_style.fg = "LightYellow"
 title_style.modifier = "BOLD"

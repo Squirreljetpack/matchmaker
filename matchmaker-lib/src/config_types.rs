@@ -19,6 +19,7 @@ use serde::{
 #[serde(default, deny_unknown_fields)]
 #[matchmaker_partial_macros::partial(
     path,
+    merge,
     derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)
 )]
 pub struct StyleSetting {

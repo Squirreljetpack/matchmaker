@@ -71,7 +71,7 @@ impl DisplayUI {
     }
 
     pub fn update_width(&mut self, width: u16) {
-        let border_w = self.config.border.width();
+        let border_w = self.config.frame.width();
         let new_w = width.saturating_sub(border_w);
         if self.width != new_w {
             self.width = new_w;
@@ -96,7 +96,7 @@ impl DisplayUI {
             return 0;
         }
         let height: u16 = self.heights.iter().sum();
-        height + self.config.border.height()
+        height + self.config.frame.height()
     }
 
     pub fn update_table(&mut self) {
@@ -243,11 +243,11 @@ impl DisplayUI {
         }
 
         let block = {
-            let b = self.config.border.as_static_block();
+            let b = self.config.frame.as_static_block();
             if self.config.match_indent {
-                let mut padding = self.config.border.padding;
+                let mut padding = self.config.frame.padding;
 
-                padding.left = result_indentation.saturating_sub(self.config.border.left());
+                padding.left = result_indentation.saturating_sub(self.config.frame.left());
                 b.padding(padding.0)
             } else {
                 b
@@ -329,9 +329,9 @@ impl DisplayUI {
     pub fn make_full_width_row(&self, result_indentation: u16) -> Paragraph<'static> {
         // Compute padding
         let left = if self.config.match_indent {
-            result_indentation.saturating_sub(self.config.border.left())
+            result_indentation.saturating_sub(self.config.frame.left())
         } else {
-            self.config.border.left()
+            self.config.frame.left()
         };
         let lines_height: u16 = if self.lines.is_empty() {
             0
@@ -340,10 +340,10 @@ impl DisplayUI {
         } else {
             self.heights[1..].iter().sum()
         };
-        let border_top = self.config.border.top();
-        let border_bottom = self.config.border.height().saturating_sub(border_top);
+        let border_top = self.config.frame.top();
+        let border_bottom = self.config.frame.height().saturating_sub(border_top);
         let top = border_top + if self.reverse { lines_height } else { 0 };
-        let right = self.config.border.width().saturating_sub(left);
+        let right = self.config.frame.width().saturating_sub(left);
         let bottom = border_bottom + if !self.reverse { lines_height } else { 0 };
 
         let block = ratatui::widgets::Block::default().padding(ratatui::widgets::Padding {
@@ -365,7 +365,7 @@ impl DisplayUI {
             return None;
         }
 
-        let border_top = self.config.border.top();
+        let border_top = self.config.frame.top();
         if y < border_top {
             return None;
         }
@@ -401,12 +401,12 @@ impl DisplayUI {
         let left_offset = if self.config.match_indent {
             (self
                 .config
-                .border
+                .frame
                 .sides()
                 .contains(ratatui::widgets::Borders::LEFT) as u16)
-                + result_indentation.saturating_sub(self.config.border.left())
+                + result_indentation.saturating_sub(self.config.frame.left())
         } else {
-            self.config.border.left()
+            self.config.frame.left()
         };
 
         if x < left_offset {

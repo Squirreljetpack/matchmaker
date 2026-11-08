@@ -15,12 +15,12 @@ multi_prefix = "● "
 row_connection = "Capped"
 style.bg = "#191724"
 
-[ui.border]
-type = "Rounded"
-color = "#403D52"
+[ui.frame]
+border_type = "Rounded"
+fg = "#403D52"
 sides = "ALL"
 padding = [1, 0]
-bg = "#191724"
+style.bg = "#191724"
 
 [results.match_style]
 fg = "#F6C177"
@@ -44,29 +44,29 @@ template = '{#F6C177:\m} {#6E6A86:/} {#E0DEF4:\t} \s {#EBBCBA:[\r]} '
 style.fg = "#6E6A86"
 style.bg = "#191724"
 
-[preview.border]
-type = "Plain"
-color = "#403D52"
+[preview.frame]
+border_type = "Plain"
+fg = "#403D52"
 sides = "ALL"
 padding = [1, 0]
 title_style.fg = "#EBBCBA"
 title_style.modifier = "BOLD"
-bg = "#191724"
+style.bg = "#191724"
 
-[ui.outer_border]
-bg = "#191724"
+[ui.outer_frame]
+style.bg = "#191724"
 
-[query.border]
-bg = "#191724"
+[query.frame]
+style.bg = "#191724"
 
-[results.border]
-bg = "#191724"
+[results.frame]
+style.bg = "#191724"
 
-[footer.border]
-bg = "#191724"
+[footer.frame]
+style.bg = "#191724"
 
-[header.border]
-bg = "#191724"
+[header.frame]
+style.bg = "#191724"
 
 [envs]
 BAT_THEME = "Catppuccin Mocha"

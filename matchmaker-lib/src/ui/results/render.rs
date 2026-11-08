@@ -504,9 +504,9 @@ impl ResultsUI {
     /// pane, while only the table body is narrowed to the table content width
     /// in `Capped` mode so the row style does not bleed across the pane.
     pub fn render(&self, frame: &mut Frame, area: Rect) {
-        frame.render_widget(self.config.border.as_static_block(), area);
+        frame.render_widget(self.config.frame.as_static_block(), area);
 
-        let inner = self.config.border.inner_of(area);
+        let inner = self.config.frame.inner_of(area);
         frame.render_widget(&self.table, self.table_area(inner));
 
         if let Some(separator) = self.separator_line() {

@@ -30,14 +30,14 @@ show = true
 template = '\m/\t '
 style.fg = "Yellow"
 
-[preview.border]
-type = "Plain"
-color = "DarkGray"
+[preview.frame]
+border_type = "Plain"
+fg = "DarkGray"
 padding = 1
 title_style.fg = "Yellow"
 title_style.modifier = "BOLD"
 
-[ui.border]
+[ui.frame]
 sides = ""
 
 [envs]

@@ -61,15 +61,15 @@ show = false
 
 [[preview.layout]]
 command = "ssh -G {host}"
-border = { title = "SSH Config" }
+frame = { title = "SSH Config" }
 
 [[preview.layout]]
 command = "(nc -w 5 -vz {host} 22 2>&1)&!; ping -c 3 -W 1000 {host}"
-border = { title = "Connectivity" }
+frame = { title = "Connectivity" }
 
 [[preview.layout]]
 command = "ssh-keyscan {host}"
-border = { title = "Host Keys" }
+frame = { title = "Host Keys" }
 
 # --- UI ---
 [header]

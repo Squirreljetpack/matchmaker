@@ -227,7 +227,7 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                     match mouse.kind {
                         MouseEventKind::Down(MouseButton::Left) => {
                             let results_inner =
-                                picker_ui.results.config.border.inner_of(layout.results);
+                                picker_ui.results.config.frame.inner_of(layout.results);
                             if let Some(p) = preview_ui.as_mut()
                                 && p.visible()
                                 && let drag_width = p.drag_width()
@@ -1151,7 +1151,7 @@ where
 fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {
     assert!(ui.visible()); // don't call if not visible.
 
-    frame.render_widget(ui.border().as_static_block(), area);
+    frame.render_widget(ui.frame().as_static_block(), area);
 
     // The text widget goes below the image widget
     #[allow(unused_mut)]
@@ -1210,7 +1210,7 @@ fn render_display(
     let widths = results_ui.width_limits().to_vec();
 
     let (widget, full_width) = ui.make_display((
-        results_ui.indentation() as u16 + results_ui.config.border.left(),
+        results_ui.indentation() as u16 + results_ui.config.frame.left(),
         results_ui.config.column_spacing.0,
         widths,
     ));
@@ -1226,7 +1226,7 @@ fn render_ui(frame: &mut Frame, area: Rect, ui: &UI) {
     // outer container border, drawn over the whole terminal area
     frame.render_widget(ui.make_ui(), area);
     // picker pane border, drawn over the picker pane (including its border area)
-    frame.render_widget(ui.border().as_block(), ui.picker_area());
+    frame.render_widget(ui.frame().as_block(), ui.picker_area());
 }
 
 fn split(rect: &mut Rect, height: u16, cut_top: bool) -> Rect {
@@ -1273,7 +1273,7 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
 
     // The layout sits inside the outer border; the picker pane is additionally
     // inset by the picker border.
-    let mut _area = ui.outer_border().inner_of(area);
+    let mut _area = ui.outer_frame().inner_of(area);
 
     let mut footer = if full_width_footer || preview_ui.as_ref().is_none_or(|p| !p.visible()) {
         split(&mut _area, footer_ui.height(), picker_ui.reverse())
@@ -1285,7 +1285,7 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
         && preview_ui.visible()
     {
         let [preview, picker] = preview_ui.split(_area);
-        let mut picker_area = ui.border().inner_of(picker);
+        let mut picker_area = ui.frame().inner_of(picker);
 
         let hide_preview = if preview_ui.current_dimension.is_some() {
             false
@@ -1298,7 +1298,7 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
         if hide_preview {
             warn!("UI too small, hiding preview");
             preview_ui.show(false);
-            [Rect::default(), _area, ui.border().inner_of(_area), footer]
+            [Rect::default(), _area, ui.frame().inner_of(_area), footer]
         } else {
             if !full_width_footer {
                 footer = split(&mut picker_area, footer_ui.height(), picker_ui.reverse());
@@ -1306,7 +1306,7 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
             [preview, picker, picker_area, footer]
         }
     } else {
-        [Rect::default(), _area, ui.border().inner_of(_area), footer]
+        [Rect::default(), _area, ui.frame().inner_of(_area), footer]
     };
 
     let [input, mut status, mut header, mut results] = picker_ui.layout(picker_area);
@@ -1423,7 +1423,7 @@ mod test {
     use crate::{
         action::NullActionExt,
         config::{
-            BorderSetting, DisplayConfig, PreviewConfig, PreviewLayout, PreviewSetting,
+            DisplayConfig, FrameSetting, PreviewConfig, PreviewLayout, PreviewSetting,
             RenderConfig, ShowCondition, Side, StringOrVec,
         },
         nucleo::Worker,
@@ -1648,11 +1648,11 @@ mod test {
     #[test]
     fn layout_insets_by_outer_and_picker_borders() {
         let mut config = RenderConfig::default();
-        config.ui.border = BorderSetting {
+        config.ui.frame = FrameSetting {
             sides: Some(Borders::ALL),
             ..Default::default()
         };
-        config.ui.outer_border = BorderSetting {
+        config.ui.outer_frame = FrameSetting {
             sides: Some(Borders::ALL),
             ..Default::default()
         };
@@ -1781,7 +1781,7 @@ mod test {
     #[test]
     fn layout_full_width_footer_spans_outer_area() {
         let mut config = RenderConfig::default();
-        config.ui.border = BorderSetting {
+        config.ui.frame = FrameSetting {
             sides: Some(Borders::ALL),
             ..Default::default()
         };
@@ -1827,11 +1827,11 @@ mod test {
     #[test]
     fn render_ui_draws_outer_and_picker_borders() {
         let mut config = RenderConfig::default();
-        config.ui.border = BorderSetting {
+        config.ui.frame = FrameSetting {
             sides: Some(Borders::ALL),
             ..Default::default()
         };
-        config.ui.outer_border = BorderSetting {
+        config.ui.outer_frame = FrameSetting {
             sides: Some(Borders::ALL),
             ..Default::default()
         };
@@ -2013,7 +2013,7 @@ mod test {
         config.status.match_indent = false;
         config.status.row_connection = RowConnectionStyle::Capped;
         config.status.template = r"\m/\t\s".to_string();
-        config.query.border = BorderSetting {
+        config.query.frame = FrameSetting {
             sides: Some(Borders::TOP),
             ..Default::default()
         };
@@ -2052,7 +2052,7 @@ mod test {
         config_rev.status.match_indent = false;
         config_rev.status.row_connection = RowConnectionStyle::Capped;
         config_rev.status.template = r"\m/\t\s".to_string();
-        config_rev.query.border = BorderSetting {
+        config_rev.query.frame = FrameSetting {
             sides: Some(Borders::TOP),
             ..Default::default()
         };

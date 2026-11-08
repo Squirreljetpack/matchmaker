@@ -18,7 +18,7 @@ use ratatui_image::picker::Picker;
 
 use crate::{
     config::{
-        BorderSetting, PreviewConfig, PreviewInitialSetting, PreviewSetting, ShowCondition, Side,
+        FrameSetting, PreviewConfig, PreviewInitialSetting, PreviewSetting, ShowCondition, Side,
     },
     preview::Preview,
     ui::{RESULTS_MIN_H, RESULTS_MIN_W},
@@ -124,7 +124,7 @@ impl PreviewUI {
     // --------------------------------------------------
 
     pub fn update_dimensions(&mut self, area: &Rect) {
-        self.area = self.border().inner_of(*area);
+        self.area = self.frame().inner_of(*area);
         if self.config.reevaluate_show_on_resize {
             self.reevaluate_show_condition([area.width, area.height], false);
         }
@@ -194,26 +194,26 @@ impl PreviewUI {
         self.setting().map(|x| x.command.as_str()).unwrap_or("")
     }
 
-    pub fn border(&self) -> BorderSetting {
+    pub fn frame(&self) -> FrameSetting {
         #[cfg(feature = "partial")]
         {
             let Some(setting) = self.setting() else {
-                return self.config.border.clone();
+                return self.config.frame.clone();
             };
-            let local = &setting.border;
+            let local = &setting.frame;
 
-            let mut border = self.config.border.clone();
-            matchmaker_partial::Apply::apply(&mut border, local.clone());
-            // A layout border that neither sets nor inherits `sides` divides the
+            let mut frame = self.config.frame.clone();
+            matchmaker_partial::Apply::apply(&mut frame, local.clone());
+            // A layout frame that neither sets nor inherits `sides` divides the
             // preview from the results instead of drawing around the whole pane.
-            if border.sides.is_none() && !border.is_empty() {
-                border.sides = Some(setting.layout.side.opposite().into());
+            if frame.sides.is_none() && !frame.is_empty() {
+                frame.sides = Some(setting.layout.side.opposite().into());
             }
-            border
+            frame
         }
         #[cfg(not(feature = "partial"))]
         {
-            self.config.border.clone()
+            self.config.frame.clone()
         }
     }
 
@@ -550,7 +550,7 @@ impl PreviewUI {
     pub fn drag_width(&self) -> u16 {
         self.config.drag_width.unwrap_or_else(|| {
             let side = self.setting().map(|s| s.layout.side).unwrap_or(Side::Right);
-            self.border().dimension(side.opposite())
+            self.frame().dimension(side.opposite())
         })
     }
 
@@ -574,8 +574,8 @@ impl PreviewUI {
         };
 
         let border_offset = match layout.side {
-            Side::Left | Side::Right => self.border().width(),
-            Side::Top | Side::Bottom => self.border().height(),
+            Side::Left | Side::Right => self.frame().width(),
+            Side::Top | Side::Bottom => self.frame().height(),
         };
 
         let side_size = if let Some(size) = self.current_dimension {
@@ -651,8 +651,8 @@ impl PreviewUI {
             let setting = self.setting();
             let side = setting.map(|s| &s.layout.side).unwrap_or(&Side::Right);
             match side {
-                Side::Left | Side::Right => self.area.width + self.border().width(),
-                Side::Top | Side::Bottom => self.area.height + self.border().height(),
+                Side::Left | Side::Right => self.area.width + self.frame().width(),
+                Side::Top | Side::Bottom => self.area.height + self.frame().height(),
             }
         }
     }
@@ -905,7 +905,7 @@ impl PreviewUI {
 mod tests {
     use super::*;
     #[cfg(feature = "partial")]
-    use crate::config::PartialBorderSetting;
+    use crate::config::PartialFrameSetting;
     #[cfg(feature = "image")]
     use crate::preview::image::PreviewImage;
     use crate::{
@@ -953,7 +953,7 @@ mod tests {
     }
 
     #[cfg(feature = "partial")]
-    fn layout_with_border(side: Side, border: PartialBorderSetting) -> PreviewConfig {
+    fn layout_with_frame(side: Side, frame: PartialFrameSetting) -> PreviewConfig {
         PreviewConfig {
             show: ShowCondition::Bool(true),
             layout: vec![PreviewSetting {
@@ -963,7 +963,7 @@ mod tests {
                     min: 15,
                     max: 50,
                 },
-                border,
+                frame,
                 ..Default::default()
             }],
             ..Default::default()
@@ -971,10 +971,13 @@ mod tests {
     }
 
     #[cfg(feature = "partial")]
-    fn themed_global_border() -> BorderSetting {
-        BorderSetting {
-            r#type: Some(BorderType::Rounded),
-            color: Color::Cyan,
+    fn themed_global_frame() -> FrameSetting {
+        FrameSetting {
+            border_type: Some(BorderType::Rounded),
+            border_style: StyleSetting {
+                fg: Some(Color::Cyan),
+                ..Default::default()
+            },
             sides: Some(Borders::ALL),
             padding: Padding(ratatui::widgets::Padding::uniform(1)),
             title_style: StyleSetting {
@@ -987,36 +990,40 @@ mod tests {
 
     #[cfg(feature = "partial")]
     #[test]
-    fn a_layout_border_inherits_the_global_preview_border() {
-        let mut config = layout_with_border(
+    fn a_layout_frame_inherits_the_global_preview_frame() {
+        let mut config = layout_with_frame(
             Side::Right,
-            PartialBorderSetting {
-                r#type: Some(BorderType::Plain),
+            PartialFrameSetting {
+                border_type: Some(BorderType::Plain),
                 ..Default::default()
             },
         );
-        config.border = themed_global_border();
+        config.frame = themed_global_frame();
 
-        let border = preview_with(config).border();
+        let frame = preview_with(config).frame();
 
         assert_eq!(
-            border.r#type,
+            frame.border_type,
             Some(BorderType::Plain),
             "the layout type wins"
         );
-        assert_eq!(border.color, Color::Cyan, "the theme color is inherited");
         assert_eq!(
-            border.sides,
+            frame.border_style.fg,
+            Some(Color::Cyan),
+            "the theme border style fg is inherited"
+        );
+        assert_eq!(
+            frame.sides,
             Some(Borders::ALL),
             "the theme sides are inherited"
         );
         assert_eq!(
-            border.padding.0,
+            frame.padding.0,
             ratatui::widgets::Padding::uniform(1),
             "the theme padding is inherited"
         );
         assert_eq!(
-            border.title_style.fg,
+            frame.title_style.fg,
             Some(Color::Yellow),
             "the theme title style is inherited"
         );
@@ -1024,42 +1031,42 @@ mod tests {
 
     #[cfg(feature = "partial")]
     #[test]
-    fn a_layout_border_can_clear_an_inherited_default() {
-        let mut config = layout_with_border(
+    fn a_layout_frame_can_clear_an_inherited_default() {
+        let mut config = layout_with_frame(
             Side::Right,
-            PartialBorderSetting {
+            PartialFrameSetting {
                 padding: Some(Padding(ratatui::widgets::Padding::ZERO)),
                 title: Some(String::new()),
                 ..Default::default()
             },
         );
-        config.border = themed_global_border();
-        config.border.title = "Theme".into();
+        config.frame = themed_global_frame();
+        config.frame.title = "Theme".into();
 
-        let border = preview_with(config).border();
+        let frame = preview_with(config).frame();
 
         assert_eq!(
-            border.padding.0,
+            frame.padding.0,
             ratatui::widgets::Padding::ZERO,
             "an explicit zero padding clears the inherited padding"
         );
         assert_eq!(
-            border.title, "",
+            frame.title, "",
             "an explicit empty title clears the inherited title"
         );
     }
 
     #[cfg(feature = "partial")]
     #[test]
-    fn an_empty_layout_border_resolves_the_global_implicit_sides_to_the_results_edge() {
-        let mut config = layout_with_border(Side::Right, PartialBorderSetting::default());
-        config.border = themed_global_border();
-        config.border.sides = None;
+    fn an_empty_layout_frame_resolves_the_global_implicit_sides_to_the_results_edge() {
+        let mut config = layout_with_frame(Side::Right, PartialFrameSetting::default());
+        config.frame = themed_global_frame();
+        config.frame.sides = None;
 
-        let border = preview_with(config).border();
+        let frame = preview_with(config).frame();
 
         assert_eq!(
-            border.sides,
+            frame.sides,
             Some(Borders::LEFT),
             "omitted sides face the results pane in the preview context"
         );
@@ -1067,16 +1074,16 @@ mod tests {
 
     #[cfg(feature = "partial")]
     #[test]
-    fn a_layout_border_without_sides_divides_the_pane_from_the_results() {
-        let config = layout_with_border(
+    fn a_layout_frame_without_sides_divides_the_pane_from_the_results() {
+        let config = layout_with_frame(
             Side::Right,
-            PartialBorderSetting {
-                r#type: Some(BorderType::Plain),
+            PartialFrameSetting {
+                border_type: Some(BorderType::Plain),
                 ..Default::default()
             },
         );
 
-        assert_eq!(preview_with(config).border().sides, Some(Borders::LEFT));
+        assert_eq!(preview_with(config).frame().sides, Some(Borders::LEFT));
     }
 
     #[test]

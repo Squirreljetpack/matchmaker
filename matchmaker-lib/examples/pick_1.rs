@@ -4,10 +4,7 @@ use matchmaker::{MatchResultExt, Matchmaker, Result, SSS};
 pub async fn mm_get<T: SSS + Render + Clone>(items: impl IntoIterator<Item = T>) -> Result<T> {
     let worker = Worker::new_single_column();
     worker.append(items);
-    let mm = Matchmaker::new(worker, |_state| {
-        // TODO: extract Vec<T> from state.picker_ui.selector
-        vec![]
-    });
+    let mm = Matchmaker::new_on_cloneable(worker);
 
     mm.pick_default().await.first()
 }

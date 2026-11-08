@@ -102,17 +102,17 @@ else
     ps -ww -eo user,pid,ppid,pgid,sess,tty,lstart,time,rss,vsz,pcpu,pmem,stat$args,command {2}
 fi
 '''
-border = { title = "Process Tree" }
+frame = { title = "Process Tree" }
 
 [[preview.layout]]
 command = "top -b -p {2} 2>/dev/null || top -pid {2}"
-border = { title = "Resources" }
+frame = { title = "Resources" }
 initial.tail = true
 min = 13
 
 [[preview.layout]]
 command = "lsof -p {2}"
-border = { title = "Open Ports" }
+frame = { title = "Open Ports" }
 
 [binds]
 "Reloaded" = '''Transform(

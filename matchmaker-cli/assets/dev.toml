@@ -30,8 +30,8 @@ template = '\m/\t'
 wrap = true
 scroll_wrap = true
 
-[preview.border]
-type = "Plain"
+[preview.frame]
+border_type = "Plain"
 padding = [2, 0]
 
 [[preview.layout]]

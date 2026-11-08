@@ -49,7 +49,7 @@ always_trigger = false
 command = '''
 git -c color.ui=always show --stat --summary --decorate {1}
 '''
-border = { title = "Commit Summary" }
+frame = { title = "Commit Summary" }
 side = "right"
 percentage = 40
 min = 30
@@ -90,7 +90,7 @@ else
   git diff --color=always {1} -- .
 fi
 '''
-border = { title = "Working Tree Diff" }
+frame = { title = "Working Tree Diff" }
 
 [[preview.layout]]
 command = '''
@@ -105,7 +105,7 @@ else
   fi
 fi
 '''
-border = { title = "Show Ref" }
+frame = { title = "Show Ref" }
 
 # --- UI ---
 [tui]

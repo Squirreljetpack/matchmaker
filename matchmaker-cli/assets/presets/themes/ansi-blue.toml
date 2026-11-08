@@ -1,15 +1,15 @@
 # ANSI Blue Theme
 
-[ui.outer_border]
-type = "Rounded"
-color = "Blue"
+[ui.outer_frame]
+border_type = "Rounded"
+fg = "Blue"
 sides = "ALL"
-bg = "Black"
+style.bg = "Black"
 
-[ui.border]
+[ui.frame]
 sides = ""
 padding = [1, 0]
-bg = "Black"
+style.bg = "Black"
 
 [query]
 prompt = "› "
@@ -18,14 +18,14 @@ prompt_style.modifier = "BOLD"
 style.fg = "White"
 style.bg = "Black"
 
-[query.border]
+[query.frame]
 sides = ""
 padding = [1, 0]
-bg = "Black"
+style.bg = "Black"
 
-[results.border]
+[results.frame]
 sides = ""
-bg = "Black"
+style.bg = "Black"
 
 [results]
 separator = "None"
@@ -47,10 +47,10 @@ row_connection = "Capped"
 fg = "LightBlue"
 modifier = "BOLD"
 
-[header.border]
+[header.frame]
 sides = ""
 padding = [1, 0]
-bg = "Black"
+style.bg = "Black"
 
 [status]
 show = true
@@ -59,12 +59,12 @@ template = '\m/\t '
 style.fg = "LightBlue"
 style.bg = "Black"
 
-[preview.border]
-type = "Plain"
+[preview.frame]
+border_type = "Plain"
 sides = "LEFT"
-color = "DarkGray"
+fg = "DarkGray"
 padding = [1, 0]
-bg = "Black"
+style.bg = "Black"
 title_style.fg = "LightBlue"
 title_style.modifier = "BOLD"
 

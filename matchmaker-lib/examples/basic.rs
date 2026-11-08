@@ -7,10 +7,7 @@ async fn main() -> Result<()> {
 
     let worker = Worker::new_single_column();
     worker.append(items);
-    let mm: Matchmaker<&str, String> = Matchmaker::new(worker, |_state| {
-        // TODO: extract Vec<String> from state.picker_ui.selector
-        vec![]
-    });
+    let mm = Matchmaker::new_on_cloneable(worker);
 
     match mm.pick_default().await {
         Ok(v) => {

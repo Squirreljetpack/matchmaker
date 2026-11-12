@@ -3,7 +3,7 @@
 source = 'base.toml'
 
 [start]
-command = 'git log --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "${1:-.}"'
+command = '[ $# -eq 0 ] && set -- .; git log --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "$@"'
 additional_commands = [
     "",
     '''
@@ -16,15 +16,16 @@ additional_commands = [
   fi
   ''',
     '''
+  [ $# -eq 0 ] && set -- .
   if $HAS_AWK; then
-    git reflog --all --format="%h%x00%at%x00%gD: %gs" -- "${1:-.}" |
+    git reflog --all --format="%h%x00%at%x00%gD: %gs" -- "$@" |
     awk -F'\x00' -v OFS='\x00' -v fmt="$DATE_FORMAT" \
       '{$2 = strftime(fmt, $2); print}'
   else
-      git reflog --date=human --format="%h%x00%ad%x00%s" -- "${1:-.}"
+      git reflog --date=human --format="%h%x00%ad%x00%s" -- "$@"
   fi
   ''',
-    'git log --all --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "${1:-.}"',
+    '[ $# -eq 0 ] && set -- .; git log --all --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "$@"',
 ]
 output_template = '{=ref}'
 
@@ -94,11 +95,42 @@ frame = { title = "Working Tree Diff" }
 
 [[preview.layout]]
 command = '''
-f={$1}
-if [ -f "$f" ]; then
-  git show --color=always {1}:"$f"
+if [ -n "{$0}" ]; then
+  set -- {$0}
+  first=1
+  ROOT=$(pwd -P 2>/dev/null || pwd)
+  for p; do
+    rel="$p"
+    case "$rel" in
+      "$PWD/"*) rel="${rel#"$PWD/"}" ;;
+      "$ROOT/"*) rel="${rel#"$ROOT/"}" ;;
+    esac
+    rel="${rel#./}"
+    if [ "$rel" = "." ]; then
+      if [ "$MM_INDEX" = 1 ]; then
+        git -c color.ui=always stash show -u -p {1}
+      else
+        git show --color=always {1}
+      fi
+      exit 0
+    fi
+    if [ "$#" -gt 1 ]; then
+      [ "$first" = 0 ] && echo ""
+      echo "=== $rel ==="
+    fi
+    if git cat-file -e {1}:"$rel" 2>/dev/null; then
+      if command -v bat >/dev/null 2>&1; then
+        git show {1}:"$rel" | bat --wrap=never --color=always -pp --file-name "$rel"
+      else
+        git show --color=always {1}:"$rel"
+      fi
+    else
+      echo "fatal: path '$rel' does not exist in {1}"
+    fi
+    first=0
+  done
 else
-  if ((MM_INDEX == 1)); then
+  if [ "$MM_INDEX" = 1 ]; then
     git -c color.ui=always stash show -u -p {1}
   else
     git show --color=always {1}
@@ -123,11 +155,13 @@ prompt = "restore> "
 "@return" = "Accept"
 "alt-r" = ["#reset/apply stash", "@reset"]
 "ctrl-t" = ["@tag", "Reload"]
-"@rm" = ["#stash (changes)/squash (commits)/drop (stash)/clean (refs)", "@clean", "Reload"]
+"@rm" = ["#stash,+squash history/drop stash/clean refs", "@clean", "Reload"]
 "ctrl-c" = "@compare"
 "alt-c" = "@diffstat"
 "alt-m" = ["@edit_msg", "Reload"]
 "ctrl-e" = ["@rebase", "Reload"]
+"@rename" = ["#rename (+fixup/reorder history)", "@fixup", "Reload"]
+"ctrl-x" = "@rename"
 "@next" = "BecomeSilent(mm -o git/switch)"
 "@prev" = "BecomeSilent(mm -o git/status -F)"
 "@help" = '''RunPreview(
@@ -214,20 +248,40 @@ case $MM_INDEX in
   *)
   echo "### Checkout ###\n"
 
-  git --no-pager diff --stat {1} -- {$1}
+  if [ -n "{$0}" ]; then
+    git --no-pager diff --stat {1} -- {$0}
+  else
+    git --no-pager diff --stat {1}
+  fi
   ;;
 esac
 
-[ -n "$(git status --porcelain -- {$1})" ] &&
-printf 'Proceed (or stash (all) changes)? [y/N/s/a] ' ||
-printf 'Proceed? [y/N] '
+if [ -n "{$0}" ]; then
+  [ -n "$(git status --porcelain -- {$0})" ] &&
+  printf 'Proceed (or stash (all) changes)? [y/N/s/a] ' ||
+  printf 'Proceed? [y/N] '
+else
+  [ -n "$(git status --porcelain)" ] &&
+  printf 'Proceed (or stash (all) changes)? [y/N/s/a] ' ||
+  printf 'Proceed? [y/N] '
+fi
 
 read -r c
 case $c in
   [s])
-  git stash push -- {$1} ;;
+  if [ -n "{$0}" ]; then
+    git stash push -- {$0}
+  else
+    git stash push
+  fi
+  ;;
   [a])
-  git stash push -u -- {$1} ;;
+  if [ -n "{$0}" ]; then
+    git stash push -u -- {$0}
+  else
+    git stash push -u
+  fi
+  ;;
   [y]) ;;
   *) exit 100 ;;
 esac
@@ -236,7 +290,13 @@ case $MM_INDEX in
   # return on success
   1) git stash pop {1} && exit 100 ;;
   # leave on success
-  *) git checkout {1} -- {$1} ;;
+  *)
+  if [ -n "{$0}" ]; then
+    git checkout {1} -- {$0}
+  else
+    git checkout {1}
+  fi
+  ;;
 esac
 )
 '''
@@ -249,11 +309,21 @@ case $MM_INDEX in
   FILES="$(git stash show --name-only "$TARGET" 2>/dev/null || true)"
   STASHED="$(git rev-parse refs/stash 2>/dev/null || true)"
 
-  if [ -n "$FILES" ] &&
-    printf '%s\n' "$FILES" |
-    git status --porcelain --pathspec-from-file=- |
-    grep -q .
-  then
+  is_dirty=false
+  if [ -n "$FILES" ]; then
+    OLD_IFS="$IFS"
+    IFS="
+"
+    set -f
+    set -- $FILES
+    set +f
+    IFS="$OLD_IFS"
+    if [ "$#" -gt 0 ] && git status --porcelain -- "$@" 2>/dev/null | grep -q .; then
+      is_dirty=true
+    fi
+  fi
+
+  if $is_dirty; then
     printf 'Affected files are dirty. Proceed? [y/N/s(tash)] '
   else
     printf 'Apply stash %s? [Y/n] ' "$TARGET"
@@ -424,38 +494,13 @@ case $MM_INDEX in
     exit 1 # keep output visible
   fi
 
-  printf "Stash all changes to HEAD? [Y, n, (a)mend {1}, or type custom message]: "
+  printf "Stash all changes to HEAD? [Y, n, or type custom message]: "
   read -r ans
   case "$ans" in
     [yY]|"")
       git stash
       ;;
     [nN])
-      ;;
-    [aA])
-      # warn: vulnerable to concrrent stashing since __stash isn't a stable id
-      if ! {
-          git stash push -u -m "pre-amend {=1}" &&
-          __stash='stash@\{0}' &&
-          GIT_SEQUENCE_EDITOR="sed -i.bak 's/^pick {=1}/edit {=1}/'" \
-              git -c rebase.autoStash=false rebase -i {=1}^ &&
-          git stash apply "$__stash" &&
-          git add -A &&
-          git commit --amend --no-verify --no-edit &&
-          git rebase --continue
-      }; then
-          printf 'Amend failed. Rollback? [Y/n] '
-          read -r choice
-          case "$choice" in
-              [yY]|"")
-                  git rebase --abort 2>/dev/null || :
-                  git stash pop "$__stash"
-                  ;;
-              *) ;;
-          esac
-      else 
-          git stash pop "$__stash"
-      fi
       ;;
     *)
       git stash push -u -m "$ans"
@@ -496,58 +541,12 @@ case $MM_INDEX in
 esac
 )'''
 
-"@edit_msg" = '''ExecuteOrConfirm(
+"@fixup" = '''BecomeOrConfirm(
 set -e
 
-case $MM_INDEX in
-0)
-  echo "Commit message (\ -> continue): "
-  msg=""
-  while IFS= read -r line; do
-    if [[ "$line" == *'\' ]]; then
-      msg+="${line%?}"$'\n'
-      printf "> "
-    else
-      msg+="$line"
-      break
-    fi
-  done
-
-  if [ -z "$msg" ]; then
-    echo "Commit message cannot be empty."
-    exit 1
-  fi
-
-  # Find the parent commit, or default to root if it's the first commit ever
-  parent="$(git rev-parse {1}^ 2>/dev/null || echo '--root')"
-
-  TARGET_SHA="$(git rev-parse {1} 2>/dev/null)"
-  HEAD_SHA="$(git rev-parse HEAD 2>/dev/null)"
-
-  if [ "$TARGET_SHA" = "$HEAD_SHA" ]; then
-      # No rebase needed, just amend directly
-      git commit --allow-empty --amend -m "$msg"
-  else
-      # Find the parent commit, or default to root
-      parent="$(git rev-parse {1}^ 2>/dev/null || echo '--root')"
-
-      if sed --version 2>/dev/null | grep -q GNU; then
-          SED_CMD="sed -i"
-      else
-          SED_CMD="sed -i ''"
-      fi
-
-      # Start the rebase
-      GIT_SEQUENCE_EDITOR="$SED_CMD '1s/^pick /edit /'" git rebase -i "$parent"
-
-      # Amend the message
-      git commit --allow-empty --amend -m "$msg"
-
-      # Finish replaying subsequent commits
-      git rebase --continue
-  fi
-  ;;
-1)
+case "${MM_INDEX:-0}" in
+  0) ;;
+  1)
   echo "Commit message (\ -> continue): "
   msg=""
   while IFS= read -r line; do
@@ -568,9 +567,189 @@ case $MM_INDEX in
   STASH_SHA="$(git rev-parse {1} 2>/dev/null)"
   git stash drop {1}
   git stash store -m "$msg" "$STASH_SHA"
-*)
-  echo "Unavailable"
-  exit 1
+  exit 100
   ;;
+  *)
+    echo "Unavailable (only works for commit history)"
+    exit 1
+    ;;
 esac
+
+PREV_HEAD="$(git rev-parse HEAD)"
+COUNT="${MM_SELECT_COUNT:-0}"
+TARGET_SHA="$(git rev-parse {1} 2>/dev/null || true)"
+if [ -z "$TARGET_SHA" ]; then
+  printf 'Could not resolve commit %s\n' {1}
+  exit 1
+fi
+BASE_SHA="$TARGET_SHA"
+
+MSG_FILE=""
+ORIG_MSG_FILE=""
+SEQ_EDITOR=""
+trap 'rm -f "$MSG_FILE" "$ORIG_MSG_FILE" "$SEQ_EDITOR"' EXIT
+
+# Rebase interactively from BASE_SHA's parent, or from the root commit.
+# $1 is the sequence editor; remaining arguments go to `git rebase -i`.
+rebase_rewrite() {
+  seq_editor="$1"
+  shift
+  if git rev-parse --verify -q "$BASE_SHA^" >/dev/null 2>&1; then
+    GIT_SEQUENCE_EDITOR="$seq_editor" git rebase -i "$@" "$BASE_SHA^"
+  else
+    GIT_SEQUENCE_EDITOR="$seq_editor" git rebase -i "$@" --root
+  fi
+}
+
+rollback() {
+  printf '%s failed. Rollback? [Y/n] ' "$1"
+  read -r choice
+  case "$choice" in
+    [yY] | "") git rebase --abort 2>/dev/null || : ;;
+    *) ;;
+  esac
+  exit 1
+}
+
+# Report the rewritten history, or resume silently when nothing changed.
+report() {
+  if [ "$(git rev-parse HEAD)" = "$PREV_HEAD" ]; then
+    exit 100
+  fi
+  printf '\nSuccessfully %s\n' "$*"
+  printf 'Previous HEAD was %s\n' "$PREV_HEAD"
+  printf 'To restore previous HEAD: git reset --hard %s\n' "$PREV_HEAD"
+}
+
+if [ "$COUNT" -eq 0 ]; then
+  # -------------------------------------------------------------
+  # Nothing selected -> edit the message of the target commit
+  # -------------------------------------------------------------
+  MSG_FILE="$(mktemp "${TMPDIR:-/tmp}/git-msg.XXXXXX")"
+  ORIG_MSG_FILE="$(mktemp "${TMPDIR:-/tmp}/git-msg.orig.XXXXXX")"
+  git log -1 --format=%B "$TARGET_SHA" > "$ORIG_MSG_FILE"
+  cp "$ORIG_MSG_FILE" "$MSG_FILE"
+
+  ${VISUAL:-${EDITOR:-vi}} "$MSG_FILE"
+
+  if [ ! -s "$MSG_FILE" ] || ! grep -q '[^[:space:]]' "$MSG_FILE" || cmp -s "$MSG_FILE" "$ORIG_MSG_FILE"; then
+    exit 100
+  fi
+
+  if [ "$TARGET_SHA" = "$PREV_HEAD" ]; then
+    git commit --allow-empty --amend -F "$MSG_FILE"
+  else
+    TARGET_SHORT="$(git rev-parse --short "$TARGET_SHA")"
+    SEQ_EDITOR="$(mktemp "${TMPDIR:-/tmp}/git-seq-editor.XXXXXX")"
+    cat << EOF > "$SEQ_EDITOR"
+#!/bin/sh
+sed -i.bak "s/^pick $TARGET_SHORT/edit $TARGET_SHORT/" "\$1" && rm -f "\$1.bak"
+EOF
+    chmod +x "$SEQ_EDITOR"
+
+    if ! rebase_rewrite "$SEQ_EDITOR"; then
+      rollback "Rebase"
+    fi
+
+    git commit --allow-empty --amend -F "$MSG_FILE"
+    if ! GIT_EDITOR=true git rebase --continue; then
+      rollback "Rebase continue"
+    fi
+  fi
+
+  report "updated the message of" {1}
+
+elif [ "$COUNT" -eq 1 ]; then
+  # -------------------------------------------------------------
+  # One commit selected -> fold the working tree into it
+  # -------------------------------------------------------------
+  TARGET_SHA="$(git rev-parse {+1})"
+  if [ -z "$(git status --porcelain)" ]; then
+    exit 100
+  fi
+
+  git add -A
+
+  if [ "$TARGET_SHA" = "$PREV_HEAD" ]; then
+    git commit --amend --no-edit --no-verify
+  else
+    git commit --no-verify --fixup="$TARGET_SHA"
+    if ! rebase_rewrite true --autosquash; then
+      rollback "Amend"
+    fi
+  fi
+
+  report "amended" {+1}
+
+else
+  # -------------------------------------------------------------
+  # Several commits selected -> reorder them so the selection order
+  # (first selected = oldest) becomes their order in history
+  # -------------------------------------------------------------
+  # Resolve the selection to full hashes in selection order (word-split
+  # into positional parameters on purpose).
+  set -- $(git rev-parse {+1} 2>/dev/null || true)
+  if [ "$#" -eq 0 ]; then
+    exit 100
+  fi
+
+  # Selected commits in ascending history order; the first is the rebase base.
+  FOUND=0
+  SELECTED_ASC=""
+  for c in $(git rev-list --reverse HEAD); do
+    case " $* " in
+      *" $c "*) ;;
+      *) continue ;;
+    esac
+    if [ "$FOUND" -eq 0 ]; then
+      BASE_SHA="$c"
+    fi
+    FOUND=$((FOUND + 1))
+    SELECTED_ASC="${SELECTED_ASC:+$SELECTED_ASC }$c"
+  done
+
+  if [ "$FOUND" -ne "$#" ]; then
+    echo "Selection is not part of HEAD's history"
+    exit 1
+  fi
+  if [ "$SELECTED_ASC" = "$*" ]; then
+    echo "Selection is already in history order"
+    exit 100
+  fi
+
+  # Rewrite the todo list so each selected slot gets the next selection.
+  SEQ_EDITOR="$(mktemp "${TMPDIR:-/tmp}/git-seq-editor.XXXXXX")"
+  {
+    printf "#!/bin/sh\nSEL='%s'\n" "$*"
+    cat << 'EOF'
+awk -v sel="$SEL" '
+BEGIN { n = split(sel, sel_arr, " ") }
+{ lines[NR] = $0 }
+($1 == "pick" || $1 == "p") && NF >= 2 {
+    for (i = 1; i <= n; i++)
+        if (index(sel_arr[i], $2) == 1) {
+            slots[++ns] = NR
+            picked[i] = $0
+            break
+        }
+}
+END {
+    if (ns != n) {
+        print "selected commits missing from the rebase todo" > "/dev/stderr"
+        exit 1
+    }
+    for (i = 1; i <= ns; i++) lines[slots[i]] = picked[i]
+    for (i = 1; i <= NR; i++) print lines[i]
+}
+' "$1" > "$1.tmp" && mv "$1.tmp" "$1"
+EOF
+  } > "$SEQ_EDITOR"
+  chmod +x "$SEQ_EDITOR"
+
+  if ! rebase_rewrite "$SEQ_EDITOR"; then
+    rollback "Reorder"
+  fi
+
+  report "reordered commits"
+fi
 )'''

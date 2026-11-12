@@ -69,7 +69,15 @@ frame = { title = "File Diff" }
 
 [[preview.layout]]
 command = '''
-git show --ext-diff --color=always {1} -- {2}
+if git cat-file -e {1}:{2} 2>/dev/null; then
+  if command -v bat >/dev/null 2>&1; then
+    git show {1}:{2} | bat --wrap=never --color=always -pp --file-name {2}
+  else
+    git show --color=always {1}:{2}
+  fi
+else
+  git show --ext-diff --color=always {1} -- {2}
+fi
 '''
 frame = { title = "File Contents" }
 

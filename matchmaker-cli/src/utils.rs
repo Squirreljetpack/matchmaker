@@ -2,7 +2,7 @@ use cba::{_ibog, ebog, ibog};
 use serde::Deserialize;
 use std::{
     io::{self, Write},
-    path::{Path, PathBuf},
+    path::Path,
     process::{Command, exit},
 };
 
@@ -341,24 +341,6 @@ pub fn handle_download(download: &String, folder_exclude_extensions: &[&str]) ->
 
     ibog!("Successfully downloaded {} file(s).", download_count);
     exit(0)
-}
-
-pub fn expand_tilde(path: PathBuf) -> PathBuf {
-    use std::path::Component;
-
-    let mut components = path.components();
-
-    match components.next() {
-        Some(Component::Normal(first)) if first == "~" => {
-            if let Some(home) = dirs::home_dir() {
-                return home.join(components.as_path());
-            }
-        }
-
-        _ => {}
-    }
-
-    path
 }
 
 #[allow(unused)]

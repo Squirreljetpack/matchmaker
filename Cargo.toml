@@ -17,7 +17,7 @@ matchmaker-partial-macros = { path = "./matchmaker-partial-macros" }
 matchmaker-minus = { path = "../matchmaker-minus" }
 
 [workspace.dependencies]
-cli_boilerplate_automation = { version = "0.*" }
+cli_boilerplate_automation = { version = "0.*", features = ["serde", "bring", "dirs"] }
 matchmaker-lib = { version = "0.*" }
 matchmaker-partial = { version = "0.*" }
 matchmaker-partial-macros = { version = "0.*", default-features = false }

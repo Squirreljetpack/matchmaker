@@ -38,8 +38,8 @@ use crate::{
     execute,
     formatter::format_cli,
     start::{COMMAND_ARGS, process_envs},
-    utils::expand_tilde,
 };
+use cba::birs::expand_tilde;
 
 /// Implements `--list`: outputs what the populating command would have output,
 /// without starting the matcher.
@@ -503,7 +503,7 @@ fn setup(config: &Config) -> anyhow::Result<(String, HashMap<String, String>, Ve
                 failed = true;
             }
         } else {
-            let path = expand_tilde(value.clone().into());
+            let path = expand_tilde(value);
             set_current_dir(&path)
                 .prefix(format!("Failed to switch to {path:?}"))
                 ._wbog();

@@ -17,7 +17,7 @@ use crate::{
     paths::{default_config_path, last_key_path, presets_path},
     register::MMExt,
     sort::init_mm_sort,
-    utils::{expand_tilde, guess_editor_cmd, guess_pager_cmd},
+    utils::{guess_editor_cmd, guess_pager_cmd},
 };
 
 #[cfg(not(feature = "pager"))]
@@ -25,6 +25,7 @@ use crate::config::PagerConfig;
 use cba::{
     _wbog,
     bait::{OptionExt, ResultExt, TransformExt},
+    birs::expand_tilde,
     bo::{
         MapReaderError, load_type_or_default, map_chunks, map_reader_lines, read_to_chunks,
         write_str,
@@ -605,7 +606,7 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
                 failed = true;
             }
         } else {
-            let path = expand_tilde(value.into());
+            let path = expand_tilde(&value);
             set_current_dir(&path)
                 .prefix(format!("Failed to switch to {path:?}"))
                 ._wbog();

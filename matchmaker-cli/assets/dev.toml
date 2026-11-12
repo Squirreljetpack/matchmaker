@@ -2,6 +2,7 @@
 percentage = 60
 min = 10
 max = 120
+scroll = "Expansive" # Expansive | Aggressive | Lazy | Compact
 
 # --- UI ---
 [ui]
@@ -11,16 +12,20 @@ max = 120
 [query]
 prompt_style.fg = "Gray"
 prompt_style.modifier = "ITALIC"
-word_boundaries = ['.', '/']
+# word movement stops at these characters in addition to whitespace
+# word_boundaries = ['.', '/']
+reset_cursor_on_query_change = true
 
 [results]
 delay_clear = true
-wrap = true
-uniformly_truncate_columns = false
+# wrap = true
+# uniformly_truncate_columns = false
+# reverse = false # set this to prevent flipping when using -F
 max_height = 16
 
 [status]
 template = '\m/\t'
+show = true
 
 [header]
 
@@ -31,13 +36,16 @@ wrap = true
 scroll_wrap = true
 
 [preview.frame]
+title_style.modifier = "UNDERLINED"
 border_type = "Plain"
 padding = [2, 0]
 
 [[preview.layout]]
 command = '''
 mm -q --image {1} && exit 0
-if [ -d {1} ]; then
+if command -v fs >/dev/null 2>&1; then
+    fs :tool pg -- {1}
+elif [ -d {1} ]; then
     if command -v eza >/dev/null 2>&1; then
         eza --color=always -T -L 2 -- {1}
     else
@@ -45,9 +53,7 @@ if [ -d {1} ]; then
     fi
 else
     if command -v bat >/dev/null 2>&1; then
-        bat --binary no-printing --color=always -- {1}
-    elif command -v $PAGER >/dev/null 2>&1; then
-        $PAGER -- {1}
+        bat --binary no-printing --color=always --style=-numbers -- {1}
     else
         cat -- {1}
     fi
@@ -73,10 +79,12 @@ max = 240
 
 [previewer]
 always_trigger = true
+# help.combine_keys = false
 
 # --- Misc ---
 [matcher]
 # ansi = false # don't set to true here
+# sort.threshold = 1 # set to maintain initial ordering
 
 [columns]
 
@@ -136,10 +144,10 @@ abort_empty = true
 # "pageup" = "HalfPageUp"
 # "shift-up" = "PreviewHalfPageUp"
 # "shift-down" = "PreviewHalfPageDown"
-# "ctrl-shift-up" = "VScroll(1)"
-# "ctrl-shift-down" = "VScroll(-1)"
-# "ctrl-shift-left" = "HScroll(-1)"
-# "ctrl-shift-right" = "HScroll(1)"
+# "alt-shift-up" = "VScroll(1)"
+# "alt-shift-down" = "VScroll(-1)"
+# "alt-shift-left" = "HScroll(-1)"
+# "alt-shift-right" = "HScroll(1)"
 # "alt-up" = "VScroll(1)"
 # "alt-down" = "VScroll(-1)"
 # "alt-left" = "HScroll(-1)"
@@ -147,11 +155,12 @@ abort_empty = true
 # "alt-w" = "ToggleWrap",
 # "alt-shift-w" = "TogglePreviewWrap",
 
-"alt-shift-right" = "PreviewHScroll(1)"
-"alt-shift-left" = "PreviewHScroll(-1)"
-"alt-shift-up" = "PreviewScroll(1)" # zoom or row-based persistent scroll
-"alt-shift-down" = "PreviewScroll(-1)"
-"ctrl-[" = ["ToggleWrap", "ToggleHeaderWrap"] # requires keyboard enhancement
+# "ctrl-shift-right" = "PreviewHScroll(1)" # requires keyboard enhancement
+# "ctrl-shift-left" = "PreviewHScroll(-1)"
+# "ctrl-shift-up" = "PreviewScroll(1)" # zoom or row-based persistent scroll
+# "ctrl-shift-down" = "PreviewScroll(-1)"
+
+"alt-w" = ["ToggleWrap", "ToggleHeaderWrap"]
 
 # Columns
 "ctrl-." = "NextColumn" # requires keyboard enhancement
@@ -173,8 +182,10 @@ abort_empty = true
 
 ### (DEFAULTS) ###
 # "?" = "SwitchPreview"
-# "alt-/" = "NextPreview"
+# "alt-/" = ""
 # "alt-shift-/" = "PrevPreview"
+# "ctrl-/" = "" # requires keyboard enhancement
+# "ctrl-shift-/" = "PrevPreview" # requires keyboard enhancement
 # "alt-h" = "Help"
 
 "alt-shift-=" = "ExpandPreview"
@@ -202,20 +213,21 @@ abort_empty = true
 "alt-o" = "@open_2"
 "ctrl-r" = "@reload"
 "ctrl-shift-r" = "@reload_2"
-"ctrl-shift-n" = "@next" # requires keyboard enhancement
+"alt-[" = "@prev"
+"alt-]" = "@next"
 "ctrl-shift-p" = "@prev" # requires keyboard enhancement
-"alt-tab" = "@next"
-"alt-shift-backtab" = "@prev"
-"alt-shift-tab" = "@prev"
+"ctrl-shift-n" = "@next" # requires keyboard enhancement
 "ctrl-d" = "@rm"
 "Delete" = "@rm"
 "ctrl-s" = "@show"
 "ctrl-n" = "@new"
 
 "@accept" = "Accept"
-"@open" = "ExecuteOrConfirm($EDITOR -- {1})"
-"@open_2" = "Become($EDITOR -- {1})"
+"@open" = ["#open in editor", "ExecuteOrConfirm($EDITOR -- {1})"]
+"@open_2" = ["#replace with editor", "Become($EDITOR -- {1})"]
 "@reload" = "Reload"
+# "@next" = ["ReloadNext", "Cancel"] # see mm --doc binds
+# "@prev" = ["ReloadPrev", "Cancel"]
 "@help" = "Help"
 "@refresh" = "Redraw" # invalid unicode or unsupported emoji can break rendering
 
@@ -228,7 +240,7 @@ abort_empty = true
 "alt-y" = "@copy_active"
 
 "@print" = "Print({-})"
-"@print_2" = "Print({-!})"
-"@copy" = "CopyAsync(printf '%s\n' {+1})"
+"@print_2" = ["#print active", "Print({-!})"]
+"@copy" = "CopyAsync(printf '%s\n' {+0})"
 "@copy_all" = "CopyAsync(printf {})"
 "@copy_active" = "CopyAsync(printf '%s\n' {+!})"

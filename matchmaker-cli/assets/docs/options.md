@@ -1,6 +1,6 @@
 # Command Line Options
 
-Matchmaker allows you to override any configuration setting directly from the command line. Overrides are specified as key-value pairs following the standard arguments.
+Matchmaker allows you to override configuration settings directly from the command line. Overrides are specified as key-value pairs following the standard arguments.
 
 ## Syntax
 
@@ -8,9 +8,11 @@ Overrides follow the pattern `path=value` or `path value`.
 
 - **Hierarchical Paths**: Use dot notation to navigate the configuration structure (e.g., `results.style.fg`).
 - **Flattened Fields**: Several major configuration blocks are "flattened," meaning their children can be accessed as top-level keys.
-- **Shortcuts**: Many common fields have short aliases:
-  - `binds` -> `b`
-  - `start` -> `s`
+- **Section Shortcuts**: Most sections have a single-letter alias:
+  - `matcher` -> `m`, `columns` -> `c`, `exit` -> `e`
+  - `query` -> `q`, `results` -> `r`, `preview` -> `p`
+  - `header` -> `h`, `footer` -> `f`, `binds` -> `b`, `start` -> `s`
+- **Field Shortcuts**: Common nested fields have short aliases:
   - `header.header_lines` -> `h.h`
   - `results.reverse` -> `r.r`
   - `results.wrap` -> `r.w`
@@ -38,9 +40,10 @@ For example to split input on space, use `mm d " "`.
 
 The `-o` flag allows you to layer additional configuration files on top of your base config. This is allows for consistent keybindings and settings between many different workflows.
 
-- **Relative Paths**: `-o` accepts an absolute path, but if you provide a relative path without an extension, Matchmaker will automatically look for a matching `.toml` file in the `presets` directory of your matchmaker configuration directory.
-- **Example**: `mm -o git/status` will attempt to load `presets/git/status.toml` from the installation directory.
-- **Source Field**: Overrides support a `source` field at the top level, allowing them to inherit from another preset (one level of recursion is supported).
+- **Relative Paths**: `-o` accepts a path. A relative path without an extension is resolved inside the `presets` directory of your matchmaker configuration directory. It checks, in order: `<path>/main.toml`, `<path>/<os>.main.toml`, `<path>.toml`, then `<path>.<os>.toml`.
+- **Example**: `mm -o git/status` loads `presets/git/status.toml`; `mm -o unicode` loads `presets/unicode/main.toml`.
+- **Source Field**: An override may set a top-level `source` path to inherit another preset, resolved relative to the overriding file. Only one level is followed, and `source` is ignored in the main config and in nested overrides.
+- **`MM_OVERRIDE`**: Each applied override exports `MM_OVERRIDE` with its canonical path (unless your config already sets it), so `@` scripts and `$MM_OVERRIDE` resolve relative to the preset.
 
 ### Values
 
@@ -53,9 +56,9 @@ A few illustrative (but not very practical) examples:
 mm p.l command=ls p.l "x=echo hi,min=3" b "ctrl-c=Quit,?=preview(echo hi)" b.ctrl-a cancel
 
 # Setting the column splitting delimiter
-mm m.c.split "\w+,/\w+" # Sets the field: columns.split = Split::Regexes([Regex('\w'), Regex('/\w+')])
+mm c.split "\w+,/\w+" # Sets the field: columns.split = Split::Regexes([Regex('\w'), Regex('/\w+')])
 
-# Note that the same effect is NOT achieved by specifying mm m.c.split "\w+" m.c.split "/\w+" in this case:
+# Note that the same effect is NOT achieved by specifying mm c.split "\w+" c.split "/\w+" in this case:
 # both declare a single (delimiter) regex, and the second command overwrites the first.
 ```
 
@@ -123,24 +126,57 @@ All colors and modifiers come from ratatui:
 - `abort_empty`: (bool) Abort if no items are provided.
 - `last_key_path`: (path, optional) File in which to write the last processed key. Set to an empty path to disable it.
 
+### Environment (`envs.`)
+
+Environment variables injected into the picker and its child commands. An entry may be a string or an object:
+
+- `value`: (string) The variable value. An empty value is skipped, leaving any existing process variable untouched.
+- `exec`: (bool) Run `value` as a command (using the normal command strategies) and use its trimmed output as the value.
+- `force`: (bool) Override a variable that already exists in the process environment. Without it, an existing process variable wins.
+
+```toml
+[envs]
+EDITOR = "nvim"
+GIT_PAGER = { value = "delta", force = true }
+BRANCH = { value = "git branch --show-current", exec = true }
+```
+
 ### Matcher (`matcher.`, `m`)
 
-- `normalize`: (bool) Enable/disable normalization of characters (e.g., matching 'e' with 'é').
-- `ignore_case`: (bool) Enable/disable case-insensitive matching.
-- `prefer_prefix`: (bool) Prioritize matches that start with the query.
-- `match_paths`: (bool) Enable path-aware matching.
-- `trim`: (bool) Trim whitespace from input lines.
-  - Absolute alias: `t`.
-- `ansi`: (bool) Parse ansi codes from input.
-  - Absolute alias: `a`.
-- `sanitize`: (bool) Sanitize the input text/string from text_preprocessor.
+#### Preprocessing
+
+- `ansi`: (bool, alias `a`) Parse ANSI codes from input.
+- `trim`: (bool, alias `t`) Trim whitespace from input lines. The absolute alias `t` is reserved for `matcher.sort.threshold`, so use `m.t` for trimming.
+- `sanitize`: (bool, alias `s`) Sanitize the input text from the text preprocessor.
 - `require_column`: (integer, optional) Skip input lines whose specified column is empty.
-- `raw`: (bool) Enable raw mode where non-matching items are also displayed in a dimmed color. (unimplemented)
+
+#### Backend
+
+- `backend`: `nucleo` (default) or `frizbee`.
+- With the default `nucleo` backend:
+  - `normalize`: (bool) Normalize characters (e.g. match 'e' with 'é').
+  - `ignore_case`: (bool) Case-insensitive matching.
+  - `prefer_prefix`: (bool) Prioritize matches that start with the query.
+  - `match_paths`: (bool) Path-aware matching.
+- With `backend = "frizbee"` (typo-tolerant matching):
+  - `max_typos`: (integer, optional) Maximum edit distance.
+  - Scoring weights (integers): `match_score`, `mismatch_penalty`, `gap_open_penalty`, `gap_extend_penalty`, `prefix_bonus`, `capitalization_bonus`, `matching_case_bonus`, `exact_match_bonus`, `delimiter_bonus`.
+
+```toml
+[matcher]
+backend = "frizbee"
+max_typos = 1
+exact_match_bonus = 16
+```
+
+#### Matching and Sorting
+
+- `raw`: (bool, alias `r`) Display non-matching items dimmed. (unimplemented)
 - `track`: (bool) Track the current selection when the result list is updated. (unimplemented)
 - `sort.reverse`: (bool) Reverse the order of the input.
 - `sort.mode`: (string) Sort mode: `None` (default), `Lexicographic`, or `Numeric`.
 - `sort.column`: (string) Name of the column to sort by; empty uses the primary column.
-- `sort.threshold`: (number) Similarity threshold within which item order is preserved (0 to always sort).
+- `sort.threshold`: (number or bool) Similarity threshold within which item order is preserved: `0` always sorts; `true` is `0`; `false` uses the maximum threshold (keep input order). Absolute alias: `t`.
 
 ### Columns (`columns.`, `c`)
 
@@ -156,7 +192,9 @@ All colors and modifiers come from ratatui:
   - `name`: (string) Name of the column. Must be alphanumeric.
   - `ignore`: (bool) Ignore the column for matching.
   - `hidden`: (bool) Hide the column in the results table.
-  - `options`: Column matching/display options, such as `Optional` or `OrUseDefault`.
+  - `options`: Matching options joined by `|`:
+    - `Optional`: when patterns apply to several columns, failing this column does not reject the item (unless it is the only column with a pattern).
+    - `OrUseDefault`: when no column-specific query is given, match this column using the primary column's query.
 - `max_columns`, `max`: (number) Maximum number of autogenerated columns, bounded to 1–16.
 - `default`, `i`: (string or integer) The default column by name or zero-based index (default: first column).
 
@@ -167,18 +205,19 @@ All colors and modifiers come from ratatui:
 - `tick_rate`: (number) Refresh rate of the UI (default 60).
 - `mouse_events`: (bool) Toggle mouse events (default true).
 - `mouse_scroll_debounce_ms`: (number) Debounce mouse scroll events in milliseconds. Set to 0 to disable debouncing.
-- `frame`: [Frame Settings](#frame-settings).
-- `outer_frame`: [Frame Settings](#frame-settings) drawn around the entire UI.
+- `frame`, `f`: [Frame Settings](#frame-settings).
+- `outer_frame`, `of`: [Frame Settings](#frame-settings) drawn around the entire UI.
 
 #### Query Bar (`query.`, `q`)
 
 - `prompt`: (string) The prompt prefix (default "> ").
-- `initial`: (string) Initial text in the input bar.
+- `initial`, `i`: (string) Initial text in the input bar. Absolute alias: `Q`.
 - `style`: [Style Settings](#style-settings) for the input text.
 - `prompt_style`: [Style Settings](#style-settings) for the prompt.
 - `scroll_padding`: (bool) Maintain padding when moving the cursor in the query bar.
+- `word_boundaries`: ([char]) Additional characters that stop word movement (whitespace always does), e.g. `[".", "/"]`.
 - `cursor`: Cursor style.
-- `frame`: [Frame Settings](#frame-settings).
+- `frame`, `f`: [Frame Settings](#frame-settings).
 - `reset_cursor_on_query_change`: (bool) Reset cursor to initial position on query change, keeping the cursor disabled if it was disabled (experimental).
 
 #### Results Table (`results.`, `r`)
@@ -193,9 +232,9 @@ All colors and modifiers come from ratatui:
 - `match_style`, `match`: [Style Settings](#style-settings) for matching characters.
 - `current_style`, `current`: [Style Settings](#style-settings) for the highlighted item.
 - `prefix_style`, `prefix`: [Style Settings](#style-settings) for the prefix of the active column.
-- `inactive_prefix_style`, `inactive_prefix`: [Style Settings](#style-settings) for the prefix of inactive columns.
+- `prefix_inactive_style`, `prefix_inactive`: [Style Settings](#style-settings) for the prefix of inactive columns.
 - `row_connection`: `Disjoint`, `Capped`, or `Full`. Controls how current item styles apply across the row.
-- `scroll_wrap`, `cycle`: (bool) Wrap selection when reaching the end of the list.
+- `scroll_wrap`, `cycle`, `c`: (bool) Wrap selection when reaching the end of the list.
 - `scroll_padding`, `sp`: (number) Number of items to keep visible above/below the selection.
 - `r`, `reverse`: (bool or null) Whether to reverse the list order; null leaves the default behavior.
 - `w`, `wrap`: (bool) Enable line wrapping for result items.
@@ -203,7 +242,7 @@ All colors and modifiers come from ratatui:
 - `min_width`: (number) Minimum column width.
 - `min_width_from_cols`: (bool) Derive the minimum width from the configured columns.
 - `column_spacing`: (number) Spacing between columns.
-- `right_align_last`: (bool) Right-align the last column.
+- `right_align_last`, `ra`: (bool) Right-align the last column.
 - `acp`, `active_column_min_percentage_hint`: (number, optional) Minimum percentage hint for the active column.
 - `max_height`: (number) Maximum row height. VScroll/Preview can still show the full result; 0 disables the limit.
 - `show_skipped`: (bool) Show rows skipped by the result-height limit.
@@ -214,20 +253,20 @@ All colors and modifiers come from ratatui:
 - `separator`, `hr`: (`none`, `empty`, `light`, `normal`, `heavy`, `dashed`) Separator between rows.
 - `separator_style`: [Style Settings](#style-settings) for the row separator.
 - `autoscroll`, `a`: Control how the results table scrolls horizontally to keep matches in view.
-  - `enabled`: (bool) Enable/disable horizontal autoscroll.
-  - `initial_preserved`: (number) Number of characters at the start of the line to always keep visible.
-  - `context`: (number) Number of characters to show around the match.
-  - `end`: (bool) Whether to autoscroll to the end of the line.
+  - `enabled`, `a`: (bool) Enable/disable horizontal autoscroll.
+  - `initial_preserved`, `i`: (number) Number of characters at the start of the line to always keep visible.
+  - `context`, `c`: (number) Number of characters to show around the match.
+  - `end`, `e`: (bool) Whether to autoscroll to the end of the line.
   - `always`: (bool) Enable autoscroll even when wrapping is enabled.
 - `rct`, `resize_col_thresholds`: ([number, number]) Pixel deltas required before a column's preferred width is recomputed.
-- `frame`: [Frame Settings](#frame-settings).
+- `frame`, `f`: [Frame Settings](#frame-settings).
 
 #### Status Line (`status.`)
 
 - `style`: [Style Settings](#style-settings).
 - `show`: (bool) Show/hide the status line.
 - `match_indent`: (bool) Indent the status to match the results table.
-- `template`: (string) The following replacements are available:
+- `template`, `t`: (string) The following replacements are available:
   - `\r` -> current result row (1-based, `-` when there is no current row)
   - `\m` -> match count
   - `\t` -> total item count
@@ -238,32 +277,31 @@ All colors and modifiers come from ratatui:
 
 #### Preview Panel (`preview.`, `p`)
 
-- `show`: (bool or number) Toggle the preview window, or show it only when the relevant available dimension exceeds the given number.
-- `scroll_wrap`: (bool) Enable scroll wrapping in preview.
+- `show`: (bool or number) Toggle the preview window, or show it only when the relevant available dimension is at least the given number.
+- `scroll_wrap`, `cycle`, `c`: (bool) Enable scroll wrapping in preview.
 - `wrap`: (bool) Enable line wrapping in preview.
-- `layout`: List of preview settings. This path overrides the existing preview layouts in order.
-  - Absolute alias: `l`.
+- `layout`, `l`: List of preview settings. This path overrides the existing preview layouts in order.
   - `x`, `command`: Command to run for preview. `{}` is replaced by the item.
     - Absolute alias: `px`.
-  - `layout` *(flattened)*:
+  - Layout fields *(flattened into each entry)*:
     - `side`: `top`, `bottom`, `left`, `right`.
     - `percentage`: Percentage of the screen to occupy.
-    - `min`, `max`: Pixel constraints for the preview size. Setting `max` to 0 disables a preview layout.
-    - `scroll` *(flattened)*: Initial scroll settings for this layout. See the initial scroll settings below.
-    - `frame`: Optional per-layout [Frame Settings](#frame-settings).
-- `frame`: [Frame Settings](#frame-settings).
-- `initial`, `i`: Control the initial scroll offset of the preview window.
+    - `min`, `max`: Size constraints in cells. `max = 0` disables the layout. A negative value is relative to the total size: the pane is capped at `total - abs(value)`, reserving that many cells for the results pane.
+    - `initial` (alias `scroll`): Per-layout overrides for the initial scroll settings below.
+    - `frame`: Per-layout [Frame Settings](#frame-settings); provided keys are layered over `preview.frame`.
+- `frame`, `f`: [Frame Settings](#frame-settings).
+- `initial`, `i` (alias `scroll`): Control the initial scroll offset of the preview window.
   - `index` (string or integer, optional) – Extract the initial display index `n` of the preview window from this column. `n` lines are skipped after the header lines are consumed.
-  - `o`, `offset` (integer) – Adjust the initial scroll index relative to `index`.
+  - `o`, `offset` (integer) – Adjust the initial scroll index relative to `index`. Defaults to `-1` when `index` is set, matching 1-indexed tools like `rg`.
   - `p`, `percentage` (0-100) – How far from the bottom of the preview window the scroll offset should appear.
-  - `h`, `header_lines` (number) – Keep the top N lines as a fixed header so that they are always visible. Ignored while an `<MM_IMAGE>` image is shown; the image header's own `header_lines` decides how many lines sit above it.
+  - `h`, `header_lines` (number) – Keep the top N lines (default 0) as a fixed header so that they are always visible. Ignored while an `<MM_IMAGE>` image is shown; the image header's own `header_lines` decides how many lines sit above it.
   - `t`, `tail` (bool) – Start with the scroll at the bottom of the preview window.
 - `initial_layout`: (number) Index of the initially selected preview layout.
 - `trim_ends`: (bool) Trim leading and trailing newlines from preview output.
 - `reevaluate_show_on_resize`: (bool) Re-evaluate the `show` condition after a resize.
 - `drag_width`: (integer, optional) Width of the divider strip used for mouse resizing. `0` disables drag resizing; omitted uses the preview frame width.
 - `image`: How `<MM_IMAGE>` preview images are displayed. See `mm --doc image` for the full guide.
-  - `protocol`: Graphics protocol to render with: `auto`, `half_blocks`, `sixel`, `kitty`, `iterm2`, or `none` to disable images (default `auto`). Anything but `auto` wins over what the terminal reported, so a protocol the terminal cannot render is drawn as garbage rather than replaced; use `auto` to go by detection.
+  - `protocol`: Graphics protocol to render with: `auto`, `halfblocks`, `sixel`, `kitty`, `iterm2`, or `none` to disable images (default `auto`). Anything but `auto` wins over what the terminal reported, so a protocol the terminal cannot render is drawn as garbage rather than replaced; use `auto` to go by detection.
   - `horizontal_fit`, `vertical_fit`: How each axis is fitted to the preview pane: `contain` (shrink to the pane, never enlarge), `fill` (scale to the pane extent, may enlarge) or `crop` (leave unconstrained and clip). Defaults to `horizontal_fit = "contain"`, `vertical_fit = "crop"`. Either may name its own extent in cells instead of the pane, e.g. `"fill:16"`, with `0` meaning the pane. The image keeps its proportions, so the two axes resolve together; `mm --doc image` lists the combinations.
   - `filter`: Resampling filter used when the image has to be scaled: `nearest`, `triangle`, `catmull_rom`, `gaussian` or `lanczos3`. Defaults to `triangle`.
   - `zoom`: Magnification of `1.0` or more (default `1.0`). The image's rows grow with it and less of its width is shown at a time; the vertical preview scroll zooms it by tenths while it is on screen.
@@ -294,6 +332,7 @@ All colors and modifiers come from ratatui:
   - `sort_fn_last`: (bool) Put function key (F1, F2, etc.) bindings at the end of the list (default true).
   - `combine_keys`: (bool) Combine multiple keys triggering the same action into a comma-separated list (default true).
 - `cache`: (number) Reserved for future use.
+- `command_args`: ([string]) Extra arguments reserved for preview commands (currently unused).
 
 ### Pager (`pager.`)
 
@@ -308,6 +347,10 @@ back to the external pager chain `MM_PAGER` → `$PAGER` → `less` → `more`.
 - `prompt`: (string, optional) Footer prompt text shown by the pager.
 - `horizontal_scroll`: (bool) Always enable horizontal scrolling
   (default false; `Ctrl+h` still toggles it).
+- `smart_case`: (bool) Case-sensitive search only when the query contains
+  uppercase characters (default false).
+- `copy_on_select`: (bool) Copy a mouse selection when the button is released
+  instead of waiting for the copy key (default false).
 
 ### Header & Footer (`header.`, `footer.`, `h`, `f`)
 
@@ -319,21 +362,21 @@ back to the external pager chain `MM_PAGER` → `$PAGER` → `less` → `more`.
 - `row_connection`: Controls the effective width of the displayed content. See [Results Table](#results-table-results-r) for variants.
 - `h`, `header_lines`: (number, header only) Number of lines to read from input for the header.
 - `interactions`: ([index, action]) Define interactive regions per line. See [Interactions](template.md#interaction-regions).
-- `frame`: [Frame Settings](#frame-settings).
+- `frame`, `f`: [Frame Settings](#frame-settings).
 
 ### TUI Settings (`tui.`)
 
-- `stream`: (`Stdout` or `BufferedStderr`) Output stream selection consumed by the client.
+- `stream`: Output stream selection consumed by the client: `Auto` (default; pick automatically), `Stdout`, `BufferedStderr`, `Tty`, or `Test` (tests only).
 - `restore_fullscreen`: (bool) Restore fullscreen on exit.
 - `extended_keys`: (bool) Enable enhanced keyboard support.
 - `sleep_ms`: (number) Delay in milliseconds before resizing.
 - `clear_on_exit`: (bool) Clear the TUI screen after selection.
 - `clear_after_execute`: (bool) Clear after execute actions. This setting is currently unimplemented.
 - `layout` *(flattened)*: Constraints for non-fullscreen mode.
-  - `percentage`: Height of the terminal used.
-  - `min`, `max`: Pixel constraints.
+  - `percentage`, `p`: Height of the terminal used (percentage).
+  - `min`, `max`: Height constraints in rows.
   - `scroll`: (`Aggressive`, `Lazy`, `Expansive` or `Compact`) How the terminal is scrolled up when the requested height does not fit below the cursor (default: `Aggressive`).
-- `osc52`: (bool). Execute the `Copy` action using the OSC52 protocol. If false, the `Copy` command pipes to `CLIPcmd` from `envs` (default: true).
+- `osc52`: (bool) Execute copy actions using the OSC52 protocol (default: true).
 - `copy_trailing_newline`: (bool) Preserve a trailing newline in copied command output (default: false).
 
 Scroll strategies:
@@ -355,16 +398,21 @@ Several UI components have a `style` block (or similar, like `prompt_style`):
 
 ### Frame Settings
 
-Most UI components have a `frame` block:
+Most UI components have a `frame` block. It draws an optional border and applies padding to the component's inner area.
 
-- `border_type`: (alias `type`) See <https://docs.rs/matetui/latest/matetui/ratatui/widgets/enum.BorderType.html>.
-- `color`: CSS-style colors or named colors (e.g., `blue`, `red`, `#ff0000`) for the border line.
-- `sides`: Which sides to show (e.g., `TOP | BOTTOM | LEFT | RIGHT`). Empty string for none.
-- `padding`: Padding inside the frame. Can be 1 value (all), 2 (vertical, horizontal), or 4 (top, right, bottom, left).
-- `title`: Optional text to display on the frame border.
+- `border_type` (alias `type`): Border glyphs, e.g. `Plain`, `Rounded`, `Double`, `Thick`. See <https://docs.rs/ratatui/latest/ratatui/widgets/enum.BorderType.html>.
+- `sides`: Which sides to draw (`TOP | BOTTOM | LEFT | RIGHT`, or `ALL`). An empty string (`sides = ""`) draws none. When omitted, all sides are drawn if `border_type` or a border color/modifier is set; otherwise none.
+- `padding`: Space inside the frame. Accepts a number (all sides), `[horizontal, vertical]`, `[top, right, bottom, left]`, or an object such as `{ top = 1, left = 2 }` (omitted sides default to 0).
+- `title`: Optional text to display on the top border.
 - `title_style`: [Style Settings](#style-settings) applied to the title.
 - `style`: [Style Settings](#style-settings) applied to the framed container area.
-- `border_style`: [Style Settings](#style-settings) applied strictly to the border glyphs.
+- The border glyph style is supplied by the frame's own `fg`, `bg`, and `modifier` keys:
+
+  ```toml
+  [preview.frame]
+  border_type = "Rounded"
+  fg = "#3B4261"
+  ```
 
 ### Key Binds (`binds.`, `b`)
 

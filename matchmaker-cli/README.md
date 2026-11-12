@@ -229,8 +229,9 @@ mm b.ctrl-o="Execute($EDITOR {+})" # 'execute' also works, as action names are c
 ```
 
 > [!NOTE]
-> If you are worried about the differences in syntax, don't be! For the most part, matchmaker is most useful when run through a preset, (which are themselves self-documenting via `alt-h`). For the rare occaissions where you do need to override a specific option, `mm --doc options` lands you in directly a searchable reference.
-> There are also a multitude of other slight differences, usually due to extra functionality. For example, in matchmaker, [templates](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md) can be named, but valid keys are replaced. Don't expect these to be an impediment either, but if you really don't want any surprises, `mm --doc (template)` has got you covered.
+> If you are worried about the differences in syntax, don't be! For the most part, matchmaker is most useful when run through a preset, (which are themselves self-documenting via `alt-h`). For the rare occasions where you do need to override a specific option, `mm --doc options` lands you in directly a searchable reference.
+>
+> There are also other slight differences, usually due to extra functionality. For example, in matchmaker, [templates](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md) can be named, but valid keys are replaced. Don't expect these to be an impediment either, but if you really don't want any surprises, `mm --doc (template)` has got you covered.
 
 Here is a second demonstration, taken from [zoxide](https://github.com/ajeetdsouza/zoxide/blob/main/src/cmd/query.rs).
 
@@ -276,8 +277,7 @@ mm \
 
 ```
 mm t=0 ui.b.type=Plain tui.p=45 \
-r.r= r.w=false r.a.e= r.a.c=0 \
-b.Shift-BackTab=Up b.BackTab=Up b.Tab=Down
+r.r= r.w=false r.a.e= r.a.c=0 r.multi=false
 ```
 
 Matchmaker aims to achieve feature-parity with fzf (though not necessarily by the same means). If there's any specific feature that you'd like to see, open an issue!

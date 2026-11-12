@@ -10,9 +10,9 @@ A trigger is the event that activates a binding. Matchmaker supports keyboard, m
 
 Standard key names and combinations are supported. Matchmaker uses a very human format:
 
-- **Single Keys**: `enter`, `esc`, `space`, `tab`, `backspace`, `up`, `down`, `left`, `right`, `pageup`, `pagedown`, `home`, `end`, `f1` through `f12`.
+- **Single Keys**: `enter`, `esc`, `space`, `tab`, `backtab`, `backspace`, `insert`, `delete`, `up`, `down`, `left`, `right`, `pageup`, `pagedown`, `home`, `end`, `hyphen` (or `minus`), `f1` through `f24`.
 - **Characters**: `a`, `b`, `c`, `1`, `2`, `3`, `?`, `/`, etc.
-- **Modifiers**: `ctrl-`, `alt-`, `shift-`, `super-` (e.g., `ctrl-c`, `alt-enter`, `shift-up`).
+- **Modifiers**: `ctrl-`, `alt-`, `shift-`, `cmd-` (the super key), e.g. `ctrl-c`, `alt-enter`, `shift-up`.
 - **Combinations**: `ctrl-alt-del`.
 
 Get your key name with `mm --test-keys`.
@@ -73,14 +73,16 @@ When sharing a command-line matchmaker command, you can also define your actions
 
 **Predefined Semantic Triggers:**
 
-`@next` and `@prev` are will resolve to the following defaults unless you (or a preset) redefine them:
+When `start.additional_commands` is non-empty, `@next` and `@prev` are seeded with the following defaults unless you (or a preset) redefine them:
 
 ```toml
 [binds]
 # cycle through the reload commands in `start.additional_commands`
-"@next" = ["ReloadNext", "Cancel"]
-"@prev" = ["ReloadPrev", "Cancel"]
+"@next" = ["ReloadNext", "ClearQuery"]
+"@prev" = ["ReloadPrev", "ClearQuery"]
 ```
+
+The shipped config also defines ordinary aliases such as `@accept`, `@open`, `@reload`, `@print`, and `@copy`; presets commonly add more (e.g. `@return`). These are config conventions, not built-in actions.
 
 ### Events
 
@@ -89,7 +91,6 @@ Actions can be bound to events:
 #### Lifecycle
 
 - `Start` – Triggered when the application starts.
-- `Complete` – Triggered when the application is about to exit.
 - `Synced` – Triggered when the matcher completes its first synchronization.
 - `Resynced` – Triggered when the matcher finishes processing the current state again.
 - `Reloaded` – Triggered when a `Reload` or `ReloadNext` action begins.
@@ -99,6 +100,7 @@ Actions can be bound to events:
 
 - `QueryChange` – Triggered whenever the input query changes.
 - `CursorChange` – Triggered when the selection cursor moves.
+- `CursorLost` – Triggered when there is no current result.
 
 #### Preview & Overlay
 
@@ -111,7 +113,8 @@ Actions can be bound to events:
 #### Window
 
 - `Resize` – Triggered when the terminal window is resized.
-- `Refresh` – Triggered when a full UI redraw occurs.
+- `Redraw` – Triggered when a full UI redraw is requested.
+- `Tick` – Periodic UI tick; also sent when a background image finishes decoding.
 
 #### Control
 
@@ -129,7 +132,8 @@ The mode pattern uses a prefix-based filter:
 - **Positive prefixes** (e.g., `0`, `vim`): The current mode must contain a tag starting with this prefix.
 - **Negative prefixes** (e.g., `!0`, `!piped`): The current mode must NOT contain a tag starting with this prefix.
 - Multiple prefixes are separated by commas and all must match (AND logic).
-- An empty pattern matches every mode.
+- Omit the pattern to match every mode. An empty prefix (`^^enter`) is rejected.
+- For the same trigger, a bind with more patterns shadows one with fewer; ties favor the later definition, so your config wins over built-in defaults.
 
 **Example:**
 
@@ -222,52 +226,55 @@ Actions are the operations performed when a trigger is activated.
 | `PreviewScroll(n)`     | Persistently scroll the preview vertically by `n` (0 resets); zooms a shown image by `n` tenths instead. |
 | `PreviewJump`          | Jump between the preview's start, end, and initial locations.                                            |
 | `RunPreview(cmd)`      | CLI action: run a one-off command and display its output in the preview.                                 |
+| `ShowPreview([cmd])`   | Page the current preview command (or `cmd`) fullscreen; the picker resumes when the pager exits.         |
 | `Help(section)`        | Display the specified help section in the preview.                                                       |
 
 ### Columns
 
-| Action                | Description                                                                |
-| --------------------- | -------------------------------------------------------------------------- |
-| `NextColumn`          | Move focus to the next column.                                             |
-| `PrevColumn`          | Move focus to the previous column.                                         |
-| `SwitchColumn(col)`   | Focus column specified by name or index.                                   |
-| `HideColumn([col])`   | Hide the specified column (or the active column if omitted).               |
-| `UnhideColumn([col])` | Unhide the specified or most recently hidden column.                       |
-| `ExpandColumn([n])`   | Widen the n-th non-hidden column by 1; omitted widens the active column.   |
-| `ShrinkColumn([n])`   | Narrow the n-th non-hidden column by 1; omitted narrows the active column. |
+| Action                | Description                                                                          |
+| --------------------- | ------------------------------------------------------------------------------------ |
+| `NextColumn`          | Move focus to the next column.                                                       |
+| `PrevColumn`          | Move focus to the previous column.                                                   |
+| `SwitchColumn(col)`   | Focus column specified by name or index.                                             |
+| `HideColumn([col])`   | Hide the named column (or the active column); the default column cannot be hidden.   |
+| `UnhideColumn([col])` | Unhide the specified or most recently hidden column.                                 |
+| `ExpandColumn([n])`   | Widen the n-th (0-based) non-hidden column by 1; omitted widens the active column.   |
+| `ShrinkColumn([n])`   | Narrow the n-th (0-based) non-hidden column by 1; omitted narrows the active column. |
 
 ### Sorting
 
 Sort the results by one of the columns in the active row.
 
-| Action                | Description                                                              |
-| --------------------- | ------------------------------------------------------------------------ |
-| `Sort(n)`             | Sort ascending by the active or given column lexicographically.          |
-| `SortNumeric(n)`      | Same as `Sort` but parses column as a number.                            |
-| `SortThreshold([n])`  | Set matcher stability to `n`; omitted restores maximum stability.        |
-| `SortReverse([bool])` | Reverse the non-match scoring function; omitted toggles the direction\*. |
+| Action                | Description                                                                       |
+| --------------------- | --------------------------------------------------------------------------------- |
+| `Sort(n)`             | Sort ascending by the active or given (0-based display) column lexicographically. |
+| `SortNumeric(n)`      | Same as `Sort` but parses column as a number.                                     |
+| `SortThreshold([n])`  | Set matcher stability to `n`; omitted restores maximum stability.                 |
+| `SortReverse([bool])` | Reverse the non-match scoring function; omitted toggles the direction\*.          |
 
 \*: This is not the same as reversing the sort direction.
 
 ### Input & Search
 
-| Action                  | Description                                                  |
-| ----------------------- | ------------------------------------------------------------ |
-| `ForwardChar`           | Move cursor one character forward.                           |
-| `BackwardChar`          | Move cursor one character backward.                          |
-| `ForwardWord`           | Move cursor one word forward.                                |
-| `BackwardWord`          | Move cursor one word backward.                               |
-| `DeleteChar`            | Delete the character under the cursor.                       |
-| `DeleteWord`            | Delete the word before the cursor.                           |
-| `DeleteLineStart`       | Delete from cursor to the start of the line.                 |
-| `DeleteLineEnd`         | Delete from cursor to the end of the line.                   |
-| `ClearQuery` / `Cancel` | Clear the current input query.                               |
-| `SetQuery(s)`           | Replace the input query with `s`.                            |
-| `InsertQuery(s)`        | Insert `s` at the query cursor.                              |
-| `QueryPos(n)`           | Move the input cursor to position `n`.                       |
-| `Filtering([bool])`     | Toggle or set whether input filters results (default: true). |
-| `HistoryUp`             | TODO: move to the previous query history entry.              |
-| `HistoryDown`           | TODO: move to the next query history entry.                  |
+| Action                      | Description                                                  |
+| --------------------------- | ------------------------------------------------------------ |
+| `ForwardChar`               | Move cursor one character forward.                           |
+| `BackwardChar`              | Move cursor one character backward.                          |
+| `ForwardWord`               | Move cursor one word forward.                                |
+| `BackwardWord`              | Move cursor one word backward.                               |
+| `DeleteChar`                | Delete the character under the cursor.                       |
+| `DeleteWord`                | Delete the word before the cursor.                           |
+| `DeleteLineStart`           | Delete from cursor to the start of the line.                 |
+| `DeleteLineEnd`             | Delete from cursor to the end of the line.                   |
+| `ClearQuery`                | Clear the entire input query.                                |
+| `ClearQueryLeft` / `Cancel` | Delete from the start of the query to the cursor.            |
+| `ClearQueryRight`           | Delete from the cursor to the end of the query.              |
+| `SetQuery(s)`               | Replace the input query with `s`.                            |
+| `InsertQuery(s)`            | Insert `s` at the query cursor.                              |
+| `QueryPos(n)`               | Move the input cursor to position `n`.                       |
+| `Filtering([bool])`         | Toggle or set whether input filters results (default: true). |
+| `HistoryUp`                 | TODO: move to the previous query history entry.              |
+| `HistoryDown`               | TODO: move to the next query history entry.                  |
 
 ### Binds (Dynamic)
 
@@ -292,8 +299,8 @@ Sort the results by one of the columns in the active row.
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `Execute(cmd)`         | Run a shell command.                                                                                                                |
 | `ExecuteSilent(c)`     | Run and detach a shell command silently.                                                                                            |
-| `ExecuteAsync(cmd)`    | Run in the background; subsequent actions in the same batch execute after its completion.                                              |
-| `ExecuteThen(cmd)`     | Run in the background; subsequent actions execute after completion and only if it succeeds.                                            |
+| `ExecuteAsync(cmd)`    | Run in the background; subsequent actions in the same batch execute after its completion.                                           |
+| `ExecuteThen(cmd)`     | Run in the background; subsequent actions execute after completion and only if it succeeds.                                         |
 | `CopyAsync(cmd)`       | Run a command asynchronously and copy its output to the clipboard (works across ssh: see `tui.osc52`).                              |
 | `Copy(cmd)`            | Same as CopyAsync but run synchronously. Use in chained actions which exit on completion                                            |
 | `ExecuteOrConfirm(c)`  | Run a shell command, and prompt for confirmation if failed.                                                                         |
@@ -332,10 +339,11 @@ Note: Commands executed via these actions have access to various [environment va
 
 ### Other & Experimental
 
-| Action         | Description                             |
-| -------------- | --------------------------------------- |
-| `Overlay(idx)` | Activate the UI overlay at index `idx`. |
-| `Redraw`       | Force a complete UI redraw.             |
+| Action                    | Description                              |
+| ------------------------- | ---------------------------------------- |
+| `Overlay(idx)`            | Activate the UI overlay at index `idx`.  |
+| `Redraw`                  | Force a complete UI redraw.              |
+| `ToggleExitFirst([bool])` | Toggle (or explicitly set) `exit.first`. |
 
 ---
 
@@ -348,7 +356,7 @@ Multiple actions can be executed in sequence by using an array:
 
 ### CLI Overrides
 
-When overriding binds from the command line, use the `b` (or `binds`) prefix:
+When overriding binds from the command line, use the `b` (or `binds`) prefix. The map form is `b '<trigger>=<actions>'`; the path form is `b.<trigger> <actions>`, which avoids ambiguity when the trigger contains `=` or `.`:
 
 ```bash
 # Bind a single action:
@@ -358,6 +366,8 @@ mm b 'alt-enter=Accept'
 mm b.ctrl-q 'SwitchPreview' # toggle preview
 mm b.ctrl-q 'SwitchPreview(2)' # toggle preview layout 2
 ```
+
+Action lists are comma-separated in both forms. To keep a comma inside an action payload, double it (`a,,b`).
 
 #### Advanced Example: Switching between Ripgrep and MM
 

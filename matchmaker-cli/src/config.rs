@@ -27,6 +27,10 @@ pub struct Config {
     #[partial(no_recurse, unwrap)]
     pub envs: HashMap<String, EnvValue>,
 
+    #[partial(skip)]
+    #[serde(default)]
+    pub markdown: crate::markdown::MarkdownConfig,
+
     // configure binds ( keypress/mouseevent/event => Actions )
     #[partial(attr)]
     #[serde(default)]

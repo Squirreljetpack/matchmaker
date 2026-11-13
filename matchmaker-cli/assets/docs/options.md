@@ -352,6 +352,22 @@ back to the external pager chain `MM_PAGER` → `$PAGER` → `less` → `more`.
 - `copy_on_select`: (bool) Copy a mouse selection when the button is released
   instead of waiting for the copy key (default false).
 
+### Markdown (`markdown.`)
+
+How markdown is rendered by `mm --doc` and by the preset docs paged from `@help`.
+
+- `variant`: (variant) Base skin for the terminal background: `neutral` (default), `dark`, or `light`. The variant only shifts the code colors; the rest of the skin is shared.
+- `bold`, `header`, `inline_code`, `code_block`, `bullet`: [style settings](#style-settings) for those elements. `header` applies to every heading level, `bullet` is the style of list bullets. Omitted fields keep termimad's defaults.
+
+Blocks fenced with the `mermaid` tag (flowcharts, sequence, state, class, ER, pie, gantt, mindmap, …) are drawn as Unicode box diagrams sized to the available width, styled by `code_block`. A block that Mermaid cannot parse is left as source code.
+
+```toml
+[markdown]
+variant = "dark"
+bold.fg = "LightYellow"
+header.modifier = "BOLD | ITALIC"
+```
+
 ### Header & Footer (`header.`, `footer.`, `h`, `f`)
 
 - `content`: (string or list) Static content to display.

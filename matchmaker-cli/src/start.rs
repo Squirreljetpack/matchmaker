@@ -208,6 +208,12 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
     // `@next`/`@prev` get their defaults only when there are reload commands to
     // cycle through; the config or a preset may still override them.
     let mut defaults: BindMap<MMAction> = BindMap::default_binds().with_extras();
+    // `@help` pages the first applied override's README (or its leading comment
+    // block), falling back to the built-in help. Resolved from `MM_OVERRIDE`
+    // when the bind fires.
+    defaults.extend(bindmap!(
+        Trigger::from_str("@help").unwrap() => Action::Custom(MMAction::PresetHelp),
+    ));
     if !config.start.additional_commands.is_empty() {
         defaults.extend(bindmap!(
             Trigger::from_str("@next").unwrap() => [
@@ -519,6 +525,7 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
             },
         mut exit,
         mut envs,
+        markdown,
         #[cfg(feature = "pager")]
         pager,
         source: _,
@@ -698,6 +705,7 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
     let binds_ptr = event_loop.get_binds_ptr();
     let binds_ptr_preview = binds_ptr.clone();
     let binds_ptr_exec = binds_ptr.clone();
+    let binds_ptr_help = binds_ptr.clone();
     let previewer_help_config = previewer.help.clone();
     // the preview command shell, used by ShowPreview to run the preview command
     let preview_command_shell = previewer.shell.clone();
@@ -812,8 +820,14 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
     let pager_config = PagerConfig::default();
     mm.register_show_preview_handler(
         preview_command_shell.clone(),
-        pager_config,
+        pager_config.clone(),
         Box::new(move |config| matchmaker::binds::display_help(&binds_ptr_exec.load(), config)),
+        previewer_help_config.clone(),
+    );
+    mm.register_preset_help_handler(
+        pager_config,
+        markdown,
+        Box::new(move |config| matchmaker::binds::display_help(&binds_ptr_help.load(), config)),
         previewer_help_config,
     );
     mm.register_execute_handler(shell.clone(), preview_command_shell.clone());

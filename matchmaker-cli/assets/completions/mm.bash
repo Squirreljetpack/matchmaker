@@ -58,11 +58,11 @@ _mm() {
                     return 0
                     ;;
                 --doc)
-                    COMPREPLY=($(compgen -W "options binds template execute other pager image" -- "${cur}"))
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 -d)
-                    COMPREPLY=($(compgen -W "options binds template execute other pager image" -- "${cur}"))
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 *)

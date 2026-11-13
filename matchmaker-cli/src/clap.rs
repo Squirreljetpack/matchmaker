@@ -60,8 +60,7 @@ pub struct Cli {
     #[arg(long, value_name = "FOLDER", num_args = 0..=1, default_missing_value = "")]
     pub download: Option<String>,
 
-    /// Print an `<MM_IMAGE>` token for an image, passing through positional arguments
-    /// as header options. Falls back to `chafa` unless `-q` is given.
+    /// Print the token for an image for use with the preview image protocol.
     #[arg(long, value_name = "PATH")]
     pub image: Option<PathBuf>,
 
@@ -73,21 +72,9 @@ pub struct Cli {
     #[arg(long, value_name = "N@ALIAS | N-M | N:TEMPLATE | TEMPLATE", num_args = 0..=1, default_missing_value = "")]
     pub list: Option<String>,
 
-    /// Display documentation
-    #[arg(long, short, value_enum)]
-    pub doc: Option<Doc>,
-}
-
-#[derive(Debug, Clone, clap::ValueEnum, PartialEq)]
-pub enum Doc {
-    Options,
-    Binds,
-    Template,
-    #[value(alias = "lua")]
-    Execute,
-    Other,
-    Pager,
-    Image,
+    /// Display documentation or a markdown file.
+    #[arg(long, short, value_name = "DOC", num_args = 0..=1, default_missing_value = "")]
+    pub doc: Option<String>,
 }
 
 impl Cli {

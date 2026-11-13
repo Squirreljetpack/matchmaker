@@ -122,6 +122,14 @@ Remember to escape any template specifiers, for example: `jq '((map(select(.type
 
 ## Miscellaneous
 
+### Documentation
+
+`mm --doc <DOC>` renders markdown through the [`[markdown]` skin](options.md#markdown-markdown) and pages it when a pager is available. Run `mm --doc` without a value to list the builtin docs:
+
+- a builtin doc: `options`, `binds`, `template`, `execute`, `other`, `pager`, `image`
+- a path to a markdown file
+- `-` to read the markdown from stdin, e.g. `cat README.md | mm --doc -`
+
 ### Exit codes
 
 An exit status only carries 0-255, so these are the HTTP-style codes wrapped into

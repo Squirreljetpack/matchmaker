@@ -82,6 +82,8 @@ When `start.additional_commands` is non-empty, `@next` and `@prev` are seeded wi
 "@prev" = ["ReloadPrev", "ClearQuery"]
 ```
 
+`@help` is seeded with a default action unless you (or a preset) redefine it: it pages the preset docs (falling back to the file's leading comment block) fullscreen with your configured pager, followed by the bindings.
+
 The shipped config also defines ordinary aliases such as `@accept`, `@open`, `@reload`, `@print`, and `@copy`; presets commonly add more (e.g. `@return`). These are config conventions, not built-in actions.
 
 ### Events

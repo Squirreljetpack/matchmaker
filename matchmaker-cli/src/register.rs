@@ -7,11 +7,12 @@ use crate::{
     config::PagerConfig,
     execute::{self, ExitDetails},
     formatter::format_cli,
+    markdown::MarkdownConfig,
     pager,
 };
 use cba::{bait::ResultExt, broc::CommandExt};
 use matchmaker::{
-    Action, Matchmaker,
+    Action, Line, Matchmaker, Text,
     action::ActionExt,
     config_mm::ConfigPreprocessedData,
     event::RenderSender,
@@ -22,6 +23,7 @@ use std::{
     env,
     fs::OpenOptions,
     io::{self, Write},
+    path::Path,
     process::Child,
     thread,
     time::{Duration, Instant},
@@ -74,6 +76,38 @@ impl<S> Matchmaker<String, S, ConfigPreprocessedData> {
             } else {
                 pager::external_pager(stdout, child)
             }
+        });
+    }
+
+    /// Causes [`MMAction::PresetHelp`] to page the preset docs fullscreen, followed
+    /// by the bindings: the docs are the `README.md` beside the first applied
+    /// override, otherwise that file's leading `#` comment block.
+    pub fn register_preset_help_handler(
+        &mut self,
+        pager: PagerConfig,
+        markdown: MarkdownConfig,
+        help_factory: matchmaker::HelpFactory,
+        help_config: matchmaker::config::HelpDisplayConfig,
+    ) {
+        self.register_interrupt_handler(Interrupt::Execute, move |state| {
+            if state.discriminant_payload != Some(6) {
+                return;
+            }
+            state.discriminant_payload = None;
+            state.clear_interrupt(); // clear the payload pre-empting subsequent execute handler
+
+            let width = termimad::terminal_size().0 as usize;
+            let mut text = state
+                .envs
+                .get("MM_OVERRIDE")
+                .and_then(|path| preset_help_text(Path::new(path), &markdown, width))
+                .unwrap_or_default();
+            if !matchmaker::utils::text::is_empty(&text) {
+                text.lines.push(Line::default());
+            }
+            text.lines.extend(help_factory(&help_config).lines);
+            let ansi_text = matchmaker::utils::text_to_ansi(&text);
+            crate::pager::page_text(&ansi_text, &pager);
         });
     }
 
@@ -504,4 +538,44 @@ mod tests {
             matchmaker::resolve_static_preview(&custom, &help_factory, &help_config);
         assert_eq!(resolved_custom.to_string(), "Custom Static Text");
     }
+}
+
+/// `@help` text: the `README.md` beside the first applied override, rendered
+/// as markdown, otherwise that file's leading `#` comment block.
+fn preset_help_text(
+    override_path: &Path,
+    markdown: &MarkdownConfig,
+    width: usize,
+) -> Option<Text<'static>> {
+    if let Some(readme) = override_path.parent().map(|dir| dir.join("README.md"))
+        && readme.is_file()
+    {
+        return std::fs::read_to_string(readme)
+            .ok()
+            .map(|md| markdown.render(&md, Some(width)));
+    }
+    comment_header(override_path).map(|md| markdown.render(&md, Some(width)))
+}
+
+/// The leading `#` comment block of a preset, with the marker and one following
+/// space stripped. `None` when the header has no comment lines.
+fn comment_header(path: &Path) -> Option<String> {
+    let src = std::fs::read_to_string(path).ok()?;
+    let mut lines: Vec<&str> = Vec::new();
+    for line in src.lines() {
+        let content = line.trim_start();
+        if let Some(rest) = content.strip_prefix('#') {
+            lines.push(rest.strip_prefix(' ').unwrap_or(rest));
+        } else if content.is_empty() {
+            if !lines.is_empty() {
+                lines.push("");
+            }
+        } else {
+            break;
+        }
+    }
+    while lines.last().is_some_and(|line| line.is_empty()) {
+        lines.pop();
+    }
+    (!lines.is_empty()).then(|| lines.join("\n"))
 }

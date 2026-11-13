@@ -81,6 +81,11 @@ max = 240
 always_trigger = true
 # help.combine_keys = false
 
+# --- Markdown ---
+# Styling for `mm --doc` and the preset docs behind `@help`
+[markdown]
+bold.fg = "Yellow"
+
 # --- Misc ---
 [matcher]
 # ansi = false # don't set to true here
@@ -239,7 +244,6 @@ os.execute(string.format("%q -- %q", os.getenv("EDITOR") or "vi", p))
 "@reload" = "Reload"
 # "@next" = ["ReloadNext", "Cancel"] # see mm --doc binds
 # "@prev" = ["ReloadPrev", "Cancel"]
-"@help" = "Help"
 "@refresh" = "Redraw" # invalid unicode or unsupported emoji can break rendering
 
 # Printing

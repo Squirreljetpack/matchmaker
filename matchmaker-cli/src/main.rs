@@ -8,6 +8,7 @@ mod list;
 mod logger;
 #[cfg(feature = "mlua")]
 mod lua;
+mod markdown;
 mod pager;
 mod parse;
 mod paths;
@@ -24,9 +25,11 @@ use start::*;
 use utils::*;
 
 use std::{
-    io::{self, Write},
+    io::{self, Read, Write},
+    path::Path,
     process::exit,
 };
+use strum::IntoEnumIterator;
 
 use cba::{
     _dbg, bait::ResultExt, bog::BogOkExt, bring::split::split_on_delimiter_with_doubled_escape,
@@ -185,35 +188,89 @@ fn get_partial(config_args: Vec<String>) -> anyhow::Result<PartialConfig> {
     Ok(partial)
 }
 
+/// The documentation shipped with the binary. Anything else is a path.
+#[derive(Clone, Copy, strum::Display, strum::EnumIter, strum::EnumString)]
+#[strum(serialize_all = "lowercase", ascii_case_insensitive)]
+enum Doc {
+    Options,
+    Binds,
+    Template,
+    #[strum(serialize = "execute", serialize = "lua")]
+    Execute,
+    Other,
+    Pager,
+    Image,
+}
+
+impl Doc {
+    fn text(self) -> &'static str {
+        match self {
+            Doc::Options => include_str!("../assets/docs/options.md"),
+            Doc::Binds => include_str!("../assets/docs/binds.md"),
+            Doc::Template => include_str!("../assets/docs/template.md"),
+            Doc::Execute => include_str!("../assets/docs/execute.md"),
+            Doc::Other => include_str!("../assets/docs/other.md"),
+            Doc::Pager => include_str!("../assets/docs/pager.md"),
+            Doc::Image => include_str!("../assets/docs/image.md"),
+        }
+    }
+}
+
+/// Builtin documentation, or a markdown file (`-` for stdin).
+fn load_doc(doc: &str) -> Result<String, String> {
+    if let Ok(doc) = doc.parse::<Doc>() {
+        return Ok(doc.text().to_string());
+    }
+    if doc.is_empty() {
+        return Err(format!(
+            "`--doc` needs a builtin doc ({}), a markdown path, or `-` for stdin",
+            builtin_docs()
+        ));
+    }
+    if doc == "-" {
+        let mut md = String::new();
+        io::stdin()
+            .read_to_string(&mut md)
+            .map_err(|e| format!("Failed to read stdin: {e}"))?;
+        return Ok(md);
+    }
+    std::fs::read_to_string(doc).map_err(|e| format!("Unknown doc `{doc}`: {e}"))
+}
+
+/// The builtin doc names, in the order errors list them.
+fn builtin_docs() -> String {
+    Doc::iter()
+        .map(|doc| doc.to_string())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 fn display_doc(cli: &Cli) {
-    use termimad::MadSkin;
-    use termimad::crossterm::style::Color;
-
-    let mut md = String::new();
-    if let Some(doc) = &cli.doc {
-        match doc {
-            Doc::Options => md.push_str(include_str!("../assets/docs/options.md")),
-            Doc::Binds => md.push_str(include_str!("../assets/docs/binds.md")),
-            Doc::Template => md.push_str(include_str!("../assets/docs/template.md")),
-            Doc::Execute => md.push_str(include_str!("../assets/docs/execute.md")),
-            Doc::Other => md.push_str(include_str!("../assets/docs/other.md")),
-            Doc::Pager => md.push_str(include_str!("../assets/docs/pager.md")),
-            Doc::Image => md.push_str(include_str!("../assets/docs/image.md")),
+    let Some(doc) = cli.doc.as_deref() else {
+        return;
+    };
+    let md = match load_doc(doc) {
+        Ok(md) => md,
+        Err(e) => {
+            ebog!("{e}");
+            exit(2)
         }
-    }
+    };
 
-    if !md.is_empty() {
-        let mut skin = MadSkin::default();
-        skin.bold.set_fg(Color::Yellow);
-        if cfg!(feature = "pager") && atty::is(atty::Stream::Stdout) {
-            #[cfg(feature = "pager")]
-            crate::pager::minus_text(
-                &skin.text(&md, None).to_string(),
-                &crate::config::PagerConfig::default(),
-            );
-            exit(0);
-        }
-        skin.print_text(&md);
-        exit(0)
+    // best effort: docs stay renderable even when the config does not parse
+    let cfg_path = cli
+        .config
+        .as_deref()
+        .map(Path::new)
+        .unwrap_or_else(|| default_config_path());
+    let width = atty::is(atty::Stream::Stdout).then(|| termimad::terminal_size().0 as usize);
+    let text = markdown::MarkdownConfig::load(cfg_path).render(&md, width);
+    let ansi = matchmaker::utils::text_to_ansi(&text);
+    if cfg!(feature = "pager") && atty::is(atty::Stream::Stdout) {
+        #[cfg(feature = "pager")]
+        crate::pager::minus_text(&ansi, &crate::config::PagerConfig::default());
+        exit(0);
     }
+    println!("{ansi}");
+    exit(0)
 }

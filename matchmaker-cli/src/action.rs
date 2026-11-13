@@ -80,6 +80,11 @@ pub enum MMAction {
     /// Page the current preview command fullscreen (or an arbitrary command)
     /// in the pager; always resumes the picker afterwards
     ShowPreview(Option<String>),
+    /// Page the first applied override's `README.md` (or its leading comment
+    /// block) with the pager, falling back to the built-in help. Resolved from
+    /// `MM_OVERRIDE` when the bind fires. Backs the default `@help` bind;
+    /// internal, so it has no parsed form.
+    PresetHelp,
 
     // copy
     /// Execute command and copy its output to the clipboard
@@ -377,6 +382,12 @@ pub fn action_handler(
                 state.set_interrupt(Interrupt::Execute, template);
             }
         }
+        MMAction::PresetHelp => {
+            // The docs are resolved and paged by the Execute interrupt handler
+            // (discriminant 6).
+            state.discriminant_payload = Some(6);
+            state.set_interrupt(Interrupt::Execute, String::new());
+        }
         MMAction::Copy(s) => {
             state.discriminant_payload = Some(if *osc52 { 1 } else { 0 });
             state.set_interrupt(Interrupt::ExecuteSilent, s);
@@ -557,6 +568,10 @@ enum_from_str_display! {
     units:
     HistoryUp, HistoryDown, ReloadPrev;
 
+    // Displayed, but never parsed from config.
+    internal:
+    PresetHelp;
+
 
     tuples:
     Bind, Unbind, PushBind, PopBind, SetMode, PushMode, ExecuteOrConfirm, ExecuteAndQuit, BecomeOrConfirm, BecomeOrResume, Transform, TransformConfig, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter,
@@ -577,6 +592,7 @@ macro_rules! enum_from_str_display {
     (
         $enum:ty;
         units: $( $unit:ident ),* $(,)?;
+        internal: $( $internal:ident ),* $(,)?;
         tuples: $( $tuple:ident ),* $(,)?;
         defaults: $(($default:ident, $default_value:expr)),*;
         options: $($optional:ident),*;
@@ -587,6 +603,8 @@ macro_rules! enum_from_str_display {
                 use $enum::*;
                 match self {
                     $( $unit => write!(f, stringify!($unit)), )*
+
+                    $( $internal => write!(f, stringify!($internal)), )*
 
                     $( $tuple(inner) => write!(f, concat!(stringify!($tuple), "({})"), inner), )*
 
@@ -637,6 +655,11 @@ macro_rules! enum_from_str_display {
                 };
 
                 match name {
+                    $( stringify!($internal) => Err(format!(
+                        "{} is internal and cannot be parsed from config",
+                        name
+                    )), )*
+
                     $( stringify!($unit) => {
                         if data.is_some() {
                             Err(format!("Unexpected data for {}", name))
@@ -704,6 +727,8 @@ mod tests {
         assert!(Action::<MMAction>::from_str("Filtering(false)").is_ok());
         assert!(Action::<MMAction>::from_str("SetPrompt(rg> )").is_ok());
         assert!(Action::<MMAction>::from_str("Reload").is_ok());
+        // internal actions display but have no parsed form
+        assert!(Action::<MMAction>::from_str("PresetHelp").is_err());
 
         let bind_inner = match Action::<MMAction>::from_str(
             "Bind(QueryChange = Reload(rg --column --line-number --no-heading --color=always --smart-case \"$FZF_QUERY\"))",

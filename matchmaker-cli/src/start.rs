@@ -645,6 +645,20 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
     #[cfg(feature = "mlua")]
     mode.push_str(",lua");
 
+    // purely alphabetic column names are exposed as `{name}` mode tags so
+    // binds can be scoped to the columns a preset provides
+    for name in columns
+        .names
+        .iter()
+        .map(|c| c.name.as_str())
+        .filter(|n| n.chars().all(char::is_alphabetic))
+    {
+        mode.push(',');
+        mode.push('{');
+        mode.push_str(name);
+        mode.push('}');
+    }
+
     matchmaker::event::set_mode(&mode);
 
     let event_loop = EventLoop::with_binds(binds)

@@ -166,6 +166,7 @@ mm b.ctrl-x "ExecuteSilent(rm {+}) Reload" x ls # Delete items then reload
 
 The status line supports dynamic variables, alignment, and layout positioning.
 Status templates can be configured in `[status]` (with `template = "..."`) or dynamically via the `SetStyledStatus` action. Input prompt templates are supported via `SetStyledPrompt`.
+Toast messages (`Toast`/`ToastJoin`) accept the same `{...}` styling syntax, but no variables.
 
 ### Styling
 

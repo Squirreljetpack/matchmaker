@@ -326,16 +326,19 @@ Note: Commands executed via these actions have access to various [environment va
 
 ### UI & Display
 
-| Action               | Description                                                        |
-| -------------------- | ------------------------------------------------------------------ |
-| `SetHeader([str])`   | Set the header text; omit or pass empty to clear.                  |
-| `PushHeader(str)`    | Append a column to the header.                                     |
-| `SetFooter([str])`   | Set the footer text; omit or pass empty to clear.                  |
-| `PushFooter(str)`    | Append a column to the footer.                                     |
-| `SetPrompt([str])`   | Set the input prompt text; omit or pass empty to restore/clear.    |
-| `SetStatus([str])`   | Set the status line template; omit or pass empty to restore/clear. |
-| `SetStyledPrompt(s)` | Update the input prompt.                                           |
-| `SetStyledStatus(s)` | Update the status line.                                            |
+| Action               | Description                                                                                                                                                 |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SetHeader([str])`   | Set the header text; omit or pass empty to clear.                                                                                                           |
+| `PushHeader(str)`    | Append a column to the header.                                                                                                                              |
+| `SetFooter([str])`   | Set the footer text; omit or pass empty to clear.                                                                                                           |
+| `PushFooter(str)`    | Append a column to the footer.                                                                                                                              |
+| `SetPrompt([str])`   | Set the input prompt text; omit or pass empty to restore/clear.                                                                                             |
+| `SetStatus([str])`   | Set the status line template; omit or pass empty to restore/clear.                                                                                          |
+| `SetStyledPrompt(s)` | Update the input prompt.                                                                                                                                    |
+| `SetStyledStatus(s)` | Update the status line.                                                                                                                                     |
+| `Toast(msg)`         | Push a new toast entry: `prefix:message`, or just `message` without a prefix. The message supports the status line's style templates, without placeholders. |
+| `ToastJoin(msg)`     | Join a message onto the last toast with the same prefix, separated by `,`.                                                                                  |
+| `ClearToast`         | Clear the toast log.                                                                                                                                        |
 
 \* See mm --doc template
 

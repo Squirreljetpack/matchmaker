@@ -21,6 +21,7 @@ pub struct Layout {
     pub header: Rect,
     pub results: Rect,
     pub footer: Rect,
+    pub toast: Rect,
 }
 
 /// In the "standard implementation", None represents unset, String: command, Text: display

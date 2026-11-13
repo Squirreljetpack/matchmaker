@@ -275,6 +275,13 @@ exact_match_bonus = 16
 - `row_connection`: `Disjoint`, `Capped`, or `Full`. Controls the width used for whitespace expansion.
 - `interactions`: Either `[index, action]` regions or an ordered action list mapped to `i`/`interactive` template spans. See [Interactions](template.md#interaction-regions).
 
+#### Toast (`toast.`)
+
+The toast log is drawn at the outer edge of the UI (below the footer in the default layout) and replaces footer rows before it takes any from the results table. It stays hidden while the log is empty. The mouse wheel scrolls the toast when the cursor is over it; scrolling up stops following new messages until you scroll back to the bottom.
+
+- `frame`, `f`: [Frame Settings](#frame-settings) (default: top border only, black background, light yellow border).
+- `max_height`: (number) Maximum number of message rows shown; the frame adds its own rows (default 5).
+
 #### Preview Panel (`preview.`, `p`)
 
 - `show`: (bool or number) Toggle the preview window, or show it only when the relevant available dimension is at least the given number.

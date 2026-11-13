@@ -152,6 +152,9 @@ impl ResultsUI {
                 // it so the next pass re-allocates at the new width.
                 self.widths_buffer.clear();
             }
+            if self.height != new.height {
+                self.changed[0] = true;
+            }
             self.width = new.width;
             self.height = new.height;
         }
@@ -373,5 +376,42 @@ impl ResultsUI {
         self.width_limits.clear();
         self.preferred_widths.clear();
         self.row_cache[0].clear(); // empty limits still calls get_row which is invalidated if hidden_columns changed
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Selector, matcher::matcher};
+
+    #[test]
+    fn height_increase_redraws_without_clearing_row_cache() {
+        let mut worker = Worker::<&'static str, ()>::new_single_column();
+        let injector = worker.nucleo.injector();
+        for item in ["a", "b", "c", "d", "e", "f", "g", "h"] {
+            injector.push(item, |s, cols| cols[0] = (*s).into());
+        }
+        drop(injector);
+        while worker.nucleo.tick(10).running {}
+
+        let mut results = ResultsUI::new(ResultsConfig::default());
+        results.init(&mut worker);
+
+        let selector = Selector::new();
+        let mut m = matcher();
+
+        results.update_dimensions(Rect::new(0, 0, 40, 4));
+        // First pass gathers preferred widths; second builds the table.
+        results.update_table(&mut worker, &selector, &mut m);
+        results.update_table(&mut worker, &selector, &mut m);
+        assert_eq!(results.row_data.len(), 4);
+        assert_eq!(results.row_cache[0].len(), 4);
+
+        results.update_dimensions(Rect::new(0, 0, 40, 8));
+        assert!(results.changed[0]);
+        assert_eq!(results.row_cache[0].len(), 4);
+
+        results.update_table(&mut worker, &selector, &mut m);
+        assert_eq!(results.row_data.len(), 8);
     }
 }

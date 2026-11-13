@@ -6,6 +6,7 @@ mod overlay;
 mod preview;
 mod results;
 mod status;
+pub mod toast;
 pub mod utils;
 use cba::_trace;
 pub use display::*;
@@ -22,6 +23,7 @@ pub use ratatui::{
 };
 pub use results::*;
 pub use status::*; // reexport for convenience
+pub use toast::ToastUI;
 
 pub const RESULTS_MIN_W: u16 = 5;
 pub const RESULTS_MIN_H: u16 = 1;
@@ -43,6 +45,7 @@ pub struct UI {
     /// Full picker pane rect including its border, set by update_layout_and_state.
     picker_area: Rect,
     pub config: UiConfig,
+    pub toast: ToastUI,
 }
 
 // requires columns > 1
@@ -83,6 +86,7 @@ impl UI {
             area,
             picker_area: area,
             config: config.ui,
+            toast: ToastUI::new(config.toast),
         };
 
         let picker = PickerUI::new(
@@ -128,6 +132,7 @@ impl UI {
             area: Rect::default(),
             picker_area: Rect::default(),
             config: config.ui,
+            toast: ToastUI::new(config.toast),
         };
 
         let picker = PickerUI::new(

@@ -12,7 +12,7 @@ use matchmaker::{
     event::BindSender,
     message::{BindDirective, Interrupt, RenderCommand},
     nucleo::Line,
-    ui::StatusUI,
+    ui::{StatusUI, toast},
 };
 use matchmaker_partial::{Apply, Set};
 
@@ -67,6 +67,12 @@ pub enum MMAction {
     SetFooter(Option<String>),
     /// Push footer
     PushFooter(String),
+    /// Clear the toast log
+    ClearToast,
+    /// Push a toast: `prefix:message`
+    Toast(String),
+    /// Join a message onto the last toast with the same prefix
+    ToastJoin(String),
     /// Set status without interpreting style braces
     SetPrompt(Option<String>),
     /// Set prompt
@@ -333,6 +339,15 @@ pub fn action_handler(
         MMAction::PushFooter(s) => {
             state.footer_ui.push(s);
         }
+        MMAction::ClearToast => toast::clear(),
+        MMAction::Toast(s) => {
+            let (prefix, message) = toast::parse_payload(&s);
+            toast::push(prefix, message);
+        }
+        MMAction::ToastJoin(s) => {
+            let (prefix, message) = toast::parse_payload(&s);
+            toast::join(prefix, message);
+        }
         MMAction::SetStyledPrompt(s) => {
             state
                 .picker_ui
@@ -485,6 +500,7 @@ pub fn action_handler(
 
                         // Apply the partial to UI components
                         state.ui.config.apply(partial.ui);
+                        state.ui.toast.config.apply(partial.toast);
                         state.picker_ui.query.config.apply(partial.query);
                         state.picker_ui.results.config.apply(partial.results);
                         state.picker_ui.status.status_config.apply(partial.status);
@@ -566,7 +582,7 @@ enum_from_str_display! {
     MMAction;
 
     units:
-    HistoryUp, HistoryDown, ReloadPrev;
+    HistoryUp, HistoryDown, ReloadPrev, ClearToast;
 
     // Displayed, but never parsed from config.
     internal:
@@ -574,7 +590,7 @@ enum_from_str_display! {
 
 
     tuples:
-    Bind, Unbind, PushBind, PopBind, SetMode, PushMode, ExecuteOrConfirm, ExecuteAndQuit, BecomeOrConfirm, BecomeOrResume, Transform, TransformConfig, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter,
+    Bind, Unbind, PushBind, PopBind, SetMode, PushMode, ExecuteOrConfirm, ExecuteAndQuit, BecomeOrConfirm, BecomeOrResume, Transform, TransformConfig, SetStyledPrompt, SetStyledStatus, PushHeader, PushFooter, Toast, ToastJoin,
     Copy, CopyAsync;
 
     defaults:

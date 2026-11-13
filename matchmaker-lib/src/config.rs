@@ -75,6 +75,8 @@ pub struct RenderConfig {
 
     /// The results status style
     pub status: StatusConfig,
+    /// The toast log
+    pub toast: ToastConfig,
     /// The preview panel style
     #[partial(alias = "p")]
     pub preview: PreviewConfig,
@@ -566,6 +568,39 @@ impl Default for StatusConfig {
 }
 
 impl StatusConfig {}
+
+/// The toast log drawn at the edge of the ui.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+#[partial(path, derive(Debug, Clone, PartialEq, Deserialize, Serialize))]
+pub struct ToastConfig {
+    #[partial(recurse)]
+    #[partial(alias = "f")]
+    pub frame: FrameSetting,
+
+    /// Maximum number of message rows shown. The frame adds its own rows.
+    pub max_height: u16,
+}
+
+impl Default for ToastConfig {
+    fn default() -> Self {
+        Self {
+            frame: FrameSetting {
+                sides: Some(Borders::TOP),
+                style: StyleSetting {
+                    bg: Some(Color::Black),
+                    ..Default::default()
+                },
+                border_style: StyleSetting {
+                    fg: Some(Color::LightYellow),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            max_height: 5,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]

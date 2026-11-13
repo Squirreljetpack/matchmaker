@@ -1,8 +1,8 @@
 mod dynamic;
 mod state;
 
+use cba::_info;
 use cba::bait::ResultExt;
-use cba::{_info, unwrap};
 use crossterm::event::{MouseButton, MouseEventKind};
 pub use dynamic::*;
 pub use state::*;
@@ -325,7 +325,15 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                             }
                         }
                         MouseEventKind::ScrollDown | MouseEventKind::ScrollUp => {
-                            if layout.preview.contains(pos) {
+                            if layout.toast.contains(pos) {
+                                ui.toast.scroll(
+                                    if matches!(mouse.kind, MouseEventKind::ScrollDown) {
+                                        1
+                                    } else {
+                                        -1
+                                    },
+                                );
+                            } else if layout.preview.contains(pos) {
                                 if let Some(p) = preview_ui.as_mut() {
                                     if matches!(mouse.kind, MouseEventKind::ScrollDown) {
                                         p.down(1)
@@ -345,7 +353,9 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                         }
                         MouseEventKind::ScrollLeft | MouseEventKind::ScrollRight => {
                             let left = matches!(mouse.kind, MouseEventKind::ScrollLeft);
-                            if layout.preview.contains(pos) {
+                            if layout.toast.contains(pos) {
+                                // The toast only scrolls vertically.
+                            } else if layout.preview.contains(pos) {
                                 if let Some(p) = preview_ui.as_mut() {
                                     p.scroll(true, if left { -1 } else { 1 })
                                 }
@@ -424,7 +434,11 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                 RenderCommand::Empty => {
                     return Ok(vec![]);
                 }
-                RenderCommand::Action(action) => {
+                RenderCommand::Action(action) => 'action: {
+                    // Handlers reached from this arm may request an interrupt
+                    // (e.g. paging help from a prompt overlay), so early exits
+                    // break out to the interrupt check below rather than
+                    // continuing the event loop, which would clear it.
                     if let Some(x) = overlay_ui.as_mut()
                         && match action {
                             Action::Char(c) => x.handle_input(
@@ -449,7 +463,7 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                             ),
                         }
                     {
-                        continue;
+                        break 'action;
                     }
                     let PickerUI {
                         query,
@@ -495,7 +509,7 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                                 && worker.get_nth(results.index()).is_none()
                                 && !exit_config.allow_empty
                             {
-                                continue;
+                                break 'action;
                             };
                             tui.exit(None);
                             let mut dispatcher = state.dispatcher(
@@ -724,7 +738,7 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                         // Columns
                         Action::SwitchColumn(col_name) => {
                             if !*filtering {
-                                continue;
+                                break 'action;
                             }
 
                             if worker.query.active_column_name(query.str_at_cursor()) != col_name
@@ -738,7 +752,7 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                         }
                         Action::NextColumn | Action::PrevColumn => {
                             if !picker_ui.filtering {
-                                continue;
+                                break 'action;
                             }
                             let active_idx = picker_ui.active_column_index_raw();
 
@@ -767,14 +781,18 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                         // todo: instead of clearing preferred_width, simply
                         Action::HideColumn(col_name) => {
                             let idx = if let Some(name) = col_name {
-                                unwrap!(worker.columns.iter().position(|c| *c.name == name); continue)
+                                let Some(idx) = worker.columns.iter().position(|c| *c.name == name)
+                                else {
+                                    break 'action;
+                                };
+                                idx
                             } else {
                                 picker_ui.active_column_index()
                             };
 
                             if idx == picker_ui.worker.query.primary_column_index() {
                                 log::error!("Cannot hide default column");
-                                continue;
+                                break 'action;
                             } else {
                                 while picker_ui.active_column_index_raw() == idx {
                                     let last = picker_ui.query.input();
@@ -793,7 +811,10 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
 
                         Action::UnhideColumn(col_name) => {
                             if let Some(name) = col_name {
-                                let idx = unwrap!(worker.columns.iter().position(|c| *c.name == name); continue);
+                                let Some(idx) = worker.columns.iter().position(|c| *c.name == name)
+                                else {
+                                    break 'action;
+                                };
                                 results.hc_unset(idx);
                             } else {
                                 results.hc_pop();
@@ -1011,6 +1032,9 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                         &picker_ui.results,
                         !picker_ui.results.reverse(),
                     );
+
+                    ui.toast
+                        .render(frame, layout.toast, picker_ui.results.reverse());
 
                     if let Some(preview_ui) = preview_ui.as_mut()
                         && preview_ui.visible()
@@ -1275,17 +1299,31 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
     // inset by the picker border.
     let mut _area = ui.outer_frame().inner_of(area);
 
+    // The toast spans full width at the outer edge, taking rows from both the
+    // preview and picker panes and replacing footer rows before results height.
+    let reserved = ui
+        .frame()
+        .height()
+        .saturating_add(picker_ui.query.height())
+        .saturating_add(crate::ui::RESULTS_MIN_H);
+    let toast_height = ui
+        .toast
+        .height(_area.width)
+        .min(_area.height.saturating_sub(reserved));
+    let toast = split(&mut _area, toast_height, picker_ui.reverse());
+
+    let footer_height = footer_ui.height().saturating_sub(toast.height);
     let mut footer = if full_width_footer || preview_ui.as_ref().is_none_or(|p| !p.visible()) {
-        split(&mut _area, footer_ui.height(), picker_ui.reverse())
+        split(&mut _area, footer_height, picker_ui.reverse())
     } else {
         Rect::default()
     };
 
-    let [preview, picker, picker_area, footer] = if let Some(preview_ui) = preview_ui.as_mut()
+    let [preview, picker, picker_area] = if let Some(preview_ui) = preview_ui.as_mut()
         && preview_ui.visible()
     {
         let [preview, picker] = preview_ui.split(_area);
-        let mut picker_area = ui.frame().inner_of(picker);
+        let picker_area = ui.frame().inner_of(picker);
 
         let hide_preview = if preview_ui.current_dimension.is_some() {
             false
@@ -1295,18 +1333,19 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
             picker_area.height <= crate::ui::RESULTS_MIN_H
         };
 
-        if hide_preview {
+        let (preview, picker, mut picker_area) = if hide_preview {
             warn!("UI too small, hiding preview");
             preview_ui.show(false);
-            [Rect::default(), _area, ui.frame().inner_of(_area), footer]
+            (Rect::default(), _area, ui.frame().inner_of(_area))
         } else {
-            if !full_width_footer {
-                footer = split(&mut picker_area, footer_ui.height(), picker_ui.reverse());
-            }
-            [preview, picker, picker_area, footer]
+            (preview, picker, picker_area)
+        };
+        if !full_width_footer {
+            footer = split(&mut picker_area, footer_height, picker_ui.reverse());
         }
+        [preview, picker, picker_area]
     } else {
-        [Rect::default(), _area, ui.frame().inner_of(_area), footer]
+        [Rect::default(), _area, ui.frame().inner_of(_area)]
     };
 
     let [input, mut status, mut header, mut results] = picker_ui.layout(picker_area);
@@ -1358,8 +1397,10 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
         header,
         results,
         footer,
+        toast,
     };
 
+    ui.toast.update(toast);
     ui.update_picker_area(picker);
 
     // Update state layout

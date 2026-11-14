@@ -71,6 +71,7 @@ pub struct State {
     /// # Discriminants
     /// - (ExecuteAsync, 2*id): ExecuteAsync (Async, remainder)
     /// - (ExecuteAsync, 2*id + 1): ExecuteThen (Async, remainder)
+    /// - (Become | BecomeSilent, code): Exit code returned by the handler; `None` resumes the TUI
     pub discriminant_payload: Option<u8>,
 
     pub async_actions: [Option<Box<dyn FnOnce() + Send + Sync>>; 128],

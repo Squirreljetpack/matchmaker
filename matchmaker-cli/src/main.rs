@@ -135,6 +135,9 @@ async fn main() {
             MatchError::Abort(i) => {
                 exit(i);
             }
+            MatchError::Become(code) => {
+                exit(code as i32);
+            }
             MatchError::EventLoopClosed => {
                 exit(125);
             }

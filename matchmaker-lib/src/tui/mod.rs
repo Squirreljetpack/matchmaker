@@ -222,6 +222,7 @@ where
             log::trace!("keyboard enhancement set");
         }
 
+        self.in_execute = false;
         Ok(())
     }
 
@@ -362,6 +363,7 @@ where
             disable_raw_mode()._wlog();
         }
 
+        self.in_execute = true;
         debug!("Terminal exited");
     }
 

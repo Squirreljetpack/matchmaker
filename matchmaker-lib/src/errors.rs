@@ -9,9 +9,9 @@ pub enum MatchError {
     /// Event loop closed
     #[error("Event loop closed.")]
     EventLoopClosed,
-    /// Exited via [`crate::action::Action::Become`]
-    #[error("Became: {0}")]
-    Become(String),
+    /// Exited via [`crate::action::Action::Become`] or [`crate::action::Action::BecomeSilent`]
+    #[error("Became with exit code: {0}")]
+    Become(u8),
     /// Critical error in TUI initialization/execution.
     #[error("TUI Error: {0}")]
     TUIError(String),

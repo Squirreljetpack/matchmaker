@@ -934,12 +934,12 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                     state.synced = [false, false, true];
                     did_reload = true;
                 }
-                Interrupt::Become => {
+                Interrupt::Become | Interrupt::BecomeSilent => {
+                    if controller_tx.send(Event::Pause).is_err() {
+                        break;
+                    }
                     tui.exit(None);
-                }
-                Interrupt::BecomeSilent => {
-                    tui.exit(None);
-                    // tui.exit_lite();
+                    did_pause = true;
                 }
                 _ => {}
             }
@@ -956,8 +956,13 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                     h(&mut dispatcher);
                 }
 
-                if matches!(interrupt, Interrupt::Become) {
-                    return Err(MatchError::Become(state.payload().clone()));
+                if matches!(interrupt, Interrupt::Become | Interrupt::BecomeSilent) {
+                    if let Some(code) = state.discriminant_payload.take() {
+                        return Err(MatchError::Become(code));
+                    }
+                    if did_exit.is_none() {
+                        did_exit = Some(true);
+                    }
                 }
             }
         }

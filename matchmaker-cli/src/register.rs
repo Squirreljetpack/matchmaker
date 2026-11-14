@@ -232,40 +232,14 @@ impl<S> Matchmaker<String, S, ConfigPreprocessedData> {
         });
     }
 
-    /// Causes [`Action::Become`] to cause the program to become the program specified by its payload.
+    /// Causes [`Action::Become`] and [`Action::BecomeSilent`] to replace the process with their payload (or run a Lua payload and exit with its status), leaving `discriminant_payload` as `None` to resume the TUI if no command runs.
     pub fn register_become_handler(&mut self, shell: Vec<OsString>) {
         let shell_2 = shell.clone();
         self.register_interrupt_handler(Interrupt::Become, move |state| {
-            let template = state.payload().clone();
-            if !template.is_empty() {
-                let vars = state.make_env_vars();
-                let Some(strategy) = execute::classify(&template)
-                    .template(state)
-                    .and_then(|s| s.resolve_relative(&vars)._elog())
-                else {
-                    return;
-                };
-
-                if let Some(mut cmd_builder) = execute::build_command(&strategy, &shell) {
-                    cmd_builder.envs(vars)._exec();
-                }
-            }
+            run_become(state, &shell);
         });
         self.register_interrupt_handler(Interrupt::BecomeSilent, move |state| {
-            let template = state.payload().clone();
-            if !template.is_empty() {
-                let vars = state.make_env_vars();
-                let Some(strategy) = execute::classify(&template)
-                    .template(state)
-                    .and_then(|s| s.resolve_relative(&vars)._elog())
-                else {
-                    return;
-                };
-
-                if let Some(mut cmd_builder) = execute::build_command(&strategy, &shell_2) {
-                    cmd_builder.envs(vars)._exec();
-                }
-            }
+            run_become(state, &shell_2);
         });
     }
 
@@ -407,6 +381,40 @@ fn deliver_clipboard<A: ActionExt + Send + 'static>(
 
             wait_with_timeout(child, std::time::Duration::from_millis(500));
         }
+    }
+}
+
+/// Run a `Become` / `BecomeSilent` payload: shell and `@file` commands replace
+/// the process via `_exec`, Lua payloads run in-process and record their exit
+/// code in `state.discriminant_payload`, and empty/unresolvable payloads leave
+/// `discriminant_payload` unset so the render loop resumes the TUI.
+fn run_become(state: &mut MMState<'_, String, ConfigPreprocessedData>, shell: &[OsString]) {
+    state.discriminant_payload = None;
+    let template = state.payload();
+    if template.is_empty() {
+        return;
+    }
+
+    let vars = state.make_env_vars();
+    let Some(strategy) = execute::classify(template)
+        .template(state)
+        .and_then(|s| s.resolve_relative(&vars)._elog())
+    else {
+        return;
+    };
+
+    #[cfg(feature = "mlua")]
+    if strategy.is_lua() {
+        let lua_state = crate::lua::LuaState::from_mm(state);
+        let code = execute::run_lua_status(&strategy, &vars, &lua_state)
+            .and_then(|e| e.code)
+            .unwrap_or(1);
+        state.discriminant_payload = Some(u8::try_from(code).unwrap_or(1));
+        return;
+    }
+
+    if let Some(mut cmd_builder) = execute::build_command(&strategy, shell) {
+        cmd_builder.envs(vars)._exec();
     }
 }
 

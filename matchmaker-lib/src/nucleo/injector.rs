@@ -64,6 +64,13 @@ pub struct WorkerInjector<T, D = ()> {
     pub(super) picker_version: Arc<AtomicU32>,
 }
 
+impl<T: SSS, D> WorkerInjector<T, D> {
+    /// Returns `true` when the owning worker has been restarted or dropped.
+    pub fn is_closed(&self) -> bool {
+        self.version != self.picker_version.load(Ordering::Acquire)
+    }
+}
+
 impl<T: SSS, D> Injector for WorkerInjector<T, D> {
     type InputItem = T;
     type Inner = ();
@@ -85,7 +92,7 @@ impl<T: SSS, D> Injector for WorkerInjector<T, D> {
     }
 
     fn push(&self, item: T) -> Result<(), WorkerError> {
-        if self.version != self.picker_version.load(Ordering::Relaxed) {
+        if self.is_closed() {
             return Err(WorkerError::InjectorShutdown);
         }
         if let Some(d) = (self.raw_preprocessor)(&item) {
@@ -98,7 +105,7 @@ impl<T: SSS, D> Injector for WorkerInjector<T, D> {
         &self,
         items: impl IntoIterator<Item = T> + ExactSizeIterator,
     ) -> Result<(), WorkerError> {
-        if self.version != self.picker_version.load(Ordering::Relaxed) {
+        if self.is_closed() {
             return Err(WorkerError::InjectorShutdown);
         }
         let items: Vec<T> = items

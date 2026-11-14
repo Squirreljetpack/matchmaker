@@ -7,10 +7,10 @@
 #                                age \t session \t "" \t "" \t state(EXITED|current|"")
 #   zellij.sh current            panes of the current session except ours,
 #                                youngest first, then by pane id
-#                                age \t session \t pane-id \t tab \t title
+#                                age \t session \t pane-id \t tab \t title \t tab-id \t tab-pos
 #   zellij.sh other              panes of every non-EXITED, non-current session,
 #                                youngest session first, then by pane id
-#                                age \t session \t pane-id \t tab \t title
+#                                age \t session \t pane-id \t tab \t title \t tab-id \t tab-pos
 #   zellij.sh layouts [name...]  single-tab layouts from the user layout dir,
 #                                plus any extra layout names to include
 #                                file("" for non-user) \t name \t source(user|builtin)
@@ -19,6 +19,10 @@
 #                                live list-panes for running, metadata.kdl for EXITED
 #   zellij.sh dump-pane [session] [pane-id]
 #                                screen dump of a pane or active pane in session
+#   zellij.sh switch-pane <session> <pane-id> [tab-pos] [tab-id]
+#                                focus a pane in another session (switching tabs
+#                                as needed), using switch-session inside zellij
+#                                or attach + post-attach tab switch outside
 #   zellij.sh has-current-panes  no output; exit 0 iff `current` would list at
 #                                least one pane (ring navigation skips it otherwise)
 #   zellij.sh has-other-panes    no output; exit 0 iff `other` would list at
@@ -52,9 +56,10 @@ list_sessions() {
     }' | tr -d ' '
 }
 
-# one age \t session \t id \t tab \t title row per terminal pane of $1 ($2 =
-# its age); pass a third arg to drop the pane we're in ($ZELLIJ_PANE_ID --
-# terminal ids are unique session-wide, so the id guard can't over-match)
+# one age \t session \t id \t tab \t title \t tab_id \t tab_position row per
+# terminal pane of $1 ($2 = its age); pass a third arg to drop the pane we're
+# in ($ZELLIJ_PANE_ID -- terminal ids are unique session-wide, so the id guard
+# can't over-match)
 pane_rows() {
     local sess=$1 age=$2
     local filter='select(.is_plugin == false)'
@@ -66,7 +71,7 @@ pane_rows() {
         SESS="$sess" AGE="$age" MYPANE="${ZELLIJ_PANE_ID:-}" \
             jq -r ".[]
                   | $filter
-                  | \"\(env.AGE)\t\(env.SESS)\t\(.id|tostring)\t\(.tab_name)\t\(.title)\""
+                  | \"\(env.AGE)\t\(env.SESS)\t\(.id|tostring)\t\(.tab_name)\t\(.title)\t\(.tab_id|tostring)\t\(.tab_position|tostring)\""
 }
 
 # Sort pane rows (age \t session \t id \t tab \t title) youngest first, ties
@@ -331,6 +336,42 @@ cmd_dump_pane() {
     fi
 }
 
+cmd_switch_pane() {
+    local sess=$1 pane=$2 tab_pos=${3:-} tab_id=${4:-}
+    local pane_ref="terminal_$pane"
+
+    if [ -n "${ZELLIJ:-}" ] || [ -n "${ZELLIJ_SESSION_NAME:-}" ]; then
+        if [ -n "$tab_pos" ]; then
+            exec zellij action switch-session --tab-position "$tab_pos" --pane-id "$pane_ref" "$sess"
+        fi
+        exec zellij action switch-session --pane-id "$pane_ref" "$sess"
+    fi
+
+    zellij -s "$sess" action focus-pane-id "$pane_ref" >/dev/null 2>&1
+    if [ -n "$tab_id" ]; then
+        local before pid=$$
+        before=$(zellij -s "$sess" action list-clients 2>/dev/null | awk 'NR>1' | wc -l)
+        if [ "${before:-0}" -eq 0 ]; then
+            # `go-to-tab-by-id` is a no-op before a client connects, and
+            # `focus-pane-id` on a detached session does not change the active tab.
+            (
+                i=0
+                while [ "$i" -lt 60 ] && kill -0 "$pid" 2>/dev/null; do
+                    now=$(zellij -s "$sess" action list-clients 2>/dev/null | awk 'NR>1' | wc -l)
+                    if [ "${now:-0}" -gt 0 ]; then
+                        sleep 0.1
+                        zellij -s "$sess" action go-to-tab-by-id "$tab_id" >/dev/null 2>&1
+                        break
+                    fi
+                    sleep 0.05
+                    i=$((i + 1))
+                done
+            ) &
+        fi
+    fi
+    exec zellij attach "$sess"
+}
+
 cmd_has_current_panes() {
     [ -n "$current" ] || exit 1
     zellij -s "$current" action list-panes --json 2>/dev/null |
@@ -352,11 +393,12 @@ case "${1:-}" in
     layouts)           cmd_layouts "${@:2}" ;;
     session-preview)   shift; cmd_session_preview "$@" ;;
     dump-pane)         shift; cmd_dump_pane "$@" ;;
+    switch-pane)       shift; cmd_switch_pane "$@" ;;
     has-current-panes) cmd_has_current_panes ;;
     has-other-panes)   cmd_has_other_panes ;;
     --pane-rows)       shift; pane_rows "$@" ;;   # internal: xargs probe entry point
     *)
-        echo "usage: zellij.sh {sessions|current|other|layouts|session-preview|dump-pane|has-current-panes|has-other-panes}" >&2
+        echo "usage: zellij.sh {sessions|current|other|layouts|session-preview|dump-pane|switch-pane|has-current-panes|has-other-panes}" >&2
         exit 2
         ;;
 esac

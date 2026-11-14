@@ -6,7 +6,7 @@ source = "base.toml"
 command = "@./zellij.sh other"
 
 [columns]
-max = 5
+max = 7
 default = "session"
 names = [
     { name = "age", options = "Optional | OrUseDefault" },
@@ -14,6 +14,8 @@ names = [
     { name = "pane", hidden = true },
     { name = "tab" },
     { name = "title", options = "Optional | OrUseDefault" },
+    { name = "tabid", hidden = true },
+    { name = "tabpos", hidden = true },
 ]
 
 # --- Preview ---------------------------------------------------------------
@@ -37,21 +39,14 @@ max = 0
 
 # --- UI --------------------------------------------------------------------
 [header]
-content = ["AGE", "SESSION", "PANE", "TAB", "TITLE"]
+content = ["AGE", "SESSION", "PANE", "TAB", "TITLE", "TAB_ID", "TAB_POS"]
 
 [query]
 prompt = "other> "
 
 # --- Binds -----------------------------------------------------------------
 [binds]
-"@accept" = '''Become(
-if [ -n "$ZELLIJ" ] || [ -n "$ZELLIJ_SESSION_NAME" ]; then
-    exec zellij action switch-session --pane-id {pane} {session}
-else
-    zellij -s {session} action focus-pane-id {pane} >/dev/null 2>&1
-    exec zellij attach {session}
-fi
-)'''
+"@accept" = '''Become(exec "$(dirname -- "$MM_OVERRIDE")"/zellij.sh switch-pane {session} {pane} {tabpos} {tabid})'''
 
 "@print" = [
     "#print",

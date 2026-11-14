@@ -124,11 +124,66 @@ define_transparent_wrapper!(
     Padding: rPadding
 );
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
-#[serde(untagged)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ShowCondition {
     Bool(bool),
     Free(u16),
+}
+
+impl Serialize for ShowCondition {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            ShowCondition::Bool(b) => serializer.serialize_bool(*b),
+            ShowCondition::Free(n) => serializer.serialize_u16(*n),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for ShowCondition {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct ShowConditionVisitor;
+
+        impl<'de> Visitor<'de> for ShowConditionVisitor {
+            type Value = ShowCondition;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a boolean or non-negative integer")
+            }
+
+            fn visit_bool<E>(self, v: bool) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(ShowCondition::Bool(v))
+            }
+
+            fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                u16::try_from(v)
+                    .map(ShowCondition::Free)
+                    .map_err(|_| E::invalid_value(de::Unexpected::Signed(v), &self))
+            }
+
+            fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                u16::try_from(v)
+                    .map(ShowCondition::Free)
+                    .map_err(|_| E::invalid_value(de::Unexpected::Unsigned(v), &self))
+            }
+        }
+
+        deserializer.deserialize_any(ShowConditionVisitor)
+    }
 }
 impl Default for ShowCondition {
     fn default() -> Self {
@@ -193,15 +248,59 @@ impl<'de> Deserialize<'de> for Padding {
             bottom: u16,
         }
 
-        #[derive(Deserialize)]
-        #[serde(untagged)]
         enum PaddingFormat {
             Sequence(Vec<u16>),
             Single(u16),
-            Object(PaddingHelper), // arrays can be deserialized into objects so it must be after sequence
+            Object(PaddingHelper),
         }
 
-        let format = PaddingFormat::deserialize(deserializer)?;
+        struct PaddingVisitor;
+
+        impl<'de> Visitor<'de> for PaddingVisitor {
+            type Value = PaddingFormat;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str(
+                    "an integer, a sequence of 1, 2, or 4 integers, or a table with left/right/top/bottom",
+                )
+            }
+
+            fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                u16::try_from(v)
+                    .map(PaddingFormat::Single)
+                    .map_err(|_| E::invalid_value(de::Unexpected::Signed(v), &self))
+            }
+
+            fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                u16::try_from(v)
+                    .map(PaddingFormat::Single)
+                    .map_err(|_| E::invalid_value(de::Unexpected::Unsigned(v), &self))
+            }
+
+            fn visit_seq<A>(self, seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: de::SeqAccess<'de>,
+            {
+                Vec::<u16>::deserialize(de::value::SeqAccessDeserializer::new(seq))
+                    .map(PaddingFormat::Sequence)
+            }
+
+            fn visit_map<A>(self, map: A) -> Result<Self::Value, A::Error>
+            where
+                A: de::MapAccess<'de>,
+            {
+                PaddingHelper::deserialize(de::value::MapAccessDeserializer::new(map))
+                    .map(PaddingFormat::Object)
+            }
+        }
+
+        let format = deserializer.deserialize_any(PaddingVisitor)?;
 
         let inner = match format {
             // Handle { "top": 10 } or {}
@@ -506,28 +605,22 @@ impl<'de> Deserialize<'de> for ColumnSetting {
             name: ColumnName,
         }
 
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum Input {
-            Str(ColumnName),
-            Obj(ColumnStruct),
-        }
-
-        match Input::deserialize(deserializer)? {
-            Input::Str(name) => Ok(ColumnSetting {
+        crate::utils::serde::deserialize_string_or_struct(
+            deserializer,
+            "a column name string or column table",
+            |name| ColumnSetting {
                 ignore: true,
                 hidden: false,
                 options: Default::default(),
                 name,
-            }),
-            Input::Obj(obj) => Ok(ColumnSetting {
+            },
+            |obj: ColumnStruct| ColumnSetting {
                 ignore: obj.ignore,
                 hidden: obj.hidden,
-
                 options: obj.options,
                 name: obj.name,
-            }),
-        }
+            },
+        )
     }
 }
 
@@ -548,26 +641,28 @@ impl<'de> Deserialize<'de> for EnvValue {
         D: serde::Deserializer<'de>,
     {
         #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum RawEnvValue {
-            Short(String),
-            Long {
-                value: String,
-                #[serde(default)]
-                force: bool,
-                #[serde(default)]
-                exec: bool,
-            },
+        struct EnvValueLong {
+            value: String,
+            #[serde(default)]
+            force: bool,
+            #[serde(default)]
+            exec: bool,
         }
 
-        match RawEnvValue::deserialize(deserializer)? {
-            RawEnvValue::Short(value) => Ok(EnvValue {
+        crate::utils::serde::deserialize_string_or_struct(
+            deserializer,
+            "a string or an env value table",
+            |value| EnvValue {
                 value,
                 force: false,
                 exec: false,
-            }),
-            RawEnvValue::Long { value, force, exec } => Ok(EnvValue { value, force, exec }),
-        }
+            },
+            |long: EnvValueLong| EnvValue {
+                value: long.value,
+                force: long.force,
+                exec: long.exec,
+            },
+        )
     }
 }
 
@@ -599,7 +694,7 @@ impl<'de> Deserialize<'de> for CommandSetting {
     where
         D: serde::Deserializer<'de>,
     {
-        use crate::utils::serde::escaped_opt_char;
+        use crate::utils::serde::{deserialize_string_or_struct, escaped_opt_char};
 
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
@@ -613,24 +708,18 @@ impl<'de> Deserialize<'de> for CommandSetting {
             pub command: String,
         }
 
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum CommandSettingDe {
-            String(String),
-            Full(CommandStruct),
-        }
-
-        match CommandSettingDe::deserialize(deserializer)? {
-            CommandSettingDe::String(command) => Ok(CommandSetting {
+        deserialize_string_or_struct(
+            deserializer,
+            "a command string or command table",
+            |command| CommandSetting {
                 separator: None,
                 command,
-            }),
-
-            CommandSettingDe::Full(obj) => Ok(CommandSetting {
+            },
+            |obj: CommandStruct| CommandSetting {
                 separator: obj.separator,
                 command: obj.command,
-            }),
-        }
+            },
+        )
     }
 }
 

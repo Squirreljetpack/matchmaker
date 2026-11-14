@@ -1,0 +1,137 @@
+# Niri compositor actions, windows, and workspaces (niri msg)
+#
+# Browse and execute `niri msg action` commands, focus or close open windows,
+# or switch workspaces via `niri msg -j`.
+#
+# Requirements: `niri` and `jq`.
+
+[start]
+command = '''
+command -v niri >/dev/null 2>&1 || { echo "niri not found" >&2; exit 1; }
+niri msg action 2>&1 | awk '
+    /^Actions:/ { in_act = 1; mode = "alt"; next }
+    /^Commands:/ { in_act = 1; mode = "inline"; next }
+    in_act && /^(Options|Arguments):/ { in_act = 0; next }
+    !in_act { next }
+
+    {
+        line = $0
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+        if (line == "") next
+
+        if (mode == "alt") {
+            if (act == "") {
+                act = line
+            } else {
+                if (act != "help") printf "%s\taction\t%s\n", act, line
+                act = ""
+            }
+        } else {
+            act_name = line
+            sub(/[[:space:]].*$/, "", act_name)
+            desc = substr(line, length(act_name) + 1)
+            sub(/^[[:space:]]+/, "", desc)
+            if (act_name != "help") printf "%s\taction\t%s\n", act_name, desc
+        }
+    }
+'
+'''
+additional_commands = [
+    "",
+    '''
+    command -v niri >/dev/null 2>&1 || { echo "niri not found" >&2; exit 1; }
+    command -v jq >/dev/null 2>&1 || { echo "jq not found" >&2; exit 1; }
+    niri msg -j windows | jq -r '.[] | "\(.id)\tws:\(.workspace_id // "-") \(.app_id // "-")\t\(.title // "")"'
+    ''',
+    '''
+    command -v niri >/dev/null 2>&1 || { echo "niri not found" >&2; exit 1; }
+    command -v jq >/dev/null 2>&1 || { echo "jq not found" >&2; exit 1; }
+    niri msg -j workspaces | jq -r '.[] | "\(.idx)\t\(.output // "-")\(if .is_active then " *" else "" end)\t\(.name // "workspace \(.idx)") (id:\(.id))"'
+    ''',
+]
+output = "{=id}"
+
+[matcher]
+trim = true
+
+[columns]
+split = "\\t"
+max = 3
+names = ["id", "context", "desc"]
+default = "id"
+
+# --- UI ---
+
+[header]
+content = ["Target", "Context", "Description"]
+
+# --- Preview ---
+
+[preview]
+show = true
+
+[[preview.layout]]
+command = '''
+if ((MM_INDEX == 0)); then
+    niri msg action {id} --help
+elif ((MM_INDEX == 1)); then
+    niri msg -j windows | jq --argjson id {id} '.[] | select(.id == $id)'
+else
+    ws_id=$(niri msg -j workspaces | jq -r --argjson idx {id} '.[] | select(.idx == $idx) | .id' | head -n 1)
+    niri msg -j workspaces | jq --argjson idx {id} '.[] | select(.idx == $idx)'
+    printf "%${COLUMNS}s\n" | tr ' ' '-'
+    if [ -n "$ws_id" ]; then
+        niri msg -j windows | jq -r --argjson ws "$ws_id" '.[] | select(.workspace_id == $ws) | "\(.id)\t\(.app_id // "-")\t\(.title // "")"'
+    fi
+fi
+'''
+frame = { title = "Details" }
+
+# --- Binds ---
+
+[binds]
+"@reload" = ["#next tab", "ReloadNext"]
+"@reload_2" = ["#prev tab", "ReloadPrev"]
+
+"@accept" = [
+    "#run action / focus window / switch workspace",
+    '''ExecuteOrConfirm(
+        if ((MM_INDEX == 0)); then
+            niri msg action {id}
+        elif ((MM_INDEX == 1)); then
+            niri msg action focus-window --id {id}
+        else
+            niri msg action focus-workspace {id}
+        fi
+    )''',
+]
+"@return" = "Accept"
+
+"@rm" = [
+    "#close window",
+    '''ExecuteOrConfirm(
+        if ((MM_INDEX == 1)); then
+            niri msg action close-window --id {id}
+        else
+            echo "Switch to the windows tab to close a window." >&2
+            exit 1
+        fi
+    )''',
+    "Reload",
+]
+
+"@copy" = "CopyAsync(printf '%s\n' {id})"
+
+# --- Scripts ---
+
+"Start" = '''Transform(
+    HEADERS=('niri:actions> ' 'niri:windows> ' 'niri:workspaces> ')
+    setopt KSH_ARRAYS 2>/dev/null
+    echo "SetPrompt(${HEADERS[$MM_INDEX]})"
+)'''
+
+"Reloaded" = '''Transform(
+    HEADERS=('niri:actions> ' 'niri:windows> ' 'niri:workspaces> ')
+    setopt KSH_ARRAYS 2>/dev/null
+    echo "SetPrompt(${HEADERS[$MM_INDEX]})"
+)'''

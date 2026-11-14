@@ -1,0 +1,104 @@
+# Proton Pass vault picker (pass-cli)
+
+source = "base.toml"
+
+[start]
+command = '''
+command -v pass-cli >/dev/null 2>&1 || { echo "pass-cli not found" >&2; exit 1; }
+command -v jq >/dev/null 2>&1 || { echo "jq not found" >&2; exit 1; }
+pass-cli item list "$@" --output json | jq -r '
+    .items[]
+    | select(.state == "Active" and .content.content.Login != null)
+    | .content.content.Login as $l
+    | "\(.id)\t\(.content.title // "")\t\(if ($l.email // "") != "" then $l.email else ($l.username // "") end)\t\(.share_id)"
+'
+'''
+output = "{=id}"
+
+[header]
+content = ["ID", "Name", "User", "Share"]
+
+[query]
+prompt = "protonpass> "
+
+# --- Preview ---
+
+[[preview.layout]]
+command = '''
+pass-cli item view --share-id {extra} --item-id {id} --output json | jq -r '
+    (.item // .) as $it
+    | $it.content.content.Login as $l
+    | "Title:    \($it.content.title // "")",
+      "Email:    \($l.email // "-")",
+      "Username: \($l.username // "-")",
+      "Password: \(if ($l.password // "") != "" then "********" else "-" end)",
+      "TOTP:     \(if ($l.totp_uri // "") != "" then "configured" else "-" end)",
+      (if (($l.urls // []) | length) > 0 then
+          "URLs:     \($l.urls | join(", "))"
+      else empty end)
+'
+'''
+frame = { title = "Entry" }
+
+[[preview.layout]]
+command = '''
+pass-cli item view --share-id {extra} --item-id {id} --output json | jq -r '
+    (.item // .) as $it
+    | "Notes:",
+      ($it.content.note // "-")
+'
+'''
+frame = { title = "Notes" }
+
+# --- Binds ---
+
+[binds]
+"@accept" = [
+    "#copy password and quit",
+    '''Copy(
+        (sleep 15; if command -v wl-copy >/dev/null 2>&1; then wl-copy --clear; elif command -v pbcopy >/dev/null 2>&1; then printf '' | pbcopy; elif command -v xclip >/dev/null 2>&1; then printf '' | xclip -selection clipboard; fi) >/dev/null 2>&1 </dev/null &
+        pass-cli item view --share-id {extra} --item-id {id} --field password
+    )''',
+    "Quit(0)",
+]
+"@copy" = [
+    "#copy password",
+    '''CopyAsync(
+        (sleep 15; if command -v wl-copy >/dev/null 2>&1; then wl-copy --clear; elif command -v pbcopy >/dev/null 2>&1; then printf '' | pbcopy; elif command -v xclip >/dev/null 2>&1; then printf '' | xclip -selection clipboard; fi) >/dev/null 2>&1 </dev/null &
+        pass-cli item view --share-id {extra} --item-id {id} --field password
+    )''',
+]
+"@copy_user" = ["#copy username", "CopyAsync(printf '%s\n' {user})"]
+"@copy_otp" = [
+    "#copy TOTP",
+    "CopyAsync(pass-cli item totp --share-id {extra} --item-id {id} --output json | jq -r '.totp // empty')",
+]
+"@open" = [
+    "#open URL",
+    '''ExecuteOrConfirm(
+        url=$(pass-cli item view --share-id {extra} --item-id {id} --output json | jq -r '(.item // .).content.content.Login.urls[0] // empty')
+        if [ -n "$url" ]; then
+            if command -v xdg-open >/dev/null 2>&1; then xdg-open "$url" >/dev/null 2>&1 &
+            elif command -v open >/dev/null 2>&1; then open "$url" >/dev/null 2>&1 &
+            fi
+        else
+            echo "No URL found for "{name} >&2
+            exit 1
+        fi
+    )''',
+]
+"@show" = [
+    "#reveal entry",
+    '''RunPreview(
+        pass-cli item view --share-id {extra} --item-id {id} --output json | jq -r '
+            (.item // .) as $it
+            | $it.content.content.Login as $l
+            | "Title:    \($it.content.title // "")",
+              "Email:    \($l.email // "-")",
+              "Username: \($l.username // "-")",
+              "Password: \($l.password // "-")",
+              "TOTP URI: \($l.totp_uri // "-")",
+              (if ($it.content.note // "") != "" then "---\n\($it.content.note)" else empty end)
+        '
+    )''',
+]

@@ -1,0 +1,121 @@
+# Arch Linux package browser (pacman / paru / yay)
+
+source = "base.toml"
+
+[start]
+command = '''
+command -v pacman >/dev/null 2>&1 || { echo "pacman not found" >&2; exit 1; }
+pacman -Qe | awk '{ printf "explicit\t%s\t%s\tinstalled\n", $1, $2 }'
+'''
+additional_commands = [
+    "",
+    '''
+    command -v pacman >/dev/null 2>&1 || { echo "pacman not found" >&2; exit 1; }
+    pacman -Q | awk '{ printf "local\t%s\t%s\tinstalled\n", $1, $2 }'
+    ''',
+    '''
+    command -v pacman >/dev/null 2>&1 || { echo "pacman not found" >&2; exit 1; }
+    pacman -Sl | awk '{
+        status = ($4 != "" ? "installed" : "-")
+        printf "%s\t%s\t%s\t%s\n", $1, $2, $3, status
+    }'
+    ''',
+]
+output = "{=name}"
+
+# --- Preview ---
+
+[[preview.layout]]
+command = '''
+info=$(pacman -Qi {name} 2>/dev/null || pacman -Si {name} 2>/dev/null)
+if command -v bat >/dev/null 2>&1; then
+    printf '%s\n' "$info" | bat --color=always --wrap=never -pp -l yaml
+else
+    printf '%s\n' "$info"
+fi
+'''
+frame = { title = "Package Info" }
+
+[[preview.layout]]
+command = 'pacman -Ql {name} 2>/dev/null || pacman -Fl {name} 2>/dev/null || echo "Package is not installed (run pacman -Fy to query remote files)."'
+frame = { title = "Files" }
+
+[[preview.layout]]
+command = '''
+if command -v pactree >/dev/null 2>&1; then
+    pactree -r {name} 2>/dev/null || pactree -rs {name} 2>/dev/null
+else
+    pacman -Qi {name} 2>/dev/null | awk '/^(Required By|Optional For|Depends On)/'
+fi
+'''
+frame = { title = "Reverse Deps" }
+
+# --- Binds ---
+
+[binds]
+"ctrl-x" = ["@clean", "Reload"]
+
+"@accept" = [
+    "#install",
+    '''ExecuteOrConfirm(
+        helper=$(command -v paru || command -v yay || true)
+        if [ -n "$helper" ]; then
+            "$helper" -S --needed {+name}
+        else
+            sudo pacman -S --needed {+name}
+        fi
+    )''',
+    "Reload",
+]
+
+"@rm" = [
+    "#remove",
+    '''ExecuteOrConfirm(
+        printf "Remove packages: %s? [y/N] " {+name}
+        read -r ans
+        if [[ "$ans" == [yY] ]]; then
+            sudo pacman -Rns {+name}
+        fi
+    )''',
+    "Reload",
+]
+
+"@open" = [
+    "#open homepage",
+    '''ExecuteOrConfirm(
+        url=$( (pacman -Qi {name} 2>/dev/null || pacman -Si {name} 2>/dev/null) | awk -F' : ' '/^URL[[:space:]]*:/ { print $2; exit }' )
+        if [ -n "$url" ] && [ "$url" != "None" ]; then
+            xdg-open "$url" >/dev/null 2>&1 &
+        else
+            echo "No URL found for "{name} >&2
+            exit 1
+        fi
+    )''',
+]
+
+"@refresh" = ["#sync databases", "ExecuteOrConfirm(sudo pacman -Sy)"]
+
+"@clean" = [
+    "#clean package cache",
+    '''ExecuteOrConfirm(
+        if command -v paccache >/dev/null 2>&1; then
+            sudo paccache -rk2
+        else
+            sudo pacman -Sc
+        fi
+    )''',
+]
+
+# --- Scripts ---
+
+"Start" = '''Transform(
+    HEADERS=('pacman:explicit> ' 'pacman:installed> ' 'pacman:repos> ')
+    setopt KSH_ARRAYS 2>/dev/null
+    echo "SetPrompt(${HEADERS[$MM_INDEX]})"
+)'''
+
+"Reloaded" = '''Transform(
+    HEADERS=('pacman:explicit> ' 'pacman:installed> ' 'pacman:repos> ')
+    setopt KSH_ARRAYS 2>/dev/null
+    echo "SetPrompt(${HEADERS[$MM_INDEX]})"
+)'''

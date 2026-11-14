@@ -1,0 +1,97 @@
+# Bitwarden vault picker (rbw)
+
+source = "base.toml"
+
+[start]
+command = '''
+command -v rbw >/dev/null 2>&1 || { echo "rbw not found" >&2; exit 1; }
+rbw list --fields id,name,user,folder
+'''
+output = "{=id}"
+
+[query]
+prompt = "bitwarden> "
+
+# --- Preview ---
+
+[[preview.layout]]
+command = '''
+command -v jq >/dev/null 2>&1 || { echo "jq required for preview" >&2; exit 1; }
+rbw get --raw {id} | jq -r '
+    "Name:     \(.name // "")",
+    "User:     \(.data.username // "")",
+    "Folder:   \(.folder // "-")",
+    "Password: \(if (.data.password // "") != "" then "********" else "-" end)",
+    "TOTP:     \(if (.data.totp // "") != "" then "configured" else "-" end)",
+    (if ((.data.uris // []) | length) > 0 then
+        "URIs:     \((.data.uris | map(.uri) | join(", ")))"
+    else empty end)
+'
+'''
+frame = { title = "Entry" }
+
+[[preview.layout]]
+command = '''
+command -v jq >/dev/null 2>&1 || { echo "jq required for preview" >&2; exit 1; }
+rbw get --raw {id} | jq -r '
+    "Notes:",
+    (.notes // "-"),
+    "",
+    "Fields:",
+    (if ((.fields // []) | length) > 0 then
+        (.fields[] | "  \(.name // "?"): \(if .type == "hidden" then "********" else (.value // "") end)")
+    else "  -" end)
+'
+'''
+frame = { title = "Fields & Notes" }
+
+# --- Binds ---
+
+[binds]
+"ctrl-x" = ["@sync", "Reload"]
+
+"@accept" = [
+    "#copy password and quit",
+    '''Copy(
+        (sleep 15; if command -v wl-copy >/dev/null 2>&1; then wl-copy --clear; elif command -v pbcopy >/dev/null 2>&1; then printf '' | pbcopy; elif command -v xclip >/dev/null 2>&1; then printf '' | xclip -selection clipboard; fi) >/dev/null 2>&1 </dev/null &
+        rbw get {id}
+    )''',
+    "Quit(0)",
+]
+"@copy" = [
+    "#copy password",
+    '''CopyAsync(
+        (sleep 15; if command -v wl-copy >/dev/null 2>&1; then wl-copy --clear; elif command -v pbcopy >/dev/null 2>&1; then printf '' | pbcopy; elif command -v xclip >/dev/null 2>&1; then printf '' | xclip -selection clipboard; fi) >/dev/null 2>&1 </dev/null &
+        rbw get {id}
+    )''',
+]
+"@copy_user" = ["#copy username", "CopyAsync(printf '%s\n' {user})"]
+"@copy_otp" = ["#copy TOTP", "CopyAsync(rbw code {id})"]
+"@sync" = ["#sync vault", "ExecuteOrConfirm(rbw sync)"]
+"@open" = [
+    "#open URL",
+    '''ExecuteOrConfirm(
+        url=$(rbw get --raw {id} | jq -r '.data.uris[0].uri // empty')
+        if [ -n "$url" ]; then
+            if command -v xdg-open >/dev/null 2>&1; then xdg-open "$url" >/dev/null 2>&1 &
+            elif command -v open >/dev/null 2>&1; then open "$url" >/dev/null 2>&1 &
+            fi
+        else
+            echo "No URL found for "{name} >&2
+            exit 1
+        fi
+    )''',
+]
+"@show" = [
+    "#reveal entry",
+    '''RunPreview(
+        rbw get --raw {id} | jq -r '
+            "Name:     \(.name // "")",
+            "User:     \(.data.username // "")",
+            "Password: \(.data.password // "-")",
+            "TOTP:     \(.data.totp // "-")",
+            ((.fields // [])[] | "\(.name // "?"): \(.value // "")"),
+            (if (.notes // "") != "" then "---\n\(.notes)" else empty end)
+        '
+    )''',
+]

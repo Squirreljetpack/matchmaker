@@ -1,0 +1,126 @@
+# Media player controller (playerctl)
+#
+# Browse active MPRIS media players, inspect track metadata and album art, and
+# control playback, volume, mute, and seeking via `playerctl`.
+#
+# Requirements: `playerctl` (plus `curl` for remote album art).
+
+[start]
+command = '''
+command -v playerctl >/dev/null 2>&1 || { echo "playerctl not found" >&2; exit 1; }
+playerctl -a metadata --format $'{{playerInstance}}\t{{status}}\t{{artist}}\t{{title}}\t{{album}}' 2>/dev/null || true
+'''
+output = "{=player}"
+
+[matcher]
+trim = true
+
+[columns]
+split = "\\t"
+max = 5
+names = ["player", "status", "artist", "title", "album"]
+default = "title"
+
+# --- UI ---
+
+[header]
+content = ["Player", "Status", "Artist", "Title", "Album"]
+
+[query]
+prompt = "playerctl> "
+
+# --- Preview ---
+
+[preview]
+show = true
+
+[[preview.layout]]
+command = '''
+pos=$(playerctl -p {player} position 2>/dev/null || echo "")
+len_us=$(playerctl -p {player} metadata mpris:length 2>/dev/null || echo "")
+vol=$(playerctl -p {player} volume 2>/dev/null || echo "")
+art_url=$(playerctl -p {player} metadata mpris:artUrl 2>/dev/null || echo "")
+
+time_str="-"
+if [ -n "$pos" ]; then
+    time_str=$(awk -v p="$pos" -v lus="$len_us" 'BEGIN {
+        pi = int(p)
+        pm = int(pi / 60); ps = pi % 60
+        if (lus != "" && lus + 0 > 0) {
+            li = int((lus + 0) / 1000000)
+            lm = int(li / 60); ls = li % 60
+            printf "%d:%02d / %d:%02d", pm, ps, lm, ls
+        } else {
+            printf "%d:%02d", pm, ps
+        }
+    }')
+fi
+
+vol_str="-"
+if [ -n "$vol" ]; then
+    vol_str=$(awk -v v="$vol" 'BEGIN { printf "%d%%", int(v * 100 + 0.5) }')
+fi
+
+art_file=""
+if [[ "$art_url" == file://* ]]; then
+    art_file="${art_url#file://}"
+elif [[ "$art_url" == http://* || "$art_url" == https://* ]] && command -v curl >/dev/null 2>&1; then
+    hash=$(printf '%s' "$art_url" | cksum | awk '{print $1}')
+    cache_art="/tmp/mm_playerctl_art_$hash"
+    if [ ! -s "$cache_art" ]; then
+        curl -fsSL --max-time 2 "$art_url" -o "$cache_art" 2>/dev/null || rm -f "$cache_art"
+    fi
+    [ -s "$cache_art" ] && art_file="$cache_art"
+fi
+
+[ -n "$art_file" ] && [ -f "$art_file" ] && mm --image "$art_file" header_lines=7 hfit=contain:20
+
+echo "Player: "{player}
+echo "Status: "{status}"  |  Vol: $vol_str  |  Time: $time_str"
+echo "Title:  "{title}
+echo "Artist: "{artist}
+echo "Album:  "{album}
+printf "%${COLUMNS}s\n" | tr ' ' '-'
+'''
+frame = { title = "Now Playing" }
+
+[[preview.layout]]
+command = "playerctl -p {player} metadata 2>/dev/null || true"
+frame = { title = "Raw Metadata" }
+
+# --- Binds ---
+
+[binds]
+"ctrl-n" = ["@next_track", "Reload"]
+"ctrl-p" = ["@prev_track", "Reload"]
+"ctrl-x" = ["@stop", "Reload"]
+"ctrl-m" = ["@mute", "Reload"]
+"ctrl-up" = ["@vol_up", "Reload"]
+"ctrl-down" = ["@vol_down", "Reload"]
+"alt-k" = ["@vol_up", "Reload"]
+"alt-j" = ["@vol_down", "Reload"]
+"alt-f" = ["@seek_fwd", "Reload"]
+"alt-b" = ["@seek_back", "Reload"]
+
+"@accept" = ["#play/pause", "ExecuteAsync(playerctl -p {player} play-pause)", "Reload"]
+"@return" = "Accept"
+"@next_track" = ["#next track", "ExecuteAsync(playerctl -p {player} next)"]
+"@prev_track" = ["#previous track", "ExecuteAsync(playerctl -p {player} previous)"]
+"@stop" = ["#stop", "ExecuteAsync(playerctl -p {player} stop)"]
+"@vol_up" = ["#volume +5%", "ExecuteAsync(playerctl -p {player} volume 0.05+)"]
+"@vol_down" = ["#volume -5%", "ExecuteAsync(playerctl -p {player} volume 0.05-)"]
+"@mute" = [
+    "#mute/unmute",
+    '''ExecuteAsync(
+        vol=$(playerctl -p {player} volume 2>/dev/null || echo "1")
+        if awk -v v="$vol" 'BEGIN { exit !(v + 0 > 0) }'; then
+            playerctl -p {player} volume 0
+        else
+            playerctl -p {player} volume 1
+        fi
+    )''',
+]
+"@seek_fwd" = ["#seek +10s", "ExecuteAsync(playerctl -p {player} position 10+)"]
+"@seek_back" = ["#seek -10s", "ExecuteAsync(playerctl -p {player} position 10-)"]
+"@copy" = "CopyAsync(printf '%s\n' {title})"
+"@copy_all" = "CopyAsync(printf '%s - %s\n' {artist} {title})"

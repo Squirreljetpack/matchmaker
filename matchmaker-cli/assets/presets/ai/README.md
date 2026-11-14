@@ -1,24 +1,79 @@
-##### Session picker
+# Pi and LLM pickers
 
-Pi coding harness session picker
+Pickers for the [Pi coding agent](https://github.com/badlogic/pi-mono) and the
+[llm](https://llm.datasette.io/) CLI: resume previous sessions, inspect model
+options, and manage installed Pi extensions.
 
-![image-20260627143155886](.README.assets/image-20260627143155886.png)
+## Usage
 
-![image-20260810081144100](.README.assets/image-20260810081144100.png)
+```sh
+mm -o ai/pi_sessions
+mm -o ai/llm
+mm -o ai/pi_extensions
+```
 
-##### LLM Model picker
+Requirements: `python3` and `bat` for the Pi presets.
 
-Model picker for [llm](https://llm.datasette.io/en/stable/)
+## Presets
 
-![image-20260810081538319](.README.assets/image-20260810081538319.png)
+### `pi_sessions`
 
-##### Pi extension manager
+Browse and resume Pi agent sessions.
 
-This preset reads `~/.pi/agent/mm_extensions` (`$MM_EXTENSIONS_FILE`) for your desired extension setup.
-Git definitions are stored canonically (`git:<host>/<user>/<repo>[@ref]`), so the spellings pi accepts for one package collapse to a single row.
-The rows shown may not reflect your current pi settings! Trigger `@reconcile` (ctrl-r) to update the file to reflect your current extension settings for this project. You can also uncomment the `@start` bind to have this run on start.
-Trigger `@accept` to toggle extensions.
-Trigger `@set global` or `@set local` to apply the shown configuration local/global pi settings.
-Trigger `@prune` to uninstall extensions found in the global/project git and npm install folders that are not in this list.
+Sessions are read from `~/.pi/agent/sessions`. Each row is a session transcript
+(`*.jsonl`); the preview shows its first prompt, the model used, token totals,
+and the last response. The second preview tab breaks usage down with
+`session_stats.py`, and the third shows the raw JSONL.
 
-![image-20260810081336473](.README.assets/image-20260810081336473.png)
+`<enter>` starts `pi` in the session's working directory with `--session`, while
+`@return` (`alt-enter`) starts a forked session instead. `@show` exports the
+session to HTML under `/tmp/pi/html` and opens it; this is the only action that
+needs `node`. `@copy` copies the session id, and `@rm` deletes the session file
+without asking for confirmation.
+
+Requirements: `jq` for the previews, plus `node` for `@show`.
+
+![Pi agent session picker](./.README.assets/session-picker.png)
+
+![Pi session preview](./.README.assets/session-picker-preview.png)
+
+### `llm`
+
+Pick an installed `llm` model.
+
+Runs `llm models --options` and splits the output into one row per model. The
+preview runs `llm models --options -m <model>`. Accepting a row
+prints the model name, so it can be used in a pipeline:
+
+```sh
+llm -m "$(mm -o ai/llm)" "Summarize this"
+```
+
+Requirements: `llm` and the plugins that provide the models you use; `perl` is
+used to parse `llm`'s output.
+
+![llm model picker](./.README.assets/llm-model-picker.png)
+
+### `pi_extensions`
+
+Manage the Pi extensions listed in `~/.pi/agent/mm_extensions`.
+
+The file is a line-oriented list of JSON extension definitions. Lines starting
+with `#` are disabled; enabled lines have no prefix. When the file is missing
+or empty, the preset seeds it from the current global and project settings with
+`pi_extensions_reconcile.py`. The rows are therefore a desired-state list, not
+a live view of Pi: run `@reconcile` (`ctrl-r`) after changing extensions
+elsewhere.
+
+`@accept` toggles the selected extensions in the list and `@set global` /
+`@set local` apply the list to `~/.pi/agent/settings.json` or
+`.pi/settings.json` (with confirmation). `ctrl-n` installs a new extension from
+a URL and appends it; `@rm` removes it from the list and runs `pi uninstall`;
+`@prune` (`alt-p`) uninstalls extensions present in the global/project install
+folders but absent from the list. `@prune`, `@rm`, and the apply actions prompt
+before changing anything.
+
+Requirements: `pi`. Set `MM_EXTENSIONS_FILE` to use a different list. `@open`
+edits the relevant `settings.json` with `$EDITOR`.
+
+![Pi extension manager](./.README.assets/extension-manager.png)

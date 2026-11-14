@@ -1,0 +1,86 @@
+# Debian / Ubuntu package browser (apt / dpkg)
+
+source = "base.toml"
+
+[start]
+command = '''
+command -v dpkg-query >/dev/null 2>&1 || { echo "dpkg-query not found" >&2; exit 1; }
+dpkg-query -W -f='${Package}\t${Version}\t${db:Status-Abbrev}\n' | awk -F'\t' '{
+    printf "dpkg\t%s\t%s\t%s\n", $1, $2, $3
+}'
+'''
+additional_commands = [
+    "",
+    '''
+    command -v apt-cache >/dev/null 2>&1 || { echo "apt-cache not found" >&2; exit 1; }
+    apt-cache pkgnames | sort | awk '{ printf "apt\t%s\t-\t-\n", $1 }'
+    ''',
+]
+output = "{=name}"
+
+# --- Preview ---
+
+[[preview.layout]]
+command = '''
+info=$(apt-cache show {name} 2>/dev/null || dpkg-query -s {name} 2>/dev/null)
+if command -v bat >/dev/null 2>&1; then
+    printf '%s\n' "$info" | bat --color=always --wrap=never -pp -l yaml
+else
+    printf '%s\n' "$info"
+fi
+'''
+frame = { title = "Package Info" }
+
+[[preview.layout]]
+command = 'dpkg -L {name} 2>/dev/null || echo "Package is not installed."'
+frame = { title = "Files" }
+
+[[preview.layout]]
+command = "apt-cache rdepends --installed {name} 2>/dev/null || true"
+frame = { title = "Reverse Deps" }
+
+# --- Binds ---
+
+[binds]
+"@accept" = ["#install", "ExecuteOrConfirm(sudo apt-get install {+name})", "Reload"]
+
+"@rm" = [
+    "#remove",
+    '''ExecuteOrConfirm(
+        printf "Remove packages: %s? [y/N] " {+name}
+        read -r ans
+        if [[ "$ans" == [yY] ]]; then
+            sudo apt-get remove {+name}
+        fi
+    )''',
+    "Reload",
+]
+
+"@open" = [
+    "#open homepage",
+    '''ExecuteOrConfirm(
+        url=$( (apt-cache show {name} 2>/dev/null || dpkg-query -s {name} 2>/dev/null) | awk -F': ' '/^Homepage:/ { print $2; exit }' )
+        if [ -n "$url" ]; then
+            xdg-open "$url" >/dev/null 2>&1 &
+        else
+            echo "No Homepage found for "{name} >&2
+            exit 1
+        fi
+    )''',
+]
+
+"@refresh" = ["#update apt index", "ExecuteOrConfirm(sudo apt-get update)"]
+
+# --- Scripts ---
+
+"Start" = '''Transform(
+    HEADERS=('apt:installed> ' 'apt:available> ')
+    setopt KSH_ARRAYS 2>/dev/null
+    echo "SetPrompt(${HEADERS[$MM_INDEX]})"
+)'''
+
+"Reloaded" = '''Transform(
+    HEADERS=('apt:installed> ' 'apt:available> ')
+    setopt KSH_ARRAYS 2>/dev/null
+    echo "SetPrompt(${HEADERS[$MM_INDEX]})"
+)'''

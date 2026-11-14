@@ -1,0 +1,39 @@
+# Shared defaults for password manager presets
+
+[matcher]
+trim = true
+
+[columns]
+split = "\\t"
+max = 4
+names = [{ name = "id", hidden = true }, "name", "user", "extra"]
+default = "name"
+
+# --- UI ---
+
+[header]
+content = ["ID", "Name", "User", "Vault / Folder"]
+
+# --- Preview ---
+
+[preview]
+show = true
+
+# --- Binds ---
+
+[binds]
+"alt-u" = "@copy_user"
+"ctrl-t" = "@copy_otp"
+"ctrl-k" = "@clear"
+"@return" = "Accept"
+
+"@clear" = [
+    "#clear clipboard",
+    '''ExecuteAsync(
+        if command -v wl-copy >/dev/null 2>&1; then wl-copy --clear
+        elif command -v pbcopy >/dev/null 2>&1; then printf '' | pbcopy
+        elif command -v xclip >/dev/null 2>&1; then printf '' | xclip -selection clipboard
+        elif command -v xsel >/dev/null 2>&1; then xsel -bc
+        fi
+    )''',
+]

@@ -1,0 +1,34 @@
+# Shared defaults for system package manager presets
+
+[matcher]
+trim = true
+
+[columns]
+split = "\\t"
+max = 4
+names = ["repo", "name", "version", "status"]
+default = "name"
+
+# --- UI ---
+
+[header]
+content = ["Source", "Package", "Version", "Status"]
+
+[tui]
+percentage = 100
+
+# --- Preview ---
+
+[preview]
+show = true
+
+# --- Binds ---
+
+[binds]
+"alt-u" = ["@refresh", "Reload"]
+"F5" = ["@refresh", "Reload"]
+
+"@reload" = ["#next tab", "ReloadNext"]
+"@reload_2" = ["#prev tab", "ReloadPrev"]
+"@return" = "Accept"
+"@copy" = "CopyAsync(printf '%s\n' {+name})"

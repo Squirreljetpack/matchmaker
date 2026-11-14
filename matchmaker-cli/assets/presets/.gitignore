@@ -1,5 +1,6 @@
 /*
 !*.toml
+!README_WHEN_WRITING_README.md
 
 !dict
 !obsidian
@@ -20,6 +21,9 @@
 !mutagen
 !zellij
 !themes
+!experimental
+!packages
+!pw
 
 # generated/downloaded
 *.html

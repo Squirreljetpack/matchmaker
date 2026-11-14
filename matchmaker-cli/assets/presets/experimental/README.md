@@ -13,13 +13,18 @@ mm -o experimental/playerctl
 mm -o experimental/wireplumber
 ```
 
+Requirements:
+
+- `bluetooth`: `bluetoothctl` (BlueZ) and `timeout`.
+- `niri`: `niri`, plus `jq` for the windows tab.
+- `playerctl`: `playerctl`.
+- `wireplumber`: `wpctl` (WirePlumber).
+
 ## Presets
 
 ### `bluetooth`
 
 Connect, pair, trust, scan, and remove Bluetooth devices.
-
-Requirements: `bluetoothctl` (BlueZ) and `timeout`.
 
 Rows come from `bluetoothctl devices`, with state flags derived from the
 Connected, Paired, and Trusted views. A second tab lists only connected devices;
@@ -33,8 +38,6 @@ the device after confirmation. `@copy` copies the MAC address. The preview runs
 
 Run Niri actions, or focus and close windows.
 
-Requirements: `niri` and `jq` for the windows tab.
-
 The actions tab is parsed from `niri msg action --help`; the windows tab reads
 `niri msg -j windows`. `<enter>` runs the selected action, or focuses the window
 from the windows tab. Actions that take arguments are sent without them and will
@@ -46,8 +49,6 @@ shows the action's help or the window's JSON.
 
 Control MPRIS media players.
 
-Requirements: `playerctl`.
-
 Rows come from `playerctl -a metadata`, one per active player. `<enter>` toggles
 play/pause and reloads the list. `@next_track` (`ctrl-n`), `@prev_track`
 (`ctrl-p`), and `@stop` (`ctrl-x`) control the selected player; `@copy` copies
@@ -58,11 +59,9 @@ player's full metadata.
 
 Set the default PipeWire node, mute it, or change its volume.
 
-Requirements: `wpctl` (WirePlumber).
-
 Rows come from the Audio section of `wpctl status`: sinks, sources, and active
-streams. Devices and filters are skipped. `<enter>` sets the selected node as the default after confirmation.
-`@mute` (`ctrl-m`) toggles mute, and `@vol_up` / `@vol_down` (`ctrl-up` /
-`ctrl-down`, or `alt-k` / `alt-j`) change the volume by 5%, limiting the maximum
-to 150%. `@copy` copies the node id. The preview shows `wpctl get-volume` and
-the node's `wpctl inspect` output.
+streams. Devices and filters are skipped. `<enter>` sets the selected node as
+the default after confirmation. `@mute` (`ctrl-m`) toggles mute, and `@vol_up` /
+`@vol_down` (`ctrl-up` / `ctrl-down`, or `alt-k` / `alt-j`) change the volume
+by 5%, limiting the maximum to 150%. `@copy` copies the node id. The preview
+shows `wpctl get-volume` and the node's `wpctl inspect` output.

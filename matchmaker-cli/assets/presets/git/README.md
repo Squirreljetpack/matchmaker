@@ -42,8 +42,9 @@ for files you do not need. `@next` opens `restore`, and `@prev` wraps around to
 Restore a file or revision from history, a stash, or the reflog.
 
 The optional pathspec limits the history and the restore target to that path.
-The tabs are history (`git log`), stashes, all refs, and reachable refs. Each
-row is a ref. `<enter>` checks the selected ref or path into the working tree
+The tabs are history (`git log`), stashes, all refs, and reachable refs. A
+history row is a ref, with the short hash, the commit date, and the subject as
+its columns. `<enter>` checks the selected ref or path into the working tree
 without moving `HEAD`; if files are dirty it offers to proceed, stash the
 affected paths, or cancel.
 
@@ -85,7 +86,7 @@ pipe into another command. This preset only reads history. `@next` opens
 `restore` when the working tree is clean and `status` otherwise; `@prev`
 returns to `switch`.
 
-![Git history grep](./.README.assets/grep-history.png)
+![Git history grep](./.README.assets/grep-help.png)
 
 ![Grep diff preview](./.README.assets/grep-diff.png)
 

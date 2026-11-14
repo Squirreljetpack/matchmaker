@@ -363,10 +363,10 @@ back to the external pager chain `MM_PAGER` → `$PAGER` → `less` → `more`.
 
 How markdown is rendered by `mm --doc` and by the preset docs paged from `@help`.
 
-- `variant`: (variant) Base skin for the terminal background: `neutral` (default), `dark`, or `light`. The variant only shifts the code colors; the rest of the skin is shared.
-- `bold`, `header`, `inline_code`, `code_block`, `bullet`: [style settings](#style-settings) for those elements. `header` applies to every heading level, `bullet` is the style of list bullets. Omitted fields keep termimad's defaults.
+- `variant`: (variant) Base palette for the terminal background: `neutral` (default), `dark`, or `light`. The variant shifts the heading, code, border, and link colors.
+- `bold`, `header`, `inline_code`, `code_block`, `bullet`: [style settings](#style-settings) for those elements. `header` applies to every heading level, `bullet` is the style of list bullets. Omitted fields keep the variant's defaults.
 
-Blocks fenced with the `mermaid` tag (flowcharts, sequence, state, class, ER, pie, gantt, mindmap, …) are drawn as Unicode box diagrams sized to the available width, styled by `code_block`. A block that Mermaid cannot parse is left as source code.
+Blocks fenced with the `mermaid` tag (flowcharts, sequence, state, class, ER, pie, gantt, mindmap, …) are drawn as Unicode box diagrams sized to the available width. A block that Mermaid cannot parse is left as source code.
 
 ```toml
 [markdown]

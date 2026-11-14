@@ -1,6 +1,6 @@
 /*
 !*.toml
-!README_WHEN_WRITING_README.md
+!AUTHORING_README.md
 
 !dict
 !obsidian
@@ -23,6 +23,7 @@
 !themes
 !experimental
 !packages
+!ps
 !pw
 
 # generated/downloaded

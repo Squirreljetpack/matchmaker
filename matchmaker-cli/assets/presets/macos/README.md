@@ -26,8 +26,8 @@ panes.
 Rows come from the bundled `extensions.csv` and from `.prefPane` bundles found
 in `/Library/PreferencePanes` and `~/Library/PreferencePanes`. Each row is a
 pane or a pane section. The preview resolves the pane's bundle, renders its icon
-into `/tmp/mm_pref_*.png` (reusing the cached image on later runs), and shows the
-open target.
+into `/tmp/mm_pref_*.png` (reusing the cached image on later runs), and shows
+the open target.
 
 `<enter>` opens the selected pane in System Settings; third-party bundles are
 opened directly. `@record` (`ctrl-r`) asks the running System Settings app for

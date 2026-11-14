@@ -17,6 +17,10 @@ Requirements: `jq` for parsing each manager's JSON output. Sign in or unlock the
 corresponding CLI session before launching a preset. The optional vault name
 after `--` for `protonpass` restricts `pass-cli item list` to that vault.
 
+- `bitwarden`: `rbw`, unlocked with `rbw unlock`.
+- `1password`: `op` with an active session.
+- `protonpass`: `pass-cli`, authenticated.
+
 All pickers mask secret fields in both preview layouts and fetch secrets on
 demand when copying or when explicitly revealed with `@show`.
 
@@ -35,16 +39,10 @@ Search your Bitwarden vault via `rbw`.
 
 `ctrl-x` (`@sync`) runs `rbw sync` and reloads the list.
 
-Requirements: `rbw` (unlocked with `rbw unlock`).
-
 ### `1password`
 
 Search your 1Password items via `op`.
 
-Requirements: `op` (1Password CLI with an active session).
-
 ### `protonpass`
 
 Search active Proton Pass login items via `pass-cli`.
-
-Requirements: `pass-cli` (authenticated).

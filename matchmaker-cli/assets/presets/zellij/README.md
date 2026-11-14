@@ -38,7 +38,8 @@ when there are no other panes.
 Focus a pane in the current session.
 
 Lists the session's terminal panes except the one running Matchmaker, so it
-only produces rows from inside Zellij. `<enter>` focuses the selected pane.
+only produces rows from inside Zellij; `TAB_ID` and `TAB_POS` are the tab's id
+and its index in the tab strip. `<enter>` focuses the selected pane.
 `@print` emits `session<TAB>pane`, `@copy` copies `session:pane`, and `@rm`
 closes the selected panes after confirmation. The preview follows the pane's
 live screen. `@next` opens `layout`, and `@prev` returns to `session`.
@@ -47,11 +48,13 @@ live screen. `@next` opens `layout`, and `@prev` returns to `session`.
 
 Jump to a pane in another session.
 
-Lists panes from every other running session. `<enter>` switches to that session
-with the pane focused; from outside Zellij it attaches afterwards. `@print` and
-`@copy` use the same `session<TAB>pane` form as `current`, and `@rm` closes the
-selected panes. `alt-d` kills the sessions containing the selected panes
-(deduplicated) after confirmation. The preview shows the pane's live screen.
+Lists panes from every other running session, with `TAB_ID` and `TAB_POS`
+giving the tab's id and its index in the tab strip. `<enter>` switches to that
+session with the pane focused; from outside Zellij it attaches afterwards.
+`@print` and `@copy` use the same `session<TAB>pane` form as `current`, and
+`@rm` closes the selected panes. `alt-d` kills the sessions containing the
+selected panes (deduplicated) after confirmation. The preview shows the pane's
+live screen.
 `@next` wraps around to `session`, and `@prev` returns to `layout`.
 
 ### `layout`

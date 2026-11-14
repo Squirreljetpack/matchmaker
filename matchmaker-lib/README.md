@@ -2,7 +2,7 @@
 
 Matchmaker is a fuzzy searcher, powered by nucleo and written in rust.
 
-![screen1](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/screen1.png)
+![splash](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/splash.png)
 
 ## Features
 

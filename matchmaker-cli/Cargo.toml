@@ -75,7 +75,7 @@ default = ["mlua", "pager", "image", "image-svg"]
 mlua = ["dep:mlua"]
 pager = ["dep:minus"]
 # Image previews via the `<MM_IMAGE>` preview header.
-image = ["matchmaker-lib/image"]
+image = ["matchmaker-lib/image", "minus?/image"]
 # SVG previews, rasterized with resvg.
 image-svg = ["matchmaker-lib/image-svg"]
 image-all = ["matchmaker-lib/image-all"]

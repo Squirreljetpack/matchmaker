@@ -59,6 +59,8 @@ Use section comments to separate the input, UI, preview, and action portions. Ke
 `source` can inherit from another preset. A common pattern for several related presets stored in the same folder (i.e. `git`) is to define a `base.toml` (in `git/`), and add `source = 'base.toml'` to each of the concrete presets (`git/restore.toml`).
 Override only the fields that are intentionally different. Collections such as `preview.layout` are merged by position and then appended; binds override existing keys.
 
+For small, optional tweaks on top of an existing preset without forking it (such as changing `@open` or switching matcher settings), use a patch preset under `patches/<name>.toml` (slashes in the preset name replaced by hyphens, e.g. `patches/git-status.toml`); `presets.toml` layers matching patches automatically.
+
 ## Templates
 
 Matchmaker formats templates before executing preview and action commands. Formatted values are shell-quoted by Matchmaker unless the raw modifier is used.
@@ -166,7 +168,7 @@ Use the standard library when portability matters. Send data rows only to stdout
 
 ### Multi-preset rings
 
-Related pickers can form a ring: each preset binds `@next` / `@prev` to `BecomeSilent(mm -o <sibling>)`, letting users cycle between workflows with one key pair. Guard edges that may have nothing to show with a probe subcommand in the shared script (exit 0 iff the target would list rows) and fall through to the next ring member otherwise. See `terminal/zellij_*.toml` for a four-preset example sharing a single `zellij.sh`.
+Related pickers can form a ring: each preset binds `@next` / `@prev` to `BecomeSilent(mm -o <sibling>)`, letting users cycle between workflows with one key pair. Guard edges that may have nothing to show with a probe subcommand in the shared script (exit 0 iff the target would list rows) and fall through to the next ring member otherwise. See `zellij/` (`session.toml`, `current.toml`, `layout.toml`, `other.toml`) for a four-preset example sharing a single `zellij.sh`.
 
 ## Patterns in shipped presets
 
@@ -177,7 +179,7 @@ Use the repository's presets as style references instead of treating one workflo
 - `docker/containers.toml` shows sibling helper scripts, command-backed environment values, named columns, and previews that reuse a dispatcher.
 - `csv.toml` shows the smallest useful preset: discover input, select a parser, set a header, and preview the active field.
 - `ai/pi_sessions.toml` shows a larger multi-column browser with generated metadata, several preview layouts, and helper programs resolved relative to `MM_OVERRIDE`.
-- `terminal/zellij_*.toml` shows a four-preset ring (`@next`/`@prev` navigation with skip-empty probes) sharing one subcommand-driven helper script referenced via `@./`.
+- `zellij/` (`session.toml`, `current.toml`, `layout.toml`, `other.toml`) shows a four-preset ring (`@next`/`@prev` navigation with skip-empty probes) sharing one subcommand-driven helper script referenced via `@./`.
 
 Copy the pattern, not the incidental command names. Keep the preset's assumptions explicit and avoid adding UI or abstraction that the workflow does not need.
 

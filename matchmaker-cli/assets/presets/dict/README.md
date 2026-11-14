@@ -35,7 +35,7 @@ Each row is one word and part of speech; multiple senses appear on separate
 lines in the definition. Synonyms and etymology are searchable and the preview
 shows the full entry with both.
 
-Accepting a row prints the full tab-separated entry, so the preset also works as
-a fuzzy word lookup in a pipeline. The data file is selected through `ACTIVE_DICT`
-(`english` by default); to add another language, place `<name>.zst` beside
-`english.zst` and set `ACTIVE_DICT` to that name.
+Accepting a row prints the full tab-separated entry, so the preset also works
+as a fuzzy word lookup in a pipeline. The data file is selected through
+`ACTIVE_DICT` (`english` by default); to add another language, place
+`<name>.zst` beside `english.zst` and set `ACTIVE_DICT` to that name.

@@ -9,7 +9,7 @@ It follows the [Agent Skills](https://agentskills.io/specification) format and c
 The commands below download the reviewed file without executing remote content. Choose one or more destinations:
 
 ```sh
-URL='https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/assets/plugins/SKILL.md'
+URL='https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-cli/assets/plugins/SKILL.md'
 
 # OpenAI Codex
 mkdir -p "$HOME/.agents/skills/matchmaker-presets"
@@ -45,7 +45,7 @@ For example:
 
 ```sh
 mkdir -p .pi/skills/matchmaker-presets
-curl -fsSL 'https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/assets/plugins/SKILL.md' \
+curl -fsSL 'https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-cli/assets/plugins/SKILL.md' \
   -o .pi/skills/matchmaker-presets/SKILL.md
 ```
 

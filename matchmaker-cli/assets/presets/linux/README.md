@@ -26,6 +26,7 @@ including panels intended for a different desktop environment. The `Exec`
 field's `%`-style field codes are stripped before the command is displayed.
 
 One row is one panel. The description column is the entry's comment, or
-`Settings` when it has no comment; the command is shown in the preview. `<enter>` runs the selected panel's `Exec` line and exits
-Matchmaker, so this picker is a launcher rather than a manager. The desktop
-entry is opened as-is; no settings are modified by the preset itself.
+`Settings` when it has no comment; the command is shown in the preview.
+`<enter>` runs the selected panel's `Exec` line and exits Matchmaker, so this
+picker is a launcher rather than a manager. The desktop entry is opened as-is;
+no settings are modified by the preset itself.

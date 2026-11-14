@@ -22,7 +22,8 @@ Every folder preset README has:
 1. One `#` title.
 2. A one-paragraph summary.
 3. A `## Usage` section showing how to launch it. In a multi-preset folder, list
-   every preset's invocation here, along with requirements and one-time setup.
+   every preset's invocation here, along with requirements and one-time setup,
+   including the requirements that apply to only one preset.
 4. A description of how the preset works once launched. This is the body of the
    README, not a section of its own.
 
@@ -65,7 +66,18 @@ internals of the populating command here; that belongs in the description.
 Requirements and one-time setup belong in this section, after the invocation:
 external executables, OS versions, permissions, environment variables, and
 config locations. Include copy-pasteable setup commands, and state when a
-dependency is optional and what degrades without it.
+dependency is optional and what degrades without it. Every requirement goes
+here, including one that only a single preset needs: keep the shared
+`Requirements:` paragraph, then list the preset-level ones as bullets with
+backticked preset names.
+
+```markdown
+Requirements: `jq` for each manager's JSON output.
+
+- `bitwarden`: `rbw`, unlocked with `rbw unlock`.
+- `1password`: `op` with an active session.
+- `protonpass`: `pass-cli`, authenticated.
+```
 
 ### How it works
 
@@ -76,9 +88,11 @@ Cover the points that apply:
 - **Input**: the command, file, or service that produces rows, and how
   arguments reach it.
 - **Rows**: what one row represents and what `<enter>` / `@accept` returns or
-  opens. Do not restate columns whose headers already say it; describe a column
-  only when its name alone is not enough, such as a terse status code or a
-  computed field. Hidden columns and the default column usually need no mention.
+  opens, then the columns. List every column and what it holds, unless each one is
+  obvious from the interface: a picker headed `AGE`, `SESSION`, `STATE` has
+  nothing left to explain. A terse name (`vsz`, `stat`), a status code, or a
+  computed field always gets a word, and a bare label like `[procs]` or no header
+  at all means stating the order too.
 - **State**: files, environment variables, caches, or configuration the preset
   reads or writes, and whether writes are atomic and reversible.
 - **Side effects**: processes started, files deleted, settings changed, and
@@ -97,8 +111,9 @@ List the pickers under `## Presets`, in the order they appear in the picker or
 ring, with one `###` section each. Give each one a one-line purpose and the
 details specific to that preset. Anything shared by several presets is a
 folder-level fact: state it once above `## Presets` instead of repeating it or
-describing it from inside one preset. Preset bodies start after launch; the
-invocations are collected in `## Usage`.
+describing it from inside one preset. Preset bodies start after launch, and
+requirements are collected in `## Usage`; a `###` section never carries its own
+requirements.
 
 ````markdown
 ## Usage
@@ -109,6 +124,8 @@ mm -o zellij/current
 mm -o zellij/layout
 mm -o zellij/other
 ```
+
+Requirements: `zellij`, `jq`, and `awk`.
 
 ## Presets
 
@@ -151,14 +168,12 @@ relative path:
 - `mm --download` fetches top-level preset files and skips images, so the README
   must remain useful without them.
 
-For a fixed display width, the repository uses HTML image tags:
+A single screenshot renders at its natural size, so keep the markdown form. The
+fixed `width:416px` tag exists only to pair two images side by side, which the
+top-level README does:
 
 ```html
-<img
-  src="./.README.assets/session-picker.png"
-  alt="Zellij session picker"
-  style="width:416px;"
-/>
+<img src="./.README.assets/left.png" alt="..." style="width:416px;" /> <img src="./.README.assets/right.png" alt="..." style="width:416px;" />
 ```
 
 ## Formatting
@@ -217,8 +232,9 @@ subdirectories are not downloaded.
       section, together with requirements and one-time setup.
 - [ ] The description explains input, row meaning, accept behavior, and side
       effects once the preset is running, without restating obvious columns.
-- [ ] Shared requirements and cross-preset behavior stay at folder level, and
-      each preset's `###` covers only that preset.
+- [ ] All requirements, including the ones only one preset needs, are in
+      `## Usage`, together with one-time setup.
+- [ ] Each preset's `###` covers only post-launch behavior.
 - [ ] Referenced commands, helper scripts, and paths exist in the folder.
 - [ ] Images live in `.README.assets/`, have descriptive names and alt text, and
       are not the only explanation of the workflow.

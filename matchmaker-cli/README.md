@@ -4,7 +4,7 @@ Matchmaker is fast, configurable and intuitive fuzzy searcher. It is useful for 
 
 It takes inspiration from [fzf](https://github.com/junegunn/fzf) in features and design, but reimagines the user experience. Built from the ground up in Rust, it brings a fully robust, modern and elegant search experience to the console.
 
-![screen1](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/screen1.png)
+![splash](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-lib/assets/splash.png)
 
 ## Features
 
@@ -199,11 +199,10 @@ mm --download rg.toml
 mm -o rg
 ```
 
-<img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/git-restore.png" alt="git-restore" style="width:416px;" /> <img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/git-grep-help.png" alt="git-help" style="width:416px;" />
-<img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/ps.png" alt="procs" style="width:416px;" /> <img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/context.png" alt="image-20260814151029456" style="width:416px" />
+<img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-cli/assets/presets/git/.README.assets/restore-history.png" alt="git-restore" style="width:416px;" /> <img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-cli/assets/presets/git/.README.assets/grep-help.png" alt="git-help" style="width:416px;" />
+<img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-cli/assets/presets/ps/.README.assets/ps.png" alt="procs" style="width:416px;" /> <img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/context.png" alt="cargo tree filtering" style="width:416px" />
 
 <!-- <img src="https://raw.githubusercontent.com/Squirreljetpack/matchmaker/main/matchmaker-lib/assets/docker-containers.png" alt="docker-containers" style="width:416px;" /> <img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/presets/unicode/.README.assets/unicode-picker.png?raw=true" alt="unicode" style="width:416px" /> -->
-
 <img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/presets/ai/.README.assets/session-picker.png?raw=true" alt="pi session picker" style="width:416px;" /> <img src="https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/presets/macos/.README.assets/prefpanes.png?raw=true" alt="system-prefs" style="width:416px;" />
 
 [^50]: Contributions welcome!

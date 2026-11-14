@@ -15,6 +15,11 @@ mm -o packages/dnf
 Requirements: `sudo`, `xdg-open` for `@open`, and optionally `bat` for
 syntax-highlighted package metadata previews.
 
+- `pacman`: `pacman`, plus `paru` or `yay` when installed and optionally
+  `pactree` / `paccache` from `pacman-contrib`.
+- `apt`: `dpkg-query`, `apt-cache`, `dpkg`, and `apt-get`.
+- `dnf`: `rpm` and `dnf`.
+
 Shared binds across all package pickers: `<enter>` installs the selected
 package(s), `@rm` prompts before removing them, `@open` opens the package's
 homepage URL, and `@refresh` (`F5` / `alt-u`) syncs the package database.
@@ -24,9 +29,6 @@ homepage URL, and `@refresh` (`F5` / `alt-u`) syncs the package database.
 ### `pacman`
 
 Browse and manage Arch Linux packages.
-
-Requirements: `pacman` (plus `paru` or `yay` when installed, and optionally
-`pactree` / `paccache` from `pacman-contrib`).
 
 Cycles across three tabs with `@reload` and `@reload_2`: explicitly installed
 (`pacman -Qe`), all installed (`pacman -Q`), and all sync repository packages
@@ -40,8 +42,6 @@ package cache.
 
 Browse and manage Debian/Ubuntu packages.
 
-Requirements: `dpkg-query`, `apt-cache`, `dpkg`, and `apt-get`.
-
 Cycles between installed packages (`dpkg-query`) and all known packages
 (`apt-cache pkgnames`). Previews show `apt-cache show`, `dpkg -L`, and
 `apt-cache rdepends --installed`. `<enter>` runs `sudo apt-get install`;
@@ -50,8 +50,6 @@ Cycles between installed packages (`dpkg-query`) and all known packages
 ### `dnf`
 
 Browse and manage Fedora/RHEL packages.
-
-Requirements: `rpm` and `dnf`.
 
 Cycles between installed RPMs (`rpm -qa`) and available repository packages
 (`dnf list --available`). Previews show `rpm -qi`/`dnf info`, `rpm -ql`, and

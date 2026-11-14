@@ -661,14 +661,16 @@ EOF
 
 elif [ "$COUNT" -eq 1 ]; then
   # -------------------------------------------------------------
-  # One commit selected -> fold the working tree into it
+  # One commit selected -> fold the working tree (or index if nonempty) into it
   # -------------------------------------------------------------
   TARGET_SHA="$(git rev-parse {+1})"
   if [ -z "$(git status --porcelain)" ]; then
     exit 100
   fi
 
-  git add -A
+  if git diff --cached --quiet; then
+      git add -A
+  fi
 
   if [ "$TARGET_SHA" = "$PREV_HEAD" ]; then
     git commit --amend --no-edit --no-verify

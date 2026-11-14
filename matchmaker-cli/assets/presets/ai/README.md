@@ -14,6 +14,12 @@ mm -o ai/pi_extensions
 
 Requirements: `python3` and `bat` for the Pi presets.
 
+- `pi_sessions`: `jq` for the previews, plus `node` for `@show`.
+- `llm`: `llm` and the plugins that provide the models you use; `perl` parses
+  its output.
+- `pi_extensions`: `pi`. Set `MM_EXTENSIONS_FILE` to use a different list, and
+  `$EDITOR` to change which editor `@open` launches.
+
 ## Presets
 
 ### `pi_sessions`
@@ -27,11 +33,8 @@ and the last response. The second preview tab breaks usage down with
 
 `<enter>` starts `pi` in the session's working directory with `--session`, while
 `@return` (`alt-enter`) starts a forked session instead. `@show` exports the
-session to HTML under `/tmp/pi/html` and opens it; this is the only action that
-needs `node`. `@copy` copies the session id, and `@rm` deletes the session file
-without asking for confirmation.
-
-Requirements: `jq` for the previews, plus `node` for `@show`.
+session to HTML under `/tmp/pi/html` and opens it. `@copy` copies the session
+id, and `@rm` deletes the session file without asking for confirmation.
 
 ![Pi agent session picker](./.README.assets/session-picker.png)
 
@@ -41,16 +44,15 @@ Requirements: `jq` for the previews, plus `node` for `@show`.
 
 Pick an installed `llm` model.
 
-Runs `llm models --options` and splits the output into one row per model. The
-preview runs `llm models --options -m <model>`. Accepting a row
-prints the model name, so it can be used in a pipeline:
+Runs `llm models --options` and splits the output into one row per model, with
+the provider, model id, aliases, default options, features, and attachments as
+columns; the last three are comma-separated lists declared by the plugin. The
+preview runs `llm models --options -m <model>`. Accepting a row prints the model
+name, so it can be used in a pipeline:
 
 ```sh
 llm -m "$(mm -o ai/llm)" "Summarize this"
 ```
-
-Requirements: `llm` and the plugins that provide the models you use; `perl` is
-used to parse `llm`'s output.
 
 ![llm model picker](./.README.assets/llm-model-picker.png)
 
@@ -73,7 +75,6 @@ a URL and appends it; `@rm` removes it from the list and runs `pi uninstall`;
 folders but absent from the list. `@prune`, `@rm`, and the apply actions prompt
 before changing anything.
 
-Requirements: `pi`. Set `MM_EXTENSIONS_FILE` to use a different list. `@open`
-edits the relevant `settings.json` with `$EDITOR`.
+`@open` edits the relevant `settings.json` with `$EDITOR`.
 
 ![Pi extension manager](./.README.assets/extension-manager.png)

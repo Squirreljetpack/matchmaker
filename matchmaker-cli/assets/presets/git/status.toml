@@ -96,7 +96,10 @@ frame = { title = "File History" }
 
 "ctrl-1" = "@summary"
 "ctrl-u" = ["@unstage", "Reload"]
-"@show" = ["#diff", "Execute({ git --paginate diff --color=always --exit-code HEAD -- {+1} && echo no change; })"]
+"@show" = [
+    "#diff",
+    "Execute({ DFT_CONTEXT=50 git --paginate diff --color=always --exit-code -U50 HEAD -- {+1} && echo no change; })",
+]
 "alt-s" = "@commit"
 # "ctrl-c" = "@commit"
 "alt-c" = [

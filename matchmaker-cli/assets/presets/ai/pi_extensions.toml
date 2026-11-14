@@ -299,7 +299,10 @@ mmx = os.environ.get("MM_EXTENSIONS_FILE") or os.path.expanduser("~/.pi/agent/mm
 
 sys.stderr.write("source to install (e.g. https://github.com/user/repo): ")
 sys.stderr.flush()
-url = canonical_source(sys.stdin.readline().strip())
+url = sys.stdin.readline().strip()
+if url.startswith("pi install"):
+    url = url[len("pi install"):].strip()
+url = canonical_source(url)
 if not url:
     sys.stderr.write("error: no source entered\n")
     sys.exit(1)

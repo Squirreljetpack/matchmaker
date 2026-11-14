@@ -226,6 +226,21 @@ impl DisplayUI {
         self.update_table();
     }
 
+    fn border_left(&self) -> u16 {
+        self.config
+            .frame
+            .sides()
+            .contains(ratatui::widgets::Borders::LEFT) as u16
+    }
+
+    fn left_offset(&self, result_indentation: u16) -> u16 {
+        if self.config.match_indent {
+            result_indentation.max(self.border_left())
+        } else {
+            self.config.frame.left()
+        }
+    }
+
     pub fn make_display(
         &mut self,
         result_widths: ResultWidths,
@@ -247,7 +262,7 @@ impl DisplayUI {
             if self.config.match_indent {
                 let mut padding = self.config.frame.padding;
 
-                padding.left = result_indentation.saturating_sub(self.config.frame.left());
+                padding.left = result_indentation.saturating_sub(self.border_left());
                 b.padding(padding.0)
             } else {
                 b
@@ -328,11 +343,7 @@ impl DisplayUI {
     /// Draw in the same area as display when self.single() to produce a full width row over the table area
     pub fn make_full_width_row(&self, result_indentation: u16) -> Paragraph<'static> {
         // Compute padding
-        let left = if self.config.match_indent {
-            result_indentation.saturating_sub(self.config.frame.left())
-        } else {
-            self.config.frame.left()
-        };
+        let left = self.left_offset(result_indentation);
         let lines_height: u16 = if self.lines.is_empty() {
             0
         } else if self.reverse {
@@ -398,16 +409,7 @@ impl DisplayUI {
         };
 
         let (result_indentation, col_spacing, ref widths) = self.cached_result_widths;
-        let left_offset = if self.config.match_indent {
-            (self
-                .config
-                .frame
-                .sides()
-                .contains(ratatui::widgets::Borders::LEFT) as u16)
-                + result_indentation.saturating_sub(self.config.frame.left())
-        } else {
-            self.config.frame.left()
-        };
+        let left_offset = self.left_offset(result_indentation);
 
         if x < left_offset {
             return None;

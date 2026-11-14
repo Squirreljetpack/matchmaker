@@ -303,6 +303,7 @@ where
 
     /// Prefer [`crate::ui::PickerUI::restart`]
     pub fn restart(&mut self, clear_snapshot: bool) {
+        self.version.fetch_add(1, atomic::Ordering::Release);
         self.nucleo.restart(clear_snapshot);
     }
 
@@ -389,6 +390,12 @@ where
         };
         let d = (self.raw_preprocessor)(item)?;
         Some(col_val.raw(item, &d).into_owned().into())
+    }
+}
+
+impl<T: SSS, D> Drop for Worker<T, D> {
+    fn drop(&mut self) {
+        self.version.fetch_add(1, atomic::Ordering::Release);
     }
 }
 

@@ -1,0 +1,168 @@
+# Bluetooth device manager (bluetoothctl)
+#
+# List known, paired, and connected Bluetooth devices, inspect device info and
+# adapter status, toggle adapter power and device connections/trust, pair, scan,
+# or remove devices.
+#
+# Requirements: `bluetoothctl` (BlueZ) and `timeout`.
+
+[start]
+command = '''
+command -v bluetoothctl >/dev/null 2>&1 || { echo "bluetoothctl not found" >&2; exit 1; }
+all=$(timeout 3 bluetoothctl devices 2>/dev/null) || { echo "bluetoothd not responding" >&2; exit 1; }
+conn=$(timeout 3 bluetoothctl devices Connected 2>/dev/null || true)
+paired=$(timeout 3 bluetoothctl devices Paired 2>/dev/null || true)
+trusted=$(timeout 3 bluetoothctl devices Trusted 2>/dev/null || true)
+
+awk -v conn="$conn" -v paired="$paired" -v trusted="$trusted" '
+    function load(str, map,    n, arr, i, f) {
+        n = split(str, arr, "\n")
+        for (i = 1; i <= n; i++) {
+            if (arr[i] ~ /^Device /) {
+                split(arr[i], f, " ")
+                map[f[2]] = 1
+            }
+        }
+    }
+    BEGIN {
+        load(conn, C)
+        load(paired, P)
+        load(trusted, T)
+    }
+    /^Device / {
+        mac = $2
+        name = substr($0, index($0, $3))
+        flags = ""
+        if (C[mac]) flags = flags (flags ? "," : "") "connected"
+        if (P[mac]) flags = flags (flags ? "," : "") "paired"
+        if (T[mac]) flags = flags (flags ? "," : "") "trusted"
+        if (flags == "") flags = "discovered"
+        printf "%s\t%s\t%s\n", mac, flags, name
+    }
+' <<< "$all"
+'''
+additional_commands = [
+    "",
+    '''
+    command -v bluetoothctl >/dev/null 2>&1 || { echo "bluetoothctl not found" >&2; exit 1; }
+    timeout 3 bluetoothctl devices Connected 2>/dev/null | awk '/^Device / {
+        mac = $2
+        name = substr($0, index($0, $3))
+        printf "%s\tconnected\t%s\n", mac, name
+    }'
+    ''',
+]
+output = "{=mac}"
+
+[matcher]
+trim = true
+
+[columns]
+split = "\\t"
+max = 3
+names = ["mac", "state", "name"]
+default = "name"
+
+# --- UI ---
+
+[header]
+content = ["MAC", "State", "Name"]
+
+# --- Preview ---
+
+[preview]
+show = true
+
+[[preview.layout]]
+command = '''
+info=$(timeout 3 bluetoothctl info {mac} 2>/dev/null || true)
+printf "%${COLUMNS}s\n" | tr ' ' '-'
+echo "  "{name}"  ("{mac}")"
+printf "%${COLUMNS}s\n" | tr ' ' '-'
+echo "$info" | awk -F': ' '
+    /^[ \t]+(Connected|Paired|Trusted|Blocked|Icon|RSSI|Battery Percentage):/ {
+        k = $1; gsub(/^[ \t]+/, "", k)
+        printf "%-18s %s\n", k ":", $2
+    }
+'
+printf "%${COLUMNS}s\n" | tr ' ' '-'
+echo "$info"
+'''
+frame = { title = "Device Info" }
+
+[[preview.layout]]
+command = "timeout 2 bluetoothctl show"
+frame = { title = "Adapter" }
+
+# --- Binds ---
+
+[binds]
+"ctrl-t" = ["@trust", "Reload"]
+"ctrl-p" = ["@pair", "Reload"]
+"ctrl-b" = ["@scan", "Reload"]
+"ctrl-x" = ["@power", "Reload"]
+
+"@reload" = ["#next tab", "ReloadNext"]
+"@reload_2" = ["#prev tab", "ReloadPrev"]
+
+"@accept" = [
+    "#connect/disconnect",
+    '''ExecuteOrConfirm(
+        if timeout 3 bluetoothctl info {mac} | grep -q "Connected: yes"; then
+            timeout 10 bluetoothctl disconnect {mac}
+        else
+            timeout 15 bluetoothctl connect {mac}
+        fi
+    )''',
+    "Reload",
+]
+"@return" = "Accept"
+
+"@trust" = [
+    "#trust/untrust",
+    '''ExecuteOrConfirm(
+        if timeout 3 bluetoothctl info {mac} | grep -q "Trusted: yes"; then
+            timeout 5 bluetoothctl untrust {mac}
+        else
+            timeout 5 bluetoothctl trust {mac}
+        fi
+    )''',
+]
+"@pair" = ["#pair", "ExecuteOrConfirm(timeout 20 bluetoothctl pair {mac})"]
+"@scan" = ["#scan 8s", "ExecuteOrConfirm(bluetoothctl --timeout 8 scan on)"]
+"@power" = [
+    "#toggle adapter power",
+    '''ExecuteOrConfirm(
+        if timeout 2 bluetoothctl show | grep -q "Powered: yes"; then
+            timeout 3 bluetoothctl power off
+        else
+            timeout 3 bluetoothctl power on
+        fi
+    )''',
+]
+"@rm" = [
+    "#remove device",
+    '''ExecuteOrConfirm(
+        printf "Remove %s (%s)? [y/N] " {name} {mac}
+        read -r ans
+        if [[ "$ans" == [yY] ]]; then
+            timeout 5 bluetoothctl remove {mac}
+        fi
+    )''',
+    "Reload",
+]
+"@copy" = "CopyAsync(printf '%s\n' {mac})"
+
+# --- Scripts ---
+
+"Start" = '''Transform(
+    HEADERS=('bluetooth> ' 'bluetooth:connected> ')
+    setopt KSH_ARRAYS 2>/dev/null
+    echo "SetPrompt(${HEADERS[$MM_INDEX]})"
+)'''
+
+"Reloaded" = '''Transform(
+    HEADERS=('bluetooth> ' 'bluetooth:connected> ')
+    setopt KSH_ARRAYS 2>/dev/null
+    echo "SetPrompt(${HEADERS[$MM_INDEX]})"
+)'''

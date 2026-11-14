@@ -1,0 +1,133 @@
+# PipeWire / WirePlumber audio controller (wpctl)
+#
+# List PipeWire audio sinks, sources, and active streams, view a concise summary
+# or full node inspection, set the default sink/source, toggle mute, and adjust
+# volume.
+#
+# Requirements: `wpctl` (WirePlumber).
+
+[start]
+command = '''
+command -v wpctl >/dev/null 2>&1 || { echo "wpctl not found" >&2; exit 1; }
+wpctl status | awk '
+    /^Audio$/ { in_audio = 1; next }
+    /^[A-Z]/ && in_audio { in_audio = 0 }
+    !in_audio { next }
+
+    /Devices:|Filters:/ { kind = ""; next }
+    /Sinks:/ { kind = "sink"; next }
+    /Sources:/ { kind = "source"; next }
+    /Streams:/ { kind = "stream"; next }
+    kind == "" { next }
+
+    {
+        line = $0
+        if (kind == "stream" && index(line, ">") > 0) next
+
+        gsub(/^[[:space:]│├└─]+/, "", line)
+        if (line == "") next
+
+        def = "-"
+        if (substr(line, 1, 1) == "*") {
+            def = "*"
+            sub(/^\*[[:space:]]*/, "", line)
+        }
+
+        if (line !~ /^[0-9]+\./) next
+        dot = index(line, ".")
+        id = substr(line, 1, dot - 1)
+        rest = substr(line, dot + 1)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", rest)
+
+        vol = "-"
+        if (match(rest, /\[vol:[^]]+\]$/)) {
+            vol = substr(rest, RSTART + 6, RLENGTH - 7)
+            rest = substr(rest, 1, RSTART - 1)
+            gsub(/[[:space:]]+$/, "", rest)
+        }
+
+        printf "%s\t%s\t%s\t%s\t%s\n", id, kind, def, vol, rest
+    }
+'
+'''
+output = "{=id}"
+
+[matcher]
+trim = true
+
+[columns]
+split = "\\t"
+max = 5
+names = ["id", "kind", "default", "vol", "name"]
+default = "name"
+
+# --- UI ---
+
+[header]
+content = ["ID", "Kind", "Default", "Volume", "Name"]
+
+[query]
+prompt = "wireplumber> "
+
+# --- Preview ---
+
+[preview]
+show = true
+
+[[preview.layout]]
+command = '''
+vol_line=$(wpctl get-volume {id} 2>/dev/null || true)
+inspect=$(wpctl inspect {id} 2>/dev/null || true)
+
+printf "%${COLUMNS}s\n" | tr ' ' '-'
+echo "  "{name}"  ("{kind}" #" {id}")"
+printf "%${COLUMNS}s\n" | tr ' ' '-'
+if [ -n "$vol_line" ]; then
+    echo "$vol_line" | awk '{
+        v = $2 + 0; pct = int(v * 100 + 0.5)
+        filled = int(pct / 5); if (filled > 20) filled = 20
+        bar = ""
+        for (i = 1; i <= 20; i++) bar = bar (i <= filled ? "#" : "-")
+        muted = (index($0, "MUTED") > 0 ? " [MUTED]" : "")
+        printf "Volume:   [%s] %d%%%s\n", bar, pct, muted
+    }'
+fi
+echo "Default:  "{default}
+echo "$inspect" | awk -F' = ' '
+    function clean(s) { gsub(/^[ \t"]+|[ \t"]+$/, "", s); return s }
+    /media\.class =/ { print "Class:    " clean($2) }
+    /node\.name =/ { print "Node:     " clean($2) }
+    /application\.name =/ { print "App:      " clean($2) }
+    /audio\.format =/ { fmt = clean($2) }
+    /audio\.rate =/ { rate = clean($2) }
+    /audio\.channels =/ { ch = clean($2) }
+    /alsa\.mixer_name =/ { print "Mixer:    " clean($2) }
+    /node\.driver-id =/ { print "Driver:   #" clean($2) }
+    END {
+        if (ch != "" || rate != "" || fmt != "") {
+            printf "Audio:    %sch @ %sHz (%s)\n", (ch ? ch : "?"), (rate ? rate : "?"), (fmt ? fmt : "?")
+        }
+    }
+'
+'''
+frame = { title = "Summary" }
+
+[[preview.layout]]
+command = "wpctl inspect {id}"
+frame = { title = "Raw Inspect" }
+
+# --- Binds ---
+
+[binds]
+"ctrl-m" = ["@mute", "Reload"]
+"ctrl-up" = ["@vol_up", "Reload"]
+"ctrl-down" = ["@vol_down", "Reload"]
+"alt-k" = ["@vol_up", "Reload"]
+"alt-j" = ["@vol_down", "Reload"]
+
+"@accept" = ["#set default", "ExecuteOrConfirm(wpctl set-default {id})", "Reload"]
+"@return" = "Accept"
+"@mute" = ["#toggle mute", "ExecuteOrConfirm(wpctl set-mute {id} toggle)"]
+"@vol_up" = ["#volume +5%", "ExecuteOrConfirm(wpctl set-volume -l 1.5 {id} 5%+)"]
+"@vol_down" = ["#volume -5%", "ExecuteOrConfirm(wpctl set-volume {id} 5%-)"]
+"@copy" = "CopyAsync(printf '%s\n' {id})"

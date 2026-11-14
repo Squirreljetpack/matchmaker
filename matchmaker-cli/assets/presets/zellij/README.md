@@ -1,57 +1,71 @@
-## Zellij pickers
+# Zellij pickers
 
-Four presets, connected into a ring with `@next` / `@prev` (cycle with
-`ctrl-shift-n` / `ctrl-shift-p` or `alt-tab`):
+Four pickers for Zellij: switch sessions, jump to a pane, or apply a layout.
+They form a ring, and the pane pickers are skipped automatically when they
+would be empty.
 
-Presets are skipped in the cycle when empty.
+## Usage
 
-### `session` -- switch sessions
+```sh
+mm -o zellij/session
+mm -o zellij/current
+mm -o zellij/layout
+mm -o zellij/layout -- my-layout
+mm -o zellij/other
+```
 
-Every session, active and otherwise.
+Requirements: `zellij`, `jq`, and `awk`. `bat` is optional and used for cached
+KDL previews.
 
-- `<enter>`: attach/focus the selected session (EXITED sessions can't be
-  attached; use `@rm` to remove them)
-- `@print`: print the name of every selected session
-- `@copy`: copy the name of every selected session to the clipboard
-- `@rm`: kill the selected session(s) (with confirmation)
-- `alt-n` (`@new`): start a new session with zellij's generated name
-- main preview: tab summary with pane titles
-- secondary preview: active pane screen dump (active sessions) / session KDL layout (inactive sessions)
+## Presets
 
-### `current` -- panes of the current session
+### `session`
 
-Every pane of the current session except the one you're in.
+Switch between Zellij sessions.
 
-### `other` -- panes of other sessions
+Every session is listed, running or exited (exited sessions are attached with
+`zellij attach`, which can resurrect them). `<enter>` attaches from outside
+Zellij or switches to the session from inside. The preview summarizes tabs and
+pane titles; a second layout shows the active pane for a running session, or
+the cached layout for an exited one. `@rm` kills the selected sessions after a
+confirmation. `@print` and `@copy` emit or copy the selected names, and `@new`
+starts a new session with Zellij's generated name. `@next` opens `current`, or
+`layout` when there are no panes to focus; `@prev` opens `other`, or `layout`
+when there are no other panes.
 
-Every pane of every other active session.
+### `current`
 
-For both pane pickers:
+Focus a pane in the current session.
 
-- `<enter>`: focus the selected pane (`current`) or switch to it in its
-  session (`other`; from outside zellij this attaches to that session
-  with the pane focused)
-- `@print`: print `session<TAB>pane` for every selected pane
-- `@copy`: copy `session:pane` for every selected pane to the clipboard
-- `@rm`: close the selected pane(s) (with confirmation)
-- `alt-n` (`@new`): start a new session with zellij's generated name
-- main preview: the pane's live screen dump
+Lists the session's terminal panes except the one running Matchmaker, so it
+only produces rows from inside Zellij. `<enter>` focuses the selected pane.
+`@print` emits `session<TAB>pane`, `@copy` copies `session:pane`, and `@rm`
+closes the selected panes after confirmation. The preview follows the pane's
+live screen. `@next` opens `layout`, and `@prev` returns to `session`.
 
-## Zellij layout picker
+### `other`
 
-Apply a single-tab layout.
+Jump to a pane in another session.
 
-- `<enter>`: apply the selected layout to the current tab, keeping panes that
-  don't fit (`zellij action override-layout <name> --apply-only-to-active-tab
-  --retain-existing-terminal-panes`)
-- `alt-enter` (`@return`): apply it replacing the current tab's panes --
-  terminal panes that don't fit are closed (no confirmation, no undo)
-- `ctrl-n`: open it in a new tab
-- preview: the layout's KDL via `zellij setup --dump-layout <name>`
+Lists panes from every other running session. `<enter>` switches to that session
+with the pane focused; from outside Zellij it attaches afterwards. `@print` and
+`@copy` use the same `session<TAB>pane` form as `current`, and `@rm` closes the
+selected panes. `alt-d` kills the sessions containing the selected panes
+(deduplicated) after confirmation. The preview shows the pane's live screen.
+`@next` wraps around to `session`, and `@prev` returns to `layout`.
 
-The picker lists user `*.kdl` files from the config layout dir (at most one
-top-level `tab` block; swap variants skipped). Extra layout names can be passed
-as arguments to `zellij.sh layouts` to include them; a bare name resolves to
-the user layout dir first, then zellij's built-ins.
+### `layout`
 
-<img src=".README.assets/Screenshot 2026-08-14 at 12.34.23 AM.png" alt="Screenshot 2026-08-14 at 12.34.23 AM" style="width:416px;" />
+Apply a layout to the current tab or open it in a new tab.
+
+Extra names passed after `--` are added to the list of built-in or user layouts.
+The picker lists single-tab user layouts from Zellij's layout directory and
+skips swap variants. `<enter>` applies the layout to the active tab and keeps
+existing terminal panes that do not fit. `@return` applies it while replacing
+the active tab's panes, closing terminals that do not fit, without confirmation
+or undo. `@new` opens the layout in a new tab. The preview is the KDL that
+Zellij resolves for the layout name. Run it from inside Zellij. `@next` opens
+`other`, or `session` when there are no other panes; `@prev` opens `current`,
+or `session` when there are no panes to focus.
+
+![Zellij layout picker](./.README.assets/layout-picker.png)

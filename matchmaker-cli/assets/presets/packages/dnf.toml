@@ -1,0 +1,88 @@
+# Fedora / RHEL package browser (dnf / rpm)
+
+source = "base.toml"
+
+[start]
+command = '''
+command -v rpm >/dev/null 2>&1 || { echo "rpm not found" >&2; exit 1; }
+rpm -qa --qf 'rpm\t%{NAME}\t%{VERSION}-%{RELEASE}\tinstalled\n' | sort -t$'\t' -k2,2
+'''
+additional_commands = [
+    "",
+    '''
+    command -v dnf >/dev/null 2>&1 || { echo "dnf not found" >&2; exit 1; }
+    dnf -q list --available | awk 'NR > 1 && NF >= 3 {
+        name = $1
+        sub(/\.[^.]+$/, "", name)
+        printf "%s\t%s\t%s\tavailable\n", $3, name, $2
+    }'
+    ''',
+]
+output = "{=name}"
+
+# --- Preview ---
+
+[[preview.layout]]
+command = '''
+info=$(rpm -qi {name} 2>/dev/null || dnf -q info {name} 2>/dev/null)
+if command -v bat >/dev/null 2>&1; then
+    printf '%s\n' "$info" | bat --color=always --wrap=never -pp -l yaml
+else
+    printf '%s\n' "$info"
+fi
+'''
+frame = { title = "Package Info" }
+
+[[preview.layout]]
+command = 'rpm -ql {name} 2>/dev/null || echo "Package is not installed."'
+frame = { title = "Files" }
+
+[[preview.layout]]
+command = "dnf -q repoquery --installed --whatrequires {name} 2>/dev/null || true"
+frame = { title = "Reverse Deps" }
+
+# --- Binds ---
+
+[binds]
+"@accept" = ["#install", "ExecuteOrConfirm(sudo dnf install {+name})", "Reload"]
+
+"@rm" = [
+    "#remove",
+    '''ExecuteOrConfirm(
+        printf "Remove packages: %s? [y/N] " {+name}
+        read -r ans
+        if [[ "$ans" == [yY] ]]; then
+            sudo dnf remove {+name}
+        fi
+    )''',
+    "Reload",
+]
+
+"@open" = [
+    "#open homepage",
+    '''ExecuteOrConfirm(
+        url=$( (rpm -qi {name} 2>/dev/null || dnf -q info {name} 2>/dev/null) | awk -F' : ' '/^URL[[:space:]]*:/ { print $2; exit }' )
+        if [ -n "$url" ]; then
+            xdg-open "$url" >/dev/null 2>&1 &
+        else
+            echo "No URL found for "{name} >&2
+            exit 1
+        fi
+    )''',
+]
+
+"@refresh" = ["#refresh dnf cache", "ExecuteOrConfirm(sudo dnf makecache)"]
+
+# --- Scripts ---
+
+"Start" = '''Transform(
+    HEADERS=('dnf:installed> ' 'dnf:available> ')
+    setopt KSH_ARRAYS 2>/dev/null
+    echo "SetPrompt(${HEADERS[$MM_INDEX]})"
+)'''
+
+"Reloaded" = '''Transform(
+    HEADERS=('dnf:installed> ' 'dnf:available> ')
+    setopt KSH_ARRAYS 2>/dev/null
+    echo "SetPrompt(${HEADERS[$MM_INDEX]})"
+)'''

@@ -1,22 +1,30 @@
-# Themes Catalogue
+# Theme catalogue
 
-A collection of theme presets for Matchmaker. Apply any theme with:
+Color themes for Matchmaker. Each file under `themes/` is a standalone override
+that sets the palette, borders, and match/selection styles.
 
-```bash
-mm -o themes/<name>
-```
+## Usage
 
-Launch the interactive theme picker with:
-
-```bash
+```sh
 mm -o themes
+mm -o themes/dracula
 ```
 
----
+The first form opens the theme picker. The second applies a specific theme to
+your normal Matchmaker configuration. `bat` is optional; the picker previews
+the raw TOML with `bat` when available and falls back to `cat`.
 
-Theme borders follow one of these patterns: picker and preview framed, an outer frame with a preview divider, picker only, or a preview divider with automatic sides. A preview divider is never combined with a results border. Most themes supply their own background so their contrast survives both light and dark terminal themes.
+The picker's `@reload` reapplies the highlighted theme to the picker itself and
+keeps the cursor position, while `@accept` launches a new Matchmaker instance
+with that theme. This lets you compare themes without editing your config.
 
 ## Themes
+
+Theme borders follow one of these patterns: picker and preview framed, an outer
+frame with a preview divider, picker only, or a preview divider with automatic
+sides. A preview divider is never combined with a results border. Most themes
+supply their own background so their contrast survives both light and dark
+terminal themes.
 
 | Theme                  | Description                                                                                                  |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------ |

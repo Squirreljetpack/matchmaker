@@ -189,6 +189,9 @@ pub struct QueryConfig {
     /// Maintain padding when moving the cursor in the bar.
     pub scroll_padding: bool,
 
+    /// Recenter the cursor when it reaches the left scroll edge.
+    pub recenter_left_scroll_edge: bool,
+
     /// Word movement stops at these characters in addition to whitespace.
     pub word_boundaries: Vec<char>,
 
@@ -210,6 +213,7 @@ impl Default for QueryConfig {
             initial: Default::default(),
 
             scroll_padding: true,
+            recenter_left_scroll_edge: false,
             word_boundaries: Vec::new(),
             reset_cursor_on_query_change: false,
         }

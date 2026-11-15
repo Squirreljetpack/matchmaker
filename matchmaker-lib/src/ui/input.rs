@@ -99,26 +99,40 @@ impl InputUI {
         self.cursor = self.graphemes.len();
     }
 
-    // right padding is set to <= 1
-    pub fn scroll_to_cursor(&mut self, padding: usize) {
+    // Right padding is at most one grapheme.
+    pub fn scroll_to_cursor(
+        &mut self,
+        left_scroll_padding: usize,
+        recenter_left_scroll_edge: bool,
+    ) {
         if self.width == 0 {
             self.before = 0;
             return;
         }
 
         let width = self.width;
-        let padding = padding.min(width.saturating_sub(1) as usize);
+        let right_padding = if recenter_left_scroll_edge {
+            1
+        } else {
+            left_scroll_padding.min(1)
+        };
+        let left_scroll_padding =
+            left_scroll_padding.min(width.saturating_sub(1 + right_padding as u16) as usize);
 
-        // 1. If cursor is at or before the visible start (or within left padding), pull start back
-        if self.cursor <= self.before + padding {
-            self.before = self.cursor.saturating_sub(padding);
+        // 1. Keep the cursor inside the left scroll edge.
+        if self.cursor <= self.before + left_scroll_padding {
+            self.before = if recenter_left_scroll_edge {
+                self.cursor.saturating_sub(width as usize / 2)
+            } else {
+                self.cursor.saturating_sub(left_scroll_padding)
+            };
         }
 
         // 2. Ensure cursor fits within the visible window [before ..).
         // If cursor is at or beyond the right edge, advance `before`.
         while self.before < self.cursor {
             let cursor_incl =
-                (self.cursor + padding.min(1)).min(self.graphemes.len().saturating_sub(1));
+                (self.cursor + right_padding).min(self.graphemes.len().saturating_sub(1));
             let span_width: u16 = self.graphemes[self.before..=cursor_incl]
                 .iter()
                 .map(|(_, w)| *w)
@@ -400,7 +414,8 @@ impl QueryUI {
 
     pub fn scroll_to_cursor(&mut self) {
         let padding = self.config.scroll_padding as usize;
-        self.state.scroll_to_cursor(padding);
+        self.state
+            .scroll_to_cursor(padding, self.config.recenter_left_scroll_edge);
     }
 
     // ---------------------------------------
@@ -501,19 +516,38 @@ mod tests {
         ui.width = 2;
         ui.set("abc".to_string(), 3);
         // Repeated calls to scroll_to_cursor with padding > width must be idempotent
-        ui.scroll_to_cursor(3);
+        ui.scroll_to_cursor(3, false);
         let before_first = ui.before;
-        ui.scroll_to_cursor(3);
+        ui.scroll_to_cursor(3, false);
         let before_second = ui.before;
         assert_eq!(before_first, before_second);
 
         // Move cursor back 1 to position 2
         ui.backward_char();
         assert_eq!(ui.cursor(), 2);
-        ui.scroll_to_cursor(3);
+        ui.scroll_to_cursor(3, false);
         let before_back_1 = ui.before;
-        ui.scroll_to_cursor(3);
+        ui.scroll_to_cursor(3, false);
         let before_back_2 = ui.before;
         assert_eq!(before_back_1, before_back_2);
+    }
+
+    #[test]
+    fn recenter_left_scroll_edge_moves_cursor_to_half_width() {
+        let mut ui = InputUI::new();
+        ui.width = 10;
+        ui.set("abcdefghijklmnopqrstuvwxyz".to_string(), 17);
+        ui.before = 17; // cursor is at the left edge
+
+        ui.scroll_to_cursor(0, true);
+
+        // The cursor is recentered instead of staying at the left edge.
+        assert_eq!(ui.cursor_rel_offset(), 5);
+        assert_eq!(ui.before, ui.cursor() as usize - 5);
+
+        // Repeated calls after recentering are idempotent.
+        let before = ui.before;
+        ui.scroll_to_cursor(0, true);
+        assert_eq!(ui.before, before);
     }
 }

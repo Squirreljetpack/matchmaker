@@ -215,6 +215,7 @@ exact_match_bonus = 16
 - `style`: [Style Settings](#style-settings) for the input text.
 - `prompt_style`: [Style Settings](#style-settings) for the prompt.
 - `scroll_padding`: (bool) Maintain padding when moving the cursor in the query bar.
+- `recenter_left_scroll_edge`: (bool) Recenter the cursor when it reaches the left scroll edge (default false).
 - `word_boundaries`: ([char]) Additional characters that stop word movement (whitespace always does), e.g. `[".", "/"]`.
 - `cursor`: Cursor style.
 - `frame`, `f`: [Frame Settings](#frame-settings).

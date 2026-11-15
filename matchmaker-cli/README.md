@@ -158,9 +158,13 @@ In addition to keys, actions can also be bound to Events and Crossterm events (c
 
 A subset of actions handle various execution flows that are useful to for making mini-apps such as `Execute` (run then return), `ExecuteOrConfirm` (await user input after erroring out), `Become` (transform into the process directly), `ExecuteAsync` (chain actions in the background), `ExecuteThen` (chain conditional background actions), `Copy` (copy the output of the command to your clipboard -- by default, this uses the `osc52` protocol so that copying through ssh works).
 
-By default, their payloads are passed to your current shell (i.e. `Execute(eval $EDITOR)`), though this too, can be overridden, so you can write your scripts in any language. In [presets](#preset), payloads can even be specified as files using `@path/to/file`. Relative paths are resolved with respect to the folder containing the preset. [Templates](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md) in the payloads are injected with values from the current picker state such as selected items, current active cell, and positional arguments passed to the cli.
+The payloads are passed to your current shell (i.e. `Execute(eval $EDITOR)`), though this too, can be overridden, so you can write your scripts in any language, even lua[^lua]. Payloads can also be specified as files, which is useful for organization when creating [presets](#preset), using the syntax `@path/to/file`[^relative].
 
-With the default build, matchmaker also supports lua scripts: files with `.lua` extension, and scripts prefixed with `#!lua` are executed directly using the [internal lua runtime](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/execute.md).
+[Templates](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md) in the payloads are injected with values from the current picker state such as selected items, current active cell, and positional arguments passed to the cli.
+
+[^lua]: this feature is default but optional. Files with `.lua` extension, and scripts prefixed with `#!lua` are executed directly using the [internal lua runtime](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/execute.md)
+
+[^relative]: relative paths allowed
 
 ## Examples
 
@@ -329,6 +333,15 @@ async fn main() -> Result<()> {
 ```
 
 For more information, check out the [examples](./matchmaker-lib/examples/) and [Architecture.md](./matchmaker-lib/ARCHITECTURE.md)
+
+### The Matchmaker Suite
+
+The same engine was used to build several other applications:
+
+- [f:st](https://github.com/Squirreljetpack/fist): a file manager that sacrifices nothing, least of all simplicity.
+- [im](https://github.com/Squirreljetpack/im): a local-first, sync-capable notes manager for automatic journaling, habit and task tracking.
+- [mmcc](https://github.com/Squirreljetpack/mmcc): a local-first, sync-capable clipboard with categories and optional semantic search.
+- [commandspace](https://github.com/Squirreljetpack/commandspace): a cross-platform application launcher that is as powerful and efficient as the terminal (because it secretly is one), with considerations towards user friendliness.
 
 # Credits + See also
 

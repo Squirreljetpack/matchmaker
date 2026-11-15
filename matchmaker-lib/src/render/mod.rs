@@ -83,6 +83,8 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
     }
 
     let mut click = Click::None;
+    #[cfg(feature = "image")]
+    let (mut image_cells, mut was_image_covered) = (Vec::new(), false);
 
     // place the initial command in the state where the preview listener can access
     if let Some(ref p) = preview_ui {
@@ -1015,6 +1017,16 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
         state.update(&mut picker_ui, &overlay_ui);
 
         if did_tick.is_some() {
+            #[cfg(feature = "image")]
+            if was_image_covered
+                && overlay_ui.as_ref().is_none_or(|x| x.index().is_none())
+                && preview_ui
+                    .as_ref()
+                    .is_some_and(|p| p.visible() && p.image_ready())
+            {
+                tui.flush();
+            }
+
             // 3. Pure rendering phase
             tui.terminal
                 .draw(|frame| {
@@ -1045,6 +1057,11 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                         && preview_ui.visible()
                     {
                         render_preview(frame, layout.preview, preview_ui);
+                        #[cfg(feature = "image")]
+                        collect_image_cells(frame.buffer_mut(), preview_ui.area, &mut image_cells);
+                    } else {
+                        #[cfg(feature = "image")]
+                        image_cells.clear();
                     }
 
                     let inline_status_w =
@@ -1067,6 +1084,12 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
 
                     if let Some(x) = overlay_ui.as_mut() {
                         x.draw(frame);
+                    }
+
+                    #[cfg(feature = "image")]
+                    {
+                        was_image_covered =
+                            force_overwritten_image_cells(frame.buffer_mut(), &image_cells);
                     }
                 })
                 .map_err(|e| MatchError::TUIError(e.to_string()))?;
@@ -1175,6 +1198,44 @@ where
         .find(|(start, _)| x >= (*start).into())
         .map(|(_, action)| action.clone())
         .filter(|action| !action.is_empty())
+}
+
+#[cfg(feature = "image")]
+fn collect_image_cells(buf: &ratatui::buffer::Buffer, area: Rect, out: &mut Vec<(u16, u16)>) {
+    use ratatui::buffer::CellDiffOption;
+
+    out.clear();
+    let clamped = area.intersection(*buf.area());
+    for y in clamped.top()..clamped.bottom() {
+        for x in clamped.left()..clamped.right() {
+            if matches!(
+                buf[(x, y)].diff_option,
+                CellDiffOption::Skip | CellDiffOption::ForcedWidth(_)
+            ) {
+                out.push((x, y));
+            }
+        }
+    }
+}
+
+/// Forces terminal overwrites on any image cell (`Skip` / `ForcedWidth`) replaced by a later
+/// widget so `Clear`-ed cells matching `prev_buf` do not let graphics bleed through.
+#[cfg(feature = "image")]
+fn force_overwritten_image_cells(
+    buf: &mut ratatui::buffer::Buffer,
+    image_cells: &[(u16, u16)],
+) -> bool {
+    use ratatui::buffer::CellDiffOption;
+
+    let mut covered = false;
+    for &(x, y) in image_cells {
+        let cell = &mut buf[(x, y)];
+        if matches!(cell.diff_option, CellDiffOption::None) {
+            cell.set_diff_option(CellDiffOption::AlwaysUpdate);
+            covered = true;
+        }
+    }
+    covered
 }
 
 fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {
@@ -2121,6 +2182,71 @@ mod test {
             }
         );
         assert_eq!(picker.query.width(), 73);
+    }
+
+    #[cfg(feature = "image")]
+    #[test]
+    fn overwritten_image_cells_force_terminal_writes_over_empty_prev_buffer() {
+        use ratatui::buffer::CellDiffOption;
+        use ratatui::prelude::CrosstermBackend;
+        use ratatui::widgets::Clear;
+        use ratatui::{TerminalOptions, Viewport};
+        use std::num::NonZeroU16;
+        use std::sync::{Arc, Mutex};
+
+        struct SharedBuf(Arc<Mutex<Vec<u8>>>);
+        impl Write for SharedBuf {
+            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                self.0.lock().unwrap().extend_from_slice(buf);
+                Ok(buf.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+
+        let image_area = Rect::new(5, 0, 5, 4);
+        let overlay_area = Rect::new(3, 2, 4, 2); // overlaps (5..7, 2..4)
+        let mut image_cells = Vec::new();
+        let mut covered = false;
+        let captured = Arc::new(Mutex::new(Vec::<u8>::new()));
+        let mut terminal = Terminal::with_options(
+            CrosstermBackend::new(SharedBuf(Arc::clone(&captured))),
+            TerminalOptions {
+                viewport: Viewport::Fixed(Rect::new(0, 0, 10, 5)),
+            },
+        )
+        .unwrap();
+
+        terminal
+            .draw(|frame| {
+                let buf = frame.buffer_mut();
+                buf[(5, 0)]
+                    .set_symbol("<SIXEL>")
+                    .set_diff_option(CellDiffOption::ForcedWidth(NonZeroU16::new(1).unwrap()));
+                for y in image_area.top()..image_area.bottom() {
+                    for x in image_area.left()..image_area.right() {
+                        if (x, y) != (5, 0) {
+                            buf[(x, y)].set_diff_option(CellDiffOption::Skip);
+                        }
+                    }
+                }
+                collect_image_cells(buf, image_area, &mut image_cells);
+                frame.render_widget(Clear, overlay_area);
+                covered = force_overwritten_image_cells(frame.buffer_mut(), &image_cells);
+            })
+            .unwrap();
+
+        assert!(covered);
+        let emitted = String::from_utf8_lossy(&captured.lock().unwrap()).into_owned();
+        assert!(
+            emitted.contains("<SIXEL>"),
+            "missing sixel write: {emitted:?}"
+        );
+        assert!(
+            emitted.contains("\x1b[3;6H ") && emitted.contains("\x1b[4;6H "),
+            "expected explicit space writes over covered sixel cells, got: {emitted:?}"
+        );
     }
 }
 

@@ -12,8 +12,6 @@
 - mla feature?
 - replace ansi-2-text for performance and correctness (i.e. man output)
 
-- chafa has better character renderer, if our protocol is half_blocks, mm --image would technically work better by preferring chafa
-
 # Previewer
 
 - Offload large previews to disk/caching
@@ -42,3 +40,5 @@
 - ord/name field on prev layouts for better composability?
 - Indentation style setting: active or first or custom: decided on active.
 - Does render refs (statusUI, overlay?) improve performance?
+- frame_style leaks into border_style (not planned: ratatui's design)
+- chafa has better character renderer, if our protocol is half_blocks, mm --image would technically work better by preferring chafa

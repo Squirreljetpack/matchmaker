@@ -22,7 +22,7 @@ else
   git --paginate diff --color=always --exit-code {1} && echo no change
 fi
 )'''
-"@show" = "Execute(git --paginate show --color=always {1} -- {$0})"
+"@show" = "Execute(git --paginate show --color=always $(case {1} in stash@*) echo --first-parent;; esac) {1} -- {$0})"
 "@log" = '''Execute(
 git --paginate log --graph --decorate=short --date=short \
 "--pretty=format:%C(yellow)%h%C(reset) %C(blue)%ad%C(reset) %C(green)%an%C(reset) %s %C(red)%d%C(reset)"

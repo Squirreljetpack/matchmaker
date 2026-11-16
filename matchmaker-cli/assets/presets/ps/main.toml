@@ -69,7 +69,6 @@ mm_kill'''
 [header]
 header_lines = 1
 content = '[procs]'
-style.modifier = ""
 
 [columns]
 split = ' +'

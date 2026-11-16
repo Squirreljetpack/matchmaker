@@ -15,9 +15,6 @@ percentage = 100
 [query]
 prompt_style.fg = "Cyan"
 
-[header]
-style.modifier = ""
-
 [columns]
 split = "tsv"
 

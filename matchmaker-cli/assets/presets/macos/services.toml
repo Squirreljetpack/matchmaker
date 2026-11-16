@@ -36,7 +36,6 @@ plist=$(launchctl print "$target" 2>/dev/null | awk -F' = ' '/path/ {gsub(/^[ \t
 
 [header]
 header_lines = 1
-style.fg = "Cyan"
 
 [columns]
 split = '\t'

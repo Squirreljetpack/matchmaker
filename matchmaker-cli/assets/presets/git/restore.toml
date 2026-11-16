@@ -145,7 +145,6 @@ percentage = 100
 
 [header]
 content = "[history]"
-style.modifier = ""
 
 [query]
 prompt = "restore> "

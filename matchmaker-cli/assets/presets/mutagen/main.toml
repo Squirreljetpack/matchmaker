@@ -40,7 +40,6 @@ frame = { title = "Details" }
 # --- UI --------------------------------------------------------------------
 [header]
 content = ["SESSION"]
-style.modifier = ""
 
 [query]
 prompt = "mutagen> "

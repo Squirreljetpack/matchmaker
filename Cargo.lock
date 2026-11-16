@@ -1599,6 +1599,8 @@ version = "5.7.203"
 dependencies = [
  "crossbeam-channel",
  "crossterm 0.29.0",
+ "icy_sixel",
+ "image",
  "parking_lot",
  "regex",
  "textwrap",

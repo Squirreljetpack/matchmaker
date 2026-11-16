@@ -1,0 +1,72 @@
+# Pueue groups: counts and state per group, ctrl-s pages a summary of all groups
+
+[start]
+command = "@./pueue.py groups"
+
+# --- Rows ---
+[columns]
+split = ' +'
+max = 7
+names = [
+    { name = "name" },
+    { name = "run", ignore = true },
+    { name = "que", ignore = true },
+    { name = "done", ignore = true },
+    { name = "fail", ignore = true },
+    { name = "par", ignore = true },
+    { name = "state" },
+]
+default = "name"
+
+[matcher]
+ansi = true
+trim = true
+# keep the alphabetical order instead of sorting by match score
+sort.threshold = false
+
+[header]
+content = ["GROUP", "RUN", "QUE", "DONE", "FAIL", "PAR", "STATE"]
+
+[query]
+prompt = "group> "
+prompt_style.fg = "Cyan"
+
+[tui]
+percentage = 100
+
+# --- Preview ---
+[preview]
+show = true
+# the group status takes the default config's second layout (a top pane)
+initial_layout = 1
+# pueue wraps its table at whatever width it likes
+wrap = false
+
+[[preview.layout]]
+# a group name is not an image, so drop the image layout
+max = 0
+
+[[preview.layout]]
+# the group's tasks as pueue reports them
+command = "pueue --color=always status -g {name} 'columns=id,status,start,end,command'"
+frame = { title = "Group status" }
+
+# --- Actions ---
+[binds]
+"ctrl-p" = "@toggle"
+"ctrl-k" = "@stop"
+# ctrl-d / Delete / F4 reach @rm from the default config
+
+"@accept" = ["#tasks", "BecomeSilent(mm -o pueue/tasks -- {+name})"]
+"@next" = ["#tasks", "BecomeSilent(mm -o pueue/tasks)"]
+"@prev" = ["#tasks", "BecomeSilent(mm -o pueue/tasks)"]
+"@show" = 'ShowPreview("$(dirname -- "$MM_OVERRIDE")"/pueue.py summary)'
+"@open" = [
+    "#status",
+    '''ShowPreview(pueue --color=always status -g {name} 'columns=id,status,start,end,command')''',
+]
+"@open_2" = []
+
+"@toggle" = ["#pause/resume", "ExecuteOrConfirm(@./pueue.py toggle {+name})", "Reload"]
+"@stop" = ["#kill group", "ExecuteOrConfirm(@./pueue.py kill -g {name})", "Reload"]
+"@rm" = ["#remove group", "ExecuteOrConfirm(@./pueue.py remove-group {+name})", "Reload"]

@@ -1,0 +1,77 @@
+# Pueue tasks: newest first within each state, ctrl-s pages a summary, enter pages the log
+
+[start]
+command = "@./pueue.py tasks"
+output = "{=id}"
+
+[exit]
+abort_empty = false
+
+# --- Rows ---
+[columns]
+split = ' +'
+names = ["id", "group", "state", "time", "command"]
+default = "command"
+
+[matcher]
+ansi = true
+trim = true
+# keep the running-first order instead of sorting by match score
+sort.threshold = false
+
+[header]
+content = ["ID", "GROUP", "STATE", "TIME", "CMD"]
+
+[query]
+prompt = "task> "
+prompt_style.fg = "Cyan"
+
+[tui]
+percentage = 100
+
+# --- Preview ---
+[preview]
+show = true
+# don't corrupt pueue decorations
+wrap = false
+
+[[preview.layout]]
+# task log; enter pages this command, queued tasks have no output yet
+command = '''out=$(pueue --color=always log {id} 2>&1)
+[ -n "$out" ] && printf '%s\n' "$out" || echo "no log yet (task not started)"'''
+frame = { title = "Log" }
+side = "right"
+percentage = 50
+min = 30
+padding = 0
+
+[[preview.layout]]
+# the default config's extra layouts would be panes without a key to reach them
+max = 0
+
+[[preview.layout]]
+max = 0
+
+# --- Actions ---
+[binds]
+"ctrl-p" = "@pause"
+"ctrl-g" = "@resume"
+"ctrl-e" = "@restart"
+"ctrl-k" = "@kill"
+"alt-k" = "@kill9"
+"ctrl-t" = "@next"
+# ctrl-d / Delete / F4 reach @rm from the default config
+
+"@accept" = ["#log", "ShowPreview"]
+"@next" = ["#groups", "BecomeSilent(mm -o pueue/groups)"]
+"@prev" = ["#groups", "BecomeSilent(mm -o pueue/groups)"]
+"@show" = 'ShowPreview("$(dirname -- "$MM_OVERRIDE")"/pueue.py summary)'
+"@open" = ["#edit command", "ExecuteOrConfirm(pueue edit --command {id})", "Reload"]
+"@open_2" = []
+
+"@pause" = ["#pause", "ExecuteOrConfirm(pueue pause {+id})", "Reload"]
+"@resume" = ["#start", "ExecuteOrConfirm(pueue start {+id})", "Reload"]
+"@restart" = ["#restart", "ExecuteOrConfirm(pueue restart -ik {+id})", "Reload"]
+"@kill" = ["#kill", "ExecuteOrConfirm(@./pueue.py kill {+id})", "Reload"]
+"@kill9" = ["#kill -9", "ExecuteOrConfirm(@./pueue.py kill -s SIGKILL {+id})", "Reload"]
+"@rm" = ["#remove", "ExecuteOrConfirm(pueue remove {+id})", "Reload"]

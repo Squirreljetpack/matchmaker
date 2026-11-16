@@ -2,3 +2,8 @@
 # clang defaults the deployment target to the build host's SDK, so a newer
 # macOS runner image would silently raise the floor of the shipped binaries.
 MACOSX_DEPLOYMENT_TARGET = "14.0"
+
+[alias]
+# Film the preset screenshots into %%CLIPS/<preset>/<clip>.png:
+# `cargo @clip all` or `cargo @clip pueue/tasks`.
+"@clip" = ["exec", "-s", "./%%CLIPS/tools/film.sh $1"]

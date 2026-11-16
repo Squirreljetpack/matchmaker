@@ -100,5 +100,10 @@ path = "examples/pick_1.rs"
 name = "overlay"
 path = "examples/overlay.rs"
 
+[[bench]]
+name = "ui_and_matcher"
+path = "benches/ui_and_matcher.rs"
+harness = false
+
 [lints]
 workspace = true

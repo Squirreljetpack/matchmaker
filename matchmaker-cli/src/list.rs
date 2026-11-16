@@ -91,12 +91,15 @@ pub fn list(config: Config) -> ! {
 /// - `N@alias`: formats and runs the command actions bound to the semantic
 ///   alias — `Execute`/`ExecuteAsync`/`ExecuteThen`/`ExecuteSilent`,
 ///   `Become`/`BecomeSilent`, and the CLI's `ExecuteOrConfirm`/
-///   `ExecuteAndQuit`/`BecomeOrConfirm`/`BecomeOrResume`. Nested aliases are
-///   **not** followed and non-command actions are skipped; commands run in
-///   order and stop at the first failure. (In a non-interactive context the
+///   `ExecuteAndQuit`/`BecomeOrConfirm`/`BecomeOrResume`. Each payload is
+///   classified like the TUI does, so `@file` payloads run as files (relative
+///   paths resolve against the preset's directory). Nested aliases are **not**
+///   followed and non-command actions are skipped; commands run in order and
+///   stop at the first failure. (In a non-interactive context the
 ///   confirm/resume semantics are moot: the command is simply run.)
 /// - `N-M`: formats preview layout `M`'s command with item `N` and runs it.
-/// - `N:TEMPLATE`: formats `TEMPLATE` with item `N` and executes the result.
+/// - `N:TEMPLATE`: formats `TEMPLATE` with item `N` and executes the result,
+///   classified like a bind payload.
 /// - `TEMPLATE`: formats `TEMPLATE` with the first item and prints it.
 pub fn list_arg(config: Config, arg: &str) -> ! {
     let result = if let Some((n_str, alias_name)) = arg.split_once('@')
@@ -148,10 +151,14 @@ fn alias(config: Config, n: usize, alias: &str) -> anyhow::Result<()> {
                 log::debug!("--list: skipping non-command action: {action}");
                 continue;
             };
-            let cmd = format_cli(mm_state, payload, None);
-            if !cmd.is_empty() {
-                commands.push((cmd, vars.clone()));
-            }
+            // classify like the TUI, so `@file` payloads run as files
+            let Some(strategy) = execute::classify_template(mm_state, payload)
+                .and_then(|s| s.resolve_relative(&vars)._elog())
+            else {
+                log::debug!("--list: skipping payload with no command: {action}");
+                continue;
+            };
+            commands.push((strategy, vars.clone()));
         }
         Ok(commands)
     })?;
@@ -179,7 +186,7 @@ fn preview(config: Config, n: usize, m_str: &str) -> anyhow::Result<()> {
             Ok(Vec::new())
         } else {
             let vars = mm_state.make_env_vars();
-            Ok(vec![(cmd, vars)])
+            Ok(vec![(execute::CommandStrategy::Shell(cmd), vars)])
         }
     })?;
 
@@ -194,14 +201,15 @@ fn exec_template(config: Config, n: usize, template: &str) -> anyhow::Result<()>
 
     let shell = config.start.shell.clone();
     let commands = with_item(config, n, |mm_state| {
-        let cmd = format_cli(mm_state, template, None);
-        if cmd.is_empty() {
-            // mirrors the TUI execute handler: an empty result means no action
+        let vars = mm_state.make_env_vars();
+        // mirrors the TUI: an empty result means no action
+        let Some(strategy) = execute::classify_template(mm_state, template)
+            .and_then(|s| s.resolve_relative(&vars)._elog())
+        else {
             log::debug!("--list: formatted command is empty; nothing to execute");
-            Ok(Vec::new())
-        } else {
-            Ok(vec![(cmd, mm_state.make_env_vars())])
-        }
+            return Ok(Vec::new());
+        };
+        Ok(vec![(strategy, vars)])
     })?;
 
     run_commands(&commands, &shell)
@@ -216,35 +224,29 @@ fn print_template(config: Config, template: &str) -> anyhow::Result<()> {
     })
 }
 
-/// Runs the formatted commands in order, stopping at the first failure. A
-/// single command is exec'd (preserving stdout, stderr and exit code); the
-/// exit status of the last run command is used otherwise.
-fn run_commands(commands: &[(String, EnvVars)], shell: &[OsString]) -> anyhow::Result<()> {
-    if commands.is_empty() {
-        return Ok(());
-    }
+/// Runs the classified commands in order, stopping at the first failure. Exit
+/// code 0 means every command ran successfully.
+fn run_commands(
+    commands: &[(execute::CommandStrategy, EnvVars)],
+    shell: &[OsString],
+) -> anyhow::Result<()> {
+    #[cfg(feature = "mlua")]
+    let lua_state = crate::lua::LuaState::empty();
 
-    if commands.len() == 1 {
-        let (cmd, vars) = &commands[0];
-        ibog!("executing: {cmd}");
-        Command::from_script(cmd, shell).envs(vars.clone())._exec()
-    }
-
-    for (cmd, vars) in commands {
-        ibog!("executing: {cmd}");
-        let status = Command::from_script(cmd, shell)
-            .envs(vars.clone())
-            .spawn()
-            .with_context(|| format!("failed to spawn: {cmd}"))?
-            .wait()
-            .with_context(|| format!("failed to wait for: {cmd}"))?;
-        if let Some(code) = status.code() {
-            if code != 0 {
-                std::process::exit(code)
-            }
-        } else {
-            // terminated by a signal
-            std::process::exit(1)
+    for (strategy, vars) in commands {
+        ibog!("executing: {strategy}");
+        let Some(exit) = execute::run_execute(
+            strategy,
+            shell,
+            vars,
+            #[cfg(feature = "mlua")]
+            &lua_state,
+        ) else {
+            bail!("--list: nothing executable in: {strategy}");
+        };
+        let code = exit.code.unwrap_or(1);
+        if code != 0 {
+            std::process::exit(code);
         }
     }
 

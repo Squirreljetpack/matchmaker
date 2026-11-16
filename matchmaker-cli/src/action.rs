@@ -420,8 +420,7 @@ pub fn action_handler(
         }
         MMAction::Transform(payload) => {
             let vars = state.make_env_vars();
-            let Some(strategy) = crate::execute::classify(&payload)
-                .template(state)
+            let Some(strategy) = crate::execute::classify_template(state, &payload)
                 .and_then(|s| s.resolve_relative(&vars)._elog())
             else {
                 return;
@@ -453,8 +452,7 @@ pub fn action_handler(
         }
         MMAction::TransformConfig(payload) => {
             let vars = state.make_env_vars();
-            let Some(strategy) = crate::execute::classify(&payload)
-                .template(state)
+            let Some(strategy) = crate::execute::classify_template(state, &payload)
                 .and_then(|s| s.resolve_relative(&vars)._elog())
             else {
                 return;

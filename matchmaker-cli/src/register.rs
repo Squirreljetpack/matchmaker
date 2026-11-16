@@ -129,8 +129,7 @@ impl<S> Matchmaker<String, S, ConfigPreprocessedData> {
             let template = state.payload();
             let vars = state.make_env_vars();
 
-            let Some(strategy) = execute::classify(template)
-                .template(state)
+            let Some(strategy) = execute::classify_template(state, template)
                 .and_then(|s| s.resolve_relative(&vars)._elog())
             else {
                 return;
@@ -161,8 +160,7 @@ impl<S> Matchmaker<String, S, ConfigPreprocessedData> {
             let template = state.payload().clone();
             if !template.is_empty() && state.discriminant_payload.is_none() {
                 let vars = state.make_env_vars();
-                let Some(strategy) = execute::classify(&template)
-                    .template(state)
+                let Some(strategy) = execute::classify_template(state, &template)
                     .and_then(|s| s.resolve_relative(&vars)._elog())
                 else {
                     return;
@@ -190,8 +188,7 @@ impl<S> Matchmaker<String, S, ConfigPreprocessedData> {
                 && !template.is_empty()
             {
                 let vars = state.make_env_vars();
-                let Some(strategy) = execute::classify(template)
-                    .template(state)
+                let Some(strategy) = execute::classify_template(state, template)
                     .and_then(|s| s.resolve_relative(&vars)._elog())
                 else {
                     return;
@@ -266,8 +263,7 @@ impl<S> Matchmaker<String, S, ConfigPreprocessedData> {
                 && !template.is_empty()
             {
                 let vars = state.make_env_vars();
-                let Some(strategy) = execute::classify(template)
-                    .template(state)
+                let Some(strategy) = execute::classify_template(state, template)
                     .and_then(|s| s.resolve_relative(&vars)._elog())
                 else {
                     return;
@@ -314,8 +310,7 @@ impl<S> Matchmaker<String, S, ConfigPreprocessedData> {
                 && !template.is_empty()
             {
                 let vars = state.make_env_vars();
-                let Some(strategy) = execute::classify(template)
-                    .template(state)
+                let Some(strategy) = execute::classify_template(state, template)
                     .and_then(|s| s.resolve_relative(&vars)._elog())
                 else {
                     return;
@@ -403,9 +398,8 @@ fn run_become(state: &mut MMState<'_, String, ConfigPreprocessedData>, shell: &[
     }
 
     let vars = state.make_env_vars();
-    let Some(strategy) = execute::classify(template)
-        .template(state)
-        .and_then(|s| s.resolve_relative(&vars)._elog())
+    let Some(strategy) =
+        execute::classify_template(state, template).and_then(|s| s.resolve_relative(&vars)._elog())
     else {
         return;
     };

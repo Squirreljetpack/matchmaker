@@ -16,8 +16,8 @@ Every command string (except preview layout commands) is classified into one of 
 | Prefix / Shape        | Strategy            | Description                                                                                                                                                                                       |
 | :-------------------- | :------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `command ...`         | **Shell Command**   | Run via the configured shell (`start.shell` or `$SHELL -c`). Supports `{}` [template expansions](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md). |
-| `@path [args...]`     | **Script File**     | Runs `path` through the configured shell (`start.shell` or `$SHELL`) with `args`. Relative paths resolve against the preset's directory.                                                           |
-| `@./path [args...]`   | **Direct File**     | Executes the file at `path` itself (the kernel honors its shebang; the file must be executable). Relative paths resolve against the preset's directory.                                            |
+| `@path [args...]`     | **Script File**     | Runs `path` through the configured shell (`start.shell` or `$SHELL`) with `args`. Relative paths resolve against the preset's directory.                                                          |
+| `@./path [args...]`   | **Direct File**     | Executes the file at `path` itself (the kernel honors its shebang; the file must be executable). Relative paths resolve against the preset's directory.                                           |
 | `#!lua ...`           | **Inline Lua**      | Runs inline Lua script on the internal Lua runtime with access to global `state` and `env` tables.                                                                                                |
 | `@file.lua [args...]` | **Lua Script File** | Runs `file.lua` on the internal Lua runtime, passing `args` as varargs (`...`). Relative paths resolve against the preset directory.                                                              |
 
@@ -56,10 +56,11 @@ Commands prefixed with `@` run a file stored next to the preset:
 ```toml
 [binds]
 "ctrl-o" = "Execute(@open_file.sh {file})"
-"ctrl-y" = "Copy(@format_item.py '{name}' '{path}')"
+"ctrl-y" = "Copy(@format_item.py {name} {path})"
 ```
 
 - **Path Resolution**: Relative paths resolve against the directory of the first applied preset (`MM_OVERRIDE` parent). Absolute paths are used as-is.
+- **Templates**: placeholders expand in the arguments before they are split, exactly as in a shell payload (`{name}` is already shell-quoted, so write it bare rather than wrapped in quotes). A multi-selection such as `{+id}` becomes one argument per selection.
 - **Argument Preservation**: Arguments are split by whitespace. Single quotes (`'arg with spaces'`) preserve whitespace within arguments without shell interpolation.
 - **Interpreter**: The configured shell (`start.shell` or `$SHELL`) reads the file as source in its own language; write the file in that shell's dialect, or use `@./` (below) to select the interpreter via shebang.
 
@@ -190,4 +191,3 @@ When executing commands synchronously within the TUI, Matchmaker applies distinc
 
 > [!NOTE]
 > Custom helper scripts invoked via `BecomeOrConfirm` can exit with code `100` to instruct Matchmaker to resume the interactive picker without relying on user interrupts.
-

@@ -37,24 +37,6 @@ impl CommandStrategy {
     }
 
     /// If this is a [`CommandStrategy::Shell`], perform template interpolation with `state`.
-    /// Returns `None` if formatting produced an empty string (signaling no action / missing selection).
-    pub fn template(
-        self,
-        state: &MMState<'_, String, ConfigPreprocessedData>,
-    ) -> Option<CommandStrategy> {
-        match self {
-            CommandStrategy::Shell(cmd) => {
-                let formatted = crate::formatter::format_cli(state, &cmd, None);
-                if formatted.is_empty() {
-                    None
-                } else {
-                    Some(CommandStrategy::Shell(formatted))
-                }
-            }
-            other => Some(other),
-        }
-    }
-
     /// Resolve relative file paths for [`CommandStrategy::File`] and [`CommandStrategy::LuaFile`]
     /// against the parent directory of `MM_OVERRIDE`.
     pub fn resolve_relative(mut self, envs: &EnvVars) -> Result<CommandStrategy, String> {
@@ -81,6 +63,51 @@ impl CommandStrategy {
 
         Ok(self)
     }
+}
+
+impl std::fmt::Display for CommandStrategy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CommandStrategy::Shell(cmd) => f.write_str(cmd),
+            CommandStrategy::File { path, args, .. } => write_args(f, path, args),
+            #[cfg(feature = "mlua")]
+            CommandStrategy::Lua(code) => f.write_str(code),
+            #[cfg(feature = "mlua")]
+            CommandStrategy::LuaFile { path, args } => write_args(f, path, args),
+        }
+    }
+}
+
+fn write_args(
+    f: &mut std::fmt::Formatter<'_>,
+    path: &OsString,
+    args: &[OsString],
+) -> std::fmt::Result {
+    write!(f, "{}", path.to_string_lossy())?;
+    for arg in args {
+        write!(f, " {}", arg.to_string_lossy())?;
+    }
+    Ok(())
+}
+
+/// Expand `payload`'s templates, then classify the result.
+///
+/// Expansion runs before [`classify`] splits `@file` arguments, so placeholders
+/// in a file payload expand too: `{+id}` becomes one argument per selection.
+/// Returns `None` when formatting produced an empty string (signaling no action
+/// or a missing selection).
+pub fn classify_template(
+    state: &MMState<'_, String, ConfigPreprocessedData>,
+    payload: &str,
+) -> Option<CommandStrategy> {
+    let formatted = crate::formatter::format_cli(state, payload, None);
+    if formatted.is_empty() {
+        return None;
+    }
+    Some(match classify(payload) {
+        CommandStrategy::Shell(_) => CommandStrategy::Shell(formatted),
+        _ => classify(&formatted),
+    })
 }
 
 /// Classify a script string.
@@ -217,14 +244,23 @@ mod tests {
         );
 
         assert_eq!(
-            classify("echo {col1}").template(&mm_state),
+            classify_template(&mm_state, "echo {col1}"),
             Some(CommandStrategy::Shell("echo 'a'".to_string()))
         );
         assert_eq!(
-            classify("@script.sh a b").template(&mm_state),
+            classify_template(&mm_state, "@script.sh a b"),
             Some(CommandStrategy::File {
                 path: OsString::from("script.sh"),
                 args: vec![OsString::from("a"), OsString::from("b")],
+                direct: false,
+            })
+        );
+        // placeholders expand before the arguments are split
+        assert_eq!(
+            classify_template(&mm_state, "@script.sh {col1}"),
+            Some(CommandStrategy::File {
+                path: OsString::from("script.sh"),
+                args: vec![OsString::from("a")],
                 direct: false,
             })
         );

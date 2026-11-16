@@ -2,7 +2,7 @@ mod exit;
 mod strategy;
 
 pub use exit::ExitDetails;
-pub use strategy::{CommandStrategy, classify};
+pub use strategy::{CommandStrategy, classify, classify_template};
 
 use std::{
     ffi::OsString,

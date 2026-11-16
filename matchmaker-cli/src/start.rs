@@ -872,8 +872,7 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
                 child.kill()._elog();
             }
 
-            let Some(strategy) = execute::classify(&cmd)
-                .template(state)
+            let Some(strategy) = execute::classify_template(state, &cmd)
                 .and_then(|s| s.resolve_relative(&vars)._elog())
             else {
                 return;

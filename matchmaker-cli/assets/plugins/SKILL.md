@@ -154,6 +154,10 @@ Choose the reference form deliberately:
 - `@./script args` executes the file itself: the kernel honors its shebang and the file must be executable (`chmod +x`). Use this for interpreter-specific syntax or non-shell interpreters.
 - `@script.lua args` runs on Matchmaker's internal Lua runtime (a fresh VM per run) with access to the `state`/`env` tables.
 
+Templates expand in the arguments too (`Execute(@helper.py kill {+id})` passes one argument per selected id), and `{name}`-style placeholders are already shell-quoted, so write them bare. A payload that starts with `@` needs no environment variable to find its file: the path resolves against the preset directory.
+
+Shell-only contexts cannot use `@`: `preview.layout[].command` and `ShowPreview(...)` payloads run through the preview shell, so they build the helper path inline.
+
 To call a helper from inside a larger inline payload (rather than as the whole payload), resolve it from `MM_OVERRIDE`:
 
 ```sh

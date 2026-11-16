@@ -9,7 +9,11 @@ use ratatui::{
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
-use crate::config::{FrameSetting, QueryConfig};
+use crate::{
+    config::{FrameSetting, QueryConfig},
+    ui::RESULTS_MIN_W,
+    utils::text::trim_line_left_to_width,
+};
 
 #[derive(Debug, Default, Clone)]
 pub struct InputUI {
@@ -341,6 +345,8 @@ pub struct QueryUI {
     /// title, and padding are skipped and no space is reserved for them in
     /// layout.
     pub show_border: bool,
+    /// Last known total widget width, used to cap prompt width.
+    widget_width: u16,
 }
 
 impl Deref for QueryUI {
@@ -363,6 +369,7 @@ impl QueryUI {
             prompt: Line::styled(config.prompt.clone(), config.prompt_style),
             config,
             show_border: true,
+            widget_width: u16::MAX,
         };
 
         ui.state.word_boundaries = ui.config.word_boundaries.clone();
@@ -381,8 +388,13 @@ impl QueryUI {
         self.show_border.then_some(&self.config.frame)
     }
 
+    fn effective_prompt_width(&self) -> u16 {
+        let max_prompt = self.widget_width.saturating_sub(RESULTS_MIN_W);
+        (self.prompt.width() as u16).min(max_prompt)
+    }
+
     pub fn left(&self) -> u16 {
-        self.frame().map_or(0, FrameSetting::left) + self.prompt.width() as u16
+        self.frame().map_or(0, FrameSetting::left) + self.effective_prompt_width()
     }
 
     pub fn top(&self) -> u16 {
@@ -404,8 +416,9 @@ impl QueryUI {
 
     // ------------ SETTERS ---------------
     pub fn update_width(&mut self, width: u16) {
+        self.widget_width = width;
         let text_width = width
-            .saturating_sub(self.prompt.width() as u16)
+            .saturating_sub(self.effective_prompt_width())
             .saturating_sub(self.frame().map_or(0, FrameSetting::width));
         if self.width != text_width {
             self.width = text_width;
@@ -421,7 +434,8 @@ impl QueryUI {
     // ---------------------------------------
     /// remember to call scroll_to_cursor beforehand
     pub fn make_input(&self) -> Paragraph<'_> {
-        let mut line = self.prompt.clone();
+        let max_prompt = self.widget_width.saturating_sub(RESULTS_MIN_W);
+        let mut line = trim_line_left_to_width(&self.prompt, max_prompt);
         line.push_span(Span::styled(
             self.state.render(),
             self.config.style.r#override(Style::reset()),
@@ -445,16 +459,15 @@ impl QueryUI {
 
     /// Set the input ui prefix directly.
     pub fn set_prompt_line(&mut self, prompt: Line<'static>) {
-        let old_width = self.prompt.to_string().width();
-        let new_width = prompt.to_string().width();
-
-        if new_width > old_width {
-            self.width = self.width.saturating_sub((new_width - old_width) as u16);
-        } else if old_width > new_width {
-            self.width += (old_width - new_width) as u16;
-        }
-
+        let old_effective = self.effective_prompt_width();
         self.prompt = prompt;
+        let new_effective = self.effective_prompt_width();
+
+        if new_effective > old_effective {
+            self.width = self.width.saturating_sub(new_effective - old_effective);
+        } else if old_effective > new_effective {
+            self.width += old_effective - new_effective;
+        }
     }
 }
 

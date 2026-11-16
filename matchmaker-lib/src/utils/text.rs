@@ -581,6 +581,75 @@ pub fn to_static(t: &ratatui::text::Text<'_>, hscroll_offset: i8) -> ratatui::te
     }
 }
 
+/// Trim a line from the left so its display width does not exceed `max_width`.
+pub fn trim_line_left_to_width<'a>(line: &Line<'a>, max_width: u16) -> Line<'static> {
+    let total = line.width() as u16;
+    if total <= max_width {
+        return Line {
+            spans: line
+                .spans
+                .iter()
+                .map(|s| Span {
+                    content: Cow::Owned(s.content.clone().into_owned()),
+                    style: s.style,
+                })
+                .collect(),
+            style: line.style,
+            alignment: line.alignment,
+        };
+    }
+
+    let mut to_skip = total.saturating_sub(max_width);
+    let mut spans = Vec::new();
+
+    for span in &line.spans {
+        if to_skip == 0 {
+            spans.push(Span {
+                content: Cow::Owned(span.content.clone().into_owned()),
+                style: span.style,
+            });
+            continue;
+        }
+
+        let mut byte_start = None;
+        for (idx, g) in span.content.grapheme_indices(true) {
+            if to_skip == 0 {
+                byte_start = Some(idx);
+                break;
+            }
+            let w = g.width() as u16;
+            if w <= to_skip {
+                to_skip -= w;
+            } else {
+                // Grapheme wider than remaining skip budget; drop it as part of trim.
+                to_skip = 0;
+                byte_start = Some(idx + g.len());
+                break;
+            }
+        }
+
+        if to_skip == 0 {
+            if let Some(start) = byte_start {
+                if start < span.content.len() {
+                    spans.push(Span {
+                        content: Cow::Owned(span.content[start..].to_owned()),
+                        style: span.style,
+                    });
+                }
+            } else {
+                // Entire span consumed exactly.
+            }
+        }
+        // else: entire span skipped, continue
+    }
+
+    Line {
+        spans,
+        style: line.style,
+        alignment: line.alignment,
+    }
+}
+
 pub fn sanitize_string(s: &str) -> String {
     let mut result = String::with_capacity(s.len());
 

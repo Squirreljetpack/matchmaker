@@ -266,28 +266,34 @@ impl ResultsUI {
         let stacked = self.config.stacked_columns;
         let (id, item) = worker.get_nth_indexed_item(idx)?;
 
-        let mut row_widths = vec![0u16; self.vcols()];
-
-        // check cache
-        let cached = if id == u32::MAX {
-            None
+        // check cache: move hit from row_cache[0] into row_cache[1] to avoid double-cloning
+        // and skip allocating row_widths on cache hits.
+        let cached_texts = if id != u32::MAX
+            && let Some(pos) = self.row_cache[0].iter().position(|(x, _, _)| *x == id)
+        {
+            let entry = self.row_cache[0].swap_remove(pos);
+            self.row_cache[1].push(entry);
+            Some(&self.row_cache[1].last().unwrap().1)
+        } else if id != u32::MAX
+            && let Some(entry) = self.row_cache[1].iter().find(|(x, _, _)| *x == id)
+        {
+            Some(&entry.1)
         } else {
-            self.row_cache[0]
-                .iter()
-                .find(|(idx, _, _)| *idx == id)
-                .cloned()
+            None
         };
 
-        _info!(cached);
-
-        let (id, texts) = if let Some(cached) = cached {
-            if !self.row_cache[1].iter().any(|(x, _, _)| *x == id) {
-                self.row_cache[1].push(cached.clone());
+        let texts = if let Some(cached) = cached_texts {
+            if self.needs_new_width_limits() {
+                let height = texts_height(cached, stacked);
+                if let Some(rd) = row_data {
+                    rd.push((idx, height));
+                }
+                return Some((height, height > max_h));
             }
-
-            (cached.0, cached.1)
+            cached.clone()
         } else {
             self.changed[3] = true;
+            let mut row_widths = vec![0u16; self.vcols()];
             let mut non_hidden_idx = 0;
             let width_callback = |_: usize, w: usize| {
                 if non_hidden_idx < row_widths.len() {
@@ -314,9 +320,6 @@ impl ResultsUI {
 
             debug_row(&texts);
 
-            // #[cfg(debug_assertions)]
-            // log::debug!("cursor: {texts:?}");
-
             if texts.is_empty() {
                 if self.config.show_skipped {
                     rows.push(Row::default().height(1));
@@ -330,33 +333,25 @@ impl ResultsUI {
                 }
             }
 
-            if id != u32::MAX && !self.row_cache[1].iter().any(|(x, _, _)| *x == id) {
+            if self.needs_new_width_limits() {
+                let height = texts_height(&texts, stacked);
+                if id != u32::MAX {
+                    self.row_cache[1].push((id, texts, row_widths));
+                }
+                if let Some(rd) = row_data {
+                    rd.push((idx, height));
+                }
+                return Some((height, height > max_h));
+            }
+
+            if id != u32::MAX {
                 self.row_cache[1].push((id, texts.clone(), row_widths));
             }
 
-            (id, texts)
+            texts
         };
 
         let mut truncated = false;
-
-        if self.needs_new_width_limits() {
-            // wait for update. Compute a stand-in height so the caller can
-            // size the surrounding layout, but don't push any rows.
-            let height = if !stacked {
-                texts
-                    .iter()
-                    .map(|t| t.height() as u16)
-                    .max()
-                    .unwrap_or_default()
-            } else {
-                texts.iter().map(|t| t.height() as u16).sum()
-            };
-
-            if let Some(rd) = row_data {
-                rd.push((idx, height))
-            }
-            return Some((height, height > max_h));
-        }
 
         let is_selected = selector.contains(&id);
         let prefix = if is_selected {
@@ -580,4 +575,17 @@ fn style_text<'a>(
         RowConnectionStyle::Full => {}
     }
     t
+}
+
+/// Computes the rendered row height from column cells before row assembly.
+fn texts_height(texts: &[Text<'static>], stacked: bool) -> u16 {
+    if stacked {
+        texts.iter().map(|t| t.height() as u16).sum()
+    } else {
+        texts
+            .iter()
+            .map(|t| t.height() as u16)
+            .max()
+            .unwrap_or_default()
+    }
 }

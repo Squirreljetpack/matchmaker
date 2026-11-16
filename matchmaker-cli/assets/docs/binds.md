@@ -247,12 +247,12 @@ Actions are the operations performed when a trigger is activated.
 
 Sort the results by one of the columns in the active row.
 
-| Action                | Description                                                                       |
-| --------------------- | --------------------------------------------------------------------------------- |
-| `Sort(n)`             | Sort ascending by the active or given (0-based display) column lexicographically. |
-| `SortNumeric(n)`      | Same as `Sort` but parses column as a number.                                     |
-| `SortThreshold([n])`  | Set matcher stability to `n`; omitted restores maximum stability.                 |
-| `SortReverse([bool])` | Reverse the non-match scoring function; omitted toggles the direction\*.          |
+| Action                | Description                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------- |
+| `Sort(n)`             | Sort ascending by the active or given (0-based display) column lexicographically.                 |
+| `SortNumeric(n)`      | Same as `Sort` but compares the numbers in the cell in sequence (`0d0h9m` sorts before `0d1h0m`). |
+| `SortThreshold([n])`  | Set matcher stability to `n`; omitted restores maximum stability.                                 |
+| `SortReverse([bool])` | Reverse the non-match scoring function; omitted toggles the direction\*.                          |
 
 \*: This is not the same as reversing the sort direction.
 

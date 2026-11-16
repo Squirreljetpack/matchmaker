@@ -609,7 +609,7 @@ impl<'de> Deserialize<'de> for ColumnSetting {
             deserializer,
             "a column name string or column table",
             |name| ColumnSetting {
-                ignore: true,
+                ignore: false,
                 hidden: false,
                 options: Default::default(),
                 name,

@@ -758,24 +758,32 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                             }
                             let active_idx = picker_ui.active_column_index_raw();
 
-                            let num_columns = picker_ui.worker.columns.len();
+                            let columns = &picker_ui.worker.columns;
+                            let num_columns = columns.len();
                             if num_columns > 0 {
                                 picker_ui.query.prepare_column_change();
 
-                                let next_idx = match action {
-                                    Action::NextColumn => picker_ui
-                                        .results
-                                        .hidden_cols()
-                                        .next_gap_wrapping(active_idx + 1),
-                                    Action::PrevColumn => picker_ui
-                                        .results
-                                        .hidden_cols()
-                                        .prev_gap_wrapping(active_idx)
-                                        .unwrap_or(active_idx),
-                                    _ => unreachable!(),
-                                };
+                                // Columns excluded from matching (`ignore`) are
+                                // display-only: a query routed to one matches
+                                // everything, so step over them like hidden ones.
+                                let hidden = picker_ui.results.hidden_cols();
+                                let mut next_idx = active_idx;
+                                for _ in 0..num_columns {
+                                    next_idx = match action {
+                                        Action::NextColumn => {
+                                            hidden.next_gap_wrapping(next_idx + 1)
+                                        }
+                                        Action::PrevColumn => {
+                                            hidden.prev_gap_wrapping(next_idx).unwrap_or(next_idx)
+                                        }
+                                        _ => unreachable!(),
+                                    };
+                                    if columns[next_idx].filter() {
+                                        break;
+                                    }
+                                }
 
-                                let col_name = &picker_ui.worker.columns[next_idx].name;
+                                let col_name = &columns[next_idx].name;
                                 picker_ui.query.push_str(&format!("%{} ", col_name));
                             }
                         }

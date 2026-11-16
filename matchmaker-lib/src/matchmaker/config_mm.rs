@@ -483,7 +483,7 @@ pub fn build_columns(
         .iter()
         .enumerate()
         .map(|(i, name)| {
-            Column::new(
+            let column = Column::new(
                 name.clone(),
                 move |_item: &String, d: &ConfigPreprocessedData| {
                     let (text_result, ranges) = d;
@@ -520,7 +520,13 @@ pub fn build_columns(
                         Cow::Owned(s[range.0 as usize..range.1 as usize].to_string())
                     }
                 }
-            })
+            });
+
+            if cc.names.get(i).is_some_and(|setting| setting.ignore) {
+                column.without_filtering()
+            } else {
+                column
+            }
         })
         .collect();
 
@@ -540,7 +546,7 @@ pub fn default_column(
     let column_names: Vec<Arc<str>> = columns.iter().map(|c| c.name.clone()).collect();
     let offset = 1;
 
-    match cc.default {
+    let index = match cc.default {
         StringOrInt::String(ref s) => column_names
             .iter()
             .position(|name| name.as_ref() == s.as_str())
@@ -557,7 +563,21 @@ pub fn default_column(
                 0
             }
         }
+    };
+
+    // A plain query is routed to the default column, so an ignored one would
+    // match everything instead of filtering.
+    if columns.get(index).is_some_and(|c| !c.filter()) {
+        let fallback = columns.iter().position(|c| c.filter()).unwrap_or(0);
+        cba::wbog!(
+            "Default column '{}' is ignored for matching, defaulting to '{}'.",
+            columns[index].name,
+            columns[fallback].name
+        );
+        return fallback;
     }
+
+    index
 }
 
 #[cfg(test)]

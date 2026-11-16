@@ -171,7 +171,9 @@ where
         text_preprocessor: Arc<dyn Fn(&T) -> D + Send + Sync>,
     ) -> Self {
         let columns: Arc<[_]> = columns.into_iter().collect();
-        let matcher_columns = columns.iter().filter(|col| col.filter).count() as u32;
+        // Nucleo requires at least one matcher column; a config that ignores every
+        // column then simply matches everything.
+        let matcher_columns = columns.iter().filter(|col| col.filter).count().max(1) as u32;
 
         let inner = nucleo::Nucleo::new(
             nucleo::Config::DEFAULT,
@@ -202,12 +204,23 @@ where
 
     pub fn set_column_options(&mut self, index: usize, options: ColumnOptions) {
         if options.contains(ColumnOptions::Optional) {
-            self.nucleo
-                .pattern
-                .configure_column(index, nucleo::pattern::Variant::Optional)
+            if let Some(filter_index) = self.filter_index(index) {
+                self.nucleo
+                    .pattern
+                    .configure_column(filter_index, nucleo::pattern::Variant::Optional)
+            }
         }
 
         self.column_options[index] = options
+    }
+
+    /// Nucleo's column index for `index`, or `None` when that column does not
+    /// take part in matching.
+    fn filter_index(&self, index: usize) -> Option<usize> {
+        self.columns
+            .get(index)?
+            .filter
+            .then(|| self.columns[..index].iter().filter(|c| c.filter).count())
     }
 
     /// Returns the index of the column with the given name. An empty name
@@ -236,18 +249,27 @@ where
 
     pub fn find(&mut self, line: &str) {
         let old_query = self.query.parse(line);
-        for (i, column) in self
-            .columns
-            .iter()
-            .filter(|column| column.filter)
-            .enumerate()
-        {
+        // Nucleo indexes its columns by filter ordinal, while `column_options` is
+        // indexed by column: keep both in view so an ignored column does not
+        // shift the options of the columns that follow it.
+        let mut filter_idx = 0;
+        for (column_idx, column) in self.columns.iter().enumerate() {
+            if !column.filter {
+                continue;
+            }
+            let i = filter_idx;
+            filter_idx += 1;
+            let options = self
+                .column_options
+                .get(column_idx)
+                .copied()
+                .unwrap_or_default();
             let pattern = self
                 .query
                 .get(&column.name)
                 .map(|s| &**s)
                 .unwrap_or_else(|| {
-                    self.column_options[i]
+                    options
                         .contains(ColumnOptions::OrUseDefault)
                         .then(|| self.query.primary_column_query())
                         .flatten()
@@ -258,7 +280,7 @@ where
                 .get(&column.name)
                 .map(|s| &**s)
                 .unwrap_or_else(|| {
-                    self.column_options[i]
+                    options
                         .contains(ColumnOptions::OrUseDefault)
                         .then(|| {
                             let name = self.query.primary_column_name()?;

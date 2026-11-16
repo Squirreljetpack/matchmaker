@@ -190,7 +190,7 @@ exact_match_bonus = 16
   - **CSV/TSV** (`"csv"` / `"tsv"`): Splits comma/tab separated values following RFC 4180 rules
 - `names`, `n`: List of column names/settings. A name may also be given as a bare string.
   - `name`: (string) Name of the column. Must be alphanumeric.
-  - `ignore`: (bool) Ignore the column for matching.
+  - `ignore`: (bool) Ignore the column for matching: keep it only for display.
   - `hidden`: (bool) Hide the column in the results table.
   - `options`: Matching options joined by `|`:
     - `Optional`: when patterns apply to several columns, failing this column does not reject the item (unless it is the only column with a pattern).

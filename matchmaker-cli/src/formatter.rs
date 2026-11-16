@@ -451,19 +451,19 @@ pub(crate) mod tests {
         columns_config.names = vec![
             matchmaker::config::ColumnSetting {
                 name: "col1".to_string().into(),
-                ignore: true,
+                ignore: false,
                 hidden: false,
                 options: Default::default(),
             },
             matchmaker::config::ColumnSetting {
                 name: "col2".to_string().into(),
-                ignore: true,
+                ignore: false,
                 hidden: false,
                 options: Default::default(),
             },
             matchmaker::config::ColumnSetting {
                 name: "col3".to_string().into(),
-                ignore: true,
+                ignore: false,
                 hidden: false,
                 options: Default::default(),
             },

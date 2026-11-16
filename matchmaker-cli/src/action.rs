@@ -382,20 +382,11 @@ pub fn action_handler(
         }
         MMAction::ShowPreview(opt) => {
             // Page the current preview command (or an arbitrary template)
-            // fullscreen. Payload-less ShowPreview uses whatever the preview
-            // would currently display. The pager branch runs inside the
-            // Execute interrupt handler (discriminant 4).
+            // fullscreen. The pager branch runs inside the Execute interrupt
+            // handler (discriminant 4): it pages the payload when one is given
+            // and whatever the preview would currently display otherwise.
             state.discriminant_payload = Some(4);
-            if let Some(cmd) = opt {
-                state.set_interrupt(Interrupt::Execute, cmd);
-            } else {
-                let template = state
-                    .preview_set_payload()
-                    .as_ref()
-                    .and_then(|p| p.as_ref().ok().map(|s| s.to_string()))
-                    .unwrap_or_else(|| state.preview_payload().clone());
-                state.set_interrupt(Interrupt::Execute, template);
-            }
+            state.set_interrupt(Interrupt::Execute, opt.unwrap_or_default());
         }
         MMAction::PresetHelp => {
             // The docs are resolved and paged by the Execute interrupt handler

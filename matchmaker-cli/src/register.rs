@@ -31,7 +31,8 @@ use std::{
 
 #[easy_ext::ext(MMExt)]
 impl<S> Matchmaker<String, S, ConfigPreprocessedData> {
-    /// Causes [`MMAction::ShowPreview`] to page the preview command or static preview fullscreen.
+    /// Causes [`MMAction::ShowPreview`] to page its own command, the preview command, or a
+    /// static preview fullscreen.
     pub fn register_show_preview_handler(
         &mut self,
         preview_shell: Vec<OsString>,
@@ -44,19 +45,25 @@ impl<S> Matchmaker<String, S, ConfigPreprocessedData> {
                 return;
             }
             state.discriminant_payload = None;
+            // ShowPreview(cmd) carries what to page as the interrupt payload
+            let payload = state.payload().clone();
             state.clear_interrupt(); // clear the payload pre-empting subsequent execute handler
 
             // ShowPreview with a static preview payload pages the text directly
-            if let Some(Err(text)) = state.preview_set_payload() {
-                let resolved =
-                    matchmaker::resolve_static_preview(&text, &help_factory, &help_config);
-                let ansi_text = matchmaker::utils::text_to_ansi(&resolved);
-                crate::pager::page_text(&ansi_text, &pager);
-                return;
+            if payload.is_empty() {
+                if let Some(Err(text)) = state.preview_set_payload() {
+                    let resolved =
+                        matchmaker::resolve_static_preview(&text, &help_factory, &help_config);
+                    let ansi_text = matchmaker::utils::text_to_ansi(&resolved);
+                    crate::pager::page_text(&ansi_text, &pager);
+                    return;
+                }
             }
 
             let vars = state.make_env_vars();
-            let preview_template = if let Some(Ok(s)) = state.preview_set_payload() {
+            let preview_template = if !payload.is_empty() {
+                payload
+            } else if let Some(Ok(s)) = state.preview_set_payload() {
                 s
             } else {
                 state.preview_payload().clone()

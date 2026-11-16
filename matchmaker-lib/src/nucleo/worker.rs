@@ -185,7 +185,10 @@ where
         Self {
             nucleo: inner,
             col_indices_buffer: Vec::with_capacity(128),
-            query: PickerQuery::new(columns.iter().map(|col| &col.name).cloned(), default_column),
+            query: PickerQuery::new(
+                columns.iter().map(|col| (col.name.clone(), col.filter)),
+                default_column,
+            ),
             column_options: vec![ColumnOptions::default(); columns.len()],
             columns,
             raw_preprocessor,

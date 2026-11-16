@@ -6,6 +6,9 @@ use std::{collections::HashMap, mem, ops::Range, sync::Arc};
 pub struct PickerQuery {
     /// The column names of the picker.
     column_names: Box<[Arc<str>]>,
+    /// Whether each column takes part in matching, aligned with `column_names`.
+    /// Columns that only display are not addressable with `%name`.
+    filtering: Box<[bool]>,
     /// The index of the primary column in `column_names`.
     /// The primary column is selected by default unless another
     /// field is specified explicitly with `%fieldname`.
@@ -28,14 +31,18 @@ impl PartialEq<HashMap<Arc<str>, Arc<str>>> for PickerQuery {
 }
 
 impl PickerQuery {
-    pub fn new<I: Iterator<Item = Arc<str>>>(column_names: I, primary_column: usize) -> Self {
-        let column_names: Box<[_]> = column_names.collect();
+    /// `columns` pairs each column name with whether it takes part in matching.
+    pub fn new<I: Iterator<Item = (Arc<str>, bool)>>(columns: I, primary_column: usize) -> Self {
+        let (column_names, filtering): (Vec<_>, Vec<_>) = columns.unzip();
+        let (column_names, filtering): (Box<[_]>, Box<[_]>) =
+            (column_names.into(), filtering.into());
         let inner = HashMap::with_capacity(column_names.len());
         let column_ranges = vec![(0..usize::MAX, Some(column_names[primary_column].clone()))];
         let empty_column = column_names.iter().position(|c| c.is_empty());
 
         Self {
             column_names,
+            filtering,
             primary_column,
             inner,
             column_ranges,
@@ -133,8 +140,8 @@ impl PickerQuery {
         let mut column_ranges: Vec<(std::ops::Range<usize>, Option<Arc<str>>)> =
             vec![(0..usize::MAX, Some(primary_field.clone()))];
 
-        // Column the current word feeds. A `%word` naming no column is pattern
-        // text, and stays in this column.
+        // Column the current word feeds. A `%word` naming no filtering column is
+        // pattern text, and stays in this column.
         let mut field: Option<&Arc<str>> = None;
         // Pattern text of the current word. Words are atoms, so the join
         // re-inserts the separator between them.
@@ -150,15 +157,20 @@ impl PickerQuery {
                 // otherwise the word is pattern text.
                 if let Some(idx) = marker.take() {
                     let name = &text[1..];
-                    let col = if name.is_empty() {
+                    let col_index = if name.is_empty() {
                         self.empty_column
-                            .and_then(|index| self.column_names.get(index))
                     } else {
                         self.column_names
                             .iter()
-                            .filter(|col| col.starts_with(name))
-                            .min_by_key(|col| col.len())
+                            .enumerate()
+                            .filter(|(_, col)| col.starts_with(name))
+                            .min_by_key(|(_, col)| col.len())
+                            .map(|(index, _)| index)
                     };
+                    // A column that is not matched is not addressable either.
+                    let col = col_index
+                        .filter(|&index| self.filtering[index])
+                        .map(|index| &self.column_names[index]);
 
                     if let Some(col) = col {
                         text.clear();
@@ -230,5 +242,35 @@ impl PickerQuery {
             .collect();
 
         (new_fields, column_ranges)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PickerQuery;
+
+    fn query(columns: &[(&str, bool)]) -> PickerQuery {
+        PickerQuery::new(
+            columns
+                .iter()
+                .map(|(name, filtering)| ((*name).into(), *filtering)),
+            0,
+        )
+    }
+
+    #[test]
+    fn percent_prefix_needs_a_filtering_column() {
+        // `b` is not addressable, so the word stays pattern text in the primary
+        // column instead of feeding a column that is never matched.
+        let mut q = query(&[("a", true), ("b", false)]);
+        q.parse("%b text");
+        assert!(q.get("b").is_none());
+        assert_eq!(q.primary_column_query(), Some("%b text"));
+
+        // A filtering column is still addressable.
+        let mut q = query(&[("a", true), ("b", true)]);
+        q.parse("%b text");
+        assert_eq!(q.get("b").map(|s| &**s), Some("text"));
+        assert_eq!(q.primary_column_query(), None);
     }
 }

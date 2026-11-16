@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-PTY benchmark suite comparing mm (nucleo & frizbee backends), fzf, sk, and tv.
+PTY benchmark suite comparing mm (nucleo & frizbee backends), fzf, and sk.
 
-Suites:
+Suites (all synchronous ingestion via start.sync=true / --sync):
 1. select1: Startup + full ingestion + unique initial query + auto-exit
-   (uses exit.first=true / -1; tv uses --take-1 -i). Reports wall time, CPU, and peak RSS.
+   (uses exit.first=true / -1). Reports wall time, CPU, and peak RSS.
 2. heavy_ui: Interactive 6-column ANSI-colored + wrapped workload (120x40 PTY):
    - first_frame_ms: spawn -> first rendered item row
    - query_ms: broad query ('gwprobe') -> filtered rows rendered
@@ -12,6 +12,7 @@ Suites:
    - switch_ms: Ctrl-U + disjoint unique query -> rendered
    - accept_ms: Enter -> exit
    - rss_mb: peak RSS via wait4 rusage
+3. scale: 500k-path incremental query, Ctrl-U switch, and broad re-filter.
 """
 
 import argparse
@@ -297,7 +298,7 @@ def make_scale_dataset(path: str, n: int) -> None:
         for i in range(n):
             if i == n - 1:
                 f.write("services/auth/deep/subsystem/tenant_alpha/zxq_validator_9.rs\n")
-            elif i >= n // 5 and (i - n // 5) % max(1, (n * 3 // 5) // 500) == 400 and j < 499:
+            elif i >= n // 5 and (i - n // 5) % max(1, (n * 3 // 5) // 500) == 0 and j < 499:
                 f.write(f"services/gwprobe/w{j % 17}/gwitem_{j:03d}.rs\n")
                 j += 1
             else:
@@ -441,8 +442,6 @@ def main():
                 tools_s1.append(("fzf", ["fzf", "--sync", "-1", "-q", needle]))
             if shutil.which("sk"):
                 tools_s1.append(("sk", ["sk", "--sync", "-1", "-q", needle]))
-            if shutil.which("tv"):
-                tools_s1.append(("tv (--take-1)", ["tv", "--take-1", "-i", needle, "--no-preview", "--no-remote", "--no-help-panel"]))
 
             print(f"=== 1. select-1 / exit.first ({args.items:,} plain paths, {args.runs} runs, {args.warmup} warmup) ===")
             for name, cmd in tools_s1:
@@ -477,8 +476,6 @@ def main():
                 tools_heavy.append(("fzf (--ansi)", ["fzf", "--sync", "--ansi"]))
             if shutil.which("sk"):
                 tools_heavy.append(("sk (--ansi)", ["sk", "--sync", "--ansi"]))
-            if shutil.which("tv"):
-                tools_heavy.append(("tv (--ansi)", ["tv", "--ansi", "--no-preview", "--no-remote", "--no-help-panel"]))
 
             print(f"\n=== 2. Heavy 6-Col ANSI + Wrapped + 50x Nav ({args.items:,} rows, {args.runs} runs) ===")
             for name, cmd in tools_heavy:
@@ -517,8 +514,6 @@ def main():
                 tools_scale.append(("fzf", ["fzf", "--sync"]))
             if shutil.which("sk"):
                 tools_scale.append(("sk", ["sk", "--sync"]))
-            if shutil.which("tv"):
-                tools_scale.append(("tv", ["tv", "--no-preview", "--no-remote", "--no-help-panel"]))
 
             print(f"\n=== 3. Scale & Query-Shape ({args.scale_items:,} paths, incremental + narrow + backspace, {args.runs} runs) ===")
             for name, cmd in tools_scale:

@@ -94,17 +94,24 @@ fn write_args(
 ///
 /// Expansion runs before [`classify`] splits `@file` arguments, so placeholders
 /// in a file payload expand too: `{+id}` becomes one argument per selection.
+/// Inline `#!lua` payloads are source, not templates — `{}` there is a table
+/// constructor — so they are left untouched.
 /// Returns `None` when formatting produced an empty string (signaling no action
 /// or a missing selection).
 pub fn classify_template(
     state: &MMState<'_, String, ConfigPreprocessedData>,
     payload: &str,
 ) -> Option<CommandStrategy> {
+    let strategy = classify(payload);
+    #[cfg(feature = "mlua")]
+    if matches!(strategy, CommandStrategy::Lua(_)) {
+        return Some(strategy);
+    }
     let formatted = crate::formatter::format_cli(state, payload, None);
     if formatted.is_empty() {
         return None;
     }
-    Some(match classify(payload) {
+    Some(match strategy {
         CommandStrategy::Shell(_) => CommandStrategy::Shell(formatted),
         _ => classify(&formatted),
     })
@@ -263,6 +270,12 @@ mod tests {
                 args: vec![OsString::from("a")],
                 direct: false,
             })
+        );
+        // inline lua is source, not a template: `{}` is a table constructor
+        #[cfg(feature = "mlua")]
+        assert_eq!(
+            classify_template(&mm_state, "#!lua local t = {}"),
+            Some(CommandStrategy::Lua("local t = {}".to_string()))
         );
     }
 

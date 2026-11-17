@@ -698,7 +698,7 @@ pub struct PreviewConfig {
     pub scroll_wrap: bool,
     pub wrap: bool,
     /// Whether to show the preview pane initially.
-    /// Can either be a boolean or a number which the relevant dimension of the available ui area must exceed.
+    /// Can either be a boolean or a number which the relevant dimension of the available ui area must reach.
     pub show: ShowCondition,
     /// Trim trailing and initial new lines,
     pub trim_ends: bool,

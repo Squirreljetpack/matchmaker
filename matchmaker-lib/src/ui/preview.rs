@@ -21,9 +21,24 @@ use crate::{
         FrameSetting, PreviewConfig, PreviewInitialSetting, PreviewSetting, ShowCondition, Side,
     },
     preview::Preview,
-    ui::{RESULTS_MIN_H, RESULTS_MIN_W},
     utils::text::{trim_text_lines, wrapped_line_height},
 };
+
+/// Whether the `show` condition allows the preview at this ui size. Whether
+/// the pane fits is decided after layout.
+fn show_allowed(show: ShowCondition, side: Side, [ui_width, ui_height]: [u16; 2]) -> bool {
+    match show {
+        ShowCondition::Bool(show) => show,
+        ShowCondition::Free(threshold) => {
+            let dim = if side.is_vertical() {
+                ui_width
+            } else {
+                ui_height
+            };
+            dim >= threshold
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct PreviewUI {
@@ -64,31 +79,6 @@ impl PreviewUI {
     }
 
     pub fn new(view: Preview, mut config: PreviewConfig, [ui_width, ui_height]: [u16; 2]) -> Self {
-        let show = match config.show {
-            ShowCondition::Free(x) => {
-                if let Some(l) = config.layout.first() {
-                    match l.layout.side {
-                        Side::Bottom | Side::Top => ui_height >= x,
-                        _ => ui_width >= x,
-                    }
-                } else {
-                    false
-                }
-            }
-            ShowCondition::Bool(x) => {
-                x && if let Some(l) = config.layout.first() {
-                    match l.layout.side {
-                        Side::Bottom | Side::Top => {
-                            ui_height > RESULTS_MIN_H + (l.layout.min.max(0) as u16)
-                        }
-                        _ => ui_width > RESULTS_MIN_W + (l.layout.min.max(0) as u16),
-                    }
-                } else {
-                    false
-                }
-            }
-        };
-
         // enforce invariant of valid index
         if config.layout.is_empty() {
             let mut s = PreviewSetting::default();
@@ -96,7 +86,14 @@ impl PreviewUI {
             config.layout.push(s);
         }
 
-        let idx = config.initial_layout;
+        // Skip disabled layouts (max = 0) so the preview starts on one that renders.
+        let idx = (usize::from(config.initial_layout)..config.layout.len())
+            .find(|i| config.layout[*i].layout.max != 0)
+            .unwrap_or(usize::from(config.initial_layout)) as u8;
+
+        let active = &config.layout[idx as usize].layout;
+
+        let show = show_allowed(config.show, active.side, [ui_width, ui_height]);
 
         let mut ret = Self {
             view,
@@ -130,44 +127,29 @@ impl PreviewUI {
         }
     }
 
+    /// Recompute whether the preview should be shown. When `no_hide` is set,
+    /// a condition that would hide the preview leaves it as it is instead.
     pub fn reevaluate_show_condition(&mut self, [ui_width, ui_height]: [u16; 2], no_hide: bool) {
         if self.current_dimension.is_some() {
             return;
         }
         match self.config.show {
-            ShowCondition::Free(x) => {
-                if let Some(setting) = self.setting() {
-                    let l = &setting.layout;
-
-                    let show = match l.side {
-                        Side::Bottom | Side::Top => ui_height >= x,
-                        _ => ui_width >= x,
-                    };
-                    log::debug!(
-                        "Evaluated ShowCondition(Free({x})) against {ui_width}x{ui_height} => {show}"
-                    );
-                    if no_hide && !show {
-                        return;
-                    }
-
-                    self.show(show);
-                };
-            }
-            ShowCondition::Bool(mut show) => {
-                if no_hide && !show {
+            ShowCondition::Free(_) => {
+                let Some(setting) = self.setting() else {
                     return;
                 };
-                show = show
-                    && if let Some(l) = self.config.layout.first() {
-                        match l.layout.side {
-                            Side::Bottom | Side::Top => {
-                                ui_height > RESULTS_MIN_H + (l.layout.min.max(0) as u16)
-                            }
-                            _ => ui_width > RESULTS_MIN_W + (l.layout.min.max(0) as u16),
-                        }
-                    } else {
-                        false
-                    };
+                let allowed =
+                    show_allowed(self.config.show, setting.layout.side, [ui_width, ui_height]);
+                log::debug!("Evaluated show condition against {ui_width}x{ui_height} => {allowed}");
+                if no_hide && !allowed {
+                    return;
+                }
+                self.show(allowed);
+            }
+            ShowCondition::Bool(show) => {
+                if no_hide && !show {
+                    return;
+                }
                 self.show(show);
             }
         };
@@ -289,10 +271,6 @@ impl PreviewUI {
         let changed = self.show != show;
         self.show = show;
         changed
-    }
-
-    pub fn toggle_show(&mut self) {
-        self.show = !self.show;
     }
 
     pub fn wrap(&mut self, wrap: bool) {
@@ -597,12 +575,13 @@ impl PreviewUI {
             min = min.min(total);
             max = max.min(total);
 
-            if min <= max {
-                layout.percentage.compute_clamped(total, min, max)
-            } else {
-                error!("PreviewLayout min > max: {min} > {max}. Ignoring max.");
-                layout.percentage.compute_clamped(total, min, 0)
+            // max wins a conflict: a min past it is dropped rather than capping
+            // the pane at it.
+            if min > max {
+                min = 0;
             }
+
+            layout.percentage.compute_clamped(total, min, max)
         };
 
         let side_constraint = Constraint::Length(side_size);
@@ -1084,6 +1063,74 @@ mod tests {
         );
 
         assert_eq!(preview_with(config).frame().sides, Some(Borders::LEFT));
+    }
+
+    #[test]
+    fn a_layout_min_does_not_gate_the_show_condition() {
+        let preview = preview_with(PreviewConfig {
+            show: ShowCondition::Bool(true),
+            layout: vec![PreviewSetting {
+                layout: PreviewLayout {
+                    side: Side::Bottom,
+                    percentage: Percentage::new(60),
+                    min: 30,
+                    max: 40,
+                },
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+
+        // whether the pane fits is decided after layout, not here
+        assert!(preview.visible());
+    }
+
+    #[test]
+    fn free_show_condition_keeps_the_preview_closed_below_the_threshold() {
+        let preview = preview_with(PreviewConfig {
+            show: ShowCondition::Free(100),
+            layout: vec![PreviewSetting {
+                layout: PreviewLayout {
+                    side: Side::Right,
+                    percentage: Percentage::new(60),
+                    min: 15,
+                    max: 50,
+                },
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+
+        assert!(!preview.visible());
+    }
+
+    #[test]
+    fn min_above_max_is_ignored() {
+        let preview = preview_with(PreviewConfig {
+            show: ShowCondition::Bool(true),
+            layout: vec![PreviewSetting {
+                layout: PreviewLayout {
+                    side: Side::Right,
+                    percentage: Percentage::new(60),
+                    min: 30,
+                    max: 20,
+                },
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 24,
+        };
+        let [preview_rect, picker_rect] = preview.split(area);
+
+        // the conflicting minimum is dropped, so the 60% (48) clamps down to
+        // max (20) plus the 2 cell border padding
+        assert_eq!(preview_rect.width, 22);
+        assert_eq!(picker_rect.width, 58);
     }
 
     #[test]

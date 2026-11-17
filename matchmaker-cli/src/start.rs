@@ -41,13 +41,14 @@ use log::debug;
 use matchmaker::{
     Action, Either, MatchError, Matchmaker, PickOptions, SSS, bindmap,
     binds::{BindMap, BindMapExt, Trigger},
-    config::{CommandSetting, EnvValue},
+    config::{CommandSetting, EnvValue, PreviewConfig},
     config_mm::{ConfigInjector, ConfigPreprocessedData, OddEnds},
     event::{EventLoop, RenderSender},
     make_previewer,
-    message::Interrupt,
+    message::{Event, Interrupt},
     nucleo::{Column, Line, Span, injector::Injector},
     preview::AppendOnly,
+    ui::toast,
 };
 use matchmaker_partial::Apply;
 
@@ -242,7 +243,20 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
     #[cfg(not(debug_assertions))]
     debug!("Config computed: {config:?}");
 
+    check_preview_layouts(&config.render.preview);
+
     Ok(config)
+}
+
+/// Warn about preview layouts whose size bounds cannot both hold. Negative
+/// bounds are relative to the axis length, so only same-sign pairs compare here.
+fn check_preview_layouts(preview: &PreviewConfig) {
+    for (i, setting) in preview.layout.iter().enumerate() {
+        let (min, max) = (setting.layout.min, setting.layout.max);
+        if max != 0 && (min < 0) == (max < 0) && min > max {
+            wbog!("Preview layout {i}: min ({min}) exceeds max ({max}); ignoring min.");
+        }
+    }
 }
 
 /// Spawns a tokio task mapping f to reader segments.
@@ -806,6 +820,19 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
     };
 
     // ---------------------- register handlers ---------------------------
+
+    // a manual open the layout cannot honour explains itself
+    mm.register_event_handler(Event::PreviewDisabled, |state, _| {
+        let Some(vertical) = state.preview_ui.as_ref().map(|p| p.is_vertical()) else {
+            return;
+        };
+        let axis = if vertical { "width" } else { "height" };
+        toast::replace(
+            Span::raw("preview"),
+            Line::from(format!("insufficient {axis}")),
+        );
+    });
+
     // print handler (no quoting)
     mm._register_print_handler(
         print_handle.clone(),

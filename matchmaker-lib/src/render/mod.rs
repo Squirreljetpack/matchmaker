@@ -651,9 +651,9 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                         Action::Preview(context) => {
                             if let Some(p) = preview_ui.as_mut() {
                                 if !state.update_preview_payload(context.as_str()) {
-                                    p.toggle_show()
+                                    toggle_preview(p)
                                 } else {
-                                    p.show(true);
+                                    open_preview(p);
                                 }
                             };
                         }
@@ -663,7 +663,7 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                                 if !state.update_preview_set(Err(context.into())) {
                                     state.update_preview_unset()
                                 } else {
-                                    p.show(true);
+                                    open_preview(p);
                                 }
                             };
                         }
@@ -682,10 +682,10 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                                     if !p.set_layout(idx)
                                         && !state.update_preview_payload(p.command())
                                     {
-                                        p.toggle_show();
+                                        toggle_preview(p);
                                     }
                                 } else {
-                                    p.toggle_show()
+                                    toggle_preview(p)
                                 }
                             }
                         }
@@ -1246,6 +1246,20 @@ fn force_overwritten_image_cells(
     covered
 }
 
+/// Show the preview.
+fn open_preview(p: &mut PreviewUI) {
+    p.show(true);
+}
+
+/// Toggle the preview, opening it through [`open_preview`].
+fn toggle_preview(p: &mut PreviewUI) {
+    if p.visible() {
+        p.show(false);
+    } else {
+        open_preview(p);
+    }
+}
+
 fn render_preview(frame: &mut Frame, area: Rect, ui: &mut PreviewUI) {
     assert!(ui.visible()); // don't call if not visible.
 
@@ -1410,6 +1424,10 @@ fn update_layout_and_state<T: SSS, D: 'static, A: ActionExt>(
         let (preview, picker, mut picker_area) = if hide_preview {
             warn!("UI too small, hiding preview");
             preview_ui.show(false);
+            // iteration 0 is the first pass: a preview that never fit stays silent
+            if state.iteration != 0 {
+                state.insert(Event::PreviewDisabled);
+            }
             (Rect::default(), _area, ui.frame().inner_of(_area))
         } else {
             (preview, picker, picker_area)
@@ -1891,6 +1909,23 @@ mod test {
         assert!(!preview.visible());
         assert_eq!(layout.preview, Rect::default());
         assert_eq!(ui.picker_area(), area);
+
+        // the first pass stays silent
+        assert!(!state.contains(Event::PreviewDisabled));
+
+        // afterwards the hide is reported so the cli can explain it
+        state.iteration = 1;
+        preview.show(true);
+        layout_of(
+            &mut ui,
+            &mut picker,
+            &mut state,
+            &mut footer,
+            Some(&mut preview),
+            area,
+        );
+        assert!(!preview.visible());
+        assert!(state.contains(Event::PreviewDisabled));
     }
 
     #[test]

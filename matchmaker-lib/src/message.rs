@@ -54,6 +54,9 @@ bitflags! {
 
         // Simple redraw request
         const Tick = 1 << 17;
+
+        /// A manual request to open the preview was refused
+        const PreviewDisabled = 1 << 18;
     }
 }
 // ---------------------------------------------------------------------

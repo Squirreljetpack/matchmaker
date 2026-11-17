@@ -281,6 +281,9 @@ mod tests {
 
     #[test]
     fn test_resolve_relative() {
+        // Expectations are built with `Path::join`, not spelled out with `/`: the
+        // separator differs per platform.
+        let base = Path::new("/path/to");
         let envs = env_vars!("MM_OVERRIDE" => "/path/to/preset.toml");
         let empty_envs = EnvVars::new();
 
@@ -289,7 +292,7 @@ mod tests {
         assert_eq!(
             file_strat.clone().resolve_relative(&envs).unwrap(),
             CommandStrategy::File {
-                path: Path::new("/path/to/script.sh").as_os_str().to_os_string(),
+                path: base.join("script.sh").into_os_string(),
                 args: vec![OsString::from("a"), OsString::from("b")],
                 direct: false,
             }
@@ -300,7 +303,7 @@ mod tests {
         assert_eq!(
             direct_strat.clone().resolve_relative(&envs).unwrap(),
             CommandStrategy::File {
-                path: Path::new("/path/to/./script.sh").as_os_str().to_os_string(),
+                path: base.join("./script.sh").into_os_string(),
                 args: vec![OsString::from("a")],
                 direct: true,
             }
@@ -309,12 +312,16 @@ mod tests {
         // Relative File strategy without MM_OVERRIDE fails
         assert!(file_strat.resolve_relative(&empty_envs).is_err());
 
-        // Absolute File strategy succeeds without MM_OVERRIDE
-        let abs_strat = classify("@/usr/local/bin/script.sh a");
+        // Absolute File strategy succeeds without MM_OVERRIDE. The path has to
+        // be absolute for the platform under test, so it is taken from the temp
+        // dir rather than hardcoded.
+        let abs = std::env::temp_dir().join("mm-abs-script.sh");
+        assert!(abs.is_absolute());
+        let abs_strat = classify(&format!("@{} a", abs.display()));
         assert_eq!(
-            abs_strat.clone().resolve_relative(&empty_envs).unwrap(),
+            abs_strat.resolve_relative(&empty_envs).unwrap(),
             CommandStrategy::File {
-                path: OsString::from("/usr/local/bin/script.sh"),
+                path: abs.into_os_string(),
                 args: vec![OsString::from("a")],
                 direct: false,
             }
@@ -333,7 +340,7 @@ mod tests {
             assert_eq!(
                 lua_file_strat.clone().resolve_relative(&envs).unwrap(),
                 CommandStrategy::LuaFile {
-                    path: Path::new("/path/to/clean.lua").as_os_str().to_os_string(),
+                    path: base.join("clean.lua").into_os_string(),
                     args: vec![OsString::from("a")],
                 }
             );

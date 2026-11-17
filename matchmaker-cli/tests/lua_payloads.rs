@@ -29,8 +29,11 @@ fn run(preset: &str, arg: &str) -> Output {
         .expect("failed to spawn mm")
 }
 
-/// Runs `arg` and returns stdout and the exit code, failing on spawn errors and
-/// on stderr silence (so a panic in mm surfaces with its message).
+/// Runs `arg` and returns stdout and the exit code, failing on spawn errors.
+///
+/// Lua's `print` writes through the C runtime's text mode, so payload output
+/// arrives CRLF-terminated on Windows while `inject` (a Rust write) uses `\n`;
+/// normalise here so the assertions read the same on every platform.
 fn stdout_of(preset: &str, arg: &str) -> (String, i32) {
     let out = run(preset, arg);
     assert!(
@@ -39,7 +42,7 @@ fn stdout_of(preset: &str, arg: &str) -> (String, i32) {
         String::from_utf8_lossy(&out.stderr)
     );
     (
-        String::from_utf8_lossy(&out.stdout).into_owned(),
+        String::from_utf8_lossy(&out.stdout).replace("\r\n", "\n"),
         out.status.code().unwrap_or(-1),
     )
 }

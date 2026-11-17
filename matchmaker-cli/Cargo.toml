@@ -7,7 +7,7 @@ edition = "2024"
 exclude = ["assets/completions", "assets/presets"]
 homepage = "https://github.com/Squirreljetpack/matchmaker"
 keywords = ["fuzzy", "finder", "tui", "nucleo", "fzf"]
-license = "MIT"
+license = "AGPL-3.0-only"
 repository = "https://github.com/Squirreljetpack/matchmaker"
 description = "Command-line interface for the matchmaker fuzzy finder"
 

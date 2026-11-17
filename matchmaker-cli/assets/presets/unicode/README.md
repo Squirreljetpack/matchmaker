@@ -21,10 +21,12 @@ directory:
 rust-script ./build.rs
 ```
 
-The builder defaults to the `modern` tier (single-grapheme emoji through E15.1
-and terminal-safe Unicode symbols with English CLDR annotations). Pass
-`--strict` for single-codepoint E13.0 emoji without ambiguous-width symbols,
-`--full` for all fully-qualified emoji and Unicode symbols, `--nerd-fonts` to
+The builder defaults to the `modern` tier (DEC Mode 2027 single-grapheme emoji
+through E15.1 and conventional Unicode blocks through Unicode 15.1 with English
+CLDR annotations). Pass `--strict` for single-codepoint E13.0 emoji and
+conventional blocks through Unicode 13.0 without ambiguous-width or emoji-char
+symbols, `--full` for all fully-qualified emoji and Unicode characters across
+all blocks and versions, `--nerd-fonts` to
 include Nerd Font glyphs in `unicode.zst`, `--locale <tag>` (such as `de`,
 `fr`, `ja`, or `zh-Hans`) for localized CLDR keywords, or `--no-cldr` to omit
 CLDR keywords. Upstream downloads are cached under `.cache`.

@@ -21,9 +21,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use serde::Deserialize;
 use serde_json::Value;
-use unicode_properties::{
-    EmojiStatus, GeneralCategoryGroup, UnicodeEmoji, UnicodeGeneralCategory,
-};
+use unicode_properties::{GeneralCategoryGroup, UnicodeEmoji, UnicodeGeneralCategory};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
@@ -35,6 +33,8 @@ const CLDR_DERIVED_BASE: &str =
 const UNICODE_DATA_URL: &str = "https://www.unicode.org/Public/UCD/latest/ucd/UnicodeData.txt";
 const PROP_ALIASES_URL: &str =
     "https://www.unicode.org/Public/UCD/latest/ucd/PropertyValueAliases.txt";
+const BLOCKS_URL: &str = "https://www.unicode.org/Public/UCD/latest/ucd/Blocks.txt";
+const DERIVED_AGE_URL: &str = "https://www.unicode.org/Public/UCD/latest/ucd/DerivedAge.txt";
 const LATEX_MAP_URL: &str =
     "https://raw.githubusercontent.com/latex3/unicode-math/master/unicode-math-table.tex";
 const HTML_ENTITIES_URL: &str = "https://html.spec.whatwg.org/entities.json";
@@ -54,15 +54,15 @@ enum Tier {
     about = "Generate 4-column [char, name, cat, meta] emoji.zst and unicode.zst datasets"
 )]
 struct Cli {
-    /// Strict mode: single-codepoint emojis (<= E13.0), no Ambiguous width or text-default emojis
+    /// Strict mode: single-codepoint emojis (<= E13.0), no ambiguous-width or emoji-char symbols, conventional blocks (<= U13.0)
     #[arg(long, group = "tier")]
     strict: bool,
 
-    /// Modern mode (default): DEC Mode 2027 single-grapheme emojis (<= E15.1), safe symbols
+    /// Modern mode (default): DEC Mode 2027 single-grapheme emojis (<= E15.1) and conventional Unicode blocks (<= U15.1)
     #[arg(long, group = "tier")]
     modern: bool,
 
-    /// Full mode: all fully-qualified emojis and Unicode symbols (for patched Alacritty + ratatui)
+    /// Full mode: all fully-qualified emojis and Unicode characters across all blocks and versions
     #[arg(long, group = "tier")]
     full: bool,
 
@@ -274,13 +274,7 @@ fn allow_emoji(
     let width = UnicodeWidthStr::width(emoji);
     match tier {
         Tier::Strict => codepoints.len() == 1 && width == 2,
-        Tier::Modern => {
-            !codepoints
-                .iter()
-                .any(|&cp| (0xE0020..=0xE007F).contains(&cp) || cp == 0xFE0E)
-                && UnicodeSegmentation::graphemes(emoji, true).count() == 1
-                && width == 2
-        }
+        Tier::Modern => UnicodeSegmentation::graphemes(emoji, true).count() == 1 && (width == 1 || width == 2),
         Tier::Full => width == 1 || width == 2,
     }
 }
@@ -417,7 +411,113 @@ fn parse_html_entities(raw: &str) -> HashMap<u32, String> {
     map
 }
 
-fn allow_unicode_char(ch: char, bidi_class: &str, tier: Tier) -> bool {
+const CONVENTIONAL_BLOCKS: &[&str] = &[
+    // Latin, Greek, Cyrillic, and phonetic letters
+    "Basic Latin",
+    "Latin-1 Supplement",
+    "Latin Extended-A",
+    "Latin Extended-B",
+    "IPA Extensions",
+    "Spacing Modifier Letters",
+    "Greek and Coptic",
+    "Cyrillic",
+    "Cyrillic Supplement",
+    "Phonetic Extensions",
+    "Phonetic Extensions Supplement",
+    "Latin Extended Additional",
+    "Greek Extended",
+    "Latin Extended-C",
+    "Latin Extended-D",
+    "Latin Extended-E",
+    "Alphabetic Presentation Forms",
+    // Punctuation, numbers, currency, math, technical, box/block, shapes, arrows, braille
+    "General Punctuation",
+    "Superscripts and Subscripts",
+    "Currency Symbols",
+    "Letterlike Symbols",
+    "Number Forms",
+    "Arrows",
+    "Mathematical Operators",
+    "Miscellaneous Technical",
+    "Control Pictures",
+    "Optical Character Recognition",
+    "Enclosed Alphanumerics",
+    "Box Drawing",
+    "Block Elements",
+    "Geometric Shapes",
+    "Miscellaneous Symbols",
+    "Dingbats",
+    "Miscellaneous Mathematical Symbols-A",
+    "Supplemental Arrows-A",
+    "Braille Patterns",
+    "Supplemental Arrows-B",
+    "Miscellaneous Mathematical Symbols-B",
+    "Supplemental Mathematical Operators",
+    "Miscellaneous Symbols and Arrows",
+    "Yijing Hexagram Symbols",
+    "Halfwidth and Fullwidth Forms",
+    // CJK symbols and kana
+    "CJK Symbols and Punctuation",
+    "Hiragana",
+    "Katakana",
+    "CJK Compatibility",
+    // Conventional non-BMP symbols and math
+    "Mathematical Alphanumeric Symbols",
+    "Mahjong Tiles",
+    "Domino Tiles",
+    "Playing Cards",
+    "Enclosed Alphanumeric Supplement",
+    "Miscellaneous Symbols and Pictographs",
+    "Ornamental Dingbats",
+    "Transport and Map Symbols",
+    "Alchemical Symbols",
+    "Geometric Shapes Extended",
+    "Supplemental Arrows-C",
+    "Supplemental Symbols and Pictographs",
+    "Chess Symbols",
+    "Symbols and Pictographs Extended-A",
+    "Symbols for Legacy Computing",
+];
+
+fn parse_range_table<T>(raw: &str, parse_val: impl Fn(&str) -> Option<T>) -> Vec<(u32, u32, T)> {
+    let mut table = Vec::new();
+    for line in raw.lines() {
+        let content = line.split('#').next().unwrap_or("").trim();
+        if content.is_empty() {
+            continue;
+        }
+        let Some((range_str, val_str)) = content.split_once(';') else {
+            continue;
+        };
+        let range_str = range_str.trim();
+        let (start_hex, end_hex) = range_str.split_once("..").unwrap_or((range_str, range_str));
+        let (Ok(start), Ok(end), Some(val)) = (
+            u32::from_str_radix(start_hex, 16),
+            u32::from_str_radix(end_hex, 16),
+            parse_val(val_str.trim()),
+        ) else {
+            continue;
+        };
+        table.push((start, end, val));
+    }
+    table.sort_by_key(|&(start, _, _)| start);
+    table
+}
+
+fn lookup_range<T: Copy>(table: &[(u32, u32, T)], cp: u32) -> Option<T> {
+    let idx = table.partition_point(|&(start, _, _)| start <= cp);
+    let (_, end, val) = table.get(idx.checked_sub(1)?)?;
+    (cp <= *end).then_some(*val)
+}
+
+fn allow_unicode_char(
+    ch: char,
+    cp: u32,
+    bidi_class: &str,
+    conventional_ranges: &[(u32, u32, ())],
+    age_ranges: &[(u32, u32, f32)],
+    tier: Tier,
+) -> bool {
     if !matches!(
         ch.general_category_group(),
         GeneralCategoryGroup::Letter
@@ -439,16 +539,30 @@ fn allow_unicode_char(ch: char, bidi_class: &str, tier: Tier) -> bool {
         return false;
     }
 
+    let max_age = match tier {
+        Tier::Strict => 13.0,
+        Tier::Modern => 15.1,
+        Tier::Full => return true,
+    };
+
+    if lookup_range(conventional_ranges, cp).is_none() {
+        return false;
+    }
+    if lookup_range(age_ranges, cp).unwrap_or(99.0) > max_age {
+        return false;
+    }
+
     match tier {
         Tier::Strict => !ch.is_emoji_char() && ch.width_cjk() == ch.width(),
-        Tier::Modern => !ch.is_emoji_char() || ch.emoji_status() == EmojiStatus::EmojiPresentation,
-        Tier::Full => true,
+        Tier::Modern | Tier::Full => true,
     }
 }
 
 fn build_unicode(
     raw: &str,
     gc_aliases: &HashMap<String, String>,
+    conventional_ranges: &[(u32, u32, ())],
+    age_ranges: &[(u32, u32, f32)],
     latex_map: &HashMap<u32, String>,
     html_map: &HashMap<u32, String>,
     cldr_map: &HashMap<String, Vec<String>>,
@@ -483,7 +597,7 @@ fn build_unicode(
         let Some(ch) = char::from_u32(cp) else {
             continue;
         };
-        if !allow_unicode_char(ch, bidi_class, tier) {
+        if !allow_unicode_char(ch, cp, bidi_class, conventional_ranges, age_ranges, tier) {
             continue;
         }
 
@@ -547,15 +661,24 @@ fn main() -> Result<()> {
 
     let unicode_raw = fetch_cached(UNICODE_DATA_URL, "UnicodeData.txt", &cli.cache_dir, cli.refresh)?;
     let aliases_raw = fetch_cached(PROP_ALIASES_URL, "PropertyValueAliases.txt", &cli.cache_dir, cli.refresh)?;
+    let blocks_raw = fetch_cached(BLOCKS_URL, "Blocks.txt", &cli.cache_dir, cli.refresh)?;
+    let age_raw = fetch_cached(DERIVED_AGE_URL, "DerivedAge.txt", &cli.cache_dir, cli.refresh)?;
     let latex_raw = fetch_cached(LATEX_MAP_URL, "unicode-math-table.tex", &cli.cache_dir, cli.refresh)?;
     let html_raw = fetch_cached(HTML_ENTITIES_URL, "entities.json", &cli.cache_dir, cli.refresh)?;
 
     let gc_aliases = parse_gc_aliases(&aliases_raw);
+    let conventional_set: HashSet<&str> = CONVENTIONAL_BLOCKS.iter().copied().collect();
+    let conventional_ranges = parse_range_table(&blocks_raw, |name| {
+        conventional_set.contains(name).then_some(())
+    });
+    let age_ranges = parse_range_table(&age_raw, |age| age.parse::<f32>().ok());
     let latex_map = parse_latex_map(&latex_raw);
     let html_map = parse_html_entities(&html_raw);
     let (mut unicode_lines, mut seen_cps) = build_unicode(
         &unicode_raw,
         &gc_aliases,
+        &conventional_ranges,
+        &age_ranges,
         &latex_map,
         &html_map,
         &cldr_map,

@@ -6,6 +6,7 @@ trim = true
 
 [start]
 command = "ps -eo pgid,pid,user,%cpu,vsz,rss,etime,stat,command"
+# command = "ps -eo pid,user,stat,comm"
 additional_commands = [
     "",
     "lsof -nP -i",

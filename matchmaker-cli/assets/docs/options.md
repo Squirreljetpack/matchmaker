@@ -280,7 +280,7 @@ exact_match_bonus = 16
 
 The toast log is drawn at the outer edge of the UI (below the footer in the default layout) and replaces footer rows before it takes any from the results table. It stays hidden while the log is empty. The mouse wheel scrolls the toast when the cursor is over it; scrolling up stops following new messages until you scroll back to the bottom.
 
-- `frame`, `f`: [Frame Settings](#frame-settings) (default: top border only, light yellow border).
+- `frame`, `f`: [Frame Settings](#frame-settings) (default: top border only).
 - `max_height`: (number) Maximum number of message rows shown; the frame adds its own rows (default 5).
 
 #### Preview Panel (`preview.`, `p`)

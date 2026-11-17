@@ -487,6 +487,10 @@ set -e
 
 case $MM_INDEX in
 0)
+  if ((MM_SELECT_COUNT == 1)); then
+    git revert {1}
+  fi
+
   if ((MM_SELECT_COUNT)) && command -v git-squash >/dev/null 2>&1; then
     set -- {+1}
     git-squash "$@" # git-squash will prompt

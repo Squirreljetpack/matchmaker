@@ -820,6 +820,10 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
     };
 
     // ---------------------- register handlers ---------------------------
+    // the user moving on dismisses the messages left over from the last state
+    mm.register_event_handler(Event::QueryChange | Event::CursorChange, |_, _| {
+        toast::clear();
+    });
 
     // a manual open the layout cannot honour explains itself
     mm.register_event_handler(Event::PreviewDisabled, |state, _| {
@@ -832,7 +836,6 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
             Line::from(format!("insufficient {axis}")),
         );
     });
-
     // print handler (no quoting)
     mm._register_print_handler(
         print_handle.clone(),

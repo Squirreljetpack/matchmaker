@@ -12,6 +12,8 @@
 - mla feature?
 - replace ansi-2-text for performance and correctness (i.e. man output)
 
+presets should probably pin start.shell/previewer.shell
+
 # Previewer
 
 - Offload large previews to disk/caching
@@ -42,3 +44,4 @@
 - Does render refs (statusUI, overlay?) improve performance?
 - frame_style leaks into border_style (not planned: ratatui's design)
 - chafa has better character renderer, if our protocol is half_blocks, mm --image would technically work better by preferring chafa
+- preview show is determined 2 different ways, on show_condition, and after layout wrt to results

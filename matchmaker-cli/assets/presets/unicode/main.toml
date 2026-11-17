@@ -28,6 +28,9 @@ content = ['char', 'name', 'cat', 'meta']
 show = true
 
 [[preview.layout]]
+side = "bottom"
+max = 7
+min = 5
 command = '''
 char={char}
 name={name}

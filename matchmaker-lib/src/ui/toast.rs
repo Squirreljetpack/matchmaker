@@ -58,6 +58,17 @@ fn find_prefix<'a>(log: &'a mut [ToastEntry], prefix: &Span<'_>) -> Option<&'a m
         .find(|e| e.prefix.content == prefix.content)
 }
 
+/// Replace every entry with the given prefix by a new one.
+pub fn replace(prefix: Span<'static>, message: Line<'static>) {
+    let mut log = log();
+
+    log.retain(|e| e.prefix.content != prefix.content);
+    log.push(ToastEntry {
+        prefix,
+        message: vec![message],
+    });
+}
+
 /// Remove every entry with the given prefix.
 pub fn remove(prefix: &str) {
     log().retain(|e| e.prefix.content != prefix);

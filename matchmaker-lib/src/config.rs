@@ -591,10 +591,6 @@ impl Default for ToastConfig {
         Self {
             frame: FrameSetting {
                 sides: Some(Borders::TOP),
-                border_style: StyleSetting {
-                    fg: Some(Color::LightYellow),
-                    ..Default::default()
-                },
                 ..Default::default()
             },
             max_height: 5,

@@ -108,7 +108,8 @@ frame = { title = "Process Tree" }
 command = "top -b -p {2} 2>/dev/null || top -pid {2}"
 frame = { title = "Resources" }
 initial.tail = true
-min = 13
+min = 10
+max = 10
 
 [[preview.layout]]
 command = "lsof -p {2}"

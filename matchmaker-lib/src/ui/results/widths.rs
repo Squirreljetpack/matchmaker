@@ -16,35 +16,20 @@ impl ResultsUI {
 
         self.max_widths.clear();
         self.prepare_max_widths();
-        if self.preferred_widths == self.max_widths {
+        let mut clamped_max = self.max_widths.clone();
+        self.clamp_to_min_widths(&mut clamped_max);
+        if self.preferred_widths == clamped_max {
             return None;
         }
 
-        self.widths_buffer = self.max_widths.clone();
-        let mut vi = 0;
+        self.widths_buffer = clamped_max.clone();
         let mut single_col = None;
         let mut non_zero_count = 0;
-        for (i, name_w) in self.column_name_widths.iter().enumerate() {
-            if self.config.hidden_columns.contains(i) {
-                continue;
-            }
-            let is_active = i == self.active_column;
-            let mut lower = 0;
-            if self.widths_buffer[vi] > 0 {
-                lower = lower.max(if self.config.min_width_from_cols {
-                    *name_w
-                } else {
-                    self.config.min_width
-                });
-            } else if is_active {
-                lower = 1;
-            }
-            self.widths_buffer[vi] = self.widths_buffer[vi].max(lower);
-            if self.widths_buffer[vi] > 0 {
+        for (vi, &w) in self.widths_buffer.iter().enumerate() {
+            if w > 0 {
                 non_zero_count += 1;
                 single_col = Some(vi);
             }
-            vi += 1;
         }
 
         if non_zero_count == 1 {
@@ -69,9 +54,36 @@ impl ResultsUI {
             Some(false)
         } else {
             _info!(self.max_widths);
-            self.preferred_widths = self.max_widths.clone();
+            self.preferred_widths = clamped_max;
             _info!(self.widths_buffer);
             Some(true)
+        }
+    }
+
+    /// Clamp visible column widths up to each column's configured minimum
+    /// (`column_name_widths` when `min_width_from_cols` is set, otherwise
+    /// `config.min_width`), or `1` when the active column is empty.
+    fn clamp_to_min_widths(&self, widths: &mut [u16]) {
+        let mut vi = 0;
+        for (i, name_w) in self.column_name_widths.iter().enumerate() {
+            if self.config.hidden_columns.contains(i) {
+                continue;
+            }
+            if vi >= widths.len() {
+                break;
+            }
+            let mut lower = self.max_widths.get(vi).copied().unwrap_or(0);
+            if lower > 0 {
+                lower = lower.max(if self.config.min_width_from_cols {
+                    *name_w
+                } else {
+                    self.config.min_width
+                });
+            } else if i == self.active_column {
+                lower = 1;
+            }
+            widths[vi] = widths[vi].max(lower);
+            vi += 1;
         }
     }
 
@@ -123,29 +135,9 @@ impl ResultsUI {
         }
 
         // 2. Adjust the values in place based on config.min_width and v_max_widths
-        let mut vi = 0;
-
-        for (i, name_w) in self.column_name_widths.iter().enumerate() {
-            if self.config.hidden_columns.contains(i) {
-                continue;
-            }
-
-            let is_active = i == self.active_column;
-            let mut lower = self.max_widths[vi];
-            if lower > 0 {
-                lower = lower.max(if self.config.min_width_from_cols {
-                    *name_w
-                } else {
-                    self.config.min_width
-                });
-            } else if is_active {
-                lower = 1;
-            }
-
-            self.widths_buffer[vi] = self.widths_buffer[vi].max(lower);
-
-            vi += 1;
-        }
+        let mut buf = std::mem::take(&mut self.widths_buffer);
+        self.clamp_to_min_widths(&mut buf);
+        self.widths_buffer = buf;
 
         let empty_before = self.preferred_widths.is_empty();
         let grew = self
@@ -681,5 +673,30 @@ mod tests {
 
         results.update_width_limits();
         assert_eq!(results.width_limits, vec![1, 0]);
+    }
+
+    #[test]
+    fn test_min_width_from_cols_preserved_after_width_change() {
+        let config = ResultsConfig {
+            min_width: 30,
+            min_width_from_cols: true,
+            ..Default::default()
+        };
+        let mut results = ResultsUI::new(config);
+        results.update_dimensions(ratatui::layout::Rect::new(0, 0, 60, 10));
+        results.config.hidden_columns = crate::collections::HiddenColumns::new_with_size(3);
+        results.column_name_widths = vec![4, 5, 11];
+        results.row_cache[0] = vec![(0, vec![], vec![6, 1, 20])];
+
+        assert_eq!(results.try_apply_max_widths_into_width_buffer(), Some(true));
+        assert_eq!(results.preferred_widths, vec![6, 5, 20]);
+        results.update_width_limits();
+        assert_eq!(results.width_limits, vec![6, 5, 20]);
+
+        // Simulate toggling preview off: width increases, clearing width_limits and widths_buffer.
+        results.row_cache[0] = vec![(0, vec![], vec![6, 1, 20])];
+        results.update_dimensions(ratatui::layout::Rect::new(0, 0, 120, 10));
+        results.update_width_limits();
+        assert_eq!(results.width_limits, vec![6, 5, 20]);
     }
 }

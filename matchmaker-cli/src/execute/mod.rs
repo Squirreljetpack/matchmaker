@@ -55,22 +55,32 @@ pub(crate) fn build_command(strategy: &CommandStrategy, shell: &[OsString]) -> O
 // ---------------------------------------------------------------------------
 
 /// Run an inline Lua script or file as an execution target, blocking the thread.
+/// `interactive` gives the script the terminal-driven `input` module.
 #[cfg(feature = "mlua")]
 pub fn run_lua_status(
     strategy: &CommandStrategy,
     envs: &EnvVars,
     lua_state: &crate::lua::LuaState,
+    interactive: bool,
 ) -> Option<ExitDetails> {
     match strategy {
-        CommandStrategy::Lua(code) => match crate::lua::run_inline(code, envs, lua_state) {
-            Ok(code) => Some(ExitDetails::code(code)),
-            Err(e) => {
-                log::error!("Lua command failed: {e}");
-                Some(ExitDetails::error())
+        CommandStrategy::Lua(code) => {
+            match crate::lua::run_inline(code, envs, lua_state, interactive) {
+                Ok(code) => Some(ExitDetails::code(code)),
+                Err(e) => {
+                    log::error!("Lua command failed: {e}");
+                    Some(ExitDetails::error())
+                }
             }
-        },
+        }
         CommandStrategy::LuaFile { path, args } => {
-            match crate::lua::run_file(std::path::Path::new(path), args.clone(), envs, lua_state) {
+            match crate::lua::run_file(
+                std::path::Path::new(path),
+                args.clone(),
+                envs,
+                lua_state,
+                interactive,
+            ) {
                 Ok(code) => Some(ExitDetails::code(code)),
                 Err(e) => {
                     log::error!("Lua script @{} failed: {e}", path.to_string_lossy());
@@ -154,7 +164,7 @@ pub fn run_execute(
 ) -> Option<ExitDetails> {
     #[cfg(feature = "mlua")]
     if strategy.is_lua() {
-        return run_lua_status(strategy, envs, lua_state);
+        return run_lua_status(strategy, envs, lua_state, true);
     }
     let mut command = build_command(strategy, shell)?;
     command
@@ -177,7 +187,7 @@ pub fn run_execute_silent(
     std::thread::spawn(move || {
         #[cfg(feature = "mlua")]
         if strategy.is_lua() {
-            run_lua_status(&strategy, &envs, &lua_state);
+            run_lua_status(&strategy, &envs, &lua_state, false);
             return;
         }
         if let Some(mut command) = build_command(&strategy, &shell) {

@@ -204,7 +204,7 @@ impl<S> Matchmaker<String, S, ConfigPreprocessedData> {
                 if strategy.is_lua() {
                     let lua_state = crate::lua::LuaState::from_mm(state);
                     tokio::task::spawn_blocking(move || {
-                        let exit = execute::run_lua_status(&strategy, &vars, &lua_state);
+                        let exit = execute::run_lua_status(&strategy, &vars, &lua_state, false);
                         let success = exit.map(|e| e.success()).unwrap_or(false);
 
                         if (!require_success || success)
@@ -407,7 +407,7 @@ fn run_become(state: &mut MMState<'_, String, ConfigPreprocessedData>, shell: &[
     #[cfg(feature = "mlua")]
     if strategy.is_lua() {
         let lua_state = crate::lua::LuaState::from_mm(state);
-        let code = execute::run_lua_status(&strategy, &vars, &lua_state)
+        let code = execute::run_lua_status(&strategy, &vars, &lua_state, true)
             .and_then(|e| e.code)
             .unwrap_or(1);
         state.discriminant_payload = Some(u8::try_from(code).unwrap_or(1));

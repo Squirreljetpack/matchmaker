@@ -1,0 +1,22 @@
+[package]
+name = "matchmaker-mlua-bindings"
+version = "0.1.7"
+edition = "2024"
+license = "AGPL-3.0-only"
+repository = "https://github.com/Squirreljetpack/matchmaker"
+description = "Portable built-in Lua modules for host applications embedding matchmaker"
+
+[dependencies]
+cli_boilerplate_automation = { workspace = true, features = ["dirs"] }
+fastrand = "2"
+jiff = "0.2"
+log = "0.4"
+matchmaker-lib = { workspace = true }
+mlua = { version = "0.12", features = ["lua54", "vendored", "serde"] }
+serde_json = "1.0"
+shell-words = "1.1"
+tokio = { version = "1", features = ["rt", "rt-multi-thread"] }
+toml = "1.1"
+
+[lints]
+workspace = true

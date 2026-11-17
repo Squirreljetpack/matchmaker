@@ -20,15 +20,16 @@ use mlua::{Function, Lua, MultiValue, Table, Value, Variadic};
 /// environment (`MM_OVERRIDE`, `MM_PREVIEW_INDEX`, …) is exposed as the
 /// global `env` table, the snapshot state as the global `state` table, and an
 /// `os.exit(code)` that stops the script with `code` without terminating the
-/// process.
+/// process. `interactive` adds the terminal-driven `input` module to the VM.
 pub(crate) fn run_file(
     path: &Path,
     args: Vec<OsString>,
     env: &EnvVars,
     state: &LuaState,
+    interactive: bool,
 ) -> Result<i32, String> {
     let exit = Rc::new(Cell::new(None));
-    let lua = new_vm(env, state, &exit)?;
+    let lua = new_vm(env, state, &exit, interactive)?;
     let f = load_file(&lua, path)?;
     exit_code(f.call::<()>(Variadic::from(to_args(args))), exit.get())
 }
@@ -42,7 +43,7 @@ pub(crate) fn run_file_value(
     state: &LuaState,
 ) -> Result<Option<String>, String> {
     let exit = Rc::new(Cell::new(None));
-    let lua = new_vm(env, state, &exit)?;
+    let lua = new_vm(env, state, &exit, false)?;
     let f = load_file(&lua, path)?;
     value(
         f.call::<MultiValue>(Variadic::from(to_args(args))),
@@ -53,9 +54,14 @@ pub(crate) fn run_file_value(
 /// Run inline lua source. Same VM, env, state, and exit semantics as
 /// [`run_file`]; inline payloads receive no varargs — the item is read from
 /// the `state` table.
-pub(crate) fn run_inline(code: &str, env: &EnvVars, state: &LuaState) -> Result<i32, String> {
+pub(crate) fn run_inline(
+    code: &str,
+    env: &EnvVars,
+    state: &LuaState,
+    interactive: bool,
+) -> Result<i32, String> {
     let exit = Rc::new(Cell::new(None));
-    let lua = new_vm(env, state, &exit)?;
+    let lua = new_vm(env, state, &exit, interactive)?;
     let f = load_inline(&lua, code)?;
     exit_code(f.call::<()>(()), exit.get())
 }
@@ -68,14 +74,13 @@ pub(crate) fn run_inline_value(
     state: &LuaState,
 ) -> Result<Option<String>, String> {
     let exit = Rc::new(Cell::new(None));
-    let lua = new_vm(env, state, &exit)?;
+    let lua = new_vm(env, state, &exit, false)?;
     let f = load_inline(&lua, code)?;
     value(f.call::<MultiValue>(()), exit.get())
 }
 
 /// The exit code a completed script reports: the `os.exit` code when set,
 /// `0` on success, or the error text otherwise.
-#[cfg(feature = "mlua")]
 fn exit_code(result: Result<(), mlua::Error>, exit: Option<i32>) -> Result<i32, String> {
     match (result, exit) {
         (_, Some(code)) => Ok(code),
@@ -85,7 +90,6 @@ fn exit_code(result: Result<(), mlua::Error>, exit: Option<i32>) -> Result<i32, 
 }
 
 /// The first value a script returned, converted to a string (`nil`/empty → `None`).
-#[cfg(feature = "mlua")]
 fn value(
     result: Result<MultiValue, mlua::Error>,
     exit: Option<i32>,
@@ -106,14 +110,12 @@ fn value(
     }
 }
 
-#[cfg(feature = "mlua")]
 fn to_args(args: Vec<OsString>) -> Vec<String> {
     args.iter()
         .map(|a| a.to_string_lossy().into_owned())
         .collect()
 }
 
-#[cfg(feature = "mlua")]
 fn load_file(lua: &Lua, path: &Path) -> Result<Function, String> {
     let src = std::fs::read_to_string(path)
         .map_err(|e| format!("failed to read @{}: {e}", path.display()))?;
@@ -123,7 +125,6 @@ fn load_file(lua: &Lua, path: &Path) -> Result<Function, String> {
         .map_err(|e| e.to_string())
 }
 
-#[cfg(feature = "mlua")]
 fn load_inline(lua: &Lua, code: &str) -> Result<Function, String> {
     lua.load(code)
         .set_name("#!lua")
@@ -135,7 +136,6 @@ fn load_inline(lua: &Lua, code: &str) -> Result<Function, String> {
 /// `start.command`/reload `@file.lua` payloads: the script supplies rows via
 /// `inject(line)` instead of stdout. The push returns `Err` to fail the script
 /// when the picker rejects a row.
-#[cfg(feature = "mlua")]
 pub(crate) fn run_file_inject<F>(
     path: &Path,
     args: Vec<OsString>,
@@ -147,14 +147,13 @@ where
     F: FnMut(String) -> Result<(), String> + 'static,
 {
     let exit = Rc::new(Cell::new(None));
-    let lua = new_vm(env, state, &exit)?;
+    let lua = new_vm(env, state, &exit, false)?;
     set_inject(&lua, push)?;
     let f = load_file(&lua, path)?;
     exit_code(f.call::<()>(Variadic::from(to_args(args))), exit.get())
 }
 
 /// Inline counterpart of [`run_file_inject`], with the same `inject` global.
-#[cfg(feature = "mlua")]
 pub(crate) fn run_inline_inject<F>(
     code: &str,
     env: &EnvVars,
@@ -165,7 +164,7 @@ where
     F: FnMut(String) -> Result<(), String> + 'static,
 {
     let exit = Rc::new(Cell::new(None));
-    let lua = new_vm(env, state, &exit)?;
+    let lua = new_vm(env, state, &exit, false)?;
     set_inject(&lua, push)?;
     let f = load_inline(&lua, code)?;
     exit_code(f.call::<()>(()), exit.get())
@@ -173,7 +172,6 @@ where
 
 /// Expose an `inject(line)` global that feeds lines to the picker. Errors from
 /// the push fail the running script.
-#[cfg(feature = "mlua")]
 fn set_inject<F>(lua: &Lua, push: F) -> Result<(), String>
 where
     F: FnMut(String) -> Result<(), String> + 'static,
@@ -187,12 +185,18 @@ where
     lua.globals().set("inject", f).map_err(|e| e.to_string())
 }
 
-/// Create the per-run VM: all safe stdlibs, the `env` table, the `state`
-/// table, and an `os.exit` that records the code and stops the script (lua
-/// 5.4's `os.exit` would terminate the host process).
-#[cfg(feature = "mlua")]
-fn new_vm(env: &EnvVars, state: &LuaState, exit: &Rc<Cell<Option<i32>>>) -> Result<Lua, String> {
+/// Create the per-run VM: all safe stdlibs, the built-in modules, the `env`
+/// table, the `state` table, and an `os.exit` that records the code and stops
+/// the script (lua 5.4's `os.exit` would terminate the host process).
+fn new_vm(
+    env: &EnvVars,
+    state: &LuaState,
+    exit: &Rc<Cell<Option<i32>>>,
+    interactive: bool,
+) -> Result<Lua, String> {
     let lua = Lua::new();
+
+    matchmaker_mlua_bindings::register_modules(&lua, interactive).map_err(|e| e.to_string())?;
 
     let table = lua.create_table().map_err(|e| e.to_string())?;
     for (k, v) in env.iter() {
@@ -227,7 +231,6 @@ fn new_vm(env: &EnvVars, state: &LuaState, exit: &Rc<Cell<Option<i32>>>) -> Resu
 
 /// Materialize a [`LuaState`] as the global `state` table. Items are arrays of
 /// column values, also indexed by their configured column names.
-#[cfg(feature = "mlua")]
 fn build_state_table(lua: &Lua, state: &LuaState) -> mlua::Result<Table> {
     let s = lua.create_table()?;
 
@@ -265,7 +268,6 @@ fn build_state_table(lua: &Lua, state: &LuaState) -> mlua::Result<Table> {
 
 /// One item as a lua array of column values, with configured column names set
 /// as additional string keys (so `current[1]` and `current.path` both work).
-#[cfg(feature = "mlua")]
 fn columns_table(lua: &Lua, columns: &[(String, String)]) -> mlua::Result<Table> {
     let t = lua.create_table()?;
     for (i, (name, value)) in columns.iter().enumerate() {
@@ -286,12 +288,15 @@ mod tests {
     fn run_inline_returns_exit_code() {
         let env = EnvVars::default();
         let state = LuaState::empty();
-        assert_eq!(run_inline("return", &env, &state).unwrap(), 0);
-        assert_eq!(run_inline("os.exit(3)", &env, &state).unwrap(), 3);
-        assert_eq!(run_inline("os.exit()", &env, &state).unwrap(), 0);
-        assert_eq!(run_inline("os.exit(false)", &env, &state).unwrap(), 1);
-        assert!(run_inline("error('boom')", &env, &state).is_err());
-        assert!(run_inline("this is not lua", &env, &state).is_err());
+        assert_eq!(run_inline("return", &env, &state, false).unwrap(), 0);
+        assert_eq!(run_inline("os.exit(3)", &env, &state, false).unwrap(), 3);
+        assert_eq!(run_inline("os.exit()", &env, &state, false).unwrap(), 0);
+        assert_eq!(
+            run_inline("os.exit(false)", &env, &state, false).unwrap(),
+            1
+        );
+        assert!(run_inline("error('boom')", &env, &state, false).is_err());
+        assert!(run_inline("this is not lua", &env, &state, false).is_err());
     }
 
     #[test]
@@ -340,7 +345,14 @@ assert(state.total == 0, 'state table present')"#,
         .unwrap();
         let env = env_vars!("MM_OVERRIDE" => "/x");
         assert_eq!(
-            run_file(&path, vec![OsString::from("a b")], &env, &LuaState::empty()).unwrap(),
+            run_file(
+                &path,
+                vec![OsString::from("a b")],
+                &env,
+                &LuaState::empty(),
+                false,
+            )
+            .unwrap(),
             0
         );
         std::fs::remove_file(&path).ok();
@@ -411,8 +423,109 @@ assert(state.total == 0, 'state table present')"#,
     fn run_file_surfaces_script_errors() {
         let path = std::env::temp_dir().join("mm_lua_engine_test_err.lua");
         std::fs::write(&path, "error('boom')").unwrap();
-        let err = run_file(&path, vec![], &EnvVars::default(), &LuaState::empty()).unwrap_err();
+        let err = run_file(
+            &path,
+            vec![],
+            &EnvVars::default(),
+            &LuaState::empty(),
+            false,
+        )
+        .unwrap_err();
         assert!(err.contains("boom"), "unexpected error: {err}");
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn builtin_modules_are_globals_and_requirable() {
+        let env = EnvVars::default();
+        let state = LuaState::empty();
+        let probe = r#"
+for _, name in ipairs({ 'path', 'util', 'proc', 'fs', 'lunacolors', 'Lunacolors' }) do
+  assert(type(_G[name]) == 'table', name .. ' global missing')
+  assert(require(name) == _G[name], name .. ' preload mismatch')
+end
+assert(path.base('/a/b/c.txt') == 'c.txt', 'path.base')
+assert(util.shq('x') == 'x', 'util.shq')
+assert(lunacolors.red('x'):find('\27%[31m') == 1, 'lunacolors.red')
+return 'ok'
+"#;
+        assert_eq!(
+            run_inline_value(probe, &env, &state).unwrap(),
+            Some("ok".into())
+        );
+        assert_eq!(run_inline(probe, &env, &state, false).unwrap(), 0);
+    }
+
+    #[test]
+    fn builtin_modules_are_available_to_inject_payloads() {
+        let env = EnvVars::default();
+        let state = LuaState::empty();
+        let lines = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let out = lines.clone();
+        let code = r#"
+inject(path.base('/a/b/c.txt'))
+inject(type(require('fs').readdir))
+inject(tostring(input))"#;
+        assert_eq!(
+            run_inline_inject(code, &env, &state, move |l| {
+                out.borrow_mut().push(l.to_string());
+                Ok(())
+            })
+            .unwrap(),
+            0
+        );
+        assert_eq!(*lines.borrow(), vec!["c.txt", "function", "nil"]);
+    }
+
+    #[test]
+    fn interactive_payloads_get_the_input_module() {
+        let env = EnvVars::default();
+        let state = LuaState::empty();
+        let probe = "assert(type(input) == 'table'); assert(require('input') == input); \
+                     assert(input.prompt and input.confirm and input.select)";
+        assert_eq!(run_inline(probe, &env, &state, true).unwrap(), 0);
+    }
+
+    #[test]
+    fn non_interactive_payloads_have_no_input_module() {
+        let env = EnvVars::default();
+        let state = LuaState::empty();
+        let probe = "assert(input == nil); assert(not pcall(require, 'input'))";
+        assert_eq!(run_inline(probe, &env, &state, false).unwrap(), 0);
+        assert_eq!(
+            run_inline_value("return tostring(input)", &env, &state).unwrap(),
+            Some("nil".into())
+        );
+    }
+
+    #[test]
+    fn run_file_passes_the_interactive_flag() {
+        let path = std::env::temp_dir().join("mm_lua_engine_test_interactive.lua");
+        std::fs::write(
+            &path,
+            "assert(type(input) == 'table'); assert(require('input') == input)",
+        )
+        .unwrap();
+        assert_eq!(
+            run_file(&path, vec![], &EnvVars::default(), &LuaState::empty(), true).unwrap(),
+            0
+        );
+        std::fs::write(
+            &path,
+            "assert(input == nil); assert(not pcall(require, 'input'))",
+        )
+        .unwrap();
+        assert_eq!(
+            run_file(
+                &path,
+                vec![],
+                &EnvVars::default(),
+                &LuaState::empty(),
+                false
+            )
+            .unwrap(),
+            0
+        );
         std::fs::remove_file(&path).ok();
     }
 }

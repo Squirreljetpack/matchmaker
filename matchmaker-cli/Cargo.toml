@@ -29,6 +29,7 @@ eula = false
 cli_boilerplate_automation = { workspace = true, features = ["serde", "bring"] }
 indexmap = { version = "2.14.0", features = ["serde"] }
 matchmaker-lib = { workspace = true, features = ["partial"] }
+matchmaker-mlua-bindings = { workspace = true, optional = true }
 matchmaker-partial = { workspace = true }
 matchmaker-partial-macros = { workspace = true }
 
@@ -72,7 +73,7 @@ workspace = true
 
 [features]
 default = ["mlua", "pager", "image", "image-svg"]
-mlua = ["dep:mlua"]
+mlua = ["dep:mlua", "dep:matchmaker-mlua-bindings"]
 pager = ["dep:minus"]
 # Image previews via the `<MM_IMAGE>` preview header.
 image = ["matchmaker-lib/image", "minus?/image"]

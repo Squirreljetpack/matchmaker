@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "matchmaker-cli",
     "matchmaker-lib",
+    "matchmaker-mlua-bindings",
     "matchmaker-partial",
     "matchmaker-partial-macros",
 ]
@@ -10,15 +11,14 @@ members = [
 # iirc, needed if we commit version bumps then publish from ci afterward: the versions don't exist yet
 [patch.crates-io]
 matchmaker-lib = { path = "./matchmaker-lib" }
+matchmaker-mlua-bindings = { path = "./matchmaker-mlua-bindings" }
 matchmaker-partial = { path = "./matchmaker-partial" }
 matchmaker-partial-macros = { path = "./matchmaker-partial-macros" }
-# pager work happens in ../matchmaker-minus (branch mm) until a release ships;
-# drop this patch once the new matchmaker-minus is published.
-matchmaker-minus = { path = "../matchmaker-minus" }
 
 [workspace.dependencies]
 cli_boilerplate_automation = { version = "0.*", features = ["serde", "bring", "dirs"] }
 matchmaker-lib = { version = "0.*" }
+matchmaker-mlua-bindings = { version = "0.*" }
 matchmaker-partial = { version = "0.*" }
 matchmaker-partial-macros = { version = "0.*", default-features = false }
 nucleo = { package = "matchmaker-nucleo", version = "0.1.*" }

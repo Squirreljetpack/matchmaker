@@ -256,7 +256,13 @@ fn print_template(config: Config, template: &str) -> anyhow::Result<()> {
 fn run_commands(commands: &[ListedCommand], shell: &[OsString]) -> anyhow::Result<()> {
     for (strategy, vars, lua_state) in commands {
         ibog!("executing: {strategy}");
-        let Some(exit) = execute::run_execute(strategy, shell, vars, lua_state) else {
+        #[cfg(not(feature = "mlua"))]
+        let _ = lua_state;
+        #[cfg(feature = "mlua")]
+        let exit = execute::run_execute(strategy, shell, vars, lua_state);
+        #[cfg(not(feature = "mlua"))]
+        let exit = execute::run_execute(strategy, shell, vars);
+        let Some(exit) = exit else {
             bail!("--list: nothing executable in: {strategy}");
         };
         let code = exit.code.unwrap_or(1);

@@ -117,10 +117,10 @@ pub enum MMAction {
     TransformConfig(String),
 }
 
-#[cfg(feature = "mlua")]
 #[cfg(test)]
 impl MMAction {
     /// Returns the execution or command payload of this action, if any.
+    #[cfg(feature = "mlua")]
     pub fn payload(&self) -> Option<&str> {
         match self {
             Self::ExecuteOrConfirm(s)
@@ -144,9 +144,9 @@ impl MMAction {
     /// - `Some(false)` if the action contains a Lua payload with syntax errors.
     /// - `None` if the action is not a Lua script (or if the `mlua` feature is disabled).
     pub fn validate_lua(&self) -> Option<bool> {
-        let payload = self.payload()?;
         #[cfg(feature = "mlua")]
         {
+            let payload = self.payload()?;
             match crate::execute::classify(payload) {
                 crate::execute::CommandStrategy::Lua(code) => {
                     let lua = mlua::Lua::new();

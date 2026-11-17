@@ -37,8 +37,8 @@ Different contexts in Matchmaker utilize command strategies in specific ways:
 | :-------------------------------------------------------- | :---: | :-----: | :-----: | :---------: | :--------------------------------------------------------------- |
 | `Execute`, `ExecuteSilent`, `ExecuteAsync`, `ExecuteThen` |   ✓   |    ✓    |    ✓    |      ✓      | Exit code determining success / continuation                     |
 | `ExecuteOrConfirm`, `ExecuteAndQuit`                      |   ✓   |    ✓    |    ✓    |      ✓      | Exit code determining prompt vs. quit policy                     |
-| `Become`, `BecomeSilent`                                  |   ✓   |    ✓    |    —    |      —      | Replaces Matchmaker process (`exec`)                             |
-| `BecomeOrConfirm`, `BecomeOrResume`                       |   ✓   |    ✓    |    —    |      —      | Replaces process with exit code recovery policy                  |
+| `Become`, `BecomeSilent`                                  |   ✓   |    ✓    |    ✓    |      ✓      | Shell/File `exec`s; Lua runs in-process then exits with its code |
+| `BecomeOrConfirm`, `BecomeOrResume`                       |   ✓   |    ✓    |    ✓    |      ✓      | Exit code feeds the quit/prompt/resume policy (`100` resumes)    |
 | `Copy`, `CopyAsync`                                       |   ✓   |    ✓    |    ✓    |      ✓      | Shell/File captures `stdout`; Lua uses script **return value**   |
 | `Transform`, `TransformConfig`                            |   ✓   |    ✓    |    ✓    |      ✓      | Shell/File parses `stdout`; Lua parses script **return value**   |
 | `start.command` & `Reload` / `ReloadNext` / `ReloadPrev`  |   ✓   |    ✓    |    ✓    |      ✓      | Shell/File reads piped `stdout`; Lua calls global `inject(line)` |
@@ -82,6 +82,20 @@ command = "@./zellij.sh sessions"
 ## Lua Runtime (`mlua`)
 
 Each Lua execution runs on a fresh, isolated Lua 5.4 VM. Concurrent actions (such as `ExecuteAsync` background tasks or `ExecuteSilent` threads) never share or block on VM state.
+
+Every VM carries Matchmaker's portable helper modules, each installed both as a global and in `package.preload` (so `require("path")` and the `path` global are the same table):
+
+| Module       | Functions                                                                                                                                      |
+| :----------- | :--------------------------------------------------------------------------------------------------------------------------------------------- |
+| `path`       | `parent`, `base`, `stem`, `ext`, `join`, `is_file`, `is_dir`, `is_empty`, `exists`, `lexists`, `rel`, `expand_tilde`                           |
+| `fs`         | `stat`, `read`, `write`, `readdir`, `mkdir`, `remove`, `copy`, `rename`, `symlink`, `readlink`, `canonicalize`, `chmod`, `tempdir`, `tempfile` |
+| `proc`       | `run`, `spawn`, `exec`, `has`                                                                                                                  |
+| `util`       | `sleep`, `uuid`, `timestamp`, `json_encode`, `json_decode`, `toml_encode`, `toml_decode`, `shq`, `split_args`                                  |
+| `lunacolors` | ANSI color and styling helpers, also available as `Lunacolors`                                                                                 |
+
+The `input` module (`prompt`, `confirm`, `select`) drives the terminal, so only blocking interactive actions (`Execute`, `ExecuteOrConfirm`, `ExecuteAndQuit`, `Become`, `BecomeSilent`, `BecomeOrConfirm`, `BecomeOrResume`, and `--list=N@action`) get it; it is `nil` in payloads that run unattended — `ExecuteAsync`, `ExecuteSilent`, `start.command`, `Reload`, and the capture/injection hooks used for transforms, `[envs]`, and `--list` row production.
+
+`proc.exec(prog, [args], [opts])` never returns: it replaces the Matchmaker process the way a shell `Become` does (on Windows it spawns the payload, waits, and exits with its status). A Lua `Become` payload that hands the terminal to another program should use it — `proc.run` keeps the parent alive, so chaining through it stacks one whole Matchmaker per hop, while `proc.exec` keeps the chain flat. `proc.spawn` is fire-and-forget: its children are reaped in the background.
 
 ### Inline Scripts (`#!lua`)
 

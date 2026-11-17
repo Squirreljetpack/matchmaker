@@ -1,0 +1,23 @@
+# Fixture for tests/lua_payloads.rs.
+#
+# Exercises the portable built-in modules (`path`, `util`, `lunacolors`) and
+# the absence of `input` in row-production payloads. Everything is Lua: no
+# shell, no external binary, no path separator, so the assertions hold on every
+# platform.
+
+[columns]
+split = "\t"
+names = ["id", "name", "path"]
+
+[start]
+command = '''#!lua
+inject(table.concat({ "1", "alpha", "file-alpha.txt" }, "\t"))
+inject(path.base("/a/b/c.txt"))
+inject(util.shq("plain words"))
+inject(lunacolors.red("x") == "\27[31mx\27[39m" and "colors" or "nocolors")
+inject(tostring(input))
+'''
+
+[binds]
+# Blocking actions run on the terminal, so `input` is registered there.
+"@check" = '''Execute(#!lua print(string.format("%s|%s", require("path").base("/a/b/c.txt"), type(input))))'''

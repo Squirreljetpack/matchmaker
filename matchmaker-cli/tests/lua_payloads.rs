@@ -7,6 +7,8 @@
 //! `MM_BIN` overrides the binary under test, for harnesses that run the test
 //! executable outside of Cargo's own build tree.
 
+#![cfg(feature = "mlua")]
+
 use std::{
     path::Path,
     process::{Command, Output},
@@ -100,6 +102,24 @@ fn lua_file_payloads_and_varargs() {
             "beta|beta|--flag|2\n".to_string()
         ]
     );
+}
+
+#[test]
+fn lua_builtin_modules_and_input_gating() {
+    // Row production runs unattended: the bundled modules work, `input` does
+    // not exist. `lunacolors` compares against the raw ANSI escapes so the
+    // whole row set is asserted in one shot.
+    let (out, code) = stdout_of("lua_modules.toml", "--list");
+    assert_eq!(code, 0, "stderr: {out}");
+    assert_eq!(
+        out,
+        "1\talpha\tfile-alpha.txt\nc.txt\n'plain words'\ncolors\nnil\n"
+    );
+
+    // Blocking actions run on the terminal, so `input` is registered.
+    let (out, code) = stdout_of("lua_modules.toml", "--list=0@check");
+    assert_eq!(code, 0, "stderr: {out}");
+    assert_eq!(out, "c.txt|table\n");
 }
 
 #[test]

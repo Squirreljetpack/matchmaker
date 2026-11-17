@@ -19,6 +19,7 @@ reset_cursor_on_query_change = true
 [results]
 delay_clear = true
 # wrap = true
+# uniformly_truncate_columns = false
 # reverse = false # set this to prevent flipping when using -F
 max_height = 16
 
@@ -35,6 +36,7 @@ wrap = true
 scroll_wrap = true
 
 [preview.frame]
+title_style.modifier = "UNDERLINED"
 border_type = "Plain"
 padding = [2, 0]
 
@@ -42,7 +44,7 @@ padding = [2, 0]
 command = '''
 $p = {1}
 if (Get-Command mm -ErrorAction SilentlyContinue) {
-    mm --image $p
+    mm -q --image $p
     if ($LASTEXITCODE -eq 0) { exit 0 }
 }
 if (Get-Command fs -ErrorAction SilentlyContinue) {
@@ -81,6 +83,7 @@ max = 240
 
 [previewer]
 always_trigger = true
+shell = ["powershell", "-NoProfile", "-Command"]
 # help.combine_keys = false
 
 # --- Markdown ---
@@ -91,21 +94,21 @@ bold.fg = "Yellow"
 # --- Misc ---
 [matcher]
 # ansi = false # don't set to true here
-sort.threshold = 1 # maintain initial ordering
+# sort.threshold = 1 # set to maintain initial ordering
 
 [columns]
 
 [start.command]
 command = '''
 if (Get-Command fd -ErrorAction SilentlyContinue) {
-    fd --strip-cwd-prefix --print0
+    fd --strip-cwd-prefix
 } else {
     Get-ChildItem -Recurse -File | ForEach-Object FullName
 }
 '''
-separator = "\\0"
 
 [start]
+shell = ["powershell", "-NoProfile", "-Command"]
 skip_invalid_lines = true # set false to error on encountering invalid utf-8
 
 [exit]
@@ -151,10 +154,10 @@ abort_empty = true
 # "pageup" = "HalfPageUp"
 # "shift-up" = "PreviewHalfPageUp"
 # "shift-down" = "PreviewHalfPageDown"
-# "ctrl-shift-up" = "VScroll(1)"
-# "ctrl-shift-down" = "VScroll(-1)"
-# "ctrl-shift-left" = "HScroll(-1)"
-# "ctrl-shift-right" = "HScroll(1)"
+# "alt-shift-up" = "VScroll(1)"
+# "alt-shift-down" = "VScroll(-1)"
+# "alt-shift-left" = "HScroll(-1)"
+# "alt-shift-right" = "HScroll(1)"
 # "alt-up" = "VScroll(1)"
 # "alt-down" = "VScroll(-1)"
 # "alt-left" = "HScroll(-1)"
@@ -169,13 +172,6 @@ abort_empty = true
 
 "alt-w" = ["ToggleWrap", "ToggleHeaderWrap"]
 
-"alt-s" = "Sort"
-"alt-n" = "SortNumeric"
-"alt-r" = "SortReverse"
-
-"alt-=" = "ExpandColumn"
-"alt-hyphen" = "ShrinkColumn"
-
 # Columns
 "ctrl-." = "NextColumn" # requires keyboard enhancement
 "ctrl-shift-." = "PrevColumn" # requires keyboard enhancement
@@ -183,6 +179,13 @@ abort_empty = true
 "alt-shift-." = "PrevColumn"
 "alt-\\" = "HideColumn"
 "alt-shift-\\" = "UnhideColumn"
+
+"alt-s" = "Sort"
+"alt-n" = "SortNumeric"
+"alt-r" = "SortReverse"
+
+"alt-=" = "ExpandColumn"
+"alt-hyphen" = "ShrinkColumn"
 
 # Preview
 "ctrl-j" = "PreviewJump"

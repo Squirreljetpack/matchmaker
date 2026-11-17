@@ -1,0 +1,25 @@
+# Fixture for tests/lua_payloads.rs.
+#
+# Every payload is Lua: no shell, no external binary, no path separator. The
+# preset exercises the same code paths on Windows and on Unix, which is what
+# makes it usable as a cross-platform smoke test.
+#
+# A single row keeps the cursor index deterministic: the matcher's ordering of
+# equally-ranked rows is an internal detail, so multi-row fixtures assert on
+# aggregates instead.
+
+[columns]
+split = "\t"
+names = ["id", "name", "path"]
+
+[start]
+command = '''#!lua
+inject(table.concat({ "1", "alpha", "file-alpha.txt" }, "\t"))
+'''
+
+[binds]
+# Prints the column values (by name and by index), the raw line, and the
+# picker counters so a test can assert the whole state table in one line.
+"@accept" = '''Execute(#!lua print(string.format("%s|%s|%s|%d|%d|%d", state.current.name, state.current[3], state.raw, state.position, state.matched, state.total)))'''
+# Exit codes travel through the lua engine back to --list's exit status.
+"@fail" = '''Execute(#!lua os.exit(7))'''

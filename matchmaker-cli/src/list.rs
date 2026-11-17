@@ -41,6 +41,29 @@ use crate::{
 };
 use cba::birs::expand_tilde;
 
+#[cfg(feature = "mlua")]
+use crate::lua::LuaState;
+/// Placeholder so the `--list` plumbing keeps one shape when the lua engine is
+/// compiled out; never read in that configuration.
+#[cfg(not(feature = "mlua"))]
+#[derive(Debug, Default, Clone)]
+struct LuaState;
+
+/// Snapshot of the formatted picker state for the current item, so `#!lua`
+/// payloads see the same `state` table under `--list` as they do in the TUI.
+#[cfg(feature = "mlua")]
+fn lua_state(state: &MMState<'_, String, ConfigPreprocessedData>) -> LuaState {
+    LuaState::from_mm(state)
+}
+
+#[cfg(not(feature = "mlua"))]
+fn lua_state(_state: &MMState<'_, String, ConfigPreprocessedData>) -> LuaState {
+    LuaState
+}
+
+/// A classified command with the state snapshot its lua payload runs against.
+type ListedCommand = (execute::CommandStrategy, EnvVars, LuaState);
+
 /// Implements `--list`: outputs what the populating command would have output,
 /// without starting the matcher.
 ///
@@ -158,7 +181,7 @@ fn alias(config: Config, n: usize, alias: &str) -> anyhow::Result<()> {
                 log::debug!("--list: skipping payload with no command: {action}");
                 continue;
             };
-            commands.push((strategy, vars.clone()));
+            commands.push((strategy, vars.clone(), lua_state(mm_state)));
         }
         Ok(commands)
     })?;
@@ -186,7 +209,11 @@ fn preview(config: Config, n: usize, m_str: &str) -> anyhow::Result<()> {
             Ok(Vec::new())
         } else {
             let vars = mm_state.make_env_vars();
-            Ok(vec![(execute::CommandStrategy::Shell(cmd), vars)])
+            Ok(vec![(
+                execute::CommandStrategy::Shell(cmd),
+                vars,
+                LuaState::default(),
+            )])
         }
     })?;
 
@@ -209,7 +236,7 @@ fn exec_template(config: Config, n: usize, template: &str) -> anyhow::Result<()>
             log::debug!("--list: formatted command is empty; nothing to execute");
             return Ok(Vec::new());
         };
-        Ok(vec![(strategy, vars)])
+        Ok(vec![(strategy, vars, lua_state(mm_state))])
     })?;
 
     run_commands(&commands, &shell)
@@ -226,22 +253,10 @@ fn print_template(config: Config, template: &str) -> anyhow::Result<()> {
 
 /// Runs the classified commands in order, stopping at the first failure. Exit
 /// code 0 means every command ran successfully.
-fn run_commands(
-    commands: &[(execute::CommandStrategy, EnvVars)],
-    shell: &[OsString],
-) -> anyhow::Result<()> {
-    #[cfg(feature = "mlua")]
-    let lua_state = crate::lua::LuaState::empty();
-
-    for (strategy, vars) in commands {
+fn run_commands(commands: &[ListedCommand], shell: &[OsString]) -> anyhow::Result<()> {
+    for (strategy, vars, lua_state) in commands {
         ibog!("executing: {strategy}");
-        let Some(exit) = execute::run_execute(
-            strategy,
-            shell,
-            vars,
-            #[cfg(feature = "mlua")]
-            &lua_state,
-        ) else {
+        let Some(exit) = execute::run_execute(strategy, shell, vars, lua_state) else {
             bail!("--list: nothing executable in: {strategy}");
         };
         let code = exit.code.unwrap_or(1);

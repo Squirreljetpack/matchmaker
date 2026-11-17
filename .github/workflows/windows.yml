@@ -1,0 +1,39 @@
+name: Windows
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**.rs"
+      - "**/Cargo.toml"
+      - "Cargo.lock"
+      - "matchmaker-cli/assets/**"
+      - "matchmaker-cli/tests/**"
+      - ".github/workflows/windows.yml"
+  pull_request:
+  workflow_dispatch:
+
+# The release workflow already builds both Windows targets; this one is what
+# actually runs the suite on them.
+jobs:
+  test:
+    name: test (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [windows-2025, windows-11-arm]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: cargo test
+        env:
+          RUST_BACKTRACE: 1
+        run: cargo test --workspace --no-fail-fast

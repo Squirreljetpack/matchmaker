@@ -1,0 +1,3 @@
+-- Accept payload for lua_file.toml, invoked as `@pick.lua {name} --flag`.
+local name, flag = ...
+print(table.concat({ state.current.name, name, flag, state.total }, "|"))

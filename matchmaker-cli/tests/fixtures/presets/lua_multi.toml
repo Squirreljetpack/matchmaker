@@ -1,0 +1,23 @@
+# Fixture for tests/lua_payloads.rs.
+#
+# Rows injected from Lua keep the order the script pushed them in, which is what
+# bare `--list` prints. Aggregate counters are asserted from a single item; the
+# per-item order is not, because matcher ranking decides it.
+
+[columns]
+split = "\t"
+names = ["id", "name"]
+
+[start]
+command = '''#!lua
+for _, row in ipairs({
+  { "1", "alpha" },
+  { "2", "beta" },
+  { "3", "gamma" },
+}) do
+  inject(table.concat(row, "\t"))
+end'''
+
+[binds]
+"@counters" = '''Execute(#!lua print(string.format("%d|%d", state.matched, state.total)))'''
+"@selected" = '''Execute(#!lua print(string.format("%d|%d", #state.selected, state.selected_count)))'''

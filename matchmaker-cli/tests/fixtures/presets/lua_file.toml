@@ -1,0 +1,15 @@
+# Fixture for tests/lua_payloads.rs.
+#
+# Covers `@file.lua` payloads: the populating command and the bind both live in
+# sibling `.lua` files, resolved relative to the preset directory, and the bind
+# receives its template args as varargs.
+
+[columns]
+split = "\t"
+names = ["id", "name"]
+
+[start]
+command = "@rows.lua"
+
+[binds]
+"@accept" = "Execute(@pick.lua {name} --flag)"

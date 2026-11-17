@@ -1,0 +1,15 @@
+# Fixture for tests/lua_payloads.rs.
+#
+# Dynamic `[envs]` with `exec = true` run through the lua engine, so a preset
+# can compute its environment without a shell.
+
+[envs]
+GREETING = { value = '''#!lua return "hi-from-lua"''', exec = true }
+
+[start]
+command = '''#!lua
+inject("row")
+'''
+
+[binds]
+"@accept" = '''Execute(#!lua print(env.GREETING .. "|" .. env.MM_OVERRIDE))'''

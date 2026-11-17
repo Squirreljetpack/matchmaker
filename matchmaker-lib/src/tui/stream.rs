@@ -75,10 +75,9 @@ fn open_tty() -> io::Result<std::fs::File> {
 
 #[cfg(windows)]
 fn open_tty() -> io::Result<std::fs::File> {
-    std::fs::OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open("CONOUT$")
+    // `CONOUT$` is the output console and nothing reads from this stream, so
+    // ask for write access only: a console output device cannot be read.
+    std::fs::OpenOptions::new().write(true).open("CONOUT$")
 }
 
 #[cfg(test)]

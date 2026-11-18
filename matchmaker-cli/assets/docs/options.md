@@ -355,6 +355,8 @@ back to the external pager chain `MM_PAGER` → `$PAGER` → `less` → `more`.
 - `prompt`: (string, optional) Footer prompt text shown by the pager.
 - `horizontal_scroll`: (bool) Always enable horizontal scrolling
   (default false; `Ctrl+h` still toggles it).
+- `mouse_horizontal_scroll`: (bool) Enable horizontal mouse wheel scrolling
+  (default false).
 - `smart_case`: (bool) Case-sensitive search only when the query contains
   uppercase characters (default false).
 - `copy_on_select`: (bool) Copy a mouse selection when the button is released

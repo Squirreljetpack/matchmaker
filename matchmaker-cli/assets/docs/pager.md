@@ -12,14 +12,15 @@ pages an arbitrary template instead of the current preview command.
 
 ### `pager.` config section
 
-| Key                       | Type   | Description                                          |
-| ------------------------- | ------ | ---------------------------------------------------- |
-| `pager.line_numbers`      | bool   | Show line numbers                                    |
-| `pager.follow`            | bool   | Stick to the newest output                           |
-| `pager.prompt`            | string | Footer prompt text                                   |
-| `pager.horizontal_scroll` | bool   | Enable horizontal scrolling                          |
-| `pager.smart_case`        | bool   | Case-sensitive search unless the query has uppercase |
-| `pager.copy_on_select`    | bool   | Copy the mouse selection on release                  |
+| Key                             | Type   | Description                                          |
+| ------------------------------- | ------ | ---------------------------------------------------- |
+| `pager.line_numbers`            | bool   | Show line numbers                                    |
+| `pager.follow`                  | bool   | Stick to the newest output                           |
+| `pager.prompt`                  | string | Footer prompt text                                   |
+| `pager.horizontal_scroll`       | bool   | Enable horizontal scrolling                          |
+| `pager.mouse_horizontal_scroll` | bool   | Enable horizontal mouse wheel scrolling              |
+| `pager.smart_case`              | bool   | Case-sensitive search unless the query has uppercase |
+| `pager.copy_on_select`          | bool   | Copy the mouse selection on release                  |
 
 ### minus keybindings
 

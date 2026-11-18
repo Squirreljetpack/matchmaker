@@ -21,6 +21,7 @@ use crate::{config::ToastConfig, ui::StatusUI};
 pub struct ToastEntry {
     pub prefix: Span<'static>,
     pub message: Vec<Line<'static>>,
+    pub discriminant: u8,
 }
 
 static LOG: Mutex<Vec<ToastEntry>> = Mutex::new(Vec::new());
@@ -29,49 +30,103 @@ fn log() -> MutexGuard<'static, Vec<ToastEntry>> {
     LOG.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// Push a new entry.
-pub fn push(prefix: Span<'static>, message: Line<'static>) {
-    log().push(ToastEntry {
-        prefix,
-        message: vec![message],
-    });
-}
+/// Scoped handle for toast operations tagged with a caller-defined `discriminant`.
+///
+/// Matching in [`Scoped::join`], [`Scoped::replace`], and [`Scoped::remove`]
+/// pairs both `prefix` and `discriminant`, keeping identically prefixed
+/// entries in different scopes independent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Scoped(pub u8);
 
-/// Join a message onto the last entry with the same prefix. Renders the
-/// messages separated by `, `. Pushes a new entry when no entry has that
-/// prefix.
-pub fn join(prefix: Span<'static>, message: Line<'static>) {
-    let mut log = log();
-
-    match find_prefix(&mut log, &prefix) {
-        Some(entry) => entry.message.push(message),
-        None => log.push(ToastEntry {
+impl Scoped {
+    /// Push a new entry tagged with `self.0`.
+    pub fn push(self, prefix: Span<'static>, message: Line<'static>) {
+        log().push(ToastEntry {
             prefix,
             message: vec![message],
-        }),
+            discriminant: self.0,
+        });
+    }
+
+    /// Join a message onto the last entry matching both `prefix` and `self.0`.
+    /// Renders the messages separated by `, `. Pushes a new entry when no
+    /// matching entry exists.
+    pub fn join(self, prefix: Span<'static>, message: Line<'static>) {
+        let mut log = log();
+
+        match find_prefix(&mut log, &prefix, self.0) {
+            Some(entry) => entry.message.push(message),
+            None => log.push(ToastEntry {
+                prefix,
+                message: vec![message],
+                discriminant: self.0,
+            }),
+        }
+    }
+
+    /// Replace every entry matching both `prefix` and `self.0` by a new one.
+    ///
+    /// When `append` is `true`, matching entries are removed and the new entry
+    /// is appended at the end; when `false`, the first matching entry is
+    /// updated in place (and any duplicate matches are dropped).
+    pub fn replace(self, prefix: Span<'static>, message: Line<'static>, append: bool) {
+        let mut log = log();
+
+        if !append {
+            let mut replaced = false;
+            log.retain_mut(|e| {
+                if e.discriminant == self.0 && e.prefix.content == prefix.content {
+                    if !replaced {
+                        replaced = true;
+                        e.prefix = prefix.clone();
+                        e.message = vec![message.clone()];
+                        return true;
+                    }
+                    return false;
+                }
+                true
+            });
+            if replaced {
+                return;
+            }
+        } else {
+            log.retain(|e| !(e.discriminant == self.0 && e.prefix.content == prefix.content));
+        }
+
+        log.push(ToastEntry {
+            prefix,
+            message: vec![message],
+            discriminant: self.0,
+        });
+    }
+
+    /// Remove every entry matching both `prefix` and `self.0`, returning
+    /// whether any entry was removed.
+    pub fn remove(self, prefix: &str) -> bool {
+        retain(|e| !(e.discriminant == self.0 && e.prefix.content == prefix))
+    }
+
+    /// Remove every entry tagged with `self.0`, returning whether any entry was
+    /// removed.
+    pub fn clear(self) -> bool {
+        retain(|e| e.discriminant != self.0)
     }
 }
 
-fn find_prefix<'a>(log: &'a mut [ToastEntry], prefix: &Span<'_>) -> Option<&'a mut ToastEntry> {
+fn find_prefix<'a>(
+    log: &'a mut [ToastEntry],
+    prefix: &Span<'_>,
+    discriminant: u8,
+) -> Option<&'a mut ToastEntry> {
     log.iter_mut()
         .rev()
-        .find(|e| e.prefix.content == prefix.content)
+        .find(|e| e.discriminant == discriminant && e.prefix.content == prefix.content)
 }
 
-/// Replace every entry with the given prefix by a new one.
-pub fn replace(prefix: Span<'static>, message: Line<'static>) {
-    let mut log = log();
-
-    log.retain(|e| e.prefix.content != prefix.content);
-    log.push(ToastEntry {
-        prefix,
-        message: vec![message],
-    });
-}
-
-/// Remove every entry with the given prefix.
-pub fn remove(prefix: &str) {
-    log().retain(|e| e.prefix.content != prefix);
+/// Remove every entry with the given prefix across all discriminants, returning
+/// whether any entry was removed.
+pub fn remove(prefix: &str) -> bool {
+    retain(|e| e.prefix.content != prefix)
 }
 
 /// Remove the last `n` entries.
@@ -86,6 +141,20 @@ pub fn clear() {
     log().clear();
 }
 
+/// Retain only the entries for which `f` returns `true`, returning whether
+/// any entry was removed.
+pub fn retain(f: impl FnMut(&ToastEntry) -> bool) -> bool {
+    let mut log = log();
+    let before = log.len();
+    log.retain(f);
+    log.len() != before
+}
+
+/// Run `f` with exclusive mutable access to the global toast log.
+pub fn with_log<R>(f: impl FnOnce(&mut Vec<ToastEntry>) -> R) -> R {
+    f(&mut log())
+}
+
 /// A copy of the log, oldest first.
 pub fn entries() -> Vec<ToastEntry> {
     log().clone()
@@ -98,7 +167,10 @@ pub fn entries() -> Vec<ToastEntry> {
 /// style sections do not split the payload.
 pub fn parse_payload(payload: &str) -> (Span<'static>, Line<'static>) {
     let (prefix, message) = split_prefix(payload);
-    (Span::raw(prefix.to_owned()), templated(message))
+    (
+        Span::raw(prefix.to_owned()),
+        StatusUI::parse_template_to_status_line(message),
+    )
 }
 
 fn split_prefix(payload: &str) -> (&str, &str) {
@@ -114,17 +186,6 @@ fn split_prefix(payload: &str) -> (&str, &str) {
     }
 
     ("", payload)
-}
-
-fn templated(message: &str) -> Line<'static> {
-    let mut line = StatusUI::parse_template_to_status_line(message);
-
-    // `i` marks an interaction region on the status line; a toast has none.
-    for span in &mut line.spans {
-        span.style = span.style.remove_modifier(Modifier::RAPID_BLINK);
-    }
-
-    line
 }
 
 /// The toast log as a widget.
@@ -298,4 +359,119 @@ fn mirror_vertical(sides: Borders) -> Borders {
     }
 
     mirrored
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn retain_and_with_log_filter_and_update_entries() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let p_keep = "__test_keep__";
+        let p_drop = "__test_drop__";
+
+        remove(p_keep);
+        remove(p_drop);
+
+        Scoped(0).push(Span::raw(p_keep), Line::from("one"));
+        Scoped(0).join(Span::raw(p_keep), Line::from("two"));
+        Scoped(0).push(Span::raw(p_drop), Line::from("transient"));
+
+        with_log(|entries| {
+            entries.retain_mut(|entry| {
+                if entry.prefix.content == p_keep {
+                    entry.message.retain(|l| l.to_string() != "one");
+                    return !entry.message.is_empty();
+                }
+                true
+            });
+        });
+
+        assert!(retain(|entry| entry.prefix.content != p_drop));
+        assert!(!retain(|entry| entry.prefix.content != p_drop));
+
+        let all = entries();
+        assert!(all.iter().all(|e| e.prefix.content != p_drop));
+        let kept = all
+            .iter()
+            .find(|e| e.prefix.content == p_keep)
+            .expect("kept entry should exist");
+        assert_eq!(kept.message, vec![Line::from("two")]);
+
+        remove(p_keep);
+    }
+
+    #[test]
+    fn scoped_operations_isolate_by_discriminant() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let p = "__test_scoped__";
+        remove(p);
+
+        Scoped(1).join(Span::raw(p), Line::from("one"));
+        Scoped(2).join(Span::raw(p), Line::from("two"));
+        Scoped(1).join(Span::raw(p), Line::from("three"));
+
+        let matching: Vec<(u8, Vec<Line<'static>>)> = entries()
+            .into_iter()
+            .filter(|e| e.prefix.content == p)
+            .map(|e| (e.discriminant, e.message))
+            .collect();
+        assert_eq!(
+            matching,
+            vec![
+                (1, vec![Line::from("one"), Line::from("three")]),
+                (2, vec![Line::from("two")]),
+            ]
+        );
+
+        let p_other = "__test_scoped_other__";
+        remove(p_other);
+        Scoped(1).push(Span::raw(p_other), Line::from("anchor"));
+
+        Scoped(1).replace(Span::raw(p), Line::from("in_place"), false);
+        let order: Vec<(&str, &str)> = entries()
+            .iter()
+            .filter(|e| {
+                e.discriminant == 1 && (e.prefix.content == p || e.prefix.content == p_other)
+            })
+            .map(|e| {
+                (
+                    if e.prefix.content == p { "p" } else { "other" },
+                    if e.message[0] == Line::from("in_place") {
+                        "in_place"
+                    } else {
+                        "anchor"
+                    },
+                )
+            })
+            .collect();
+        assert_eq!(order, vec![("p", "in_place"), ("other", "anchor")]);
+
+        Scoped(1).replace(Span::raw(p), Line::from("moved"), true);
+        let order_after_append: Vec<&str> = entries()
+            .iter()
+            .filter(|e| {
+                e.discriminant == 1 && (e.prefix.content == p || e.prefix.content == p_other)
+            })
+            .map(|e| if e.prefix.content == p { "p" } else { "other" })
+            .collect();
+        assert_eq!(order_after_append, vec!["other", "p"]);
+
+        remove(p_other);
+        assert!(Scoped(1).clear());
+        assert!(!Scoped(1).clear());
+
+        let remaining: Vec<u8> = entries()
+            .into_iter()
+            .filter(|e| e.prefix.content == p)
+            .map(|e| e.discriminant)
+            .collect();
+        assert_eq!(remaining, vec![2]);
+
+        assert!(Scoped(2).remove(p));
+        assert!(!remove(p));
+    }
 }

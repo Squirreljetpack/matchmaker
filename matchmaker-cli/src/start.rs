@@ -831,9 +831,10 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
             return;
         };
         let axis = if vertical { "width" } else { "height" };
-        toast::replace(
+        toast::Scoped(0).replace(
             Span::raw("preview"),
             Line::from(format!("insufficient {axis}")),
+            true,
         );
     });
     // print handler (no quoting)

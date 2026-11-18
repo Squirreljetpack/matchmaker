@@ -342,11 +342,11 @@ pub fn action_handler(
         MMAction::ClearToast => toast::clear(),
         MMAction::Toast(s) => {
             let (prefix, message) = toast::parse_payload(&s);
-            toast::push(prefix, message);
+            toast::Scoped(0).push(prefix, message);
         }
         MMAction::ToastJoin(s) => {
             let (prefix, message) = toast::parse_payload(&s);
-            toast::join(prefix, message);
+            toast::Scoped(0).join(prefix, message);
         }
         MMAction::SetStyledPrompt(s) => {
             state

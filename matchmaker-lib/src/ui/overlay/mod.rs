@@ -36,6 +36,15 @@ pub trait Overlay<Act: ActionExt, T: SSS, D: 'static> {
         OverlayEffect::None
     }
 
+    /// How mouse wheel scrolling behaves while this overlay is active:
+    /// - `None` (default): vertical scroll is forwarded as `Action::Up(1)` /
+    ///   `Action::Down(1)` and horizontal scroll is swallowed.
+    /// - `Some(false)`: scroll events are swallowed.
+    /// - `Some(true)`: normal background scrolling is allowed.
+    fn allow_scroll(&self) -> Option<bool> {
+        None
+    }
+
     // methods are mutable for flexibility (i.e. render_stateful_widget)
 
     /// Draw the widget within the rect

@@ -326,51 +326,24 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
                                 }
                             }
                         }
-                        MouseEventKind::ScrollDown | MouseEventKind::ScrollUp => {
-                            if layout.toast.contains(pos) {
-                                ui.toast.scroll(
-                                    if matches!(mouse.kind, MouseEventKind::ScrollDown) {
-                                        1
-                                    } else {
-                                        -1
-                                    },
-                                );
-                            } else if layout.preview.contains(pos) {
-                                if let Some(p) = preview_ui.as_mut() {
-                                    if matches!(mouse.kind, MouseEventKind::ScrollDown) {
-                                        p.down(1)
-                                    } else {
-                                        p.up(1)
-                                    }
-                                }
-                            } else {
-                                let next = matches!(mouse.kind, MouseEventKind::ScrollDown)
-                                    ^ picker_ui.results.reverse();
-                                did_cursor_wrap = if next {
-                                    picker_ui.results.cursor_next()
-                                } else {
-                                    picker_ui.results.cursor_prev()
-                                };
-                            }
-                        }
-                        MouseEventKind::ScrollLeft | MouseEventKind::ScrollRight => {
-                            let left = matches!(mouse.kind, MouseEventKind::ScrollLeft);
-                            if layout.toast.contains(pos) {
-                                // The toast only scrolls vertically.
-                            } else if layout.preview.contains(pos) {
-                                if let Some(p) = preview_ui.as_mut() {
-                                    p.scroll(true, if left { -1 } else { 1 })
-                                }
-                            } else {
-                                if !left
-                                    || picker_ui.results.hscroll > 0
-                                    || !picker_ui.query.is_empty()
-                                {
-                                    picker_ui
-                                        .results
-                                        .current_scroll(if left { -1 } else { 1 }, true);
-                                }
-                            }
+                        MouseEventKind::ScrollDown
+                        | MouseEventKind::ScrollUp
+                        | MouseEventKind::ScrollLeft
+                        | MouseEventKind::ScrollRight => {
+                            let mut dispatcher = state.dispatcher(
+                                &mut ui,
+                                &mut picker_ui,
+                                &mut footer_ui,
+                                &mut preview_ui,
+                                &controller_tx,
+                            );
+                            did_cursor_wrap = handle_mouse_scroll(
+                                mouse.kind,
+                                pos,
+                                layout,
+                                &mut dispatcher,
+                                overlay_ui.as_mut(),
+                            );
                         }
                         MouseEventKind::Drag(MouseButton::Left) => {
                             if let Some(Err(start_pos)) = &mut state.dragging
@@ -1164,6 +1137,84 @@ pub(crate) async fn render_loop<W: Write, T: SSS, D: 'static, S, A: ActionExt>(
 }
 
 // ------------------------- HELPERS ----------------------------
+
+fn handle_mouse_scroll<T: SSS, D: 'static, A: ActionExt>(
+    kind: MouseEventKind,
+    pos: Position,
+    layout: Layout,
+    state: &mut MMState<'_, T, D>,
+    overlay_ui: Option<&mut OverlayUI<A, T, D>>,
+) -> bool {
+    if let Some(overlay_ui) = overlay_ui
+        && let Some(allow) = overlay_ui.current().map(|o| o.allow_scroll())
+    {
+        match allow {
+            None => {
+                let action = match kind {
+                    MouseEventKind::ScrollUp => Action::Up(1),
+                    MouseEventKind::ScrollDown => Action::Down(1),
+                    _ => return false,
+                };
+                overlay_ui.handle_action(&action, state);
+                return false;
+            }
+            Some(false) => return false,
+            Some(true) => {}
+        }
+    }
+
+    match kind {
+        MouseEventKind::ScrollDown | MouseEventKind::ScrollUp => {
+            if layout.toast.contains(pos) {
+                state
+                    .ui
+                    .toast
+                    .scroll(if matches!(kind, MouseEventKind::ScrollDown) {
+                        1
+                    } else {
+                        -1
+                    });
+            } else if layout.preview.contains(pos) {
+                if let Some(p) = state.preview_ui.as_mut() {
+                    if matches!(kind, MouseEventKind::ScrollDown) {
+                        p.down(1);
+                    } else {
+                        p.up(1);
+                    }
+                }
+            } else {
+                let next =
+                    matches!(kind, MouseEventKind::ScrollDown) ^ state.picker_ui.results.reverse();
+                return if next {
+                    state.picker_ui.results.cursor_next()
+                } else {
+                    state.picker_ui.results.cursor_prev()
+                };
+            }
+        }
+        MouseEventKind::ScrollLeft | MouseEventKind::ScrollRight => {
+            let left = matches!(kind, MouseEventKind::ScrollLeft);
+            if layout.toast.contains(pos) {
+                // The toast only scrolls vertically.
+            } else if layout.preview.contains(pos) {
+                if let Some(p) = state.preview_ui.as_mut() {
+                    p.scroll(true, if left { -1 } else { 1 });
+                }
+            } else if !left
+                || state.picker_ui.results.hscroll > 0
+                || !state.picker_ui.query.is_empty()
+            {
+                state
+                    .picker_ui
+                    .results
+                    .current_scroll(if left { -1 } else { 1 }, true);
+            }
+        }
+        _ => {}
+    }
+
+    false
+}
 
 pub enum Click {
     None,
@@ -2290,6 +2341,108 @@ mod test {
             emitted.contains("\x1b[3;6H ") && emitted.contains("\x1b[4;6H "),
             "expected explicit space writes over covered sixel cells, got: {emitted:?}"
         );
+    }
+
+    #[test]
+    fn overlay_allow_scroll_controls_mouse_scroll() {
+        use crate::config::{OverlayConfig, OverlayLayoutSettings};
+        use crate::nucleo::injector::Injector;
+        use crate::ui::{Overlay, OverlayEffect};
+        use tokio::sync::mpsc;
+
+        struct StubOverlay {
+            allow: Option<bool>,
+            actions: Arc<Mutex<Vec<Action<NullActionExt>>>>,
+        }
+
+        impl Overlay<NullActionExt, &'static str, ()> for StubOverlay {
+            fn allow_scroll(&self) -> Option<bool> {
+                self.allow
+            }
+
+            fn handle_input(
+                &mut self,
+                _c: char,
+                _state: &mut MMState<'_, &'static str, ()>,
+            ) -> OverlayEffect {
+                OverlayEffect::None
+            }
+
+            fn handle_action(
+                &mut self,
+                action: &Action<NullActionExt>,
+                _state: &mut MMState<'_, &'static str, ()>,
+            ) -> OverlayEffect {
+                self.actions.lock().unwrap().push(action.clone());
+                OverlayEffect::None
+            }
+
+            fn draw(&mut self, _frame: &mut Frame) {}
+
+            fn area(&mut self, _ui_area: &Rect, _layout: &OverlayLayoutSettings) {}
+        }
+
+        fn run_case(allow: Option<bool>) -> (Vec<Action<NullActionExt>>, u32) {
+            let (controller_tx, _controller_rx) = mpsc::unbounded_channel();
+            let area = rect(80, 24);
+            let pos = Position::new(10, 10);
+
+            let mut worker = Worker::<&'static str, ()>::new_single_column();
+            worker.injector().push("a").unwrap();
+            worker.injector().push("b").unwrap();
+            worker.nucleo.tick(10);
+
+            let (mut ui, mut picker) = UI::new_offline(RenderConfig::default(), worker);
+            let mut state = State::new();
+            let mut footer = DisplayUI::default();
+            let mut preview = None;
+            let layout = layout_of(&mut ui, &mut picker, &mut state, &mut footer, None, area);
+            picker.results.update_table(
+                &mut picker.worker,
+                &picker.selector,
+                &mut crate::matcher::matcher(),
+            );
+            picker.results.cursor_jump(0);
+
+            let actions = Arc::new(Mutex::new(Vec::new()));
+            let mut overlay_ui = OverlayUI::new(
+                vec![Box::new(StubOverlay {
+                    allow,
+                    actions: Arc::clone(&actions),
+                })
+                    as Box<dyn Overlay<NullActionExt, &'static str, ()>>]
+                .into_boxed_slice(),
+                OverlayConfig::default(),
+            );
+
+            let mut dispatcher = state.dispatcher(
+                &mut ui,
+                &mut picker,
+                &mut footer,
+                &mut preview,
+                &controller_tx,
+            );
+            overlay_ui.enable(0, &area, &mut dispatcher);
+
+            for kind in [
+                MouseEventKind::ScrollDown,
+                MouseEventKind::ScrollUp,
+                MouseEventKind::ScrollDown,
+                MouseEventKind::ScrollLeft,
+            ] {
+                handle_mouse_scroll(kind, pos, layout, &mut dispatcher, Some(&mut overlay_ui));
+            }
+
+            let recorded = actions.lock().unwrap().clone();
+            (recorded, picker.results.index())
+        }
+
+        assert_eq!(
+            run_case(None),
+            (vec![Action::Down(1), Action::Up(1), Action::Down(1)], 0)
+        );
+        assert_eq!(run_case(Some(false)), (vec![], 0));
+        assert_eq!(run_case(Some(true)), (vec![], 1));
     }
 }
 

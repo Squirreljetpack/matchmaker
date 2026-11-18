@@ -14,6 +14,12 @@ The first form opens the theme picker. The second applies a specific theme to
 your normal Matchmaker configuration. `bat` is optional; the picker previews
 the raw TOML with `bat` when available and falls back to `cat`.
 
+The picker is `themes/main.toml` on unix and `themes/win.main.toml` on Windows,
+where the preview falls back to `Get-Content`. `mm -o themes` picks the right one
+per platform, and `theme` is the same picker under a shorter name
+(`win.theme.toml` on Windows). Either picker lists only the theme files,
+skipping `main.toml` and the other platform's picker.
+
 The picker's `@reload` reapplies the highlighted theme to the picker itself and
 keeps the cursor position, while `@accept` launches a new Matchmaker instance
 with that theme. This lets you compare themes without editing your config.

@@ -5,6 +5,15 @@ command = '''
 dir="$(dirname -- "$MM_OVERRIDE")"
 mm --presets | while IFS= read -r p; do
     name="${p#"$dir"/}"
+    # drop this platform's prefix (`unix.`, `macos.`, `linux.`) from the file
+    # name, so the picker shows the name `-o` takes
+    sub="${name%/*}"; [ "$sub" = "$name" ] && sub=""
+    base="${name##*/}"
+    prefix="${base%%.*}."
+    case "$prefix" in
+        win.|windows.|macos.|linux.|unix.) base="${base#"$prefix"}" ;;
+    esac
+    if [ -n "$sub" ]; then name="$sub/$base"; else name="$base"; fi
     case "$name" in
         themes/main.toml)
             name="themes"

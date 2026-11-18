@@ -1,0 +1,181 @@
+# Unicode & Emoji Picker
+
+[start]
+# The populator is `cmd`: it copies a child's stdout byte for byte, so the UTF-8
+# table survives. PowerShell would decode it through the console code page and
+# re-split it on newlines. The binds are Lua and the previews pin their own
+# shell, so nothing else depends on this choice.
+shell = ["cmd", "/c"]
+# `start.directory` does not run through `[start] shell`, so resolve the preset
+# directory in Lua: it keeps the zstd argument free of quotes.
+directory = { value = '#!lua return path.parent(env.MM_OVERRIDE)', exec = true, force = true }
+command = "zstd -dc unicode.zst"
+additional_commands = [
+    "",
+    "zstd -dc emoji.zst",
+]
+output = "{=char}"
+
+[columns]
+split = "\\t"
+names = ["char", "name", "cat", "meta"]
+default = "name"
+
+[matcher]
+backend = "frizbee"
+max_typos = 1
+
+# --- UI ---
+
+[header]
+content = ['char', 'name', 'cat', 'meta']
+
+# --- Preview ---
+
+[preview]
+show = true
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+side = "bottom"
+max = 7
+min = 5
+command = '''
+$char = {char}
+$name = {name}
+$cat = {cat}
+$meta = {meta}
+
+# code points, pairing UTF-16 surrogates (Windows PowerShell has no Rune API)
+$cps = @()
+for ($i = 0; $i -lt $char.Length; $i++) {
+    $c = $char[$i]
+    if ([char]::IsHighSurrogate($c) -and ($i + 1) -lt $char.Length) {
+        $cps += [char]::ConvertToUtf32($c, $char[$i + 1])
+        $i++
+    } else {
+        $cps += [int]$c
+    }
+}
+$codes = ($cps | ForEach-Object { 'U+{0:X4}' -f $_ }) -join ' '
+
+$width = if ($env:COLUMNS -and [int]$env:COLUMNS -gt 0) { [int]$env:COLUMNS } else { 80 }
+$rule = '-' * $width
+Write-Output $rule
+Write-Output "  $char  $name"
+Write-Output $rule
+
+if ($env:MM_INDEX -eq '1') {
+    $subgroup, $rest = $meta -split ' \| ', 2
+    Write-Output "Codes:    $codes"
+    Write-Output "Group:    $cat"
+    Write-Output "Subgroup: $subgroup"
+    if ($rest) { Write-Output "Keywords: $rest" }
+} else {
+    Write-Output "Code:     $codes"
+    Write-Output "Category: $cat"
+    if ($meta) {
+        $primary, $rest = $meta -split ' \| ', 2
+        if ($primary.StartsWith('\')) { Write-Output "LaTeX:    $primary" }
+        elseif ($primary.StartsWith('&')) { Write-Output "HTML:     $primary" }
+        elseif ($primary.StartsWith('nf-')) { Write-Output "NerdFont: $primary" }
+        else { Write-Output "Keywords: $primary" }
+        if ($rest) { Write-Output "Keywords: $rest" }
+    }
+}
+'''
+
+# --- Binds ---
+
+[binds]
+"@reload" = ["#next tab", "ReloadNext"]
+"@reload_2" = ["#prev tab", "ReloadPrev"]
+
+"@show" = '''RunPreview(
+$width = if ($env:COLUMNS -and [int]$env:COLUMNS -gt 0) { [int]$env:COLUMNS } else { 80 }
+$rule = '-' * $width
+if ($env:MM_INDEX -eq '1') {
+    $meta = {meta}
+    $subgroup, $rest = $meta -split ' \| ', 2
+    Write-Output 'Emoji Metadata'
+    Write-Output $rule
+    Write-Output "Group:    {=cat}"
+    Write-Output "Subgroup: $subgroup"
+    if ($rest) { Write-Output "Keywords: $rest" }
+} else {
+    Write-Output 'Unicode Categories'
+    Write-Output $rule
+    Write-Output 'Uppercase_Letter      Lowercase_Letter      Titlecase_Letter'
+    Write-Output 'Modifier_Letter       Other_Letter'
+    Write-Output 'Decimal_Number        Letter_Number         Other_Number'
+    Write-Output 'Connector_Punctuation Dash_Punctuation      Open_Punctuation'
+    Write-Output 'Close_Punctuation     Initial_Punctuation   Final_Punctuation'
+    Write-Output 'Other_Punctuation'
+    Write-Output 'Math_Symbol           Currency_Symbol       Modifier_Symbol'
+    Write-Output 'Other_Symbol          Nerd_Font (optional)'
+}
+)'''
+
+"@copy" = '''CopyAsync(#!lua
+local cur = state.current
+if not cur then return end
+return cur.char or ""
+)'''
+
+"@copy_meta" = '''CopyAsync(#!lua
+local cur = state.current
+if not cur then return end
+return cur.meta or ""
+)'''
+
+"@copy_all" = '''CopyAsync(#!lua
+local cur = state.current
+if not cur then return end
+local char = cur.char or ""
+local parts = {}
+local i = 1
+while i <= #char do
+    local byte = char:byte(i)
+    local cp, extra
+    if byte < 0x80 then
+        cp, extra = byte, 0
+    elseif byte < 0xE0 then
+        cp, extra = byte - 0xC0, 1
+    elseif byte < 0xF0 then
+        cp, extra = byte - 0xE0, 2
+    else
+        cp, extra = byte - 0xF0, 3
+    end
+    for k = 1, extra do
+        cp = cp * 64 + (char:byte(i + k) - 0x80)
+    end
+    parts[#parts + 1] = string.format("\\u{%04X}", cp)
+    i = i + extra + 1
+end
+return table.concat(parts)
+)'''
+
+"0,1^^enter" = [
+    '''Copy(#!lua
+local cur = state.current
+if not cur then return end
+return cur.char or ""
+)''',
+    "Quit(0)",
+]
+
+# --- Scripts ---
+
+"Start" = '''Transform(#!lua
+local headers = { "unicode> ", "emoji> " }
+local index = tonumber(env.MM_INDEX or "0") or 0
+return "SetPrompt(" .. (headers[index + 1] or headers[1]) .. ")"
+)'''
+
+"Reloaded" = '''Transform(#!lua
+local headers = { "unicode> ", "emoji> " }
+local index = tonumber(env.MM_INDEX or "0") or 0
+return "SetPrompt(" .. (headers[index + 1] or headers[1]) .. ")"
+)'''

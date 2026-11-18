@@ -68,8 +68,8 @@ impl<A: ActionExt> BindMap<A> {
         #[cfg(target_os = "macos")]
         {
             let ext = bindmap!(
-                key!(alt-left) => Action::ForwardWord,
-                key!(alt-right) => Action::BackwardWord,
+                key!(alt-left) => Action::BackwardWord,
+                key!(alt-right) => Action::ForwardWord,
                 key!(alt-backspace) => Action::DeleteWord,
             );
             ret.extend(ext);

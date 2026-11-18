@@ -1,0 +1,133 @@
+# Proton Pass vault picker (pass-cli)
+
+source = "base.toml"
+
+[start]
+command = '''#!lua
+if not proc.has("pass-cli") then error("pass-cli not found") end
+local args = { "item", "list" }
+for _, arg in ipairs(state.args) do args[#args + 1] = arg end
+args[#args + 1] = "--output"
+args[#args + 1] = "json"
+
+local r = proc.run("pass-cli", args)
+if not r.ok then error("pass-cli item list failed: " .. r.stderr) end
+for _, item in ipairs(util.json_decode(r.stdout).items or {}) do
+  local content = item.content or {}
+  local login = (content.content or {}).Login
+  if item.state == "Active" and login then
+    local user = (login.email and login.email ~= "") and login.email or (login.username or "")
+    inject(table.concat({ item.id, content.title or "", user, item.share_id or "" }, "\t"))
+  end
+end'''
+output = "{=id}"
+
+[header]
+content = ["ID", "Name", "User", "Share"]
+
+[query]
+prompt = "protonpass> "
+
+# --- Preview ---
+
+[[preview.layout]]
+command = '''
+$item = pass-cli item view --share-id {extra} --item-id {id} --output json | ConvertFrom-Json
+if ($item.item) { $item = $item.item }
+$login = $item.content.content.Login
+Write-Output "Title:    $($item.content.title)"
+Write-Output "Email:    $(if ($login.email) { $login.email } else { '-' })"
+Write-Output "Username: $(if ($login.username) { $login.username } else { '-' })"
+Write-Output "Password: $(if ($login.password) { '********' } else { '-' })"
+Write-Output "TOTP:     $(if ($login.totp_uri) { 'configured' } else { '-' })"
+if ($login.urls) {
+    Write-Output ("URLs:     " + ($login.urls -join ', '))
+}
+'''
+frame = { title = "Entry" }
+
+[[preview.layout]]
+command = '''
+$item = pass-cli item view --share-id {extra} --item-id {id} --output json | ConvertFrom-Json
+if ($item.item) { $item = $item.item }
+Write-Output 'Notes:'
+Write-Output $(if ($item.content.note) { $item.content.note } else { '-' })
+'''
+frame = { title = "Notes" }
+
+# --- Binds ---
+
+[binds]
+"@accept" = [
+    "#copy password and quit",
+    '''Copy(#!lua
+local c = state.current
+if not c then return end
+local r = proc.run("pass-cli", { "item", "view", "--share-id", c.extra, "--item-id", c.id, "--field", "password" })
+if not r.ok then error(r.stderr) end
+proc.spawn("powershell", { "-NoProfile", "-Command", "Start-Sleep -Seconds 15; Set-Clipboard -Value ''" })
+return r.stdout
+)''',
+    "Quit(0)",
+]
+"@copy" = [
+    "#copy password",
+    '''CopyAsync(#!lua
+local c = state.current
+if not c then return end
+local r = proc.run("pass-cli", { "item", "view", "--share-id", c.extra, "--item-id", c.id, "--field", "password" })
+if not r.ok then error(r.stderr) end
+proc.spawn("powershell", { "-NoProfile", "-Command", "Start-Sleep -Seconds 15; Set-Clipboard -Value ''" })
+return r.stdout
+)''',
+]
+"@copy_user" = [
+    '#copy username',
+    '''CopyAsync(#!lua
+local c = state.current
+if not c then return end
+return c.user
+)''',
+]
+"@copy_otp" = [
+    "#copy TOTP",
+    '''CopyAsync(#!lua
+local c = state.current
+if not c then return end
+local r = proc.run("pass-cli", { "item", "totp", "--share-id", c.extra, "--item-id", c.id, "--output", "json" })
+if not r.ok then error(r.stderr) end
+return (util.json_decode(r.stdout) or {}).totp or ""
+)''',
+]
+"@open" = [
+    "#open URL",
+    '''ExecuteOrConfirm(#!lua
+local c = state.current
+if not c then return end
+local r = proc.run("pass-cli", { "item", "view", "--share-id", c.extra, "--item-id", c.id, "--output", "json" })
+if not r.ok then error(r.stderr) end
+local data = util.json_decode(r.stdout)
+local item = data.item or data
+local urls = ((item.content or {}).content or {}).Login and item.content.content.Login.urls
+local url = urls and urls[1]
+if not url then error("No URL found for " .. (c.name or "")) end
+proc.spawn("powershell", { "-NoProfile", "-Command", "Start-Process '" .. url:gsub("'", "''") .. "'" })
+)''',
+]
+"@show" = [
+    "#reveal entry",
+    '''RunPreview(
+$item = pass-cli item view --share-id {extra} --item-id {id} --output json | ConvertFrom-Json
+if ($item.item) { $item = $item.item }
+$login = $item.content.content.Login
+Write-Output "Title:    $($item.content.title)"
+Write-Output "Email:    $(if ($login.email) { $login.email } else { '-' })"
+Write-Output "Username: $(if ($login.username) { $login.username } else { '-' })"
+Write-Output "Password: $(if ($login.password) { $login.password } else { '-' })"
+Write-Output "TOTP URI: $(if ($login.totp_uri) { $login.totp_uri } else { '-' })"
+if ($item.content.note) {
+    Write-Output '---'
+    Write-Output $item.content.note
+}
+)''',
+]

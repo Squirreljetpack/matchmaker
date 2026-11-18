@@ -21,7 +21,8 @@ The main preview follows the pod's logs from the last 100 lines, across all
 containers. It is a live stream, so it stays open and updates while the preview
 is visible. `<enter>` opens an interactive shell in the pod, trying `bash` and
 falling back to `sh`; pods without either shell will fail. `@open` opens the
-pod's logs in `$EDITOR` through process substitution.
+pod's logs in `$EDITOR`; the logs are piped in through process substitution, or
+written to a temporary file first on Windows.
 
 The preset is read-only: it does not delete, restart, pause, or scale pods.
 Use `kubectl` directly for those operations.

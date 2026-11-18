@@ -1,0 +1,125 @@
+# Obsidian vault selector
+
+[start]
+# `ob-vaults` is a POSIX shell script, so its cache and two-column listing are
+# inlined here: the cache is a list of vault paths, one per line, kept beside
+# the preset. Vaults are the directory level under `OBSIDIAN_HOME`.
+shell = ["powershell", "-NoProfile", "-Command"]
+command = '''#!lua
+local VAULTS_FILE = os.getenv("OBSIDIAN_VAULTS_FILE")
+if not VAULTS_FILE or VAULTS_FILE == "" then
+  VAULTS_FILE = path.join(path.parent(env.MM_OVERRIDE), ".__vaults")
+end
+
+local function read_cache()
+  if not path.is_file(VAULTS_FILE) then return {} end
+  local out = {}
+  for line in fs.read(VAULTS_FILE):gmatch("[^\r\n]+") do
+    if line ~= "" then out[#out + 1] = line end
+  end
+  return out
+end
+
+-- one level under OBSIDIAN_HOME, which defaults to the usual Windows location
+local function populate()
+  local home = os.getenv("USERPROFILE") or os.getenv("HOME") or ""
+  local root = os.getenv("OBSIDIAN_HOME")
+  if not root or root == "" then root = path.join(home, "Documents/Obsidian") end
+
+  local vaults = {}
+  if path.is_dir(root) then
+    local entries = fs.readdir(root)
+    table.sort(entries)
+    for _, entry in ipairs(entries) do
+      local full = path.join(root, entry)
+      if path.is_dir(full) then vaults[#vaults + 1] = full end
+    end
+  end
+  return vaults
+end
+
+local cached = read_cache()
+if #cached == 0 then
+  cached = populate()
+  -- a cache beside the preset is a convenience, so an unwritable directory
+  -- (a read-only checkout) only costs the walk
+  if #cached > 0 then pcall(fs.write, VAULTS_FILE, table.concat(cached, "\n") .. "\n") end
+end
+
+-- missing directories are skipped, so a moved vault disappears from the list
+for _, dir in ipairs(cached) do
+  if path.is_dir(dir) then
+    inject(path.base(dir) .. "\t" .. dir)
+  end
+end'''
+sync = true
+# {+vault} is a space-separated list, so it is splatted into a scriptblock
+# instead of an array literal
+on_accept = '''& {
+foreach ($vault in $args) { Start-Process ("obsidian://open?vault=" + $vault) }
+} {+vault}'''
+
+[columns]
+split = "\\t"
+names = ["vault", { name = "path", hidden = true }]
+default = "vault"
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[preview]
+# show = true
+
+[[preview.layout]]
+command = '''
+if (Get-Command fs -ErrorAction SilentlyContinue) {
+    fs :tool liza :u2 {path}
+} else {
+    Get-ChildItem -LiteralPath {path} -Force
+}
+'''
+
+[binds]
+"right" = [
+    "#browse",
+    '''BecomeOrResume(
+Set-Location -LiteralPath {path}
+$env:FS_OPTS = 'opener=ob-open'
+fs
+)''',
+]
+"ctrl-r" = [
+    "#search",
+    '''BecomeOrResume(& {
+$argv = @()
+foreach ($p in $args) { $argv += @('-p', $p) }
+fs :rg '^#{1,6} ' --filtering --rebase --no-fixed-strings --opener 'ob-open' --query '% ' @argv
+} {+path})''',
+]
+
+"@open" = '''ExecuteSilent(& {
+foreach ($p in $args) { Start-Process $p }
+} {+path})'''
+"@open_2" = "ExecuteSilent(fs :tool lessfilter edit {path})"
+"ctrl-d" = [
+    "#reveal",
+    '''ExecuteSilent(& {
+foreach ($p in $args) { Start-Process (Split-Path -Parent $p) }
+} {+path})''',
+]
+"@copy" = '''CopyAsync(#!lua
+local cur = state.current
+if not cur then return end
+return cur.path
+)'''
+"Start" = 'ToggleExitFirst(false)'
+
+[query]
+prompt = "obsidian> "
+
+[tui]
+percentage = 30
+
+[exit]
+first = true
+abort_empty = true

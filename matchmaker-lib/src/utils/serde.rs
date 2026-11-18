@@ -161,13 +161,23 @@ where
 pub mod os_strings {
     use std::ffi::OsString;
 
-    use serde::{Deserialize, Deserializer};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     pub fn deserialize<'de, D>(d: D) -> Result<Vec<OsString>, D::Error>
     where
         D: Deserializer<'de>,
     {
         Vec::<String>::deserialize(d).map(|v| v.into_iter().map(OsString::from).collect())
+    }
+
+    pub fn serialize<S>(v: &[OsString], s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        v.iter()
+            .map(|os| os.to_string_lossy())
+            .collect::<Vec<_>>()
+            .serialize(s)
     }
 }
 

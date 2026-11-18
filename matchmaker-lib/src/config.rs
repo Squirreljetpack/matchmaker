@@ -918,7 +918,7 @@ pub struct PreviewerConfig {
     pub always_trigger: bool,
 
     pub help: HelpDisplayConfig,
-    #[serde(deserialize_with = "os_strings::deserialize")]
+    #[serde(with = "os_strings")]
     pub shell: Vec<OsString>,
     pub trim_commands: bool,
 

@@ -1,0 +1,23 @@
+# PowerShell help browser
+
+[matcher]
+backend = "frizbee"
+max_typos = 1
+ansi = true
+
+[start]
+shell = ["powershell", "-NoProfile", "-Command"]
+command = '''Get-Help * | Where-Object { $_.Name -notmatch '^[A-Z]:$' } | ForEach-Object { "$($_.Name)`t$($_.Category)`t$(($_.Synopsis -replace '\s+', ' ').Trim())" }'''
+
+[columns]
+split = "\t"
+max = 3
+
+[preview]
+show = true
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+command = "Get-Help '{1}' -Full"

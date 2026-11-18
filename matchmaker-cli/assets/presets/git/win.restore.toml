@@ -1,0 +1,771 @@
+# restore a file or revision
+
+source = "base.toml"
+
+[start]
+# The actions and the populators are Lua; the previews and `@fixup` (which hands
+# the terminal to an editor and to `git rebase -i`) are PowerShell, so pin that
+# dialect for the payload class that needs a shell.
+shell = ["powershell", "-NoProfile", "-Command"]
+command = '''#!lua
+local paths = {}
+for _, arg in ipairs(state.args) do paths[#paths + 1] = arg end
+if #paths == 0 then paths = { "." } end
+
+local r = proc.run("git", {
+    "log",
+    "--pretty=format:%h%x00%ad%x00%s",
+    "--date=format:" .. (env.DATE_FORMAT or "%Y-%m-%d %H:%M"),
+    "--",
+    table.unpack(paths),
+})
+if not r.ok then error("git log failed: " .. r.stderr) end
+for line in r.stdout:gmatch("[^\r\n]+") do inject(line) end'''
+additional_commands = [
+    "",
+    '''#!lua
+-- the reflog selector placeholders (`%gd`, `%gD`) expand the date when
+-- `--date` is given, so the epoch is formatted here instead
+local NUL = string.char(0)
+local function split_nul(s)
+    local out, pos = {}, 1
+    while true do
+        local i = s:find(NUL, pos, true)
+        if not i then break end
+        out[#out + 1] = s:sub(pos, i - 1)
+        pos = i + 1
+    end
+    if pos <= #s then out[#out + 1] = s:sub(pos) end
+    return out
+end
+
+local fmt = env.DATE_FORMAT or "%Y-%m-%d %H:%M"
+local r = proc.run("git", { "stash", "list", "--format=%gd%x00%at%x00%gs" })
+if not r.ok then error("git stash list failed: " .. r.stderr) end
+for line in r.stdout:gmatch("[^\r\n]+") do
+    local f = split_nul(line)
+    local at = tonumber(f[2])
+    if at then f[2] = os.date(fmt, at) end
+    inject(table.concat(f, NUL))
+end''',
+    '''#!lua
+local NUL = string.char(0)
+local function split_nul(s)
+    local out, pos = {}, 1
+    while true do
+        local i = s:find(NUL, pos, true)
+        if not i then break end
+        out[#out + 1] = s:sub(pos, i - 1)
+        pos = i + 1
+    end
+    if pos <= #s then out[#out + 1] = s:sub(pos) end
+    return out
+end
+
+local paths = {}
+for _, arg in ipairs(state.args) do paths[#paths + 1] = arg end
+if #paths == 0 then paths = { "." } end
+
+local fmt = env.DATE_FORMAT or "%Y-%m-%d %H:%M"
+local r = proc.run("git", {
+    "reflog",
+    "--all",
+    "--format=%h%x00%at%x00%gD: %gs",
+    "--",
+    table.unpack(paths),
+})
+if not r.ok then error("git reflog failed: " .. r.stderr) end
+for line in r.stdout:gmatch("[^\r\n]+") do
+    local f = split_nul(line)
+    local at = tonumber(f[2])
+    if at then f[2] = os.date(fmt, at) end
+    inject(table.concat(f, NUL))
+end''',
+    '''#!lua
+local paths = {}
+for _, arg in ipairs(state.args) do paths[#paths + 1] = arg end
+if #paths == 0 then paths = { "." } end
+
+local r = proc.run("git", {
+    "log",
+    "--all",
+    "--pretty=format:%h%x00%ad%x00%s",
+    "--date=format:" .. (env.DATE_FORMAT or "%Y-%m-%d %H:%M"),
+    "--",
+    table.unpack(paths),
+})
+if not r.ok then error("git log failed: " .. r.stderr) end
+for line in r.stdout:gmatch("[^\r\n]+") do inject(line) end''',
+]
+output_template = '{=ref}'
+
+[columns]
+split = "\\x00"
+names = ["ref", "time", "message"]
+default = 1
+
+[matcher]
+sort.threshold = 40
+
+[envs]
+# --date=human looks better but is less searchable
+DATE_FORMAT = "%Y-%m-%d %H:%M"
+
+# --- Preview ---
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+always_trigger = false
+
+[[preview.layout]]
+command = '''
+$ref = {1}
+git -c color.ui=always show --stat --summary --decorate $ref
+'''
+frame = { title = "Commit Summary" }
+side = "right"
+percentage = 40
+min = 30
+max = 120
+
+[[preview.layout]]
+side = "top"
+percentage = 50
+min = 5
+max = 50
+command = '''
+$ref = {1}
+$paths = @(Write-Output {$0})
+if ($paths.Count -gt 0) {
+    git diff --quiet $ref -- $paths
+    if ($LASTEXITCODE -eq 0) { Write-Output 'no change' } else { git diff --color=always $ref -- $paths }
+} elseif ("$env:MM_INDEX" -eq '1') {
+    $files = @(git stash show -u --name-only $ref 2>$null)
+    if ($files.Count -gt 0) {
+        $out = git diff --color=always $ref -- $files
+        if ($out) { $out } else { Write-Output 'no change' }
+    } else {
+        Write-Output 'no change'
+    }
+} else {
+    git diff --quiet $ref -- .
+    if ($LASTEXITCODE -eq 0) { Write-Output 'no change' } else { git diff --color=always $ref -- . }
+}
+'''
+frame = { title = "Working Tree Diff" }
+
+[[preview.layout]]
+command = '''
+$ref = {1}
+$paths = @(Write-Output {$0})
+if ($paths.Count -gt 0) {
+    $cwd = (Get-Location).Path
+    $first = $true
+    foreach ($p in $paths) {
+        $rel = $p
+        if ($rel.StartsWith($cwd + [IO.Path]::DirectorySeparatorChar)) { $rel = $rel.Substring($cwd.Length + 1) }
+        $rel = $rel -replace '^[.]/', ''
+        if ($rel -eq '.') {
+            if ("$env:MM_INDEX" -eq '1') { git -c color.ui=always stash show -u -p $ref } else { git show --color=always $ref }
+            exit 0
+        }
+        if ($paths.Count -gt 1) {
+            if (-not $first) { Write-Output '' }
+            Write-Output "=== $rel ==="
+        }
+        git cat-file -e "${ref}:$rel" 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            if (Get-Command bat -ErrorAction SilentlyContinue) {
+                git show "${ref}:$rel" | bat --wrap=never --color=always -pp --file-name $rel
+            } else {
+                git show --color=always "${ref}:$rel"
+            }
+        } else {
+            Write-Output "fatal: path '$rel' does not exist in $ref"
+        }
+        $first = $false
+    }
+} else {
+    if ("$env:MM_INDEX" -eq '1') { git -c color.ui=always stash show -u -p $ref } else { git show --color=always $ref }
+}
+'''
+frame = { title = "Show Ref" }
+
+# --- UI ---
+[tui]
+percentage = 100
+
+[header]
+content = "[history]"
+
+[query]
+prompt = "restore> "
+
+[binds]
+"@accept" = ["@checkout", "Reload"]
+"@return" = "Accept"
+"alt-r" = ["#reset/apply stash", "@reset"]
+"ctrl-t" = ["@tag", "Reload"]
+"@rm" = ["#stash,+squash history/drop stash/clean refs", "@clean", "Reload"]
+"ctrl-c" = "@compare"
+"alt-c" = "@diffstat"
+"alt-m" = ["@edit_msg", "Reload"]
+"ctrl-e" = ["@rebase", "Reload"]
+"@rename" = ["#rename (+fixup/reorder history)", "@fixup", "Reload"]
+"ctrl-x" = "@rename"
+"@next" = "BecomeSilent(mm -o git/switch)"
+"@prev" = "BecomeSilent(mm -o git/status -F)"
+"@help" = '''RunPreview(
+Write-Output 'Restoring:'
+$paths = @(Write-Output {$0})
+foreach ($f in $paths) { Write-Output $f }
+Write-Output ('-' * [Math]::Max([int]$env:COLUMNS, 1))
+)'''
+
+# --- Scripts ---
+"Reloaded" = '''Transform(#!lua
+local HEADERS = { "[history]", "[stash]", "[all_refs]", "[reachable]" }
+local index = tonumber(env.MM_INDEX) or 0
+return "SetHeader(" .. HEADERS[index + 1] .. ")"
+)'''
+
+"@open" = '''ExecuteOrConfirm(
+$target = {$1}
+if (-not $target) { exit 0 }
+$editor = $(if ($env:EDITOR) { $env:EDITOR } else { 'notepad' }) -split '\s+'
+& $editor[0] @($editor | Select-Object -Skip 1) $target
+)'''
+"@open_2" = []
+
+"@compare" = '''RunPreview(
+$ref = {1}
+$sel = @(Write-Output {+1})
+if ($sel.Count -eq 1 -and $sel[0] -ne $ref) { $sel = @($ref) + $sel }
+if ($sel.Count -eq 2) {
+    $a = $sel[0]
+    $b = $sel[1]
+    $counts = (git rev-list --left-right --count "$a...$b") -split '\s+'
+} else {
+    $a = 'HEAD'
+    $b = $ref
+    $counts = (git rev-list --left-right --count "HEAD..$ref") -split '\s+'
+}
+$commits = git rev-list --count $b
+Write-Output ("behind: " + $counts[0] + " ahead: " + $counts[1] + " commits: " + $commits)
+Write-Output ('-' * [Math]::Max([int]$env:COLUMNS, 1))
+git log --color=always --left-right --oneline "$a...$b"
+)'''
+
+"@diffstat" = '''RunPreview(
+$ref = {1}
+if ("$env:MM_INDEX" -eq '1') {
+    git stash show -u $ref
+} else {
+    $sel = @(Write-Output {+1})
+    if ($sel.Count -eq 1 -and $sel[0] -ne $ref) { $sel = @($ref) + $sel }
+    if ($sel.Count -eq 2) {
+        git --no-pager diff --color=always --stat --summary $sel[0] $sel[1]
+    } else {
+        git --no-pager diff --color=always --stat --summary $ref
+    }
+}
+exit 1
+)'''
+
+"@rebase" = '''Execute(
+$ref = {1}
+git rebase -i "$ref^"
+)'''
+
+"@checkout" = '''BecomeOrConfirm(#!lua
+local index = tonumber(env.MM_INDEX) or 0
+local ref = (state.current or {})[1] or ""
+local paths = {}
+for _, arg in ipairs(state.args) do paths[#paths + 1] = arg end
+
+local function git(args) return proc.run("git", args) end
+local function show(r)
+    io.write(r.stdout)
+    io.write(r.stderr)
+    return r
+end
+local function check(r)
+    show(r)
+    if not r.ok then error(r.stderr) end
+    return r
+end
+
+-- Populator tabs get no terminal-width variable; use a fixed width
+local rule = string.rep("-", 80)
+
+if index == 1 then
+    print("### Pop Stash ###")
+    print("")
+    print("Working directory:")
+    print(rule)
+    show(git({ "--no-pager", "diff", "--stat" }))
+    print("Stash changes:")
+    print(rule)
+    show(git({ "--no-pager", "stash", "show", ref }))
+    print("")
+else
+    print("### Checkout ###")
+    print("")
+    if #paths > 0 then
+        show(git({ "--no-pager", "diff", "--stat", ref, "--", table.unpack(paths) }))
+    else
+        show(git({ "--no-pager", "diff", "--stat", ref }))
+    end
+end
+
+local dirty
+if #paths > 0 then
+    dirty = git({ "status", "--porcelain", "--", table.unpack(paths) }).stdout ~= ""
+else
+    dirty = git({ "status", "--porcelain" }).stdout ~= ""
+end
+
+local ans = input.prompt(dirty and "Proceed (or stash (all) changes)? [y/N/s/a]" or "Proceed? [y/N]") or ""
+
+if ans:match("^%s*[sS]") or ans:match("^%s*[aA]") then
+    local argv = { "stash", "push" }
+    if ans:match("^%s*[aA]") then argv[#argv + 1] = "-u" end
+    if #paths > 0 then
+        argv[#argv + 1] = "--"
+        for _, p in ipairs(paths) do argv[#argv + 1] = p end
+    end
+    check(git(argv))
+elseif not ans:match("^%s*[yY]") then
+    os.exit(100)
+end
+
+if index == 1 then
+    -- return on success, leave the output visible on failure
+    if git({ "stash", "pop", ref }).ok then os.exit(100) end
+elseif #paths > 0 then
+    check(git({ "checkout", ref, "--", table.unpack(paths) }))
+else
+    check(git({ "checkout", ref }))
+end
+)'''
+
+"@reset" = '''BecomeOrConfirm(#!lua
+local index = tonumber(env.MM_INDEX) or 0
+local ref = (state.current or {})[1] or ""
+
+local function git(args, opts) return proc.run("git", args, opts) end
+local function show(r)
+    io.write(r.stdout)
+    io.write(r.stderr)
+    return r
+end
+local function check(r)
+    show(r)
+    if not r.ok then error(r.stderr) end
+    return r
+end
+local function trimmed(r) return (r.stdout:gsub("^%s+", ""):gsub("%s+$", "")) end
+
+if index == 1 then
+    local target = ref
+    local files = git({ "stash", "show", "--name-only", target })
+    local stashed = git({ "rev-parse", "refs/stash" })
+    local stashed_before = stashed.ok and trimmed(stashed) or ""
+
+    local dirty = false
+    if files.ok and trimmed(files) ~= "" then
+        local list = {}
+        for line in trimmed(files):gmatch("[^\r\n]+") do list[#list + 1] = line end
+        if #list > 0 then
+            dirty = git({ "status", "--porcelain", "--", table.unpack(list) }).stdout ~= ""
+        end
+    end
+
+    local ans = input.prompt(
+        dirty and "Affected files are dirty. Proceed? [y/N/s(tash)]"
+            or ("Apply stash " .. target .. "? [Y/n]")
+    ) or ""
+
+    if ans:match("^%s*[sS]") then
+        local argv = { "stash", "push", "-m", "temp backup before stash apply" }
+        if trimmed(files) ~= "" then
+            argv[#argv + 1] = "--pathspec-from-file=-"
+            check(git(argv, { stdin = trimmed(files) .. "\n" }))
+        else
+            check(git({ "stash", "push", "-m", "temp backup stash apply" }))
+        end
+    elseif not (ans == "" or ans:match("^%s*$") or ans:match("^%s*[yY]")) then
+        os.exit(100)
+    end
+
+    -- a stash created above shifts the target one entry down
+    local shifted = false
+    local after = git({ "rev-parse", "refs/stash" })
+    local stashed_after = after.ok and trimmed(after) or ""
+    if stashed_after ~= stashed_before and stashed_after ~= "" then
+        shifted = true
+        local n = tonumber(target:match("(%d+)")) or 0
+        target = "stash@{" .. (n + 1) .. "}"
+    end
+
+    print("Applying " .. target .. "...")
+    check(git({ "stash", "apply", target }))
+
+    print("")
+    print("Diff after applying:")
+    show(git({ "-c", "color.ui=always", "status", "--short" }))
+    show(git({ "diff", "--color=always" }))
+
+    print("")
+    local keep = input.prompt("Keep changes? [Y/n/(p)reserve]") or ""
+    if keep:match("^%s*[pP]") then
+        -- leave the stash entry alone
+    elseif keep == "" or keep:match("^%s*$") or keep:match("^%s*[yY]") then
+        check(git({ "stash", "drop", target }))
+    else
+        print("Reverting stash...")
+        local patch = git({ "stash", "show", "-p", target })
+        check(git({ "apply", "--reverse" }, { stdin = patch.stdout }))
+    end
+
+    if shifted then
+        print("Restoring previous working directory state...")
+        check(git({ "stash", "pop", "stash@{0}" }))
+    end
+else
+    print("### Reset HEAD to " .. ref .. " ###")
+    print("")
+    print("--- File changes ---")
+    show(git({ "--no-pager", "diff", "--stat", "HEAD", ref }))
+    print("")
+    print("--- Commits ADDED ---")
+    show(git({ "--no-pager", "log", "--oneline", "HEAD.." .. ref }))
+    print("")
+    print("--- Commits REMOVED ---")
+    show(git({ "--no-pager", "log", "--oneline", ref .. "..HEAD" }))
+    print("")
+
+    local ans = input.prompt("Reset? [(M)ixed / (s)oft / (h)ard / (c)ancel ]") or ""
+    if ans:match("^%s*[sS]") then
+        check(git({ "reset", "--soft", ref }))
+    elseif ans:match("^%s*[hH]") then
+        check(git({ "reset", "--hard", ref }))
+    elseif ans == "" or ans:match("^%s*$") or ans:match("^%s*[mM]") then
+        check(git({ "reset", "--mixed", ref }))
+    else
+        os.exit(100)
+    end
+end
+)'''
+
+"@tag" = '''BecomeOrConfirm(#!lua
+local index = tonumber(env.MM_INDEX) or 0
+local ref = (state.current or {})[1] or ""
+
+local function git(args) return proc.run("git", args) end
+local function show(r)
+    io.write(r.stdout)
+    io.write(r.stderr)
+    return r
+end
+local function check(r)
+    show(r)
+    if not r.ok then error(r.stderr) end
+    return r
+end
+local function trimmed(r) return (r.stdout:gsub("^%s+", ""):gsub("%s+$", "")) end
+
+if index == 0 or index == 3 then
+    local tag_name = input.prompt("Enter tag name for " .. ref .. ":")
+    if not tag_name or tag_name == "" then os.exit(100) end
+
+    -- the tracked branch's remote, else the preset's default remote
+    local remote = env.LSREMOTE or "origin"
+    local up = git({ "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}" })
+    if up.ok then
+        local upstream = trimmed(up)
+        local r = upstream:match("^([^/]+)/")
+        if r then remote = r end
+    end
+
+    local delete = false
+    if git({ "rev-parse", "-q", "--verify", "refs/tags/" .. tag_name }).ok then
+        if not input.confirm("Tag '" .. tag_name .. "' already exists. Remove it?", false) then
+            os.exit(100)
+        end
+        check(git({ "tag", "-d", tag_name }))
+        print("Deleted local tag " .. tag_name)
+        delete = true
+    else
+        check(git({ "tag", tag_name, ref }))
+        print("Tagged " .. ref .. " as " .. tag_name)
+    end
+
+    local ans = input.prompt("push tag '" .. tag_name .. "' to " .. remote .. "? [y/(f)orce/N]") or ""
+    if ans:match("^%s*[fF]") then
+        local argv = { "push", "--force" }
+        if delete then argv[#argv + 1] = "--delete" end
+        argv[#argv + 1] = remote
+        argv[#argv + 1] = tag_name
+        check(git(argv))
+    elseif ans:match("^%s*[yY]") then
+        local argv = { "push" }
+        if delete then argv[#argv + 1] = "--delete" end
+        argv[#argv + 1] = remote
+        argv[#argv + 1] = tag_name
+        check(git(argv))
+    else
+        os.exit(100)
+    end
+elseif index == 1 then
+    local branch = input.prompt("Branch name for " .. ref .. ":")
+    if branch and branch ~= "" then check(git({ "stash", "branch", branch, ref })) end
+elseif index == 2 then
+    local branch = input.prompt("Branch name for reflog entry " .. ref .. ":")
+    if branch and branch ~= "" then check(git({ "branch", branch, ref })) end
+end
+)'''
+
+"@clean" = '''ExecuteOrConfirm(#!lua
+local index = tonumber(env.MM_INDEX) or 0
+local ref = (state.current or {})[1] or ""
+local count = tonumber(env.MM_SELECT_COUNT) or 0
+
+local function git(args) return proc.run("git", args) end
+local function show(r)
+    io.write(r.stdout)
+    io.write(r.stderr)
+    return r
+end
+local function check(r)
+    show(r)
+    if not r.ok then error(r.stderr) end
+    return r
+end
+
+local function confirmed(prompt)
+    local ans = input.prompt(prompt .. " [y/N]") or ""
+    return ans:match("^%s*[yY]")
+end
+
+if index == 0 then
+    if count == 1 then
+        check(git({ "revert", ref }))
+    end
+
+    if count > 0 and proc.has("git-squash") then
+        local targets = {}
+        for _, item in ipairs(state.selected) do targets[#targets + 1] = item[1] end
+        local r = proc.run("git-squash", targets)
+        show(r)
+        -- keep the output visible
+        os.exit(1)
+    end
+
+    local ans = input.prompt("Stash all changes to HEAD? [Y, n, or type custom message]") or ""
+    if ans:match("^%s*[yY]") or ans:match("^%s*$") then
+        check(git({ "stash" }))
+    elseif ans:match("^%s*[nN]") then
+        -- nothing to do
+    else
+        check(git({ "stash", "push", "-u", "-m", ans }))
+    end
+elseif index == 1 then
+    check(git({ "stash", "drop", ref }))
+elseif index == 2 then
+    if confirmed("WARNING: Destructive action. Permanent data deletion.\\nProceed with full cleanup GC (expire reflogs)?") then
+        print("Purging history and running GC...")
+        show(git({
+            "-c", "gc.reflogExpire=0",
+            "-c", "gc.reflogExpireUnreachable=0",
+            "-c", "gc.rerere.rresolved=0",
+            "-c", "gc.rerere.unresolved=0",
+            "-c", "gc.pruneExpire=now",
+            "gc",
+        }))
+        os.exit(1)
+    end
+elseif index == 3 then
+    if confirmed("Run aggressive GC (recompress + remove old unreachable data)?") then
+        show(git({ "gc", "--prune=now", "--aggressive" }))
+        os.exit(1)
+    end
+end
+)'''
+
+# Hands the terminal to an editor and to `git rebase -i`, so it stays a shell
+# payload; the rebase todo is rewritten by a generated PowerShell sequence
+# editor instead of `awk`.
+"@fixup" = '''BecomeOrConfirm(
+$index = 0
+if ($env:MM_INDEX) { $index = [int]$env:MM_INDEX }
+$count = 0
+if ($env:MM_SELECT_COUNT) { $count = [int]$env:MM_SELECT_COUNT }
+$ref = {1}
+
+function Read-Message {
+    $msg = ''
+    Write-Output 'Commit message (\ -> continue): '
+    while ($true) {
+        $line = [Console]::In.ReadLine()
+        if ($null -eq $line) { break }
+        if ($line.EndsWith('\')) {
+            $msg += $line.Substring(0, $line.Length - 1) + "`n"
+            Write-Output '> ' -NoNewline
+        } else {
+            $msg += $line
+            break
+        }
+    }
+    return $msg
+}
+
+# Files written for git to read back (the message file, the rebase todo) must be
+# UTF-8 without a BOM: `-Encoding UTF8` on Windows PowerShell 5.1 adds one, and
+# git would keep it as part of the first line.
+$utf8 = [Text.UTF8Encoding]::new($false)
+function Write-Text($path, $text) { [IO.File]::WriteAllText($path, $text, $utf8) }
+
+function New-SeqEditor($body) {
+    $path = [IO.Path]::Combine([IO.Path]::GetTempPath(), [IO.Path]::GetRandomFileName() + '.ps1')
+    Set-Content -LiteralPath $path -Value $body -Encoding UTF8
+    return 'powershell -NoProfile -ExecutionPolicy Bypass -File "' + $path + '"'
+}
+
+function Invoke-RebaseRewrite($seqEditor, $extra) {
+    $env:GIT_SEQUENCE_EDITOR = $seqEditor
+    if (git rev-parse --verify -q "$base^" 2>$null) {
+        git rebase -i $extra "$base^"
+    } else {
+        git rebase -i $extra --root
+    }
+    return $LASTEXITCODE
+}
+
+function Invoke-Rollback($what) {
+    Write-Output "$what failed. Rollback? [Y/n] " -NoNewline
+    $choice = [Console]::In.ReadLine()
+    if ($null -eq $choice -or $choice -eq '' -or $choice -match '^[yY]') { git rebase --abort 2>$null }
+    exit 1
+}
+
+function Write-Report($what) {
+    if ([string](git rev-parse HEAD) -eq $prevHead) { exit 100 }
+    Write-Output ''
+    Write-Output "Successfully $what"
+    Write-Output "Previous HEAD was $prevHead"
+    Write-Output "To restore previous HEAD: git reset --hard $prevHead"
+}
+
+if ($index -eq 1) {
+    $msg = Read-Message
+    if (-not $msg) { Write-Output 'Commit message cannot be empty.'; exit 1 }
+    $sha = [string](git rev-parse $ref)
+    git stash drop $ref
+    git stash store -m $msg $sha
+    exit 100
+}
+if ($index -ne 0) { Write-Output 'Unavailable (only works for commit history)'; exit 1 }
+
+$prevHead = [string](git rev-parse HEAD)
+$targetSha = [string](git rev-parse $ref 2>$null)
+if (-not $targetSha) { Write-Output "Could not resolve commit $ref"; exit 1 }
+$base = $targetSha
+
+if ($count -eq 0) {
+    # nothing selected: edit the message of the target commit
+    $msgFile = [IO.Path]::Combine([IO.Path]::GetTempPath(), [IO.Path]::GetRandomFileName())
+    $origFile = $msgFile + '.orig'
+    Write-Text $origFile ([string](git log -1 --format=%B $targetSha | Out-String))
+    Copy-Item -LiteralPath $origFile -Destination $msgFile
+
+    $editor = $(if ($env:VISUAL) { $env:VISUAL } elseif ($env:EDITOR) { $env:EDITOR } else { 'notepad' }) -split '\s+'
+    & $editor[0] @($editor | Select-Object -Skip 1) $msgFile
+
+    if (-not (Test-Path -LiteralPath $msgFile) -or (Get-Item -LiteralPath $msgFile).Length -eq 0) { exit 100 }
+    $newMsg = Get-Content -LiteralPath $msgFile -Raw -Encoding UTF8
+    if (-not ($newMsg -match '\S')) { exit 100 }
+    if ($newMsg -eq (Get-Content -LiteralPath $origFile -Raw -Encoding UTF8)) { exit 100 }
+
+    if ($targetSha -eq $prevHead) {
+        git commit --allow-empty --amend -F $msgFile
+    } else {
+        $short = [string](git rev-parse --short $targetSha)
+        $body = @'
+$p = $args[0]
+$utf8 = [Text.UTF8Encoding]::new($false)
+[IO.File]::WriteAllText($p, ([IO.File]::ReadAllText($p, $utf8) -replace '^pick __SHA__', 'edit __SHA__'), $utf8)
+'@.Replace('__SHA__', $short)
+
+        if ((Invoke-RebaseRewrite (New-SeqEditor $body)) -ne 0) { Invoke-Rollback 'Rebase' }
+
+        git commit --allow-empty --amend -F $msgFile
+        $env:GIT_EDITOR = ':'
+        git rebase --continue
+        if ($LASTEXITCODE -ne 0) { Invoke-Rollback 'Rebase continue' }
+    }
+
+    Write-Report "updated the message of $ref"
+    Remove-Item -LiteralPath $msgFile, $origFile -Force -ErrorAction SilentlyContinue
+    exit 0
+}
+
+if ($count -eq 1) {
+    # one commit selected: fold the working tree (or the index) into it
+    $targetSha = [string](git rev-parse {+1})
+    if (-not (git status --porcelain)) { exit 100 }
+
+    git diff --cached --quiet
+    if ($LASTEXITCODE -eq 0) { git add -A }
+
+    if ($targetSha -eq $prevHead) {
+        git commit --amend --no-edit --no-verify
+    } else {
+        git commit --no-verify --fixup=$targetSha
+        if ((Invoke-RebaseRewrite ':' '--autosquash') -ne 0) { Invoke-Rollback 'Amend' }
+    }
+
+    Write-Report "amended {+1}"
+    exit 0
+}
+
+# several commits selected: reorder them so the selection order (first selected
+# = oldest) becomes their order in history
+$sel = @(Write-Output {+1})
+if ($sel.Count -eq 0) { exit 100 }
+
+# `{+1}` holds abbreviated hashes, `rev-list` prints full ones: compare on the
+# matching prefix, the same way the sequence editor below does.
+$selectedAsc = @(git rev-list --reverse HEAD | Where-Object {
+    $line = $_
+    [bool]($sel | Where-Object { $line.StartsWith($_) })
+})
+if ($selectedAsc.Count -ne $sel.Count) { Write-Output "Selection is not part of HEAD's history"; exit 1 }
+if (@($selectedAsc | ForEach-Object { [string](git rev-parse --short=7 $_) }) -join ' ' -eq ($sel -join ' ')) {
+    Write-Output 'Selection is already in history order'; exit 100
+}
+$base = $selectedAsc[0]
+
+$body = @'
+$p = $args[0]
+$sel = @('__SEL__')
+$utf8 = [Text.UTF8Encoding]::new($false)
+$lines = [IO.File]::ReadAllLines($p, $utf8)
+$picked = @()
+$slots = @()
+for ($i = 0; $i -lt $lines.Count; $i++) {
+    if ($lines[$i] -notmatch '^(pick|p)\s+(\S+)') { continue }
+    $sha = $Matches[2]
+    for ($j = 0; $j -lt $sel.Count; $j++) {
+        if ($sha.StartsWith($sel[$j])) { $slots += $i; $picked += $lines[$i]; break }
+    }
+}
+if ($slots.Count -ne $sel.Count) { Write-Error 'selected commits missing from the rebase todo'; exit 1 }
+for ($k = 0; $k -lt $slots.Count; $k++) { $lines[$slots[$k]] = $picked[$k] }
+[IO.File]::WriteAllLines($p, $lines, $utf8)
+'@.Replace('__SEL__', ($sel -join "','"))
+
+if ((Invoke-RebaseRewrite (New-SeqEditor $body)) -ne 0) { Invoke-Rollback 'Reorder' }
+
+Write-Report 'reordered commits'
+exit 0
+)'''

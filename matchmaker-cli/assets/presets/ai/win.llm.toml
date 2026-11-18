@@ -1,0 +1,109 @@
+# LLM models browser
+
+[start]
+# `llm models --options` is a text table, so the perl paragraph parser becomes
+# plain Lua over `proc.run`; the preview is a shell payload, hence the pin.
+shell = ["powershell", "-NoProfile", "-Command"]
+command = '''#!lua
+local r = proc.run("llm", { "models", "--options" })
+if not r.ok then error("llm models --options failed: " .. r.stderr) end
+
+local function trim(s)
+  return (s:gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+local rows, cur, section = {}, nil, ""
+
+local function emit()
+  if not cur or not cur.model then return end
+  rows[#rows + 1] = table.concat({
+    cur.provider,
+    cur.model,
+    cur.aliases,
+    table.concat(cur.options, ","),
+    table.concat(cur.features, ","),
+    table.concat(cur.attachments, ","),
+  }, "\t")
+  cur = nil
+end
+
+for line in r.stdout:gmatch("[^\r\n]+") do
+  -- `Provider: model (aliases: a, b)` at column 0 starts a model
+  local provider, model, aliases = line:match("^(%S[^:]*):%s*(%S+)%s*%(aliases:%s*([^)]*)%)")
+  if not provider then
+    provider, model = line:match("^(%S[^:]*):%s*(%S+)")
+  end
+  if provider then
+    emit()
+    cur = {
+      provider = provider,
+      model = model,
+      aliases = aliases or "",
+      options = {},
+      features = {},
+      attachments = {},
+    }
+    section = ""
+  elseif cur then
+    if line:match("^%s*Options:") then
+      section = "opt"
+    elseif line:match("^%s*Attachment types:") then
+      section = "att"
+    elseif line:match("^%s*Features:") then
+      section = "feat"
+    elseif line:match("^%s*Keys:") then
+      section = "keys"
+    elseif section == "opt" then
+      local name = line:match("^%s*([a-zA-Z0-9_]+):")
+      if name then cur.options[#cur.options + 1] = name end
+    elseif section == "att" then
+      for entry in trim(line):gmatch("([^,]+)") do
+        entry = trim(entry)
+        if entry ~= "" then cur.attachments[#cur.attachments + 1] = entry end
+      end
+    elseif section == "feat" then
+      local feature = line:match("^%s*%-%s*(.+)")
+      if feature then
+        feature = trim(feature)
+        if feature ~= "" then cur.features[#cur.features + 1] = feature end
+      end
+    end
+  end
+end
+emit()
+
+for _, row in ipairs(rows) do inject(row) end'''
+
+output = "{-model}"
+
+[columns]
+max = 6
+names = [
+    "provider",
+    "model",
+    { name = "alias", options = "Optional | OrUseDefault" },
+    "options",
+    "features",
+    "attachments",
+]
+default = "model"
+split = '\t'
+
+[header]
+content = ["provider", "model", "aliases", "options", "features", "attachments"]
+
+# --- Preview ---
+[preview]
+show = true
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+command = '''
+llm models --options -m {model}
+'''
+frame = { title = "Model Options" }
+
+# --- Binds ---
+[binds]

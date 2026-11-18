@@ -53,7 +53,7 @@ frame = { title = "Processes" }
 "@show_2" = ['#diff', 'Preview("$DOCKERcmd" diff {id})']
 "@show_stats" = 'Preview("$DOCKERcmd" stats {id})'
 
-"@restart" = 'Execute("$DOCKERcmd" restart {id}) Status(Restarting...)'
+"@restart" = ['Execute("$DOCKERcmd" restart {id})', "SetStatus(Restarting...)"]
 "@toggle_start" = '''Execute(
     if [[ {state} == exited || {state} == created ]]; then
         "$DOCKERcmd" start {id}
@@ -69,9 +69,9 @@ frame = { title = "Processes" }
         "$DOCKERcmd" pause {id}
     fi
 )'''
-"@kill" = 'Execute("$DOCKERcmd" kill {id}) Status(Killing...)'
+"@kill" = ['Execute("$DOCKERcmd" kill {id})', "SetStatus(Killing...)"]
 "@exec" = 'Become("$DOCKERcmd" exec -it {id} sh -c "if command -v zsh > /dev/null 2>&1; then exec zsh; elif command -v bash > /dev/null 2>&1; then exec bash; else exec sh; fi")'
-"@rm" = 'Execute("$DOCKERcmd" rm -f {id}) Status(Removing...)'
+"@rm" = ['Execute("$DOCKERcmd" rm -f {id})', "SetStatus(Removing...)"]
 
 "@mount" = '''BecomeOrConfirm(
     container_id={id}

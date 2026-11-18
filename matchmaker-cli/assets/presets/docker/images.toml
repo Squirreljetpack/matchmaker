@@ -61,11 +61,11 @@ frame = { title = "Image Inspect" }
 "@config_exec" = "Execute($DOCKERcmd image inspect {id} | PG_LANG=json $PAGER)"
 "@stats" = "Preview($DOCKERcmd image history {id})"
 
-"@pull" = 'ExecuteOrConfirm($DOCKERcmd image pull {repo}:{tag}) Status(Pulling...)'
-"@push" = 'ExecuteOrConfirm($DOCKERcmd image push {repo}:{tag}) Status(Pushing...)'
+"@pull" = ['ExecuteOrConfirm($DOCKERcmd image pull {repo}:{tag})', "SetStatus(Pulling...)"]
+"@push" = ['ExecuteOrConfirm($DOCKERcmd image push {repo}:{tag})', "SetStatus(Pushing...)"]
 
-"@rmi" = ["ExecuteOrConfirm($DOCKERcmd image rmi {repo}:{tag}) Status(Removing...)", "Reload"]
-"@rmi_id" = ["ExecuteOrConfirm($DOCKERcmd image rmi {id}) Status(Removing by ID...)", "Reload"]
+"@rmi" = ["ExecuteOrConfirm($DOCKERcmd image rmi {repo}:{tag})", "SetStatus(Removing...)", "Reload"]
+"@rmi_id" = ["ExecuteOrConfirm($DOCKERcmd image rmi {id})", "SetStatus(Removing by ID...)", "Reload"]
 
 "@save_tar" = '''ExecuteOrConfirm(
         printf "Save as (filename): "

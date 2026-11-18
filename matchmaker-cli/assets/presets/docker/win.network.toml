@@ -1,0 +1,54 @@
+# Docker/Podman network viewer
+
+source = "base.toml"
+
+[matcher]
+trim = true
+
+[start]
+# The payloads below are PowerShell; pin the dialect so the shell heuristic
+# (PSModulePath → pwsh/powershell, else cmd.exe) cannot pick the wrong one.
+shell = ["powershell", "-NoProfile", "-Command"]
+command = '''& $env:DOCKERcmd network ls --format "table {{.ID}}\t{{.Name}}\t{{.Driver}}\t{{.Scope}}"'''
+input_separator = "\n"
+
+[envs]
+# `dispatcher.sh` picks the same way on unix; here it is resolved once at startup.
+DOCKERcmd = { value = '#!lua return proc.has("docker") and "docker" or "podman"', exec = true, force = true }
+
+[header]
+header_lines = 1
+content = "NETWORK ID\tNAME\tDRIVER\tSCOPE"
+
+[columns]
+split = "\\t"
+names = ["id", "name", "driver", "scope"]
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+# Inspect
+command = "& $env:DOCKERcmd network inspect {id}"
+frame = { title = "Network Inspect" }
+
+[binds]
+# Navigation
+"shift-tab" = "Become(mm -o docker/compose)"
+"enter" = "Become(Write-Output {id})"
+
+# Management Actions
+"alt-r" = "@rm"
+
+# --- Actions ---
+"@config_exec" = "Execute(& $env:DOCKERcmd network inspect {id})"
+"@stats" = "Preview(& $env:DOCKERcmd network inspect {id})"
+
+"@rm" = ["Execute(& $env:DOCKERcmd network rm {id})", "SetStatus(Removing...)", "Reload"]
+
+[query]
+prompt = "networks> "
+prompt_style.fg = "Green"
+
+[tui]
+percentage = 100

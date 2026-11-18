@@ -1,0 +1,260 @@
+# Tabby Model Selector
+
+[envs]
+# Every directory walk is `fs.readdir` and every request is `proc.run("curl", …)`,
+# so nothing here needs a shell or `fd`/`jq`.
+TABBYHOST = { value = '#!lua local addr = os.getenv("TS_ADDRESS") if not addr or addr == "" then addr = "http://localhost:5000" end return addr .. "/tabby"', exec = true }
+
+[matcher]
+ansi = true
+
+[start]
+shell = ["powershell", "-NoProfile", "-Command"]
+command = '''#!lua
+local TAB = "\t"
+local key = os.getenv("TABBY_API_KEY")
+if not key or key == "" then error("TABBY_API_KEY is not set") end
+
+-- `LLMdir` groups the three model directories; the unix preset resolves the
+-- same layout in shell variables
+local llm = os.getenv("LLMdir")
+if not llm or llm == "" then
+    llm = path.join(os.getenv("USERPROFILE") or os.getenv("HOME") or "", "models")
+end
+local SEARCHD = path.join(llm, "models/exl2")
+local LORAD = path.join(llm, "loras")
+local EMBEDDINGD = path.join(llm, "embeddings")
+
+-- local entries are collected first, so a local name shadows the API's
+local seen, rows = {}, {}
+
+local function add(prefix, name, dir, kind)
+    local slot = prefix .. ":" .. name
+    if seen[slot] then return end
+    seen[slot] = true
+    rows[#rows + 1] = table.concat({ name, dir, kind }, TAB)
+end
+
+local function subdirs(dir)
+    local out = {}
+    if not path.is_dir(dir) then return out end
+    for _, entry in ipairs(fs.readdir(dir)) do
+        local full = path.join(dir, entry)
+        if path.is_dir(full) then out[#out + 1] = { entry, full } end
+    end
+    table.sort(out, function(a, b) return a[1] < b[1] end)
+    return out
+end
+
+local function api_ids(endpoint)
+    local r = proc.run("curl", {
+        "-s",
+        "-H",
+        "Content-Type: application/json",
+        "-H",
+        "Authorization: Bearer " .. key,
+        env.TABBYHOST .. endpoint,
+        "--fail",
+    })
+    if not r.ok then return nil end
+    local ok, data = pcall(util.json_decode, r.stdout)
+    if not ok or type(data) ~= "table" then return nil end
+    local ids = {}
+    for _, item in ipairs(data.data or {}) do
+        if type(item.id) == "string" and item.id ~= "" then ids[#ids + 1] = item.id end
+    end
+    return ids
+end
+
+-- --- Models ---
+-- `fd -g '**/config.json' --max-depth 2`: one directory level under SEARCHD
+for _, entry in ipairs(subdirs(SEARCHD)) do
+    local config = path.join(entry[2], "config.json")
+    if path.is_file(config) then add("m", entry[1], config, "model") end
+end
+for _, id in ipairs(api_ids("/v1/model/list") or {}) do add("m", id, id, "api-model") end
+
+-- --- LoRAs ---
+for _, entry in ipairs(subdirs(LORAD)) do add("l", entry[1], entry[2], "lora") end
+for _, id in ipairs(api_ids("/v1/loras/list") or {}) do add("l", id, id, "api-lora") end
+
+-- --- Embeddings ---
+for _, entry in ipairs(subdirs(EMBEDDINGD)) do add("e", entry[1], entry[2], "embedding") end
+for _, id in ipairs(api_ids("/v1/model/embedding/list") or {}) do add("e", id, id, "api-embedding") end
+
+for _, row in ipairs(rows) do inject(row) end'''
+
+[columns]
+split = "\\t"
+names = ["name", "path", "type"]
+default = "name"
+
+[preview]
+show = true
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+# Model/LoRA/Embedding info
+command = '''
+if ({type} -like 'api-*') {
+    # `` `e `` is PowerShell 7+; these presets pin Windows PowerShell 5.1, where
+    # the escape is `[char]27`. The `{=…}` keys splice raw values, so the output
+    # does not carry the placeholder's quotes.
+    Write-Output "$([char]27)[1;34mAPI Resource:$([char]27)[0m {=name}"
+    Write-Output "$([char]27)[1;30mType:$([char]27)[0m        {=type}"
+} elseif ({type} -eq 'model') {
+    Get-ChildItem -LiteralPath (Split-Path -Parent {path}) -Force
+}
+'''
+percentage = 60
+
+[[preview.layout]]
+# the API-key preflight is a populator error rather than a pane; the layout
+# stays in place so the keyboard layout indices match the unix preset
+max = 0
+
+[[preview.layout]]
+command = '''
+$body = curl.exe -s -H 'Content-Type: application/json' -H "Authorization: Bearer $env:TABBY_API_KEY" "$env:TABBYHOST/v1/model"
+if (Get-Command fx -ErrorAction SilentlyContinue) { $body | fx . } else { Write-Output $body }
+'''
+frame = { title = "API Response" }
+
+[binds]
+"alt-l" = '''RunPreview(
+if ({type} -notlike 'api-*') { Get-Content -LiteralPath (Join-Path (Split-Path -Parent {path}) 'README.md') -Encoding UTF8 }
+)'''
+# disk size
+"f2" = '''Preview(
+if ({type} -notlike 'api-*') { ds (Split-Path -Parent {path}) }
+)'''
+"ctrl-g" = "SwitchPreview"
+"?" = "SwitchPreview"
+
+# --- Loading ---
+"@accept" = '''ExecuteOrConfirm(#!lua
+local c = state.current
+if not c then return end
+local key = os.getenv("TABBY_API_KEY")
+if not key or key == "" then error("TABBY_API_KEY is not set") end
+local host = env.TABBYHOST
+local kind, name, dir = c.type, c.name, c.path
+
+local function post(endpoint, body)
+    local r = proc.run("curl", {
+        "-s",
+        "-X",
+        "POST",
+        "-H",
+        "Content-Type: application/json",
+        "-H",
+        "Authorization: Bearer " .. key,
+        "-d",
+        "@-",
+        host .. endpoint,
+        "--fail-with-body",
+    }, { stdin = body })
+    io.write(r.stdout)
+    if not r.ok then error(r.stderr ~= "" and r.stderr or ("curl exited " .. r.code)) end
+end
+
+-- API resources only need the name
+if kind == "api-lora" then
+    print("Loading API LoRA: " .. name .. "...")
+    post("/v1/loras/load", util.json_encode({ name = name }))
+    return
+elseif kind == "api-embedding" then
+    print("Loading API Embedding: " .. name .. "...")
+    post("/v1/model/embedding/load", util.json_encode({ name = name }))
+    return
+elseif kind == "api-model" then
+    print("Loading API Model: " .. name .. "...")
+    post("/v1/model/load", util.json_encode({ name = name }))
+    return
+end
+
+-- local resources carry their own tabby.json overrides
+local config, endpoint, params
+if kind == "lora" then
+    config = path.join(dir, "tabby.json")
+    endpoint = "/v1/loras/load"
+    params = { scaling = 1 }
+elseif kind == "embedding" then
+    config = path.join(dir, "tabby.json")
+    endpoint = "/v1/model/embedding/load"
+    params = { device = "cpu" }
+elseif kind == "model" then
+    -- the row's path is the model directory's config.json
+    config = (dir:gsub("config%.json$", "")) .. "tabby.json"
+    endpoint = "/v1/model/load"
+    params = {
+        cache_mode = "Q4",
+        max_seq_len = 32768,
+        num_experts_per_token = 3,
+        autosplit_reserve = { 96, 96, 96, 96 },
+        no_flash_attention = false,
+        use_cfg = true,
+        gpu_split_auto = true,
+        prompt_template = "",
+    }
+end
+
+if path.is_file(config) then
+    print("Loading overrides from " .. config)
+    local overrides = util.json_decode(fs.read(config))
+    for k in pairs(params) do
+        local value = overrides[k]
+        if value ~= nil then params[k] = value end
+    end
+end
+
+params.name = name
+print("Requesting load for local " .. kind .. " " .. name .. "...")
+post(endpoint, util.json_encode(params))
+)'''
+"@return" = "Accept"
+
+# --- Unloading ---
+"@unload" = '''Execute(#!lua
+local r = proc.run("curl", {
+    "-s", "-X", "POST",
+    "-H", "Content-Type: application/json",
+    "-H", "Authorization: Bearer " .. (os.getenv("TABBY_API_KEY") or ""),
+    env.TABBYHOST .. "/v1/model/unload",
+    "--fail-with-body",
+})
+io.write(r.stdout)
+if not r.ok then error(r.stderr ~= "" and r.stderr or ("curl exited " .. r.code)) end
+)'''
+"@unload_emb" = '''Execute(#!lua
+local r = proc.run("curl", {
+    "-s", "-X", "POST",
+    "-H", "Content-Type: application/json",
+    "-H", "Authorization: Bearer " .. (os.getenv("TABBY_API_KEY") or ""),
+    env.TABBYHOST .. "/v1/model/embedding/unload",
+    "--fail-with-body",
+})
+io.write(r.stdout)
+if not r.ok then error(r.stderr ~= "" and r.stderr or ("curl exited " .. r.code)) end
+)'''
+"@unload_lora" = '''Execute(#!lua
+local r = proc.run("curl", {
+    "-s", "-X", "POST",
+    "-H", "Content-Type: application/json",
+    "-H", "Authorization: Bearer " .. (os.getenv("TABBY_API_KEY") or ""),
+    env.TABBYHOST .. "/v1/loras/unload",
+    "--fail-with-body",
+})
+io.write(r.stdout)
+if not r.ok then error(r.stderr ~= "" and r.stderr or ("curl exited " .. r.code)) end
+)'''
+
+"ctrl-u" = ["@unload", "Reload"]
+"alt-u" = ["@unload_emb", "Reload"]
+"alt-shift-u" = ["@unload_lora", "Reload"]
+
+[query]
+prompt = "tabby> "
+prompt_style.fg = "Magenta"

@@ -1,0 +1,410 @@
+# Pi extensions manager
+
+# The helper scripts are pure stdlib Python, but a shebang is not honoured on
+# Windows, so each one is invoked through `python` explicitly. `[start]` and
+# `[previewer]` are both `python -c`: the populator, the previews and the
+# script-invoking actions are Python source, which keeps the script paths out of
+# any shell quoting.
+
+# Maintains a mirrored list at ~/.pi/agent/mm_extensions (one JSON extension
+# definition per line; lines prefixed with `# ` are disabled) and syncs the
+# enabled set into pi's settings.json `packages` array.
+
+[start]
+shell = ['python', '-c']
+command = '''
+import json, os, subprocess, sys
+
+mmx = os.environ.get("MM_EXTENSIONS_FILE") or os.path.expanduser("~/.pi/agent/mm_extensions")
+base = os.path.dirname(os.environ["MM_OVERRIDE"])
+
+if not os.path.isfile(mmx) or os.path.getsize(mmx) == 0:
+    # seed the list from the global/project settings
+    subprocess.run([sys.executable, os.path.join(base, "pi_extensions_reconcile.py")], stdout=sys.stderr)
+
+if not os.path.isfile(mmx):
+    sys.stderr.write("error: mm_extensions not found: " + mmx + "\n")
+    sys.exit(1)
+
+with open(mmx, encoding="utf-8") as f:
+    for line in f.read().splitlines():
+        if line.startswith("# "):
+            state = "✗"
+            stripped = line[2:]
+        elif line.startswith("#"):
+            state = "✗"
+            stripped = line[1:]
+        else:
+            state = "✓"
+            stripped = line
+
+        # keep only real definitions: skip blank and whitespace-only lines
+        if not stripped.strip():
+            continue
+
+        # each definition is a JSON value; its `source` is the display name
+        try:
+            value = json.loads(stripped.rstrip(","))
+        except json.JSONDecodeError:
+            sys.stderr.write("warning: skipping unparseable line: " + stripped + "\n")
+            continue
+        name = value.get("source") if isinstance(value, dict) else value
+        if name is None:
+            continue
+        print(name + "\t" + state)
+'''
+
+[columns]
+max = 2
+names = [
+    { name = "ext", options = "Optional | OrUseDefault" },
+    { name = "on", options = "Optional | OrUseDefault" },
+]
+default = "ext"
+split = "\t"
+
+[header]
+content = ["extension", "on"]
+
+# [footer]
+# content = "enter: toggle | tab: multi-select | alt-enter: set global | ctrl-enter: set local | alt-r: reconcile"
+
+[query]
+prompt = "extensions> "
+
+[matcher]
+sort.threshold = 40
+
+# --- Preview ---
+[preview]
+show = true
+
+[previewer]
+shell = ["python", "-c"]
+
+[[preview.layout]]
+command = '''
+import os, subprocess, sys
+
+source = r"""{=1}"""
+if source:
+    base = os.path.dirname(os.environ["MM_OVERRIDE"])
+    script = os.path.join(base, "pi_extensions_preview.py")
+    sys.exit(subprocess.run([sys.executable, script, source]).returncode)
+'''
+frame = { title = "Extension Info" }
+
+[[preview.layout]]
+command = '''
+import shutil, subprocess, sys
+
+text = """This preset reads `~/.pi/agent/mm_extensions` (`MM_EXTENSIONS_FILE`) for your desired extension setup.
+The rows shown may not reflect your current pi settings! Trigger `@reconcile` (ctrl-r) to update the file to reflect your current extension settings for this project.
+`@accept` to toggle extensions.
+`@set global` or `@set local` to apply the shown configuration local/global pi settings.
+`@rm` to remove the selected extension (deletes its line, then `pi uninstall`).
+`ctrl-n` to `pi install` + add an extension.
+`@prune` to uninstall extensions found in the global/project git and npm install folders that are not in this list (preview with `pi_extensions_prune.py -n`).
+"""
+
+if shutil.which("bat"):
+    sys.exit(
+        subprocess.run(
+            ["bat", "--wrap=never", "--color=always", "-pp", "-l", "md"],
+            input=text.encode("utf-8"),
+        ).returncode
+    )
+sys.stdout.buffer.write((text + "\n").encode("utf-8"))
+'''
+frame = { title = "Usage" }
+
+[[preview.layout]]
+command = '''
+import os, shutil, subprocess, sys
+
+source = r"""{=1}"""
+if not source:
+    sys.exit(0)
+base = os.path.dirname(os.environ["MM_OVERRIDE"])
+script = os.path.join(base, "pi_extensions_preview.py")
+probe = subprocess.run([sys.executable, script, "--dir", source], capture_output=True, text=True)
+if probe.returncode != 0 or not probe.stdout.strip():
+    sys.exit(0)
+directory = probe.stdout.strip()
+for name in ("README.md", "readme.md"):
+    path = os.path.join(directory, name)
+    if os.path.exists(path):
+        if shutil.which("bat"):
+            sys.exit(subprocess.run(["bat", "--wrap=never", "--color=always", "-pp", "-l", "md", "--", path]).returncode)
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            sys.stdout.write(fh.read())
+        break
+'''
+frame = { title = "README" }
+
+# --- Binds ---
+[binds]
+"ctrl-g" = "@set global"
+"ctrl-enter" = "@set local"
+"ctrl-e" = "@set local"
+"@reload" = ["@reconcile", "Reload"]
+# "@start" = ["@reconcile", "Reload"]
+"@accept" = ["@toggle extension", "Reload"]
+"@return" = "Accept"
+"ctrl-n" = ["@install", "Reload"]
+"@rm" = ["@uninstall", "Reload"]
+"alt-p" = "@prune"
+"@open" = '''Execute(
+import os, subprocess, shlex
+from pathlib import Path
+
+editor = os.environ.get("EDITOR", "notepad")
+target = Path("~/.pi/agent/settings.json").expanduser()
+subprocess.run([*shlex.split(editor), str(target)])
+)'''
+"@open_2" = '''Execute(
+import os, subprocess, shlex
+from pathlib import Path
+
+editor = os.environ.get("EDITOR", "notepad")
+target = Path(".pi/settings.json").resolve()
+subprocess.run([*shlex.split(editor), str(target)])
+)'''
+
+# each helper script is run through the current interpreter: a shebang is not
+# honoured on Windows
+"@set global" = [
+    '''ExecuteOrConfirm(
+import os, subprocess, sys
+
+script = os.path.join(os.path.dirname(os.environ["MM_OVERRIDE"]), "pi_extensions_set.py")
+sys.exit(subprocess.run([sys.executable, script, "global"]).returncode)
+)''',
+    '''RunPreview(
+import sys
+
+with open(os.path.expanduser("~/.pi/agent/settings.json"), encoding="utf-8", errors="replace") as fh:
+    sys.stdout.write(fh.read())
+)''',
+]
+"@set local" = [
+    '''ExecuteOrConfirm(
+import os, subprocess, sys
+
+script = os.path.join(os.path.dirname(os.environ["MM_OVERRIDE"]), "pi_extensions_set.py")
+sys.exit(subprocess.run([sys.executable, script, "local"]).returncode)
+)''',
+    '''RunPreview(
+import os, sys
+
+if os.path.exists(".pi/settings.json"):
+    with open(".pi/settings.json", encoding="utf-8", errors="replace") as fh:
+        sys.stdout.write(fh.read())
+)''',
+]
+
+# show the project-local pi settings followed by the global pi settings
+"@show" = '''RunPreview(
+import os, sys
+
+for path in (".pi/settings.json", os.path.expanduser("~/.pi/agent/settings.json")):
+    if not os.path.exists(path):
+        continue
+    sys.stdout.write("===== " + path + " =====\n")
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        sys.stdout.write(fh.read())
+    sys.stdout.write("\n")
+)'''
+"@reconcile" = '''ExecuteOrConfirm(
+import os, subprocess, sys
+
+script = os.path.join(os.path.dirname(os.environ["MM_OVERRIDE"]), "pi_extensions_reconcile.py")
+sys.exit(subprocess.run([sys.executable, script]).returncode)
+)'''
+
+# uninstall what is installed in the global/project git and npm folders but not
+# listed in mm_extensions; execute for real (confirmation prompt) — preview
+# first with `pi_extensions_prune.py -n`
+"@prune" = '''ExecuteOrConfirm(
+import os, subprocess, sys
+
+script = os.path.join(os.path.dirname(os.environ["MM_OVERRIDE"]), "pi_extensions_prune.py")
+sys.exit(subprocess.run([sys.executable, script]).returncode)
+)'''
+"@toggle extension" = '''ExecuteOrConfirm(
+import json, os, shlex, subprocess, sys, tempfile
+
+mmx = os.environ.get("MM_EXTENSIONS_FILE") or os.path.expanduser("~/.pi/agent/mm_extensions")
+
+if not os.path.isfile(mmx):
+    sys.stderr.write("error: mm_extensions not found: " + mmx + "\n")
+    sys.exit(1)
+
+# every selected extension must share the same state (cursor row when nothing is selected)
+names = shlex.split(r"""{+1}""")
+states = shlex.split(r"""{+2}""")
+if not names:
+    sys.stderr.write("error: no extension selected\n")
+    sys.exit(1)
+if len(set(states)) > 1:
+    sys.stderr.write("error: selection mixes enabled and disabled extensions\n")
+    sys.exit(1)
+mode = "off" if states[0] == "✓" else "on"
+
+with open(mmx, encoding="utf-8") as f:
+    lines = f.read().splitlines()
+
+out = []
+for line in lines:
+    if line.startswith("# "):
+        stripped = line[2:]
+    elif line.startswith("#"):
+        stripped = line[1:]
+    else:
+        stripped = line
+
+    if not stripped.strip():
+        out.append(line)
+        continue
+
+    try:
+        value = json.loads(stripped.rstrip(","))
+    except json.JSONDecodeError:
+        out.append(line)
+        continue
+    name = value.get("source") if isinstance(value, dict) else value
+
+    if name in names:
+        if mode == "off":
+            out.append(line if line.startswith("#") else "# " + line)
+        else:
+            out.append(stripped if line.startswith("#") else line)
+    else:
+        out.append(line)
+
+fd, tmp = tempfile.mkstemp(prefix="mm_toggle.", suffix=".tmp", dir=os.path.dirname(os.path.abspath(mmx)))
+with os.fdopen(fd, "w", encoding="utf-8") as f:
+    f.write("\n".join(out) + ("\n" if out else ""))
+os.replace(tmp, mmx)
+print("toggled " + str(len(names)) + " extension(s) " + mode + " (apply with alt-enter / ctrl-enter)")
+)'''
+
+# remove the selected extension(s): delete the line from mm_extensions first,
+# then `pi uninstall`; reload so the row disappears from the list
+"@uninstall" = '''ExecuteOrConfirm(
+import json, os, shlex, shutil, subprocess, sys, tempfile
+
+mmx = os.environ.get("MM_EXTENSIONS_FILE") or os.path.expanduser("~/.pi/agent/mm_extensions")
+
+if not os.path.isfile(mmx):
+    sys.stderr.write("error: mm_extensions not found: " + mmx + "\n")
+    sys.exit(1)
+
+pi = shutil.which("pi")
+if pi is None:
+    sys.stderr.write("error: pi executable not found on PATH\n")
+    sys.exit(1)
+
+names = shlex.split(r"""{+1}""")
+if not names:
+    sys.stderr.write("error: no extension selected\n")
+    sys.exit(1)
+
+with open(mmx, encoding="utf-8") as f:
+    lines = f.read().splitlines()
+
+out = []
+removed = []
+for line in lines:
+    if line.startswith("# "):
+        stripped = line[2:]
+    elif line.startswith("#"):
+        stripped = line[1:]
+    else:
+        stripped = line
+
+    if not stripped.strip():
+        out.append(line)
+        continue
+
+    try:
+        value = json.loads(stripped.rstrip(","))
+    except json.JSONDecodeError:
+        out.append(line)
+        continue
+    name = value.get("source") if isinstance(value, dict) else value
+
+    if name in names:
+        removed.append(name)
+    else:
+        out.append(line)
+
+fd, tmp = tempfile.mkstemp(prefix="mm_rm.", suffix=".tmp", dir=os.path.dirname(os.path.abspath(mmx)))
+with os.fdopen(fd, "w", encoding="utf-8") as f:
+    f.write("\n".join(out) + ("\n" if out else ""))
+os.replace(tmp, mmx)
+
+for name in removed:
+    r = subprocess.run([pi, "uninstall", name])
+    if r.returncode != 0:
+        sys.stderr.write("error: pi uninstall failed for " + name + "\n")
+        sys.exit(1)
+
+print("removed " + str(len(removed)) + " extension(s) from mm_extensions and pi settings")
+)'''
+
+# prompt for a source, `pi install` it; only when that succeeds, append it to
+# mm_extensions; reload so the new row appears
+"@install" = '''ExecuteOrConfirm(
+import json, os, shutil, subprocess, sys, tempfile
+
+sys.path.insert(0, os.path.dirname(os.environ["MM_OVERRIDE"]))
+from pi_extensions_common import canonical_source
+
+mmx = os.environ.get("MM_EXTENSIONS_FILE") or os.path.expanduser("~/.pi/agent/mm_extensions")
+
+sys.stderr.write("source to install (e.g. https://github.com/user/repo): ")
+sys.stderr.flush()
+url = sys.stdin.readline().strip()
+if url.startswith("pi install"):
+    url = url[len("pi install"):].strip()
+url = canonical_source(url)
+if not url:
+    sys.stderr.write("error: no source entered\n")
+    sys.exit(1)
+
+pi = shutil.which("pi")
+if pi is None:
+    sys.stderr.write("error: pi executable not found on PATH\n")
+    sys.exit(1)
+
+r = subprocess.run([pi, "install", url])
+if r.returncode != 0:
+    sys.stderr.write("error: pi install failed for " + url + "\n")
+    sys.exit(1)
+
+line = json.dumps(url, ensure_ascii=False) + ","
+if os.path.isfile(mmx):
+    with open(mmx, encoding="utf-8") as f:
+        lines = f.read().splitlines()
+    for ln in lines:
+        stripped = ln[2:] if ln.startswith("# ") else (ln[1:] if ln.startswith("#") else ln)
+        try:
+            value = json.loads(stripped.rstrip(","))
+        except json.JSONDecodeError:
+            continue
+        name = value.get("source") if isinstance(value, dict) else value
+        if canonical_source(name) == url:
+            print("already listed in mm_extensions: " + url)
+            sys.exit(0)
+    lines.append(line)
+else:
+    os.makedirs(os.path.dirname(os.path.abspath(mmx)), exist_ok=True)
+    lines = [line]
+
+fd, tmp = tempfile.mkstemp(prefix="mm_add.", suffix=".tmp", dir=os.path.dirname(os.path.abspath(mmx)))
+with os.fdopen(fd, "w", encoding="utf-8") as f:
+    f.write("\n".join(lines) + "\n")
+os.replace(tmp, mmx)
+print("installed and added to mm_extensions: " + url)
+)'''

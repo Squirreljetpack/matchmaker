@@ -1,0 +1,75 @@
+# git-status patch to open files at their changed line
+
+[binds]
+"@open" = [
+    '''Execute(#!lua
+local cur = state.current
+if not cur then return end
+local file = cur[1]
+if not file then return end
+
+local args = { "diff", "--no-ext-diff" }
+if env.MM_PREVIEW_INDEX == "1" then table.insert(args, "--cached") end
+table.insert(args, "--unified=0")
+table.insert(args, "--")
+table.insert(args, file)
+
+-- The first hunk's new-side start line, or its old side when the hunk only
+-- deletes lines.
+local line
+for hunk in proc.run("git", args).stdout:gmatch("[^\r\n]+") do
+  if hunk:sub(1, 2) == "@@" then
+    local old, new = hunk:match("^@@ %-(%d+)%S* %+(%d+)")
+    if new then line = (new ~= "0") and new or old end
+    break
+  end
+end
+
+local argv = util.split_args(os.getenv("EDITOR") or "notepad")
+if #argv == 0 then return end
+local prog = table.remove(argv, 1)
+-- `+line` is the vim/helix convention; notepad has no jump-to-line flag.
+if line and tonumber(line) and tonumber(line) > 0 and not prog:match("notepad") then
+  table.insert(argv, "+" .. line)
+end
+table.insert(argv, file)
+
+os.exit(proc.run(prog, argv).code)
+)''',
+    "Reload",
+]
+
+"@open_2" = '''Become(#!lua
+local cur = state.current
+if not cur then return end
+local file = cur[1]
+if not file then return end
+
+local args = { "diff", "--no-ext-diff" }
+if env.MM_PREVIEW_INDEX == "1" then table.insert(args, "--cached") end
+table.insert(args, "--unified=0")
+table.insert(args, "--")
+table.insert(args, file)
+
+-- The first hunk's new-side start line, or its old side when the hunk only
+-- deletes lines.
+local line
+for hunk in proc.run("git", args).stdout:gmatch("[^\r\n]+") do
+  if hunk:sub(1, 2) == "@@" then
+    local old, new = hunk:match("^@@ %-(%d+)%S* %+(%d+)")
+    if new then line = (new ~= "0") and new or old end
+    break
+  end
+end
+
+local argv = util.split_args(os.getenv("EDITOR") or "notepad")
+if #argv == 0 then return end
+local prog = table.remove(argv, 1)
+-- `+line` is the vim/helix convention; notepad has no jump-to-line flag.
+if line and tonumber(line) and tonumber(line) > 0 and not prog:match("notepad") then
+  table.insert(argv, "+" .. line)
+end
+table.insert(argv, file)
+
+proc.exec(prog, argv)
+)'''

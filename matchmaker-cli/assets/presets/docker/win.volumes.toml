@@ -1,0 +1,70 @@
+# Docker/Podman volume viewer
+
+source = "base.toml"
+
+[matcher]
+trim = true
+
+[start]
+# The populator is Lua so docker's `{{.Field}}` template reaches docker intact;
+# the previews are PowerShell.
+shell = ["powershell", "-NoProfile", "-Command"]
+command = '''#!lua
+local docker = env.DOCKERcmd or "docker"
+local r = proc.run(docker, { "volume", "ls", "--format", "table {{.Driver}}\t{{.Name}}" })
+if not r.ok then error(docker .. " volume ls failed: " .. r.stderr) end
+for line in r.stdout:gmatch("[^\r\n]+") do inject(line) end'''
+
+[envs]
+DOCKERcmd = { value = '#!lua return proc.has("docker") and "docker" or "podman"', exec = true, force = true }
+
+[header]
+header_lines = 1
+content = "DRIVER\tVOLUME NAME"
+
+[columns]
+split = "\\t"
+names = ["driver", "name"]
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+# Inspect
+command = '''
+& $env:DOCKERcmd volume inspect {name}
+'''
+frame = { title = "Volume Inspect" }
+
+[binds]
+# Navigation
+"shift-tab" = "Become(mm -o docker/compose)"
+"enter" = "Become(Write-Output {name})"
+
+# Management Actions
+"alt-r" = "@rm"
+"alt-p" = "@prune"
+"alt-c" = "@create"
+
+# --- Actions ---
+"@config_exec" = '''Execute(& $env:DOCKERcmd volume inspect {name})'''
+"@stats" = '''Preview(& $env:DOCKERcmd volume inspect {name})'''
+
+"@rm" = ['Execute(& $env:DOCKERcmd volume rm {name})', "SetStatus(Removing...)", "Reload"]
+"@prune" = ['Execute(& $env:DOCKERcmd volume prune -f)', "SetStatus(Pruning...)", "Reload"]
+"@create" = [
+    '''Execute(#!lua
+local name = input.prompt("Enter volume name:")
+if not name or name == "" then os.exit(100) end
+local r = proc.run(env.DOCKERcmd or "docker", { "volume", "create", name })
+if not r.ok then error(r.stderr) end
+)''',
+    "Reload",
+]
+
+[query]
+prompt = "volumes> "
+prompt_style.fg = "Yellow"
+
+[tui]
+percentage = 100

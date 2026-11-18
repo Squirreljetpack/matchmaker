@@ -1,0 +1,138 @@
+# Preset to run cargo examples and binaries
+
+[start]
+# The accepts and previews below are PowerShell; pin the dialect so the shell
+# heuristic (PSModulePath → pwsh/powershell, else cmd.exe) cannot pick the wrong
+# one.
+shell = ["powershell", "-NoProfile", "-Command"]
+command = '''#!lua
+local manifest
+if path.is_file("Cargo.toml") then
+  local ok, parsed = pcall(util.toml_decode, fs.read("Cargo.toml"))
+  if ok then manifest = parsed end
+end
+
+local function entries(dir)
+  if not path.is_dir(dir) then return {} end
+  local names = fs.readdir(dir)
+  table.sort(names)
+  return names
+end
+
+-- `[[example]]`/`[[bin]]` entries from the manifest, with the conventional path
+-- as the fallback.
+local function declared(key, default_path)
+  local out = {}
+  local list = manifest and manifest[key]
+  if type(list) == "table" then
+    for _, entry in ipairs(list) do
+      if type(entry) == "table" and type(entry.name) == "string" and entry.name ~= "" then
+        local flags = ""
+        if type(entry["required-features"]) == "table" then
+          flags = table.concat(entry["required-features"], ",")
+        end
+        out[#out + 1] = { entry.name, entry.path or default_path(entry.name), flags }
+      end
+    end
+  end
+  return out
+end
+
+-- `<dir>/*.rs` and `<dir>/*/<suffix>`, for manifests that declare nothing.
+local function crawl(dir, suffix)
+  local out = {}
+  for _, name in ipairs(entries(dir)) do
+    local full = path.join(dir, name)
+    if path.is_file(full) and path.ext(name) == "rs" then
+      out[#out + 1] = { path.stem(name), full, "" }
+    elseif path.is_dir(full) and path.is_file(path.join(full, suffix)) then
+      out[#out + 1] = { name, path.join(full, suffix), "" }
+    end
+  end
+  return out
+end
+
+local examples = declared("example", function(name) return "examples/" .. name .. ".rs" end)
+if #examples == 0 then examples = crawl("examples", "src/main.rs") end
+
+local bins = declared("bin", function(name) return "src/bin/" .. name .. ".rs" end)
+if #bins == 0 then
+  bins = crawl("src/bin", "main.rs")
+  if path.is_file("src/main.rs") then bins[#bins + 1] = { "main", "src/main.rs", "" } end
+end
+
+-- Built targets. A Windows executable is the `.exe` beside its artifacts, which
+-- also skips `deps/`, `build/`, `incremental/` and the `.pdb`/`.rlib` files.
+local targets = {}
+for _, profile in ipairs({ "debug", "release" }) do
+  local dir = path.join("target", profile)
+  for _, name in ipairs(entries(dir)) do
+    local full = path.join(dir, name)
+    if path.is_file(full) and path.ext(name) == "exe" then
+      targets[#targets + 1] = { path.stem(name) .. " (" .. profile .. ")", full, "" }
+    end
+  end
+end
+
+local function emit(kind, rows)
+  for _, row in ipairs(rows) do
+    inject(table.concat({ kind, row[1], row[2], row[3] }, "\t"))
+  end
+end
+
+emit("ex", examples)
+emit("bin", bins)
+emit("target", targets)'''
+
+[columns]
+split = '\t'
+max = 4
+default = "name"
+names = ["kind", "name", "path", "flags"]
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[preview]
+[[preview.layout]]
+command = '''
+$f = {path}
+
+if ({kind} -eq 'target') {
+    if (Get-Command fs -ErrorAction SilentlyContinue) {
+        fs :tool lessfilter info $f
+    } else {
+        Get-Item -LiteralPath $f | Format-List Name, Length, LastWriteTime
+    }
+} else {
+    if (-not (Test-Path -LiteralPath $f)) { $f = ($f -replace '\.rs$', '') + '/main.rs' }
+    if (Get-Command bat -ErrorAction SilentlyContinue) {
+        bat --wrap=never --color=always -pp $f
+    } else {
+        Get-Content -LiteralPath $f -Encoding UTF8
+    }
+}
+'''
+
+[binds]
+"@accept" = '''Transform(#!lua
+local cur = state.current
+if not cur then return end
+local kind = cur[1]
+if not kind then return end
+local flags = ""
+local feats = cur[4]
+if feats and feats ~= "" then flags = " -F " .. feats end
+if kind == "target" then return "Become({path} {$0})" end
+local sub = (kind == "ex") and "--example" or "--bin"
+return "Become(cargo run " .. sub .. " " .. cur[2] .. flags .. " {$0})"
+)'''
+"@return" = "Accept"
+"ctrl-1" = "@summary"
+
+"@summary" = '''Execute(
+$manifest = Join-Path (Split-Path -Parent (Split-Path -Parent {path})) 'Cargo.toml'
+# `PAGER` is often multi-word (`bat --style=plain`): split it before calling
+$pager = $(if ($env:PAGER) { $env:PAGER } else { 'more' }) -split '\s+'
+& $pager[0] @($pager | Select-Object -Skip 1) $manifest
+)'''

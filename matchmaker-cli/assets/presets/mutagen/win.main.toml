@@ -1,0 +1,160 @@
+# Mutagen sync session picker
+
+# Lists mutagen sync sessions (one session name per row).
+# Previews show session sync status and detailed configuration.
+
+[matcher]
+trim = true
+
+[start]
+# The previews and `@copy_all` are PowerShell; pin the dialect so the shell
+# heuristic (PSModulePath → pwsh/powershell, else cmd.exe) cannot pick the wrong
+# one.
+shell = ["powershell", "-NoProfile", "-Command"]
+command = "mutagen sync list --template '{{range $i, $e := .}}{{if $i}}{{\"\\n\"}}{{end}}{{if .Name}}{{.Name}}{{else}}{{.Identifier}}{{end}}{{end}}'"
+
+[exit]
+abort_empty = false
+
+[columns]
+split = "tsv"
+default = "name"
+names = [
+    { name = "name" },
+]
+
+# --- Preview ---------------------------------------------------------------
+[preview]
+wrap = false
+show = true
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+command = 'mutagen sync list {name}'
+frame = { title = "Status" }
+
+[[preview.layout]]
+command = 'mutagen sync monitor {name}'
+frame = { title = "Mutagen Sync Monitor" }
+initial.tail = true
+
+[[preview.layout]]
+command = 'mutagen sync list -l {name}'
+frame = { title = "Details" }
+
+# --- UI --------------------------------------------------------------------
+[header]
+content = ["SESSION"]
+
+[query]
+prompt = "mutagen> "
+prompt_style.fg = "Cyan"
+
+[tui]
+percentage = 100
+
+# --- Binds -----------------------------------------------------------------
+[binds]
+"@show" = [
+    "#show detailed info",
+    'ShowPreview(mutagen sync list -l {name})',
+]
+
+"@copy_all" = [
+    "#copy conflicts",
+    '''CopyAsync(#!lua
+local argv = { "sync", "list" }
+for _, item in ipairs(state.selected) do argv[#argv + 1] = item.name end
+argv[#argv + 1] = "--template"
+argv[#argv + 1] = '{{range .}}{{range .SessionState.Conflicts}}{{if .Root}}{{.Root}}{{"\\n"}}{{end}}{{range .AlphaChanges}}{{if .Path}}{{.Path}}{{"\\n"}}{{end}}{{end}}{{range .BetaChanges}}{{if .Path}}{{.Path}}{{"\\n"}}{{end}}{{end}}{{end}}{{end}}'
+local r = proc.run("mutagen", argv)
+return r.stdout or ""
+)''',
+]
+
+"@flush" = [
+    "#flush (force sync)",
+    'ExecuteOrConfirm(mutagen sync flush {+name})',
+    "Reload",
+]
+
+"@pause" = [
+    "#pause sync",
+    'ExecuteOrConfirm(mutagen sync pause {+name})',
+    "Reload",
+]
+
+"@resume" = [
+    "#resume sync",
+    'ExecuteOrConfirm(mutagen sync resume {+name})',
+    "Reload",
+]
+
+"@reset" = [
+    "#reset (rescan without merge state)",
+    'ExecuteOrConfirm(mutagen sync reset {+name})',
+    "Reload",
+]
+
+"@rm" = [
+    "#terminate session",
+    '''ExecuteOrConfirm(#!lua
+local names, args = {}, { "sync", "terminate" }
+for _, item in ipairs(state.selected) do
+    names[#names + 1] = item.name
+    args[#args + 1] = item.name
+end
+if #names == 0 then return end
+if not input.confirm("Terminate " .. table.concat(names, " ") .. "?", true) then return end
+local r = proc.run("mutagen", args)
+if not r.ok then error(r.stderr) end
+)''',
+    "Reload",
+]
+
+# `mutagen_resolve.py` is cross-platform, but its shebang is not: name the
+# interpreter instead of executing the file.
+"@clean" = [
+    "#clean ignored files in deleted folders",
+    '''ExecuteOrConfirm(#!lua
+local args = { path.join(path.parent(env.MM_OVERRIDE), "mutagen_resolve.py"), "--clean-untracked" }
+for _, item in ipairs(state.selected) do args[#args + 1] = item.name end
+if #args == 2 then return end
+os.exit(proc.run("python", args).code)
+)''',
+    "Reload",
+]
+
+"@resolve-alpha" = [
+    "#resolve all conflicts (favor Alpha)",
+    '''ExecuteOrConfirm(#!lua
+local args = { path.join(path.parent(env.MM_OVERRIDE), "mutagen_resolve.py"), "--favor", "alpha" }
+for _, item in ipairs(state.selected) do args[#args + 1] = item.name end
+if #args == 3 then return end
+os.exit(proc.run("python", args).code)
+)''',
+    "Reload",
+]
+
+"@resolve-beta" = [
+    "#resolve all conflicts (favor Beta)",
+    '''ExecuteOrConfirm(#!lua
+local args = { path.join(path.parent(env.MM_OVERRIDE), "mutagen_resolve.py"), "--favor", "beta" }
+for _, item in ipairs(state.selected) do args[#args + 1] = item.name end
+if #args == 3 then return end
+os.exit(proc.run("python", args).code)
+)''',
+    "Reload",
+]
+
+"ctrl-s" = "@show"
+"alt-f" = "@flush"
+"alt-p" = "@pause"
+"alt-r" = "@resume"
+"alt-shift-r" = "@reset"
+"alt-c" = "@clean"
+"alt-a" = "@resolve-alpha"
+"alt-b" = "@resolve-beta"
+"ctrl-d" = "@rm"

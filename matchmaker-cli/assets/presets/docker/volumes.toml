@@ -36,8 +36,8 @@ frame = { title = "Volume Inspect" }
 "@config_exec" = "Execute($DOCKERcmd volume inspect {name} | PG_LANG=json $PAGER)"
 "@stats" = "Preview($DOCKERcmd volume inspect {name} | PG_LANG=json $PAGER)"
 
-"@rm" = ["Execute($DOCKERcmd volume rm {name}) Status(Removing...)", "Reload"]
-"@prune" = ["Execute($DOCKERcmd volume prune -f) Status(Pruning...)", "Reload"]
+"@rm" = ["Execute($DOCKERcmd volume rm {name})", "SetStatus(Removing...)", "Reload"]
+"@prune" = ["Execute($DOCKERcmd volume prune -f)", "SetStatus(Pruning...)", "Reload"]
 "@create" = [
     "Execute(printf 'Enter volume name: ' && read vol_name && [[ -n \"$vol_name\" ]] && $DOCKERcmd volume create \"$vol_name\")",
     "Reload",

@@ -1,0 +1,192 @@
+# Interactive container viewer for a project/pod
+
+source = "base.toml"
+
+[matcher]
+trim = true
+
+[start]
+# `containers.sh` is inlined: the container tool is resolved per row and carried
+# as a hidden `tool` column, so nothing needs a dispatcher script and no shell
+# has to quote docker's JSON.
+shell = ["powershell", "-NoProfile", "-Command"]
+command = '''#!lua
+local TAB = "\t"
+
+-- docker's `--format json` is one object per line for `ps`, a whole array for
+-- podman; `compose ps --format json` is one object per line.
+local function objects(stdout)
+    local out = {}
+    stdout = stdout:gsub("^%s+", "")
+    if stdout == "" or stdout == "[]" or stdout == "null" then return out end
+    local ok, data = pcall(util.json_decode, stdout)
+    if ok and type(data) == "table" then
+        if data[1] ~= nil then
+            for _, item in ipairs(data) do out[#out + 1] = item end
+        else
+            out[1] = data
+        end
+        return out
+    end
+    for line in stdout:gmatch("[^\r\n]+") do
+        local good, item = pcall(util.json_decode, line)
+        if good and type(item) == "table" then out[#out + 1] = item end
+    end
+    return out
+end
+
+local function field(item, ...)
+    for _, key in ipairs({ ... }) do
+        local v = item[key]
+        if v ~= nil and v ~= "" then return v end
+    end
+    return ""
+end
+
+local function name_of(item)
+    local names = item.Names or item.Name
+    if type(names) == "table" then names = names[1] end
+    return names or ""
+end
+
+local function inject_rows(items, tool)
+    for _, item in ipairs(items) do
+        -- `compose ps` spells the id `ID`, `docker ps`/`podman ps` spell it `Id`
+        inject(table.concat({
+            name_of(item),
+            field(item, "Status"),
+            field(item, "State"),
+            field(item, "Image"),
+            field(item, "ID", "Id"),
+            tool,
+        }, TAB))
+    end
+end
+
+local id = state.args[1] or ""
+local source = state.args[2] or ""
+
+if id ~= "" and source ~= "" then
+    if source == "compose" or source == "file" then
+        -- `get_compose_tool`: the config file path names the tool when it can,
+        -- else an inspect against podman (which also works for pod ids)
+        local tool
+        if id:find("docker", 1, true) then
+            tool = "docker"
+        elseif id:find("podman", 1, true) then
+            tool = "podman"
+        elseif proc.run("podman", { "inspect", id }).ok then
+            tool = "podman"
+        else
+            tool = "docker"
+        end
+        local argv = { "compose" }
+        for f in (id .. ","):gmatch("([^,]*),") do
+            if f ~= "" then argv[#argv + 1] = "-f"; argv[#argv + 1] = f end
+        end
+        argv[#argv + 1] = "ps"
+        argv[#argv + 1] = "--all"
+        argv[#argv + 1] = "--format"
+        argv[#argv + 1] = "json"
+        local r = proc.run(tool, argv)
+        if not r.ok then error(tool .. " compose ps failed: " .. r.stderr) end
+        inject_rows(objects(r.stdout), tool)
+    elseif source == "pod" then
+        local r = proc.run("podman", { "ps", "--all", "--filter", "pod=" .. id, "--format", "json" })
+        if not r.ok then error("podman ps failed: " .. r.stderr) end
+        inject_rows(objects(r.stdout), "podman")
+    end
+else
+    for _, tool in ipairs({ "docker", "podman" }) do
+        if proc.has(tool) then
+            local r = proc.run(tool, { "ps", "--all", "--format", "json" })
+            if r.ok then inject_rows(objects(r.stdout), tool) end
+        end
+    end
+end'''
+
+[columns]
+split = "\\t"
+names = [
+    "name",
+    "status",
+    "state",
+    "image",
+    "id",
+    { name = "tool", hidden = true },
+]
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+# Logs
+command = '''
+& {tool} container logs --tail 200 {id}
+'''
+frame = { title = "Logs" }
+side = "top"
+percentage = 50
+min = 5
+padding = 0
+
+[[preview.layout]]
+# Inspect
+command = '''
+& {tool} container inspect {id}
+'''
+frame = { title = "Container Inspect" }
+side = "right"
+percentage = 40
+min = 30
+max = 120
+
+[[preview.layout]]
+# Top
+command = '''
+& {tool} container top {id}
+'''
+frame = { title = "Processes" }
+
+[binds]
+"@prev" = "BecomeSilent(mm -o docker/compose)"
+
+"alt-d" = "@diff"
+"ctrl-k" = ["@kill", "Reload"]
+"ctrl-e" = "@exec"
+"alt-r" = ["@rm", "Reload"]
+
+# --- Scripts ---
+"@follow_logs" = 'Preview(& {tool} container logs -f -t {id})'
+"@show_2" = ['#diff', 'Preview(& {tool} container diff {id})']
+"@show_stats" = 'Preview(& {tool} container stats {id})'
+
+"@restart" = ['Execute(& {tool} container restart {id})', 'SetStatus(Restarting...)']
+"@toggle_start" = '''Execute(#!lua
+local c = state.current
+if not c then return end
+local state_now = c.state or ""
+local action = "stop"
+if state_now == "exited" or state_now == "created" then action = "start" end
+local r = proc.run(c.tool, { "container", action, c.id })
+if not r.ok then error(r.stderr) end
+)'''
+
+"@toggle_pause" = '''Execute(#!lua
+local c = state.current
+if not c then return end
+local action = "pause"
+if c.state == "paused" then action = "unpause" end
+local r = proc.run(c.tool, { "container", action, c.id })
+if not r.ok then error(r.stderr) end
+)'''
+"@kill" = ['Execute(& {tool} container kill {id})', 'SetStatus(Killing...)']
+"@exec" = '''Become(& {tool} container exec -it {id} sh -c "if command -v zsh > /dev/null 2>&1; then exec zsh; elif command -v bash > /dev/null 2>&1; then exec bash; else exec sh; fi")'''
+"@rm" = ['ExecuteOrConfirm(& {tool} container rm -f {id})', 'SetStatus(Removing...)']
+
+[query]
+prompt = "containers> "
+prompt_style.fg = "Cyan"
+
+[tui]
+percentage = 100

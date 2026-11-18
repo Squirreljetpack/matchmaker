@@ -1,0 +1,402 @@
+# interactive git status
+
+source = "base.toml"
+
+[start]
+# The populator and the multi-step actions are Lua; the previews and the plain
+# git calls are PowerShell, so pin the dialect for both.
+shell = ["powershell", "-NoProfile", "-Command"]
+command = '''#!lua
+-- `-z` NUL-terminates every entry and each entry is `XY path`; NUL is split by
+-- hand because a Lua pattern cannot spell it as a class member portably.
+local NUL = string.char(0)
+local function split_nul(s)
+  local out, pos = {}, 1
+  while true do
+    local i = s:find(NUL, pos, true)
+    if not i then break end
+    out[#out + 1] = s:sub(pos, i - 1)
+    pos = i + 1
+  end
+  return out
+end
+
+local r = proc.run("git", { "status", "--no-rename", "--ignore-submodules=dirty", "-sz" })
+if not r.ok then error("git status failed: " .. r.stderr) end
+
+local RED, GREEN, RESET = "\27[31m", "\27[32m", "\27[m"
+for _, entry in ipairs(split_nul(r.stdout)) do
+  local staged, worktree, file = entry:sub(1, 1), entry:sub(2, 2), entry:sub(4)
+  local st = ""
+  if staged ~= " " and staged ~= "?" then st = GREEN .. staged .. RESET end
+  if worktree == " " then
+    st = st .. " "
+  elseif worktree == "?" then
+    st = st .. RED .. "??" .. RESET
+  else
+    st = st .. RED .. worktree .. RESET
+  end
+  inject(file .. NUL .. st)
+end'''
+output = "{=1}"
+
+[columns]
+split = "\\x00"
+max = 2
+default = 1
+
+[matcher]
+ansi = true
+sort.threshold = 40
+
+# --- UI ---
+# [tui]
+# percentage = 100
+
+[query]
+prompt = "status> "
+
+# --- Preview ---
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+always_trigger = false
+
+[[preview.layout]]
+command = '''
+$f = {1}
+git diff --quiet -- $f
+if ($LASTEXITCODE -eq 0) {
+    if (Test-Path -LiteralPath $f) {
+        if (Get-Command bat -ErrorAction SilentlyContinue) {
+            bat --wrap=never --color=always -pp --file-name $f $f
+        } else {
+            Get-Content -LiteralPath $f -Encoding UTF8
+        }
+    } else {
+        git show "HEAD:$f"
+    }
+} else {
+    git diff --color=always -- $f
+}
+'''
+frame = { border_type = "LightDoubleDashed", fg = "DarkGray", title = "Diff (Unstaged)" }
+side = "top"
+percentage = 50
+min = 5
+padding = 0
+
+[[preview.layout]]
+command = '''
+$f = {1}
+git diff --cached --quiet $f
+if ($LASTEXITCODE -eq 0) {
+    Write-Output 'no change'
+} else {
+    git diff --cached --color=always $f
+}
+'''
+frame = { border_type = "LightDoubleDashed", fg = "DarkGray", title = "Staged Diff" }
+side = "top"
+percentage = 50
+min = 5
+padding = 0
+
+[[preview.layout]]
+# alternate history: git -c color.ui=always log --decorate --stat --summary -p -- {1}
+command = '''
+$f = {1}
+git -c color.ui=always log --ext-diff -D -p -- $f
+'''
+frame = { title = "File History" }
+
+# --- Binds ---
+[binds]
+"@accept" = ["#stage", "@stage", "Reload"]
+"@return" = "Accept"
+"@next" = "BecomeSilent(mm -o git/restore)"
+"@prev" = "BecomeSilent(mm -o git/grep)"
+"@reload" = "Reload"
+
+"ctrl-1" = "@summary"
+"ctrl-u" = ["@unstage", "Reload"]
+"@show" = [
+    "#diff",
+    '''Execute(
+& {
+    $env:DFT_CONTEXT = 50
+    git --paginate diff --color=always --exit-code -U50 HEAD -- $args
+    if ($LASTEXITCODE -eq 0) { Write-Output 'no change' }
+} {+1}
+)''',
+]
+"alt-s" = "@commit"
+"alt-c" = [
+    '''ExecuteOrConfirm(
+git add .
+if ($LASTEXITCODE -eq 0) { Write-Output 'All changes staged' } else { Write-Output 'git add . failed' }
+)''',
+    "@commit",
+]
+"alt-r" = ["@restore", "Reload"]
+"ctrl-t" = ["@stash", "Reload"]
+"alt-t" = ["@stash_unstaged", "Reload"]
+
+"alt-d" = ["#untrack", "@untrack", "Reload"]
+"@rm" = [
+    "#delete from disk",
+    '''ExecuteOrConfirm(Remove-Item -LiteralPath {+1} -Recurse -Force)''',
+    "Reload",
+]
+"alt-shift-i" = [
+    "#delete",
+    '''ExecuteOrConfirm(
+git add -- {+1}
+git rm -rf -- {+1}
+)''',
+    "Reload",
+]
+
+"ctrl-i" = [
+    "#edit gitignore",
+    '''Execute(
+$editor = $(if ($env:EDITOR) { $env:EDITOR } else { 'notepad' }) -split '\s+'
+& $editor[0] @($editor | Select-Object -Skip 1) .gitignore
+)''',
+    "Reload",
+]
+"ctrl-b" = "@save staged"
+
+# --- Scripts ---
+"@summary" = '''RunPreview(
+git -c color.ui=always status -sbu
+Write-Output ''
+git --no-pager diff --color=always --compact-summary
+exit 1
+)'''
+
+"@rename" = '''ExecuteOrConfirm(#!lua
+local src = state.selected[1] and state.selected[1][1]
+if not src then os.exit(100) end
+
+local new_name = input.prompt("Rename " .. src .. " to:")
+if not new_name or new_name == "" then os.exit(100) end
+
+local parent = path.parent(new_name)
+if parent ~= "" and parent ~= "." and not path.is_dir(parent) then
+    fs.mkdir(parent, true)
+end
+
+local r = proc.run("git", { "mv", src, new_name })
+if not r.ok then error(r.stderr) end
+)'''
+
+"@stage" = '''ExecuteAsync(#!lua
+-- every row selected: operate on the whole tree, else on the selection
+local targets = {}
+if state.total == state.selected_count then
+    targets = { "." }
+else
+    for _, item in ipairs(state.selected) do targets[#targets + 1] = item[1] end
+end
+
+local f = (state.current or {})[1] or "."
+local function git(args) return proc.run("git", args) end
+
+-- stage unless the cursor is already fully staged
+local stage = false
+local untracked = git({ "ls-files", "--others", "--exclude-standard", "--", f })
+if untracked.ok and untracked.stdout == "" and git({ "diff", "--quiet", "--", f }).ok then
+    stage = false
+else
+    stage = true
+end
+
+local argv = stage and { "add", "--" } or { "reset", "-q", "--" }
+for _, t in ipairs(targets) do argv[#argv + 1] = t end
+local r = git(argv)
+if not r.ok then error(r.stderr) end
+)'''
+
+"@unstage" = '''ExecuteAsync(#!lua
+local targets = { "." }
+if state.selected_count > 0 then
+    targets = {}
+    for _, item in ipairs(state.selected) do targets[#targets + 1] = item[1] end
+end
+
+-- stage only when every selected path is fully unstaged
+local unstaged = true
+for _, f in ipairs(targets) do
+    if not proc.run("git", { "diff", "--cached", "--quiet", "--", f }).ok then
+        unstaged = false
+        break
+    end
+end
+
+local argv = unstaged and { "add", "--" } or { "reset", "-q", "--" }
+for _, t in ipairs(targets) do argv[#argv + 1] = t end
+local r = proc.run("git", argv)
+if not r.ok then error(r.stderr) end
+)'''
+
+"@restore" = '''ExecuteOrConfirm(#!lua
+local targets = {}
+for _, item in ipairs(state.selected) do targets[#targets + 1] = item[1] end
+if #targets == 0 then os.exit(100) end
+
+local prompt
+if #targets == 1 then
+    local staged = proc.run("git", { "diff", "--cached", "--quiet", "--", targets[1] }).ok
+    prompt = "Restore " .. targets[1] .. " to HEAD? "
+        .. (staged and "[Y/n]" or "[Y/n/s(taging)]")
+else
+    prompt = "Restore " .. #targets .. " files? [Y/n/s(taging)]"
+end
+
+local ans = input.prompt(prompt)
+local argv
+if ans and ans:match("^%s*[sS]") then
+    argv = { "restore", "--" }
+elseif ans == nil or ans:match("^%s*[yY]") or ans:match("^%s*$") then
+    argv = { "restore", "--source=HEAD", "--staged", "--worktree", "--" }
+else
+    os.exit(100)
+end
+for _, t in ipairs(targets) do argv[#argv + 1] = t end
+
+local r = proc.run("git", argv)
+if not r.ok then error(r.stderr) end
+)'''
+
+"@stash" = '''ExecuteOrConfirm(#!lua
+local targets = {}
+for _, item in ipairs(state.selected) do targets[#targets + 1] = item[1] end
+
+local msg = input.prompt("Stash message (optional):")
+local argv = { "stash", "push" }
+if msg and msg ~= "" then
+    argv[#argv + 1] = "-u"
+    argv[#argv + 1] = "-m"
+    argv[#argv + 1] = msg
+end
+argv[#argv + 1] = "--"
+for _, t in ipairs(targets) do argv[#argv + 1] = t end
+
+local r = proc.run("git", argv)
+if not r.ok then error(r.stderr) end
+)'''
+
+"@stash_unstaged" = "ExecuteOrConfirm(git stash --keep-index --include-untracked)"
+
+"@untrack" = '''ExecuteOrConfirm(#!lua
+local NUL = string.char(0)
+local targets = {}
+for _, item in ipairs(state.selected) do targets[#targets + 1] = item[1] end
+
+local r = proc.run(
+    "git",
+    { "ls-files", "-z", "--cached", "--exclude-standard", "--", table.unpack(targets) }
+)
+if not r.ok then error(r.stderr) end
+
+local files, pos = {}, 1
+while true do
+    local i = r.stdout:find(NUL, pos, true)
+    if not i then break end
+    files[#files + 1] = r.stdout:sub(pos, i - 1)
+    pos = i + 1
+end
+if #files == 0 then
+    print("No tracked files selected")
+    os.exit(1)
+end
+
+local argv = { "rm", "--cached" }
+if not proc.run("git", { "rm", "--cached", "-n", "--", table.unpack(files) }).ok then
+    if not input.confirm("Force untrack " .. #files .. " files?", false) then os.exit(100) end
+    argv[#argv + 1] = "-f"
+end
+argv[#argv + 1] = "--"
+for _, f in ipairs(files) do argv[#argv + 1] = f end
+
+local rm = proc.run("git", argv)
+if not rm.ok then error(rm.stderr) end
+)'''
+
+"@ignore" = '''ExecuteOrConfirm(#!lua
+for _, item in ipairs(state.selected) do
+    local f = item[1]
+    if proc.run("git", { "rm", "-r", "--cached", f }).ok then
+        local existing = path.is_file(".gitignore") and fs.read(".gitignore") or ""
+        fs.write(".gitignore", existing .. f .. "\n")
+    end
+end
+)'''
+
+"@commit" = '''BecomeOrConfirm(#!lua
+if proc.run("git", { "diff", "--cached", "--quiet" }).ok then
+    proc.run("git", { "add", "." })
+end
+
+local summary = proc.run("git", { "--no-pager", "diff", "--color=always", "--cached", "--compact-summary" })
+io.write(summary.stdout)
+io.write("\n")
+
+-- a trailing backslash continues the message on the next line
+local msg = ""
+local line = input.prompt("Commit message (\\ -> continue):")
+while line do
+    if line:sub(-1) == "\\" then
+        msg = msg .. line:sub(1, -2) .. "\n"
+        line = input.prompt(">")
+    else
+        msg = msg .. line
+        break
+    end
+end
+
+local argv = { "commit" }
+if msg ~= "" then
+    argv[#argv + 1] = "-m"
+    argv[#argv + 1] = msg
+end
+-- hand the terminal over so git's own editor and hooks work as usual
+proc.exec("git", argv)
+)'''
+
+"@save staged" = '''BecomeOrConfirm(#!lua
+local function out(argv)
+    local r = proc.run("git", argv)
+    if not r.ok then return nil end
+    return (r.stdout:gsub("[\r\n]+$", ""))
+end
+
+local cur = out({ "symbolic-ref", "--short", "HEAD" }) or "HEAD"
+local cur_hash = out({ "rev-parse", "--short", "HEAD" }) or "unknown"
+local default_name = cur .. "-save"
+
+local name = input.prompt("Branch name", default_name)
+if not name or name == "" then os.exit(100) end
+local msg = "Saved changes (" .. cur_hash .. ")"
+
+if proc.run("git", { "diff", "--cached", "--quiet" }).ok then
+    local r = proc.run("git", { "branch", name })
+    if not r.ok then error(r.stderr) end
+    print("No staged changes. Created branch '" .. name .. "'...")
+    os.exit(100)
+end
+
+-- package the index into a tree, commit it against HEAD, then point a branch
+-- at that commit
+local tree = out({ "write-tree" })
+if not tree then error("git write-tree failed") end
+local commit = proc.run("git", { "commit-tree", tree, "-p", "HEAD" }, { stdin = msg })
+if not commit.ok then error(commit.stderr) end
+local sha = commit.stdout:gsub("[\r\n]+$", "")
+
+local br = proc.run("git", { "branch", name, sha })
+if not br.ok then error(br.stderr) end
+print("Staged changes successfully saved to '" .. name .. "'.")
+-- keep the output on screen
+os.exit(1)
+)'''

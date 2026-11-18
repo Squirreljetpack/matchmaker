@@ -133,6 +133,36 @@ fn has_executable_magic(path: &Path) -> bool {
     EXECUTABLE_MAGICS.iter().any(|m| **m == header) || header.starts_with(b"MZ")
 }
 
+/// The name a downloaded file lands on: `None` for another platform's file, and
+/// for a plain file that a variant for this platform already claims (`x.toml`
+/// next to `win.x.toml`, which both become `x.toml`).
+fn download_local_name<'a>(name: &'a str, siblings: &[&str]) -> Option<&'a str> {
+    let local = crate::paths::platform_name(name)?;
+    crate::paths::shadowing_variant(name, siblings.iter().copied())
+        .is_none()
+        .then_some(local)
+}
+
+const PLATFORM_MARKERS: [&str; 5] = [".win", ".linux", ".mac", ".macos", ".unix"];
+
+/// True when the folder has no platform marker files, or at least one marker
+/// matches the running platform.
+fn is_folder_allowed(siblings: &[&str]) -> bool {
+    let has_marker = siblings.iter().any(|n| PLATFORM_MARKERS.contains(n));
+    if !has_marker {
+        return true;
+    }
+    if cfg!(target_os = "windows") {
+        siblings.contains(&".win")
+    } else if cfg!(target_os = "macos") {
+        siblings.iter().any(|n| matches!(*n, ".mac" | ".macos" | ".unix"))
+    } else if cfg!(target_os = "linux") {
+        siblings.iter().any(|n| matches!(*n, ".linux" | ".unix"))
+    } else {
+        siblings.contains(&".unix")
+    }
+}
+
 /// Add the executable bit to `path`. A no-op on platforms without POSIX
 /// permission bits.
 #[cfg(unix)]
@@ -158,32 +188,17 @@ pub fn handle_download(download: &String, folder_exclude_extensions: &[&str]) ->
     let subfolder = download;
     let presets_dir = crate::paths::presets_path();
 
-    let is_unix = cfg!(target_os = "macos") || cfg!(target_os = "linux");
-    let os_prefix = if cfg!(target_os = "windows") {
-        "win."
-    } else if cfg!(target_os = "macos") {
-        "macos."
-    } else if cfg!(target_os = "linux") {
-        "linux."
-    } else {
-        ""
-    };
-
     let mut candidates = Vec::new();
     if subfolder.ends_with(".toml") {
         let path = Path::new(subfolder);
         if let (Some(parent), Some(file_name)) = (path.parent(), path.file_name()) {
-            // 1. OS-specific
-            if !os_prefix.is_empty() {
-                let os_name = format!("{}{}", os_prefix, file_name.to_string_lossy());
-                candidates.push(parent.join(os_name).to_string_lossy().into_owned());
+            // This platform's prefixed spellings first, then the plain file: the
+            // same order `-o` and `source =` resolve in.
+            for prefix in crate::paths::os_prefixes() {
+                let mut name = std::ffi::OsString::from(prefix);
+                name.push(file_name);
+                candidates.push(parent.join(name).to_string_lossy().into_owned());
             }
-            // 2. Unix-specific
-            if is_unix {
-                let unix_name = format!("unix.{}", file_name.to_string_lossy());
-                candidates.push(parent.join(unix_name).to_string_lossy().into_owned());
-            }
-            // 3. Generic
             candidates.push(subfolder.clone());
         } else {
             candidates.push(subfolder.clone());
@@ -240,8 +255,28 @@ pub fn handle_download(download: &String, folder_exclude_extensions: &[&str]) ->
 
     let mut download_count = 0;
 
-    for item in items {
+    // A folder can hold both an OS-specific file and its unprefixed sibling
+    // (`win.x.toml` and `x.toml` both land on `x.toml`), and the API lists
+    // `win.` before `x.toml`, so the plain file would overwrite the specific one.
+    // The specific file wins: the plain one is the fallback for platforms that
+    // have no specific variant.
+    let siblings: Vec<&str> = items
+        .iter()
+        .filter(|item| item.entry_type == "file")
+        .map(|item| item.name.as_str())
+        .collect();
+
+    if !is_folder_allowed(&siblings) {
+        ebog!("'{}' is not supported on your platform.", subfolder);
+        exit(1);
+    }
+
+    for item in &items {
         if item.entry_type != "file" {
+            continue;
+        }
+
+        if PLATFORM_MARKERS.contains(&item.name.as_str()) {
             continue;
         }
 
@@ -255,36 +290,23 @@ pub fn handle_download(download: &String, folder_exclude_extensions: &[&str]) ->
             continue;
         }
 
-        let download_url = match item.download_url {
+        let download_url = match &item.download_url {
             Some(url) => url,
             None => continue,
         };
 
-        let all_prefixes = ["win.", "macos.", "linux.", "unix."];
-
-        let (mut skip, mut local_name) = (false, item.name.as_str());
-        for p in all_prefixes {
-            if let Some(name) = local_name.strip_prefix(p) {
-                let is_compatible_unix = p == "unix." && is_unix;
-
-                if p == os_prefix || is_compatible_unix {
-                    local_name = name;
-                } else {
-                    skip = true;
-                }
-                break;
-            }
-        }
-
-        if skip {
+        let Some(local_name) = download_local_name(&item.name, &siblings) else {
             continue;
-        }
-
-        let dest_path = if subfolder.ends_with(".toml") {
-            presets_dir.join(local_name)
-        } else {
-            presets_dir.join(subfolder).join(local_name)
         };
+
+        // A folder preset (`zellij/session.toml`) lands in its own folder; a bare
+        // folder or an empty value lands in the presets root.
+        let dest_dir = if subfolder.ends_with(".toml") {
+            presets_dir.join(Path::new(subfolder).parent().unwrap_or(Path::new("")))
+        } else {
+            presets_dir.join(subfolder)
+        };
+        let dest_path = dest_dir.join(local_name);
 
         if let Some(parent) = dest_path.parent()
             && !cba::bs::create_dir(parent)
@@ -300,7 +322,7 @@ pub fn handle_download(download: &String, folder_exclude_extensions: &[&str]) ->
         let status = Command::new("curl")
             .args(["-L", "-s", "-o"])
             .arg(&dest_path)
-            .arg(&download_url)
+            .arg(download_url)
             .status()
             .ok();
 
@@ -316,7 +338,7 @@ pub fn handle_download(download: &String, folder_exclude_extensions: &[&str]) ->
                 let status = Command::new("curl")
                     .args(["-L", "-s", "-o"])
                     .arg(&dest_path)
-                    .arg(media_url_from_raw(&download_url))
+                    .arg(media_url_from_raw(download_url))
                     .status()
                     .ok();
                 if !status.is_some_and(|s| s.success()) {
@@ -554,6 +576,31 @@ mod tests {
             url.ends_with("/presets/git/grep.toml?ref=main"),
             "url was {url}"
         );
+    }
+
+    #[test]
+    fn download_prefers_the_platform_specific_sibling() {
+        let specific_name = format!("{}x.toml", crate::paths::os_prefixes()[0]);
+        let siblings = ["x.toml", specific_name.as_str()];
+
+        // The plain file is the fallback the specific one replaces.
+        assert_eq!(download_local_name("x.toml", &siblings), None);
+        assert_eq!(
+            download_local_name(&specific_name, &siblings),
+            Some("x.toml")
+        );
+        // Without a sibling the plain file is kept under its own name.
+        assert_eq!(download_local_name("y.toml", &siblings), Some("y.toml"));
+
+        // Another platform's files are never downloaded, prefixed or not.
+        let foreign = if cfg!(target_os = "windows") {
+            "linux."
+        } else {
+            "win."
+        };
+        let foreign_name = format!("{foreign}z.toml");
+        assert!(!siblings.contains(&foreign_name.as_str()));
+        assert_eq!(download_local_name(&foreign_name, &siblings), None);
     }
 
     #[test]

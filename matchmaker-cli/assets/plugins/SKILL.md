@@ -97,6 +97,30 @@ TOML literal strings (`'''...'''`) pass backslashes through unchanged. Write the
 
 With the default shell, prefer portable POSIX commands when the preset targets macOS and Linux. Do not assume GNU-only flags (`stat -c`, `sed -i`, `grep -P`, `readlink -f`) on macOS. If Windows is a target, either use an explicit cross-platform interpreter or provide a Windows-compatible command rather than silently relying on `/bin/sh`.
 
+## Platform variants
+
+A preset that cannot be written once for every OS ships one file per platform beside the shared one, named `<platform>.<name>.toml`:
+
+```text
+ps/main.toml          ps/win.main.toml
+rg.toml               win.rg.toml
+zellij/unix.session.toml
+```
+
+The prefixes are `win.` (also accepted as `windows.`), `macos.`, `linux.` and `unix.` (both unixes). A platform keeps the files prefixed for itself and ignores the others: `mm --presets` lists one entry per preset (the variant shadows the plain file), and `-o <name>`, `source =` and `mm --download` resolve to this platform's spelling first and the plain file last. Inside a prefixed file, write references so they read correctly after a download, which strips the prefix (`source = "base.toml"`). `base.toml` stays unselectable under any prefix, and a folder such as `themes/` is represented by its `main.toml`.
+
+Shell payloads need a pin, because an empty `shell` falls to a startup heuristic that can find `cmd.exe` instead of PowerShell:
+
+```toml
+[start]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+```
+
+`[previewer] shell` governs `[[preview.layout]]` and `Preview(...)`; `[start] shell` governs `Execute*`, `Become*`, `Reload`, the `[start.command]` populator and `on_accept`. `Transform`, `TransformConfig`, `Copy`/`CopyAsync`, an `exec` `[envs]` entry and `start.directory` are captured rather than executed in place and always use the heuristic shell, so write those as `#!lua` and read values from `state`/`env` (placeholders are not substituted into a `#!lua` payload). A populator that only forwards a child's byte stream is better off with `cmd`, because Windows PowerShell decodes a native child's stdout through the console code page.
+
 ## Previews
 
 Use one or more `[[preview.layout]]` entries for distinct views. Keep each command focused:

@@ -104,7 +104,6 @@ percentage = 60
 command = 'eval $CHECK_API'
 side = "up"
 percentage = 80
-initial.hidden = true
 frame = { title = "API Status" }
 
 [[preview.layout]]

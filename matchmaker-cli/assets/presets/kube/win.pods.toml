@@ -1,0 +1,65 @@
+# Kubernetes pods viewer
+
+source = "base.toml"
+
+[matcher]
+trim = true
+
+[start]
+# The payloads below are PowerShell; pin the dialect so the shell heuristic
+# (PSModulePath → pwsh/powershell, else cmd.exe) cannot pick the wrong one.
+shell = ["powershell", "-NoProfile", "-Command"]
+command = 'kubectl get pods --all-namespaces'
+input_separator = "\n"
+
+[header]
+header_lines = 1
+
+[columns]
+split = ' +'
+names = ["namespace", "name", "ready", "status", "restarts", "age"]
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+# Logs
+command = "kubectl logs --follow --all-containers --tail=100 --namespace {namespace} {name}"
+frame = { title = "Container Logs" }
+
+[binds]
+# Navigation
+"@accept" = "@exec"
+"@return" = "Accept"
+"@open" = "@logs_editor"
+
+# --- Actions ---
+"Start" = '''Transform(#!lua
+local r = proc.run("kubectl", { "config", "current-context" })
+local context = (r.stdout or ""):gsub("[%s]+$", ""):gsub("%-context$", "")
+return "SetStyledPrompt({blue,italic:" .. context .. "> })"
+)'''
+
+"@exec" = '''Execute(
+kubectl exec -it --namespace {namespace} {name} -- bash
+if ($LASTEXITCODE -ne 0) { kubectl exec -it --namespace {namespace} {name} -- sh }
+)'''
+
+"@logs_editor" = '''Execute(
+$tmp = New-TemporaryFile
+$logs = kubectl logs --all-containers --namespace {namespace} {name} | Out-String
+# The editor opens the log file: write it as UTF-8 without a BOM
+[IO.File]::WriteAllText($tmp, $logs, [Text.UTF8Encoding]::new($false))
+$editor = $(if ($env:EDITOR) { $env:EDITOR } else { 'notepad' }) -split '\s+'
+& $editor[0] @($editor | Select-Object -Skip 1) $tmp
+Remove-Item -LiteralPath $tmp -Force
+)'''
+
+"@logs" = "Execute(kubectl logs --all-containers --namespace {namespace} {name} | bat)"
+"@stats" = "Preview(kubectl top pod --namespace {namespace} {name})"
+
+[query]
+prompt = "pods> "
+
+[tui]
+percentage = 100

@@ -1,0 +1,67 @@
+# Browse known hosts
+
+[start]
+# The binds and previews are PowerShell; pin the dialect so the shell heuristic
+# (PSModulePath → pwsh/powershell, else cmd.exe) cannot pick the wrong one.
+shell = ["powershell", "-NoProfile", "-Command"]
+command = '''#!lua
+local file = path.expand_tilde("~/.ssh/known_hosts")
+if not path.is_file(file) then return end
+local lines = {}
+for line in fs.read(file):gmatch("[^\r\n]+") do
+  if not line:match("^%s*$") then lines[#lines + 1] = line end
+end
+table.sort(lines)
+for _, line in ipairs(lines) do inject(line) end'''
+
+[columns]
+split = ' '
+max = 4
+default = 1
+names = [
+    "host",
+    "type",
+    "key",
+    { name = "comment", hidden = true },
+]
+
+# --- Preview ---
+[preview]
+show = true
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+command = "{} | ssh-keygen -lf -"
+frame = { title = "Key Fingerprint" }
+
+[[preview.layout]]
+command = "ssh-keyscan {host}"
+frame = { title = "Host Keys" }
+
+# --- UI ---
+[header]
+content = ["host", "type", "key"]
+
+[query]
+prompt = "known> "
+
+[binds]
+"@show" = "ExecuteOrConfirm(ssh -vT {host} 2>&1)"
+"@open" = '''ExecuteOrConfirm(
+$editor = $(if ($env:EDITOR) { $env:EDITOR } else { 'notepad' }) -split '\s+'
+$rest = @($editor | Select-Object -Skip 1)
+& $editor[0] @rest (Join-Path $env:USERPROFILE '.ssh/known_hosts')
+)'''
+"@next" = '''BecomeSilent(#!lua
+if proc.run("tailscale", { "status", "--peers=false" }).ok then
+    proc.exec("mm", { "-o", "ssh/tailscale" })
+else
+    proc.exec("mm", { "-o", "ssh/hosts" })
+end
+)'''
+"@prev" = "BecomeSilent(mm -o ssh/keys)"
+
+# --- Scripts ---
+"@rm" = ["Execute(ssh-keygen -R {host})", "Reload"]

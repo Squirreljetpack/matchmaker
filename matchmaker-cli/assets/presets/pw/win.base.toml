@@ -1,0 +1,43 @@
+# Shared defaults for password manager presets
+
+[start]
+# `@clear` is PowerShell; pin the dialect so the shell heuristic
+# (PSModulePath → pwsh/powershell, else cmd.exe) cannot pick the wrong one.
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[matcher]
+trim = true
+
+[columns]
+split = "\\t"
+max = 4
+names = [{ name = "id", hidden = true }, "name", "user", "extra"]
+default = "name"
+
+# --- UI ---
+
+[header]
+content = ["ID", "Name", "User", "Vault / Folder"]
+
+# --- Preview ---
+
+[preview]
+show = true
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+# --- Binds ---
+
+[binds]
+"alt-u" = "@copy_user"
+"ctrl-t" = "@copy_otp"
+"ctrl-k" = "@clear"
+"@return" = "Accept"
+
+# Windows has one clipboard, reached through the host clipboard of `Copy`/
+# `CopyAsync`; clearing is the only part that needs a command.
+"@clear" = [
+    "#clear clipboard",
+    "ExecuteAsync(Set-Clipboard -Value '')",
+]

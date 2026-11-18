@@ -57,7 +57,7 @@ frame = { title = "Processes" }
 "@show_2" = "@ls"
 "@show_stats" = 'Preview("$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} stats {source})'
 
-"@restart" = 'Execute(@composer.sh {id} restart {source} --no-deps) Status(Restarting...)'
+"@restart" = ['Execute(@composer.sh {id} restart {source} --no-deps)', "SetStatus(Restarting...)"]
 "@toggle_start" = '''Execute(
     if [[ {status} == *exited* || {status} == *stopped* || {status} == *created* ]]; then
         "$(dirname -- "$MM_OVERRIDE")"/composer.sh {id} start {source}
@@ -74,9 +74,12 @@ frame = { title = "Processes" }
     fi
 )'''
 
-"@recreate" = 'Execute(@composer.sh {id} up {source} --force-recreate) Status(Recreating...)'
-"@restart_all" = 'Execute(@composer.sh {id} restart {source}) Status(Restarting all...)'
-"@recreate_all" = 'Execute(@composer.sh {id} up {source} --renew-anon-volumes --force-recreate) Status(Recreating all...)'
+"@recreate" = ['Execute(@composer.sh {id} up {source} --force-recreate)', "SetStatus(Recreating...)"]
+"@restart_all" = ['Execute(@composer.sh {id} restart {source})', "SetStatus(Restarting all...)"]
+"@recreate_all" = [
+    'Execute(@composer.sh {id} up {source} --renew-anon-volumes --force-recreate)',
+    "SetStatus(Recreating all...)",
+]
 
 "@toggle_up" = '''Execute(
     if [[ {status} == *down* || {status} == *exited* ]]; then

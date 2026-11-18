@@ -1,0 +1,78 @@
+# Bat theme picker
+
+[start]
+command = '''#!lua
+if not proc.has("bat") then error("bat not found") end
+local r = proc.run("bat", { "--list-themes", "--color=never" })
+if not r.ok then error(r.stderr) end
+for line in r.stdout:gmatch("[^\r\n]+") do
+  inject((line:gsub(" %(default light%)$", ""):gsub(" %(default%)$", "")))
+end'''
+
+# --- Preview -----------------------------------------------------------------
+[preview]
+show = true
+
+# The preview below is PowerShell; pin the dialect so the shell heuristic
+# (PSModulePath → pwsh/powershell, else cmd.exe) cannot pick the wrong one.
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+# Render the theme over the file passed as a trailing argument, or bat's help.
+command = '''
+$theme = {}
+# `@({$0})` would expand to `@('a' 'b')` for two arguments, which is a parse
+# error: build the array through a command instead.
+$files = @(Write-Output {$0})
+if ($files.Count -gt 0) {
+    bat "--theme=$theme" --color=always -pp -- $files
+} else {
+    bat --help | bat "--theme=$theme" --color=always -pp -l help
+}
+'''
+
+# --- Binds -------------------------------------------------------------------
+[binds]
+"@accept" = '''Execute(#!lua
+local cur = state.current
+if not cur then return end
+local theme = cur[1]
+if not theme then return end
+
+-- bat reports its own config location; without one, fall back to the path bat
+-- itself defaults to (%APPDATA%\bat\config).
+local config = nil
+local r = proc.run("bat", { "--config-file" })
+if r.ok and r.stdout:gsub("%s+$", "") ~= "" then
+  config = r.stdout:gsub("%s+$", "")
+end
+if not config then
+  local env_path = os.getenv("BAT_CONFIG_PATH")
+  if env_path and env_path ~= "" then
+    config = env_path
+  else
+    local root = os.getenv("APPDATA") or path.expand_tilde("~")
+    config = path.join(root, "bat", "config")
+  end
+end
+
+local out, found = {}, false
+if path.is_file(config) then
+  for line in (fs.read(config) .. "\n"):gmatch("(.-)\r?\n") do
+    if line:match("^%s*%-%-theme[= ]") then
+      out[#out + 1] = '--theme="' .. theme .. '"'
+      found = true
+    else
+      out[#out + 1] = line
+    end
+  end
+end
+if not found then out[#out + 1] = '--theme="' .. theme .. '"' end
+
+fs.mkdir(path.parent(config))
+local tmp = config .. ".mm.lua"
+fs.write(tmp, table.concat(out, "\n") .. "\n")
+fs.rename(tmp, config)
+)'''
+"@return" = "Accept"

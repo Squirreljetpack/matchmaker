@@ -163,7 +163,7 @@ pub struct StartConfig {
 
     /// Shell to execute scripts with, e.g. `["bash", "-c"]`. Empty (the
     /// default) uses `$SHELL` (or `/bin/sh`).
-    #[serde(deserialize_with = "os_strings::deserialize")]
+    #[serde(with = "os_strings")]
     pub shell: Vec<OsString>,
 
     /// Don't kill the last populating command when reloading

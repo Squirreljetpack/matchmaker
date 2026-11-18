@@ -1,0 +1,201 @@
+# Find and kill processes
+
+[matcher]
+ansi = false
+trim = true
+
+[start]
+# The populator, the second tab and the binds below are PowerShell; pin the
+# dialect so the shell heuristic (PSModulePath → pwsh/powershell, else cmd.exe)
+# cannot pick the wrong one.
+shell = ["powershell", "-NoProfile", "-Command"]
+# PID, parent PID, cumulative CPU seconds, working set in MiB, elapsed time and
+# the command line. The first line is the header row (see `[header]`).
+command = '''
+$now = Get-Date
+Write-Output "PID`tPPID`tCPU`tMEM`tELAPSED`tCOMMAND"
+Get-CimInstance Win32_Process | Sort-Object ProcessId | ForEach-Object {
+    $cpu = [math]::Round(($_.KernelModeTime + $_.UserModeTime) / 10000000, 1)
+    $mem = [math]::Round($_.WorkingSetSize / 1MB, 1)
+    $elapsed = ''
+    if ($_.CreationDate) { $elapsed = ($now - $_.CreationDate).ToString('d\.hh\:mm\:ss') }
+    $command = $_.CommandLine
+    if (-not $command) { $command = $_.Name }
+    @($_.ProcessId, $_.ParentProcessId, $cpu, $mem, $elapsed, $command) -join "`t"
+}
+'''
+additional_commands = [
+    "",
+    # Sockets: owning PID first, so the kill binds work from this tab too.
+    '''
+$procs = @{}
+Get-Process | ForEach-Object { $procs[[int]$_.Id] = $_.ProcessName }
+Write-Output "PID`tSTATE`tLOCAL`tREMOTE`tPROTO`tPROCESS"
+if (Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue) {
+    Get-NetTCPConnection | Sort-Object OwningProcess, LocalPort | ForEach-Object {
+        $name = $procs[[int]$_.OwningProcess]
+        @($_.OwningProcess, $_.State, ($_.LocalAddress + ':' + $_.LocalPort), ($_.RemoteAddress + ':' + $_.RemotePort), 'tcp', $name) -join "`t"
+    }
+} else {
+    netstat -ano | Select-String '^\s+(TCP|TCPv6|UDP|UDPv6)\s' | ForEach-Object {
+        $f = $_.Line.Trim() -split '\s+'
+        $state = ''
+        if ($f.Length -ge 5) { $state = $f[3] }
+        $owner = $f[-1]
+        @($owner, $state, $f[1], $f[2], $f[0], $procs[[int]$owner]) -join "`t"
+    }
+}
+''',
+]
+
+[header]
+header_lines = 1
+content = '[procs]'
+
+[columns]
+split = '\t'
+max = 6
+default = 6
+
+# --- Preview ---
+[preview]
+wrap = false
+trim_ends = true
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+# Details
+command = '''
+$target = {1}
+$p = Get-CimInstance Win32_Process -Filter "ProcessId = $target"
+if (-not $p) { Write-Output "process $target not found"; return }
+$p | Format-List Name, ProcessId, ParentProcessId, ExecutablePath, CommandLine, CreationDate, WorkingSetSize, KernelModeTime, UserModeTime | Out-String -Width 512
+'''
+frame = { title = "Process Details" }
+
+[[preview.layout]]
+# Children, one level below the selected process.
+command = '''
+$target = {1}
+$children = Get-CimInstance Win32_Process -Filter "ParentProcessId = $target" | Sort-Object ProcessId
+if (-not $children) { Write-Output "no child processes" }
+$children | ForEach-Object { [string]$_.ProcessId + '  ' + $_.Name + '  ' + $_.CommandLine }
+'''
+frame = { title = "Children" }
+
+[[preview.layout]]
+# Sockets owned by the selected process.
+command = '''
+$target = {1}
+$sockets = @()
+if (Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue) {
+    $sockets = Get-NetTCPConnection -OwningProcess $target -ErrorAction SilentlyContinue |
+        ForEach-Object { $_.LocalAddress + ':' + $_.LocalPort + '  ' + $_.State + '  ' + $_.RemoteAddress + ':' + $_.RemotePort }
+} else {
+    $sockets = netstat -ano | Select-String ('\s' + $target + '$') | ForEach-Object { $_.Line.Trim() }
+}
+if ($sockets) { $sockets } else { Write-Output "no sockets for $target" }
+'''
+frame = { title = "Sockets" }
+
+[binds]
+"Reloaded" = '''Transform(#!lua
+local headers = { "[procs]", "[ports]" }
+local index = tonumber(env.MM_INDEX) or 0
+return headers[index + 1] and ("SetHeader(" .. headers[index + 1] .. ")") or ""
+)'''
+"@reload_2" = []
+
+"@accept" = ["#print pid", "Become(Write-Output {+1})"]
+"@return" = ["#print active", "Become(Write-Output {+!})"]
+"@copy" = '''CopyAsync(#!lua
+local ids = {}
+for _, item in ipairs(state.selected) do ids[#ids + 1] = item[1] end
+return table.concat(ids, " ")
+)'''
+"@show" = "RunPreview(Write-Output {6})"
+
+# Windows has no signals: `taskkill /F` is the closest thing to SIGKILL, and
+# its `/T` walks the child tree. `taskkill` without `/F` only posts WM_CLOSE,
+# which fails outright for console processes, so the graceful binds run
+# `Stop-Process` through a `powershell` child (a `#!lua` payload starts a
+# process directly, so a cmdlet name cannot be used here).
+"ctrl-k" = [
+    "#kill",
+    '''Execute(#!lua
+local ids = {}
+for _, item in ipairs(state.selected) do ids[#ids + 1] = item[1] end
+if #ids == 0 then return end
+if not input.confirm("Kill " .. table.concat(ids, " ") .. "?") then return end
+local script = ([=[
+$failed = @()
+foreach ($i in @(%s)) { try { Stop-Process -Id $i -ErrorAction Stop } catch { $failed += $i } }
+if ($failed.Count) { [Console]::Error.WriteLine('Failed: ' + ($failed -join ' ')); exit 1 }
+]=]):format(table.concat(ids, ","))
+local r = proc.run("powershell", { "-NoProfile", "-Command", script })
+if not r.ok then error(r.stderr) end
+)''',
+    "Reload",
+]
+
+"alt-k" = [
+    "#kill -9",
+    '''Execute(#!lua
+local ids = {}
+for _, item in ipairs(state.selected) do ids[#ids + 1] = item[1] end
+if #ids == 0 then return end
+if not input.confirm("Kill " .. table.concat(ids, " ") .. "?") then return end
+local failed = {}
+for _, id in ipairs(ids) do
+  if not proc.run("taskkill", { "/PID", id, "/F" }).ok then failed[#failed + 1] = id end
+end
+if #failed > 0 then error("Failed: " .. table.concat(failed, " ")) end
+)''',
+    "Reload",
+]
+
+"ctrl-shift-k" = [
+    "#kill tree",
+    '''Execute(#!lua
+local ids = {}
+for _, item in ipairs(state.selected) do ids[#ids + 1] = item[1] end
+if #ids == 0 then return end
+if not input.confirm("Kill tree " .. table.concat(ids, " ") .. "?") then return end
+local script = ([=[
+$failed = @()
+$pending = New-Object System.Collections.Queue
+foreach ($i in @(%s)) { $pending.Enqueue($i) }
+$seen = @{}
+while ($pending.Count -gt 0) {
+  $x = $pending.Dequeue()
+  if (-not $seen.ContainsKey($x)) {
+    $seen[$x] = $true
+    Get-CimInstance Win32_Process -Filter "ParentProcessId = $x" | ForEach-Object { $pending.Enqueue([int]$_.ProcessId) }
+  }
+}
+foreach ($x in $seen.Keys) { try { Stop-Process -Id $x -ErrorAction Stop } catch { $failed += $x } }
+if ($failed.Count) { [Console]::Error.WriteLine('Failed: ' + ($failed -join ' ')); exit 1 }
+]=]):format(table.concat(ids, ","))
+local r = proc.run("powershell", { "-NoProfile", "-Command", script })
+if not r.ok then error(r.stderr) end
+)''',
+    "Reload",
+]
+
+"alt-shift-k" = [
+    "#kill tree -9",
+    '''Execute(#!lua
+local ids = {}
+for _, item in ipairs(state.selected) do ids[#ids + 1] = item[1] end
+if #ids == 0 then return end
+if not input.confirm("Kill tree " .. table.concat(ids, " ") .. "?") then return end
+local failed = {}
+for _, id in ipairs(ids) do
+  if not proc.run("taskkill", { "/PID", id, "/T", "/F" }).ok then failed[#failed + 1] = id end
+end
+if #failed > 0 then error("Failed: " .. table.concat(failed, " ")) end
+)''',
+    "Reload",
+]

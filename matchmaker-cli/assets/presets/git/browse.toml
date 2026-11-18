@@ -7,7 +7,7 @@
 # accept: feeds into -o git/restore
 
 [binds]
-"ctrl-f" = ["@force-add", "Reload"]
+"ctrl-f" = ["@force_add", "Reload"]
 
 "@force_add" = '''ExecuteOrConfirm(
 set -- {+1}

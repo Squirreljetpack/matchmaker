@@ -11,7 +11,10 @@ mm --download ps
 ```
 
 Requirements: `ps`, plus `pstree` (falling back to `ps --forest`), `top`, and
-`lsof` for the previews. A missing tool leaves its preview tab empty.
+`lsof` for the previews. A missing tool leaves its preview tab empty. On Windows
+the preset needs only PowerShell 5.1, which Windows 10 and 11 ship; the process
+table comes from `Get-CimInstance Win32_Process` and the socket tab from
+`Get-NetTCPConnection`, falling back to `netstat -ano`.
 
 Rows come from `ps -eo pgid,pid,user,%cpu,vsz,rss,etime,stat,command`, split on
 runs of spaces, and the command is the default search column. The header is the
@@ -46,5 +49,25 @@ asks for confirmation first.
 A process counts as gone once it exits or becomes a zombie. Each target is
 waited on for `MM_KILL_TIMEOUT` seconds (default `1`); survivors are reported
 as `Failed:`.
+
+On Windows the same `mm -o ps` resolves to `win.main.toml`, which has the same
+shape with six columns that have a cheap Windows equivalent: `PID`, `PPID`,
+`CPU` (cumulative CPU seconds, like `TIME+`), `MEM` (working set in MiB),
+`ELAPSED` and `COMMAND`. There is no `USER` or `STAT` column, and no preview for
+resource sampling. The previews show the selected process's details, its direct
+children, and its sockets. The second tab keeps the PID in the first column and
+then lists `STATE`, `LOCAL`, `REMOTE`, `PROTO` and `PROCESS`, so the kill
+bindings work from either tab.
+
+Windows has no signals or process groups, so the two terminators stand in for
+the signals and the group bindings are absent. Every kill asks for
+confirmation.
+
+| Bind           | Target    | Command                         |
+| -------------- | --------- | ------------------------------- |
+| `ctrl-k`       | selection | `Stop-Process`                  |
+| `alt-k`        | selection | `taskkill /PID /F`              |
+| `ctrl-shift-k` | selection | `Stop-Process` (walks the tree) |
+| `alt-shift-k`  | selection | `taskkill /PID /T /F`           |
 
 ![Process picker](./.README.assets/ps.png)

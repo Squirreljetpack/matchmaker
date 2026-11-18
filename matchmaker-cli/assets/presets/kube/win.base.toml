@@ -1,0 +1,22 @@
+# Common binds and actions for Kubernetes presets
+
+[binds]
+"alt-c" = "@follow_logs"
+"ctrl-y" = "@copy_id"
+"alt-d" = "@show_2"
+"alt-l" = "@show_config"
+"alt-t" = "@show_stats"
+
+"ctrl-r" = ["@restart", "Reload"]
+"ctrl-x" = ["@toggle_start", "Reload"]
+"alt-x" = ["@toggle_pause", "Reload"]
+
+"@copy" = '''CopyAsync(#!lua
+local cur = state.current
+if not cur then return end
+return cur.id
+)'''
+"@next" = "Reload"
+
+[preview]
+show = true

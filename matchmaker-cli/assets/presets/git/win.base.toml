@@ -1,0 +1,57 @@
+# Common binds and actions for Git presets
+
+[start]
+# The payloads below are PowerShell; pin the dialect so the shell heuristic
+# (PSModulePath → pwsh/powershell, else cmd.exe) cannot pick the wrong one.
+shell = ["powershell", "-NoProfile", "-Command"]
+# `start.directory` does not run through `[start] shell`, so resolve the
+# toplevel in Lua rather than through a shell command.
+directory = { value = '#!lua return (proc.run("git", { "rev-parse", "--show-toplevel" }).stdout:gsub("[%s]+$", ""))', exec = true, force = true }
+
+[binds]
+"ctrl-s" = "@show"
+"alt-d" = "@diff"
+"alt-l" = "@log"
+
+"@reload" = ["#next tab", "ReloadNext"]
+"@reload_2" = ["#prev tab", "ReloadPrev"]
+
+# `{+1}` expands to one quoted argument per selection, so the scriptblock gets
+# them as `$args`: one selection diffs against the current item, two against
+# each other, anything else against the current item.
+"@diff" = '''Execute(
+& {
+    $sel = $args
+    $cur = {1}
+    if ($sel.Count -eq 1 -and $sel[0] -ne $cur) { $sel = @($cur) + $sel }
+    if ($sel.Count -eq 2) {
+        git --paginate diff --color=always --exit-code $sel[0] $sel[1]
+    } else {
+        git --paginate diff --color=always --exit-code $cur
+    }
+    if ($LASTEXITCODE -eq 0) { Write-Output 'no change' }
+} {+1}
+)'''
+"@show" = '''Execute(
+$rev = {1}
+$extra = @()
+if ($rev -like 'stash@*') { $extra += '--first-parent' }
+git --paginate show --color=always @extra $rev -- {$0}
+)'''
+"@log" = '''Execute(
+git --paginate log --graph --decorate=short --date=short '--pretty=format:%C(yellow)%h%C(reset) %C(blue)%ad%C(reset) %C(green)%an%C(reset) %s %C(red)%d%C(reset)'
+)'''
+
+[results]
+inactive.fg = "DarkGray"
+inactive_current.fg = "DarkGray"
+style.fg = "Reset"
+
+[envs]
+DFT_COLOR = "always"
+
+[exit]
+abort_empty = false
+
+[preview]
+show = true

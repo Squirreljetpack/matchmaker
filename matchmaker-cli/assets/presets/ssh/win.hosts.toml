@@ -1,0 +1,125 @@
+# ssh host selector
+
+[start]
+# The binds and previews are PowerShell; pin the dialect so the shell heuristic
+# (PSModulePath → pwsh/powershell, else cmd.exe) cannot pick the wrong one.
+shell = ["powershell", "-NoProfile", "-Command"]
+# Not a perfect parse if host definitions are fragmented
+command = '''#!lua
+-- OpenSSH for Windows reads %USERPROFILE%\.ssh and %ProgramData%\ssh, where a
+-- wildcard block (`Host *`) applies to no single host.
+local files = { path.expand_tilde("~/.ssh/config") }
+local config_d = path.expand_tilde("~/.ssh/config.d")
+if path.is_dir(config_d) then
+  for _, name in ipairs(fs.readdir(config_d)) do
+    files[#files + 1] = path.join(config_d, name)
+  end
+end
+if os.getenv("ProgramData") then
+  files[#files + 1] = path.join(os.getenv("ProgramData"), "ssh/ssh_config")
+end
+
+local rows = {}
+for _, file in ipairs(files) do
+  local f = io.open(file, "r")
+  if f then
+    local hosts, hostname, user, port = {}, "-", "-", "-"
+    local function flush()
+      for _, host in ipairs(hosts) do
+        -- a block without HostName connects to the alias itself
+        rows[#rows + 1] = { file, host, hostname == "-" and host or hostname, user, port }
+      end
+      hosts = {}
+    end
+    for line in f:lines() do
+      local key, rest = line:match("^%s*(%S+)%s*(.-)%s*$")
+      if key then
+        key = key:lower()
+        if key == "host" then
+          if #hosts > 0 then flush() end
+          hostname, user, port = "-", "-", "-"
+          for host in rest:gmatch("%S+") do
+            if not host:find("[*?]") then hosts[#hosts + 1] = host end
+          end
+        elseif key == "hostname" then
+          hostname = rest:match("%S+") or "-"
+        elseif key == "user" then
+          user = rest:match("%S+") or "-"
+        elseif key == "port" then
+          port = rest:match("%S+") or "-"
+        end
+      end
+    end
+    if #hosts > 0 then flush() end
+    f:close()
+  end
+end
+
+-- first definition wins; `sort` orders the same rows on unix
+local seen, lines = {}, {}
+for _, row in ipairs(rows) do
+  if not seen[row[2]] then
+    seen[row[2]] = true
+    lines[#lines + 1] = table.concat(row, "\0")
+  end
+end
+table.sort(lines)
+for _, line in ipairs(lines) do inject(line) end'''
+
+[columns]
+split = "\\x00"
+max = 5
+default = "host"
+names = [{ name = "file", hidden = true }, "host", "address", "user", "port"]
+
+# --- Preview ---
+[preview]
+show = false
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+command = "ssh -G {host}"
+frame = { title = "SSH Config" }
+
+[[preview.layout]]
+command = "Test-NetConnection {host} -Port 22 -InformationLevel Detailed"
+frame = { title = "Connectivity" }
+
+[[preview.layout]]
+command = "ssh-keyscan {host}"
+frame = { title = "Host Keys" }
+
+# --- UI ---
+[header]
+content = ["file", "host", "address", "user", "port"]
+
+[query]
+prompt = "hosts> "
+
+[binds]
+"ctrl-t" = ["@test", "Reload"]
+"alt-t" = ["@test", "Reload"]
+
+"@accept" = ["#ssh", "Become(ssh {host})"]
+"@return" = "Become(Write-Output {host})"
+"@open_2" = '''Become(#!lua
+local cur = state.current
+if not cur then return end
+local file = cur.file
+if not file then return end
+local argv = util.split_args(os.getenv("EDITOR") or "notepad")
+if #argv == 0 then return end
+local prog = table.remove(argv, 1)
+table.insert(argv, file)
+proc.exec(prog, argv)
+)'''
+"@next" = "BecomeSilent(mm -o ssh/keys)"
+"@prev" = "BecomeSilent(mm -o ssh/tailscale)"
+
+# --- Scripts ---
+"@test" = "Execute(ssh -vT {host} 2>&1)"
+
+[tui]
+percentage = 100

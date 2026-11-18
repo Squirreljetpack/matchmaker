@@ -1,0 +1,240 @@
+# Pi agent sessions browser
+
+# `pi_sessions.py` / `session_stats.py` are pure stdlib but a shebang is not
+# honoured on Windows, so both are invoked through `python` explicitly: the
+# populator through `proc.run`, the stats preview through `sys.executable`.
+# Every preview is Python source because that is the only payload class here
+# that parses JSONL; the interactive binds are PowerShell.
+
+[start]
+shell = ["powershell", "-NoProfile", "-Command"]
+command = '''#!lua
+local script = path.join(path.parent(env.MM_OVERRIDE), "pi_sessions.py")
+local r = proc.run("python", { script })
+if not r.ok then error("pi_sessions.py failed: " .. r.stderr) end
+for line in r.stdout:gmatch("[^\r\n]+") do inject(line) end'''
+
+directory = { value = "~/.pi/agent/sessions", force = true }
+
+[columns]
+max = 4
+names = [
+    { name = "file", hidden = true },
+    { name = "mtime", options = "Optional | OrUseDefault" },
+    { name = "dir", options = "Optional" },
+    { name = "id", options = "Optional | OrUseDefault" },
+]
+default = "dir"
+split = "\\t"
+
+[header]
+content = ["file", "mtime", "dir", "id"]
+
+[matcher.sort]
+reverse = true
+mode = "Lexicographic"
+column = "mtime"
+threshold = 40
+
+# --- Preview ---
+[preview]
+show = true
+scroll.percentage = 70
+scroll.index = 2
+
+[previewer]
+shell = ["python", "-c"]
+
+[[preview.layout]]
+command = '''
+import json, re, shutil, subprocess, sys
+from datetime import datetime, timezone
+
+path = r"""{=file}"""
+
+events = []
+with open(path, encoding="utf-8") as fh:
+    for line in fh:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            events.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+
+
+def first(kind, role=None):
+    for event in events:
+        if event.get("type") != kind:
+            continue
+        if role is not None and (event.get("message") or dict()).get("role") != role:
+            continue
+        return event
+    return dict()
+
+
+def content_of(event):
+    return (event.get("message") or dict()).get("content") or []
+
+
+def text_of(blocks):
+    return "".join(str(b.get("text", "")) for b in blocks if b.get("type") == "text")
+
+
+session = first("session")
+model = first("model_change")
+user_msg = first("message", "user")
+
+assistant_msg = dict()
+for event in events:
+    if event.get("type") != "message":
+        continue
+    if (event.get("message") or dict()).get("role") != "assistant":
+        continue
+    if text_of(content_of(event)).strip():
+        assistant_msg = event
+
+usage = [
+    (event.get("message") or dict()).get("usage")
+    for event in events
+    if event.get("type") == "message" and "usage" in (event.get("message") or dict())
+    and (event.get("message") or dict()).get("usage") is not None
+]
+
+
+def total(key):
+    return sum(int(u.get(key) or 0) for u in usage)
+
+
+def cost_total():
+    total_cost = 0.0
+    for u in usage:
+        cost = u.get("cost")
+        if isinstance(cost, dict):
+            total_cost += float(cost.get("total") or 0)
+    return int(total_cost * 100 + 0.5) / 100
+
+
+def money(value):
+    text = "%.2f" % value
+    return text.rstrip("0").rstrip(".") if "." in text else text
+
+
+def began():
+    stamp = session.get("timestamp")
+    if not stamp:
+        return "N/A"
+    try:
+        # pi writes nanoseconds; fromisoformat takes at most microseconds
+        cleaned = re.sub(r"(\.\d{6})\d+", r"\1", stamp.replace("Z", "+00:00"))
+        moment = datetime.fromisoformat(cleaned).astimezone(timezone.utc)
+        return moment.strftime("%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return "N/A"
+
+
+def render_content(blocks):
+    out = []
+    for block in blocks:
+        kind = block.get("type")
+        if kind == "thinking":
+            out.append("[thinking] " + str(block.get("thinking", "")))
+        elif kind == "text":
+            out.append(str(block.get("text", "")))
+        elif kind == "toolCall":
+            args = json.dumps(block.get("arguments"), ensure_ascii=False, separators=(",", ":"))
+            out.append("[tool call: " + str(block.get("name", "")) + "] " + args)
+    return "\n".join(out)
+
+
+input_tokens = total("input") + total("cacheRead") + total("cacheWrite")
+lines = [
+    "- Began: `" + began() + "`",
+    "- Model: `" + str(model.get("modelId") or "N/A") + "`",
+    "- Input: `" + str(input_tokens) + "`",
+    "- Output: `" + str(total("output")) + "`",
+    "- Cost: `$" + money(cost_total()) + "`",
+    "",
+    "# Prompt",
+    "---",
+    text_of(content_of(user_msg)),
+    "",
+    "# Last response",
+    "---",
+    render_content(content_of(assistant_msg)),
+]
+markdown = "\n".join(lines) + "\n"
+
+if shutil.which("bat"):
+    sys.exit(
+        subprocess.run(
+            ["bat", "--wrap=never", "--color=always", "-pp", "-l", "md"],
+            input=markdown.encode("utf-8"),
+        ).returncode
+    )
+sys.stdout.buffer.write(markdown.encode("utf-8"))
+'''
+
+[[preview.layout]]
+command = '''
+import os, shlex, subprocess, sys
+
+base = os.path.dirname(os.environ["MM_OVERRIDE"])
+files = shlex.split(r"""{+file}""")
+sys.exit(
+    subprocess.run(
+        [sys.executable, "-X", "utf8", os.path.join(base, "session_stats.py"), "--price", "--", *files]
+    ).returncode
+)
+'''
+frame = { title = "Usage Stats" }
+
+[[preview.layout]]
+command = '''
+import shutil, subprocess, sys
+
+target = r"""{=file}"""
+if shutil.which("bat"):
+    sys.exit(subprocess.run(["bat", "--wrap=never", "--color=always", "-pp", "--", target]).returncode)
+with open(target, "rb") as fh:
+    sys.stdout.buffer.write(fh.read())
+'''
+frame = { title = "Raw Session" }
+
+# --- Binds ---
+[binds]
+"@show" = '''ExecuteOrConfirm(
+$dir = Join-Path ([System.IO.Path]::GetTempPath()) 'pi/html'
+New-Item -ItemType Directory -Force -Path $dir | Out-Null
+node (Join-Path (Split-Path -Parent $env:MM_OVERRIDE) 'export-pi-session.mjs') -o (Join-Path $dir 'session.html') (Join-Path $PWD '{file}')
+if ($LASTEXITCODE -eq 0) { Start-Process (Join-Path $dir 'session.html') }
+)'''
+"@open_2" = '''ExecuteOrConfirm(fx {1})'''
+"0,1^^@accept" = '''Become(
+$d = {dir}
+if ($d -eq '~') { $d = $env:USERPROFILE } elseif ($d -like '~*') { $d = $env:USERPROFILE + $d.Substring(1) }
+Set-Location -LiteralPath $d
+pi --session {id}
+)'''
+"0,1^^@return" = [
+    '#fork',
+    '''Become(
+$d = {dir}
+if ($d -eq '~') { $d = $env:USERPROFILE } elseif ($d -like '~*') { $d = $env:USERPROFILE + $d.Substring(1) }
+Set-Location -LiteralPath $d
+pi --fork {id}
+)''',
+]
+"?" = "SwitchPreview"
+"@rm" = ["ExecuteAsync(Remove-Item -Force -LiteralPath {+file})", "Reload"]
+"@copy" = '''CopyAsync(#!lua
+local ids = {}
+for _, item in ipairs(state.selected) do ids[#ids + 1] = item.id end
+return table.concat(ids, " ")
+)'''
+"@copy_all" = '''CopyAsync(#!lua
+local files = {}
+for _, item in ipairs(state.selected) do files[#files + 1] = item.file end
+return table.concat(files, " ")
+)'''

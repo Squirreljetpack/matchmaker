@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, VecDeque},
-    env::set_current_dir,
     io::Read,
     path::Path,
     process::{Command, Stdio, exit},
@@ -14,7 +13,7 @@ use crate::{
     clap::Cli,
     config::{Config, MatcherConfig, PartialConfig, StartConfig},
     formatter::format_cli,
-    paths::{default_config_path, last_key_path, presets_path},
+    paths::{canonicalize, default_config_path, last_key_path, presets_path},
     register::MMExt,
     sort::init_mm_sort,
     utils::{guess_editor_cmd, guess_pager_cmd},
@@ -25,7 +24,6 @@ use crate::config::PagerConfig;
 use cba::{
     _wbog,
     bait::{OptionExt, ResultExt, TransformExt},
-    birs::expand_tilde,
     bo::{
         MapReaderError, load_type_or_default, map_chunks, map_reader_lines, read_to_chunks,
         write_str,
@@ -98,26 +96,15 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
     // apply overrides
     for mut p in cli.r#override {
         if p.is_relative() && p.extension().is_none() {
-            let os = std::env::consts::OS;
+            let presets = presets_path();
+            // A preset name (`ps`, `zellij/session`, `man`) resolves to its
+            // platform's `main.toml` first, then to its platform-prefixed file,
+            // then to the literal path.
+            let main_p = crate::paths::resolve_platform_path(&presets.join(&p), "main.toml");
+            let exact_os =
+                crate::paths::resolve_platform_file(&presets.join(p.with_extension("toml")));
 
-            let main_p = presets_path().join(&p).join("main.toml");
-            let main_os = presets_path().join(&p).join(format!("{}.main.toml", os));
-            let exact = presets_path().join(p.with_extension("toml"));
-            let mut os_name = std::ffi::OsString::from(format!("{}.", os));
-            os_name.push(exact.file_name().unwrap_or_default());
-            let exact_os = exact.with_file_name(os_name);
-
-            p = if main_p.exists() {
-                main_p
-            } else if main_os.exists() {
-                main_os
-            } else if exact.exists() {
-                exact
-            } else if exact_os.exists() {
-                exact_os
-            } else {
-                exact
-            }
+            p = if main_p.is_file() { main_p } else { exact_os };
         }
         // no recursion because tail bad
         let o: PartialConfig = load_type(&p, |s| toml::from_str(s))?;
@@ -127,19 +114,19 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
         // and canonicalize so `dirname "$MM_OVERRIDE"` in preset commands is always
         // absolute regardless of how the override path was given.
         let mut override_env = EnvValue::new(
-            std::fs::canonicalize(&p)
+            canonicalize(&p)
                 .unwrap_or_else(|_| p.clone())
                 .to_string_lossy()
                 .to_string(),
         );
         override_env.force = true;
-        config
-            .envs
-            .entry("MM_OVERRIDE".to_string())
-            .or_insert(override_env);
+        // `-o` is repeatable and applied in order, so the last override is the
+        // one commands are relative to.
+        config.envs.insert("MM_OVERRIDE".to_string(), override_env);
 
         if let Some(q) = &o.source {
-            let source = p.parent().as_ref().unwrap().join(q);
+            let source =
+                crate::paths::resolve_platform_file(&p.parent().unwrap_or(Path::new("")).join(q));
             let o: PartialConfig = load_type(source, |s| toml::from_str(s))?;
             if o.source.is_some() {
                 _wbog!("Ignoring 'source' field in nested override.");
@@ -583,59 +570,14 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
     }
     let envs = process_envs(envs);
 
-    if !directory.value.is_empty() {
-        let EnvValue { value, force, exec } = directory;
-
-        let mut failed = false;
-        if exec {
-            let envs = EnvVars::from(
-                envs.iter()
-                    .map(|(a, b)| (a.clone(), b.clone()))
-                    .collect::<Vec<_>>(),
-            );
-            #[cfg(feature = "mlua")]
-            let lua_state = crate::lua::LuaState::empty();
-            if let Some(strategy) = execute::classify(&value).resolve_relative(&envs)._elog()
-                && let Some(new_d) = crate::execute::run_capture(
-                    &strategy,
-                    &envs,
-                    #[cfg(feature = "mlua")]
-                    &lua_state,
-                )
-            {
-                let new_d = Path::new(new_d.trim()).to_path_buf();
-                if new_d.exists() {
-                    failed = match set_current_dir(&new_d)
-                        .prefix(format!("Failed to switch to {new_d:?}"))
-                    {
-                        Err(e) => {
-                            if force {
-                                ebog!("{e}")
-                            } else {
-                                wbog!("{e}")
-                            }
-                            true
-                        }
-                        _ => false,
-                    };
-                } else {
-                    ebog!("Directory does not exist: {}", new_d.display());
-                    failed = true;
-                }
-            } else {
-                ebog!("Failed to execute script for directory: {}", value);
-                failed = true;
-            }
-        } else {
-            let path = expand_tilde(&value);
-            set_current_dir(&path)
-                .prefix(format!("Failed to switch to {path:?}"))
-                ._wbog();
-        }
-
-        if failed && force {
+    if !directory.value.is_empty()
+        && let Err(e) = execute::apply_directory(&directory, &envs)
+    {
+        if directory.force {
+            ebog!("{e}");
             return START_ERROR;
         }
+        wbog!("{e}");
     }
 
     // ---------------------------------

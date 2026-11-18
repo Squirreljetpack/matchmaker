@@ -1,0 +1,118 @@
+# grep for a line of change
+
+source = 'base.toml'
+
+[start]
+command = '''#!lua
+-- one row per changed line: commit, file, line text, NUL separated
+local commit, file
+local log = proc.run("git", { "log", "-Dp" })
+if not log.ok then error("git log failed: " .. log.stderr) end
+
+for line in log.stdout:gmatch("[^\r\n]+") do
+  local sha = line:match("^commit (%x+)")
+  if sha then
+    commit = sha:sub(1, 7)
+  else
+    -- the file is named only on the diff header; a hunk line that happens to
+    -- contain " b/" must not repoint it
+    if line:sub(1, 11) == "diff --git " then
+      local idx = line:find(" b/", 1, true)
+      if idx then file = line:sub(idx + 3) end
+    end
+    if commit and file
+      and line:match("^[+-]")
+      and not line:match("^%-%-%- ")
+      and not line:match("^%+%+%+ ")
+    then
+      inject(commit .. "\0" .. file .. "\0" .. line)
+    end
+  end
+end'''
+
+[exit]
+abort_empty = false
+
+[columns]
+split = "\\x00"
+max = 3
+default = 3
+
+[matcher]
+sort.threshold = 40
+
+# --- Preview ---
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+always_trigger = false
+
+[results]
+autoscroll.initial_preserved = 1
+
+[preview]
+initial_layout = 2
+show = false
+
+[[preview.layout]]
+command = '''
+git show --color=always --stat --summary {1}
+'''
+frame = { title = "Commit Summary" }
+
+# side = "right"
+# percentage = 40
+# min = 30
+# max = 120
+
+[[preview.layout]]
+# `{=1}` is the raw commit hash, so the parent revision needs no quoting
+command = '''
+git diff --color=always {=1}^ {1} -- {2}
+if ($LASTEXITCODE -ne 0) {
+    git show --color=always {1} -- {2}
+}
+'''
+frame = { title = "File Diff" }
+
+# side = "top"
+# percentage = 50
+# min = 5
+# max = 50
+
+[[preview.layout]]
+command = '''
+$rev = {1}
+$file = {2}
+git cat-file -e "${rev}:${file}" 2>$null
+if ($LASTEXITCODE -eq 0) {
+    if (Get-Command bat -ErrorAction SilentlyContinue) {
+        git show "${rev}:${file}" | bat --wrap=never --color=always -pp --file-name $file
+    } else {
+        git show --color=always "${rev}:${file}"
+    }
+} else {
+    git show --ext-diff --color=always $rev -- $file
+}
+'''
+frame = { title = "File Contents" }
+
+# --- UI ---
+[tui]
+percentage = 100
+
+[query]
+prompt = "grep> "
+
+[binds]
+"@reload" = []
+"@reload_2" = []
+"@next" = '''BecomeSilent(#!lua
+if proc.run("git", { "status", "--porcelain" }).stdout:match("^%s*$") then
+    proc.exec("mm", { "-o", "git/restore" })
+else
+    proc.exec("mm", { "-o", "git/status", "-F" })
+end
+)'''
+"@prev" = "BecomeSilent(mm -o git/switch)"
+
+# --- Scripts ---

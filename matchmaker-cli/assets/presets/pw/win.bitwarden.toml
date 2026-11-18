@@ -1,0 +1,130 @@
+# Bitwarden vault picker (rbw)
+
+source = "base.toml"
+
+[start]
+command = '''#!lua
+if not proc.has("rbw") then error("rbw not found") end
+local r = proc.run("rbw", { "list", "--fields", "id,name,user,folder" })
+if not r.ok then error("rbw list failed: " .. r.stderr) end
+for line in (r.stdout .. "\n"):gmatch("(.-)\r?\n") do
+  if line ~= "" then inject(line) end
+end'''
+output = "{=id}"
+
+[query]
+prompt = "bitwarden> "
+
+# --- Preview ---
+
+[[preview.layout]]
+command = '''
+$item = rbw get --raw {id} | ConvertFrom-Json
+Write-Output "Name:     $($item.name)"
+Write-Output "User:     $($item.data.username)"
+Write-Output "Folder:   $(if ($item.folder) { $item.folder } else { '-' })"
+Write-Output "Password: $(if ($item.data.password) { '********' } else { '-' })"
+Write-Output "TOTP:     $(if ($item.data.totp) { 'configured' } else { '-' })"
+if ($item.data.uris) {
+    Write-Output ("URIs:     " + (($item.data.uris | ForEach-Object { $_.uri }) -join ', '))
+}
+'''
+frame = { title = "Entry" }
+
+[[preview.layout]]
+command = '''
+$item = rbw get --raw {id} | ConvertFrom-Json
+Write-Output 'Notes:'
+Write-Output $(if ($item.notes) { $item.notes } else { '-' })
+Write-Output ''
+Write-Output 'Fields:'
+if ($item.fields) {
+    foreach ($field in $item.fields) {
+        $name = if ($field.name) { $field.name } else { '?' }
+        $value = if ($field.type -eq 'hidden') { '********' } else { $field.value }
+        Write-Output "  ${name}: $value"
+    }
+} else {
+    Write-Output '  -'
+}
+'''
+frame = { title = "Fields & Notes" }
+
+# --- Binds ---
+
+[binds]
+"ctrl-x" = ["@sync", "Reload"]
+
+"@accept" = [
+    "#copy password and quit",
+    '''Copy(#!lua
+local cur = state.current
+if not cur then return end
+local r = proc.run("rbw", { "get", cur.id })
+if not r.ok then error(r.stderr) end
+proc.spawn("powershell", { "-NoProfile", "-Command", "Start-Sleep -Seconds 15; Set-Clipboard -Value ''" })
+return r.stdout
+)''',
+    "Quit(0)",
+]
+"@copy" = [
+    "#copy password",
+    '''CopyAsync(#!lua
+local cur = state.current
+if not cur then return end
+local r = proc.run("rbw", { "get", cur.id })
+if not r.ok then error(r.stderr) end
+proc.spawn("powershell", { "-NoProfile", "-Command", "Start-Sleep -Seconds 15; Set-Clipboard -Value ''" })
+return r.stdout
+)''',
+]
+"@copy_user" = [
+    '#copy username',
+    '''CopyAsync(#!lua
+local cur = state.current
+if not cur then return end
+return cur.user
+)''',
+]
+"@copy_otp" = [
+    "#copy TOTP",
+    '''CopyAsync(#!lua
+local cur = state.current
+if not cur then return end
+local r = proc.run("rbw", { "code", cur.id })
+if not r.ok then error(r.stderr) end
+return r.stdout
+)''',
+]
+"@sync" = ["#sync vault", "ExecuteOrConfirm(rbw sync)"]
+"@open" = [
+    "#open URL",
+    '''ExecuteOrConfirm(#!lua
+local cur = state.current
+if not cur then return end
+local r = proc.run("rbw", { "get", "--raw", cur.id })
+if not r.ok then error(r.stderr) end
+local uris = util.json_decode(r.stdout).data.uris
+local url = uris and uris[1] and uris[1].uri
+if not url then error("No URL found for " .. (cur.name or "")) end
+proc.spawn("powershell", { "-NoProfile", "-Command", "Start-Process '" .. url:gsub("'", "''") .. "'" })
+)''',
+]
+"@show" = [
+    "#reveal entry",
+    '''RunPreview(
+$item = rbw get --raw {id} | ConvertFrom-Json
+Write-Output "Name:     $($item.name)"
+Write-Output "User:     $($item.data.username)"
+Write-Output "Password: $(if ($item.data.password) { $item.data.password } else { '-' })"
+Write-Output "TOTP:     $(if ($item.data.totp) { $item.data.totp } else { '-' })"
+foreach ($field in $item.fields) {
+    $name = if ($field.name) { $field.name } else { '?' }
+    Write-Output "${name}: $($field.value)"
+}
+if ($item.notes) {
+    Write-Output '---'
+    Write-Output $item.notes
+}
+)''',
+]

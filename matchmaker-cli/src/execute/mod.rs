@@ -238,3 +238,53 @@ where
         Err("cannot inject rows from a non-Lua command strategy".into())
     }
 }
+
+/// Resolve a `start.directory` value and switch the process to it, returning the
+/// directory that was applied.
+///
+/// An `exec` value runs as a command (shell, `@file` or `#!lua`) and its trimmed
+/// output is taken as the directory; a plain value is a path with `~` expanded.
+/// The error describes the first failure so each caller applies its own `force`
+/// policy.
+#[cfg_attr(not(feature = "mlua"), allow(unused_variables))]
+pub fn apply_directory(
+    directory: &matchmaker::config::EnvValue,
+    envs: &std::collections::HashMap<String, String>,
+) -> Result<std::path::PathBuf, String> {
+    let path = if directory.exec {
+        let envs = EnvVars::from(
+            envs.iter()
+                .map(|(a, b)| (a.clone(), b.clone()))
+                .collect::<Vec<_>>(),
+        );
+        #[cfg(feature = "mlua")]
+        let lua_state = crate::lua::LuaState::empty();
+        let output = classify(&directory.value)
+            .resolve_relative(&envs)
+            .and_then(|strategy| {
+                run_capture(
+                    &strategy,
+                    &envs,
+                    #[cfg(feature = "mlua")]
+                    &lua_state,
+                )
+                .ok_or_else(|| {
+                    format!(
+                        "Failed to execute script for directory: {}",
+                        directory.value
+                    )
+                })
+            })?;
+        std::path::Path::new(output.trim()).to_path_buf()
+    } else {
+        std::path::PathBuf::from(cba::bath::expand_tilde(&directory.value))
+    };
+
+    if !path.exists() {
+        return Err(format!("Directory does not exist: {}", path.display()));
+    }
+
+    std::env::set_current_dir(&path).map_err(|e| format!("Failed to switch to {path:?}: {e}"))?;
+
+    Ok(path)
+}

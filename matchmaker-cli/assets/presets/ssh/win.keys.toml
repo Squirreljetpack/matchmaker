@@ -1,0 +1,84 @@
+# browse public keys
+
+[start]
+# `on_accept` is PowerShell, like the previews below; pin the dialect so the
+# shell heuristic (PSModulePath → pwsh/powershell, else cmd.exe) cannot pick the
+# wrong one.
+shell = ["powershell", "-NoProfile", "-Command"]
+directory = "~/.ssh"
+on_accept = "(Resolve-Path -LiteralPath {1}).ProviderPath"
+
+[start.command]
+command = "Get-ChildItem -Filter *.pub -Name"
+
+# --- Preview ---
+[preview]
+show = true
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+command = '''
+$key = {1}
+if (Get-Command bat -ErrorAction SilentlyContinue) {
+    bat --wrap=never --color=always -pp $key
+} else {
+    Get-Content -LiteralPath $key -Raw -Encoding UTF8
+}
+Write-Output ''
+ssh-keygen -lf $key -E sha256
+'''
+frame = { title = "Key Fingerprint" }
+
+# --- UI ---
+[query]
+prompt = "keys> "
+
+[binds]
+"@accept" = [
+    "#copy",
+    '''Copy(#!lua
+local cur = state.current
+if not cur then return end
+return fs.read(cur[1])
+)''',
+    "Accept",
+]
+"@return" = [
+    "#copy path",
+    '''Copy(#!lua
+local cur = state.current
+if not cur then return end
+return path.join(path.expand_tilde("~/.ssh"), cur[1])
+)''',
+    "Accept",
+]
+"@open_2" = '''Become(#!lua
+local cur = state.current
+if not cur then return end
+local priv = cur[1]:gsub("%.pub$", "")
+if not path.is_file(priv) then return end
+local argv = util.split_args(os.getenv("EDITOR") or "notepad")
+if #argv == 0 then return end
+local prog = table.remove(argv, 1)
+table.insert(argv, priv)
+proc.exec(prog, argv)
+)'''
+"@next" = "BecomeSilent(mm -o ssh/known)"
+"@prev" = "BecomeSilent(mm -o ssh/hosts)"
+"@rm" = [
+    '''ExecuteOrConfirm(#!lua
+local cur = state.current
+if not cur then return end
+local pub = cur[1]
+local priv = pub:gsub("%.pub$", "")
+if not input.confirm("Permanently delete " .. priv .. " and " .. pub .. "?", false) then
+    return
+end
+for _, file in ipairs({ priv, pub }) do
+    if path.lexists(file) then fs.remove(file) end
+end
+)''',
+    "Reload",
+]

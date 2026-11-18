@@ -6,7 +6,8 @@ dir="$(dirname -- "$MM_OVERRIDE")"
 for p in "$dir"/*.toml; do
     [ -e "$p" ] || continue
     name="${p##*/}"
-    [ "$name" = "main.toml" ] && continue
+    # `main.toml` and the platform-prefixed siblings are the theme *pickers*.
+    case "$name" in main.toml|win.*|windows.*|macos.*|linux.*|unix.*) continue ;; esac
     name="${name%.toml}"
     printf '%s\0%s\n' "$p" "$name"
 done

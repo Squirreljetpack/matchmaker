@@ -1,0 +1,60 @@
+# Preset picker
+
+[start]
+# The accept bind below is PowerShell; pin the dialect so the shell heuristic
+# (PSModulePath → pwsh/powershell, else cmd.exe) cannot pick the wrong one.
+shell = ["powershell", "-NoProfile", "-Command"]
+command = '''#!lua
+local dir = path.parent(env.MM_OVERRIDE)
+local r = proc.run("mm", { "--presets" })
+if not r.ok then error("mm --presets failed: " .. r.stderr) end
+
+-- `win.`/`unix.`/… marks the file for one platform; the preset's name is the
+-- one without the prefix (Lua patterns have no alternation).
+local function platform_name(name)
+  for _, prefix in ipairs({ "win.", "windows.", "macos.", "linux.", "unix." }) do
+    if name:sub(1, #prefix) == prefix then return name:sub(#prefix + 1) end
+  end
+  return name
+end
+
+for line in r.stdout:gmatch("[^\r\n]+") do
+  local rel = line
+  if rel:sub(1, #dir) == dir then
+    rel = rel:sub(#dir + 2)
+  end
+  rel = rel:gsub("\\", "/")
+  local head, base = rel:match("^(.*/)([^/]+)$")
+  if not base then
+    head, base = "", rel
+  end
+  rel = head .. platform_name(base)
+  if rel == "themes/main.toml" then
+    inject(line .. "\0themes")
+  elseif not rel:match("^themes/") then
+    inject(line .. "\0" .. (rel:gsub("%.toml$", ""):gsub("/main$", "")))
+  end
+end'''
+output = "{=path}"
+directory = { value = '#!lua return path.parent(env.MM_OVERRIDE)', exec = true, force = true }
+
+[binds]
+"@accept" = '''Become(
+& {
+$argv = @()
+foreach ($p in $args) { $argv += @('-o', $p) }
+if ($args.Count -eq 1) {
+    $dir = Split-Path -Parent $env:MM_OVERRIDE
+    $patch = Join-Path $dir ('patches/' + (({name}) -replace '/', '-') + '.toml')
+    if (Test-Path -LiteralPath $patch) { $argv += @('-o', $patch) }
+}
+mm @argv
+} {+path}
+)'''
+"@return" = "Accept"
+
+[columns]
+split = "\\x00"
+max = 2
+default = "name"
+names = [{ name = "path", hidden = true }, "name"]

@@ -1,0 +1,60 @@
+# Browse and ssh into your tailnet
+
+[start]
+# The binds and previews are PowerShell; pin the dialect so the shell heuristic
+# (PSModulePath → pwsh/powershell, else cmd.exe) cannot pick the wrong one.
+shell = ["powershell", "-NoProfile", "-Command"]
+command = '''#!lua
+-- `tailscale status` ends with a legend after a blank line; stop there
+local status = proc.run("tailscale", { "status" })
+if not status.ok then error("tailscale status failed: " .. status.stderr) end
+for line in (status.stdout .. "\n"):gmatch("(.-)\r?\n") do
+  if line:match("^%s*$") then break end
+  inject(line)
+end'''
+
+[columns]
+# tailscale status output:
+# 100.100.100.100  hostname             user@        os      status
+split = '\s+'
+names = ["ip", "hostname", "user", "os", "status"]
+
+[envs]
+TAILSCALE_BE_CLI = "1"
+
+# --- Preview ---
+[preview]
+show = true
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+command = "tailscale ping --verbose {hostname}"
+frame = { title = "Ping" }
+
+[[preview.layout]]
+
+[[preview.layout]]
+command = "tailscale status --json"
+frame = { title = "Tailnet Status" }
+
+# --- UI ---
+[header]
+content = ["ip", "hostname", "user", "os", "status"]
+
+[query]
+prompt = "tailscale> "
+
+[binds]
+"ctrl-n" = "@netcheck"
+
+"@accept" = "Become(Write-Output {ip})"
+"@return" = "Accept"
+"@open" = "Become(tailscale ssh {hostname})"
+"@open_2" = "ExecuteSilent(Start-Process 'https://login.tailscale.com/admin/machines')"
+"@next" = "BecomeSilent(mm -o ssh/hosts)"
+"@prev" = "BecomeSilent(mm -o ssh/known)"
+
+# --- Scripts ---
+"@netcheck" = "Preview(tailscale netcheck)"

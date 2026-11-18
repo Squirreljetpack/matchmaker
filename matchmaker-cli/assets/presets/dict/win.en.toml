@@ -1,0 +1,76 @@
+# English wiktionary
+
+[start]
+# The populator is `cmd`: it copies a child's stdout byte for byte, so the UTF-8
+# records and their NUL separators survive. PowerShell would decode the stream
+# through the console code page and re-split it on newlines, which the embedded
+# newlines in a definition make lossy. The binds and previews never use it.
+shell = ["cmd", "/c"]
+# `start.directory` does not run through `[start] shell`, so resolve the preset
+# directory in Lua: it keeps the zstd argument free of quotes.
+directory = { value = '#!lua return path.parent(env.MM_OVERRIDE)', exec = true, force = true }
+
+[start.command]
+command = "zstd -dc %ACTIVE_DICT%.zst"
+separator = "\\0"
+
+[envs]
+ACTIVE_DICT = "english"
+
+[query]
+prompt = "en> "
+
+[status]
+row_connection = "Capped"
+
+[header]
+content = ['word', 'pos', 'definition']
+
+[columns]
+split = "\\t"
+names = ["word", "pos", "definition", { name = 'synonyms', hidden = true }, { name = 'etymology', hidden = true }]
+
+[matcher]
+backend = "frizbee"
+max_typos = 1
+exact_match_bonus = 16
+
+# --- Preview ---
+[preview]
+show = true
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+# Tree view
+command = '''
+$width = if ($env:COLUMNS -and [int]$env:COLUMNS -gt 0) { [int]$env:COLUMNS } else { 80 }
+$rule = '-' * $width
+Write-Output $rule
+Write-Output {word}
+Write-Output $rule
+Write-Output {definition}
+Write-Output ''
+
+Write-Output $rule
+Write-Output 'synonyms'
+Write-Output $rule
+Write-Output {synonyms}
+
+Write-Output ''
+Write-Output $rule
+Write-Output 'etymology'
+Write-Output $rule
+Write-Output {etymology}
+'''
+
+[binds]
+# one command, so the prompt never depends on the tab index
+"Reloaded" = "SetPrompt(en> )"
+"Start" = '''Transform(#!lua
+if #state.args == 0 then return "" end
+return "SetQuery(" .. table.concat(state.args, " ") .. ")"
+)'''
+
+[tui]

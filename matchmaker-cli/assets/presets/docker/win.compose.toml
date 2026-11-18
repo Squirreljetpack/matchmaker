@@ -1,0 +1,471 @@
+# Docker/Podman projects viewer
+
+source = "base.toml"
+
+[start]
+# `projects.sh` is inlined here: compose/pod projects are collected in Lua and
+# injected as tab-separated rows so no shell has to quote docker's JSON.
+shell = ["powershell", "-NoProfile", "-Command"]
+command = '''#!lua
+local home = os.getenv("USERPROFILE") or os.getenv("HOME") or ""
+-- an inherited `DOCKERdir` wins: `[envs]` only fills in a variable that is not
+-- already in the environment, so the ambient one never reaches `env`
+local dir = os.getenv("DOCKERdir")
+if not dir or dir == "" then dir = env.DOCKERdir end
+if not dir or dir == "" then dir = path.join(home, "docker") end
+
+local rows, order, seen = {}, {}, {}
+local function add(name, status, id, source)
+    if not name or name == "" or seen[name] then return end
+    seen[name] = true
+    order[#order + 1] = { name, status, id, source }
+end
+
+local function objects(stdout)
+    stdout = stdout:gsub("^%s+", "")
+    if stdout == "" or stdout == "[]" or stdout == "null" then return {} end
+    local ok, data = pcall(util.json_decode, stdout)
+    if not ok or type(data) ~= "table" then return {} end
+    return data
+end
+
+-- 1. compose projects (docker, then podman)
+for _, tool in ipairs({ "docker", "podman" }) do
+    if proc.has(tool) then
+        local r = proc.run(tool, { "compose", "ls", "--all", "--format", "json" })
+        if r.ok then
+            for _, item in ipairs(objects(r.stdout)) do
+                add(item.Name, item.Status, item.ConfigFiles, "compose")
+            end
+        end
+    end
+end
+
+-- 2. podman pods
+if proc.has("podman") then
+    local r = proc.run("podman", { "pod", "ls", "--format", "json" })
+    if r.ok then
+        for _, item in ipairs(objects(r.stdout)) do
+            add(item.Name, item.Status, item.Id, "pod")
+        end
+    end
+end
+
+-- 3. compose.yml on disk: the directory itself and its direct children, which
+-- is what `find -maxdepth 2` covers
+if path.is_dir(dir) then
+    local root = path.join(dir, "compose.yml")
+    if path.is_file(root) then add(path.base(dir), "down", root, "file") end
+    for _, entry in ipairs(fs.readdir(dir)) do
+        local candidate = path.join(dir, entry, "compose.yml")
+        if path.is_file(candidate) then add(entry, "down", candidate, "file") end
+    end
+end
+
+for _, row in ipairs(order) do
+    inject(table.concat(row, "\t"))
+end'''
+output = "{=id}"
+
+[columns]
+split = "\\t"
+names = ["name", "status", "id", { name = "source", hidden = true }]
+
+[envs]
+# the project root for the on-disk scan; an inherited `DOCKERdir` shadows this
+DOCKERdir = { value = '#!lua return path.join(os.getenv("USERPROFILE") or os.getenv("HOME") or "", "docker")', exec = true }
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+# Logs
+command = '''
+if ({source} -eq 'pod') {
+    podman pod logs {id} --tail 200
+} else {
+    $tool = if ({id} -like '*docker*') { 'docker' } elseif ({id} -like '*podman*') { 'podman' } elseif (Get-Command docker -ErrorAction SilentlyContinue) { 'docker' } else { 'podman' }
+    $fargs = @()
+    foreach ($f in ({id} -split ',')) { $fargs += @('-f', $f) }
+    & $tool compose @fargs logs --tail 200
+}
+'''
+frame = { title = "Logs" }
+side = "top"
+percentage = 50
+min = 5
+padding = 0
+
+[[preview.layout]]
+# Config
+command = '''
+if ({source} -eq 'pod') {
+    podman pod inspect {id}
+} else {
+    $tool = if ({id} -like '*docker*') { 'docker' } elseif ({id} -like '*podman*') { 'podman' } elseif (Get-Command docker -ErrorAction SilentlyContinue) { 'docker' } else { 'podman' }
+    $fargs = @()
+    foreach ($f in ({id} -split ',')) { $fargs += @('-f', $f) }
+    & $tool compose @fargs config
+}
+'''
+frame = { title = "Compose Config" }
+side = "right"
+percentage = 40
+min = 30
+max = 120
+
+[[preview.layout]]
+# Top
+command = '''
+if ({source} -eq 'pod') {
+    podman pod top {id}
+} else {
+    $tool = if ({id} -like '*docker*') { 'docker' } elseif ({id} -like '*podman*') { 'podman' } elseif (Get-Command docker -ErrorAction SilentlyContinue) { 'docker' } else { 'podman' }
+    $fargs = @()
+    foreach ($f in ({id} -split ',')) { $fargs += @('-f', $f) }
+    & $tool compose @fargs top
+}
+'''
+frame = { title = "Processes" }
+
+[binds]
+"0,1^^@accept" = "Become(mm -o docker/containers -- {id} {source})"
+"0,1^^@return" = ["#lazydocker", "Become(lazydocker -f {id})"]
+
+"alt-r" = ["@recreate", "Reload"]
+"ctrl-a" = ["@restart_all", "Reload"]
+"alt-a" = ["@recreate_all", "Reload"]
+"ctrl-u" = ["@toggle_up", "Reload"]
+"alt-u" = ["@toggle_up_full", "Reload"]
+
+"alt-." = "@edit_env"
+
+# --- Scripts ---
+"@follow_logs" = '''Preview(
+if ({source} -eq 'pod') {
+    podman pod logs {id} -f -t
+} else {
+    $tool = if ({id} -like '*docker*') { 'docker' } elseif ({id} -like '*podman*') { 'podman' } elseif (Get-Command docker -ErrorAction SilentlyContinue) { 'docker' } else { 'podman' }
+    $fargs = @()
+    foreach ($f in ({id} -split ',')) { $fargs += @('-f', $f) }
+    & $tool compose @fargs logs -f -t
+}
+)'''
+"@show_2" = "@ls"
+"@show_stats" = '''Preview(
+if ({source} -eq 'pod') {
+    podman pod stats {id}
+} else {
+    $tool = if ({id} -like '*docker*') { 'docker' } elseif ({id} -like '*podman*') { 'podman' } elseif (Get-Command docker -ErrorAction SilentlyContinue) { 'docker' } else { 'podman' }
+    $fargs = @()
+    foreach ($f in ({id} -split ',')) { $fargs += @('-f', $f) }
+    & $tool compose @fargs stats
+}
+)'''
+
+# `composer.sh` is inlined as `call()`: pod projects map the compose verb onto
+# the podman pod subcommand, compose projects prepend `-f` per config file.
+"@restart" = [
+    '''Execute(#!lua
+local c = state.current
+if not c then return end
+local function call(action, ...)
+    local extra = { ... }
+    local tool, argv
+    if c.source == "pod" then
+        local pod_cmd = action
+        if action == "up" then pod_cmd = "start"
+        elseif action == "down" then pod_cmd = "rm"
+        elseif action == "config" then pod_cmd = "inspect" end
+        tool = "podman"
+        argv = { "pod", pod_cmd, c.id }
+    else
+        if c.id:find("docker", 1, true) then
+            tool = "docker"
+        elseif c.id:find("podman", 1, true) then
+            tool = "podman"
+        else
+            tool = proc.has("docker") and "docker" or "podman"
+        end
+        argv = { "compose" }
+        for f in (c.id .. ","):gmatch("([^,]*),") do
+            if f ~= "" then argv[#argv + 1] = "-f"; argv[#argv + 1] = f end
+        end
+        argv[#argv + 1] = action
+    end
+    for _, e in ipairs(extra) do argv[#argv + 1] = e end
+    local r = proc.run(tool, argv)
+    if not r.ok then error(r.stderr) end
+    return r
+end
+call("restart", "--no-deps")
+)''',
+    "SetStatus(Restarting...)",
+]
+
+"@toggle_start" = '''Execute(#!lua
+local c = state.current
+if not c then return end
+local action = "stop"
+if c.status:find("exited", 1, true) or c.status:find("stopped", 1, true) or c.status:find("created", 1, true) then
+    action = "start"
+end
+local function call(a)
+    if c.source == "pod" then
+        local pod_cmd = a
+        local r = proc.run("podman", { "pod", pod_cmd, c.id })
+        if not r.ok then error(r.stderr) end
+        return
+    end
+    local tool
+    if c.id:find("docker", 1, true) then
+        tool = "docker"
+    elseif c.id:find("podman", 1, true) then
+        tool = "podman"
+    else
+        tool = proc.has("docker") and "docker" or "podman"
+    end
+    local argv = { "compose" }
+    for f in (c.id .. ","):gmatch("([^,]*),") do
+        if f ~= "" then argv[#argv + 1] = "-f"; argv[#argv + 1] = f end
+    end
+    argv[#argv + 1] = a
+    local r = proc.run(tool, argv)
+    if not r.ok then error(r.stderr) end
+end
+call(action)
+)'''
+
+"@toggle_pause" = '''Execute(#!lua
+local c = state.current
+if not c then return end
+local action = "pause"
+if c.status:find("paused", 1, true) then action = "unpause" end
+if c.source == "pod" then
+    local r = proc.run("podman", { "pod", action, c.id })
+    if not r.ok then error(r.stderr) end
+else
+    local tool
+    if c.id:find("docker", 1, true) then
+        tool = "docker"
+    elseif c.id:find("podman", 1, true) then
+        tool = "podman"
+    else
+        tool = proc.has("docker") and "docker" or "podman"
+    end
+    local argv = { "compose" }
+    for f in (c.id .. ","):gmatch("([^,]*),") do
+        if f ~= "" then argv[#argv + 1] = "-f"; argv[#argv + 1] = f end
+    end
+    argv[#argv + 1] = action
+    local r = proc.run(tool, argv)
+    if not r.ok then error(r.stderr) end
+end
+)'''
+
+"@recreate" = [
+    '''Execute(#!lua
+local c = state.current
+if not c then return end
+local function call(action, ...)
+    local extra = { ... }
+    local tool, argv
+    if c.source == "pod" then
+        local pod_cmd = action
+        if action == "up" then pod_cmd = "start"
+        elseif action == "down" then pod_cmd = "rm"
+        elseif action == "config" then pod_cmd = "inspect" end
+        tool = "podman"
+        argv = { "pod", pod_cmd, c.id }
+    else
+        if c.id:find("docker", 1, true) then
+            tool = "docker"
+        elseif c.id:find("podman", 1, true) then
+            tool = "podman"
+        else
+            tool = proc.has("docker") and "docker" or "podman"
+        end
+        argv = { "compose" }
+        for f in (c.id .. ","):gmatch("([^,]*),") do
+            if f ~= "" then argv[#argv + 1] = "-f"; argv[#argv + 1] = f end
+        end
+        argv[#argv + 1] = action
+    end
+    for _, e in ipairs(extra) do argv[#argv + 1] = e end
+    local r = proc.run(tool, argv)
+    if not r.ok then error(r.stderr) end
+    return r
+end
+call("up", "--force-recreate")
+)''',
+    "SetStatus(Recreating...)",
+]
+
+"@restart_all" = [
+    '''Execute(#!lua
+local c = state.current
+if not c then return end
+local function call(action, ...)
+    local extra = { ... }
+    local tool, argv
+    if c.source == "pod" then
+        local pod_cmd = action
+        if action == "up" then pod_cmd = "start"
+        elseif action == "down" then pod_cmd = "rm"
+        elseif action == "config" then pod_cmd = "inspect" end
+        tool = "podman"
+        argv = { "pod", pod_cmd, c.id }
+    else
+        if c.id:find("docker", 1, true) then
+            tool = "docker"
+        elseif c.id:find("podman", 1, true) then
+            tool = "podman"
+        else
+            tool = proc.has("docker") and "docker" or "podman"
+        end
+        argv = { "compose" }
+        for f in (c.id .. ","):gmatch("([^,]*),") do
+            if f ~= "" then argv[#argv + 1] = "-f"; argv[#argv + 1] = f end
+        end
+        argv[#argv + 1] = action
+    end
+    for _, e in ipairs(extra) do argv[#argv + 1] = e end
+    local r = proc.run(tool, argv)
+    if not r.ok then error(r.stderr) end
+    return r
+end
+call("restart")
+)''',
+    "SetStatus(Restarting all...)",
+]
+
+"@recreate_all" = [
+    '''Execute(#!lua
+local c = state.current
+if not c then return end
+local function call(action, ...)
+    local extra = { ... }
+    local tool, argv
+    if c.source == "pod" then
+        local pod_cmd = action
+        if action == "up" then pod_cmd = "start"
+        elseif action == "down" then pod_cmd = "rm"
+        elseif action == "config" then pod_cmd = "inspect" end
+        tool = "podman"
+        argv = { "pod", pod_cmd, c.id }
+    else
+        if c.id:find("docker", 1, true) then
+            tool = "docker"
+        elseif c.id:find("podman", 1, true) then
+            tool = "podman"
+        else
+            tool = proc.has("docker") and "docker" or "podman"
+        end
+        argv = { "compose" }
+        for f in (c.id .. ","):gmatch("([^,]*),") do
+            if f ~= "" then argv[#argv + 1] = "-f"; argv[#argv + 1] = f end
+        end
+        argv[#argv + 1] = action
+    end
+    for _, e in ipairs(extra) do argv[#argv + 1] = e end
+    local r = proc.run(tool, argv)
+    if not r.ok then error(r.stderr) end
+    return r
+end
+call("up", "--renew-anon-volumes", "--force-recreate")
+)''',
+    "SetStatus(Recreating all...)",
+]
+
+"@toggle_up" = '''Execute(#!lua
+local c = state.current
+if not c then return end
+local action = "down"
+if c.status:find("down", 1, true) or c.status:find("exited", 1, true) then action = "up" end
+if c.source == "pod" then
+    local pod_cmd = action == "up" and "start" or "rm"
+    local r = proc.run("podman", { "pod", pod_cmd, c.id })
+    if not r.ok then error(r.stderr) end
+else
+    local tool
+    if c.id:find("docker", 1, true) then
+        tool = "docker"
+    elseif c.id:find("podman", 1, true) then
+        tool = "podman"
+    else
+        tool = proc.has("docker") and "docker" or "podman"
+    end
+    local argv = { "compose" }
+    for f in (c.id .. ","):gmatch("([^,]*),") do
+        if f ~= "" then argv[#argv + 1] = "-f"; argv[#argv + 1] = f end
+    end
+    argv[#argv + 1] = action
+    if action == "up" then argv[#argv + 1] = "-d" end
+    local r = proc.run(tool, argv)
+    if not r.ok then error(r.stderr) end
+end
+)'''
+
+"@toggle_up_full" = '''Execute(#!lua
+local c = state.current
+if not c then return end
+local action = "down"
+if c.status:find("down", 1, true) or c.status:find("exited", 1, true) then action = "up" end
+if c.source == "pod" then
+    local pod_cmd = action == "up" and "start" or "rm"
+    local extra = action == "down" and { "-v", "--remove-orphans" } or { "-w" }
+    local argv = { "pod", pod_cmd, c.id }
+    for _, e in ipairs(extra) do argv[#argv + 1] = e end
+    local r = proc.run("podman", argv)
+    if not r.ok then error(r.stderr) end
+else
+    local tool
+    if c.id:find("docker", 1, true) then
+        tool = "docker"
+    elseif c.id:find("podman", 1, true) then
+        tool = "podman"
+    else
+        tool = proc.has("docker") and "docker" or "podman"
+    end
+    local argv = { "compose" }
+    for f in (c.id .. ","):gmatch("([^,]*),") do
+        if f ~= "" then argv[#argv + 1] = "-f"; argv[#argv + 1] = f end
+    end
+    argv[#argv + 1] = action
+    if action == "up" then
+        argv[#argv + 1] = "-w"
+    else
+        argv[#argv + 1] = "-v"
+        argv[#argv + 1] = "--remove-orphans"
+    end
+    local r = proc.run(tool, argv)
+    if not r.ok then error(r.stderr) end
+end
+)'''
+
+"@ls" = '''RunPreview(
+if ({source} -eq 'pod') {
+    Write-Output 'No directory for pod source'
+} else {
+    $id = {id}
+    $dir = if ($id -match '[/\\]') { Split-Path -Parent $id } else { Join-Path $env:DOCKERdir {name} }
+    Get-ChildItem -LiteralPath $dir -Force
+}
+)'''
+"@edit_env" = '''Execute(
+if ({source} -eq 'pod') {
+    Write-Output 'No .env for pod source. Press Enter to continue.'
+    Read-Host | Out-Null
+} else {
+    $id = {id}
+    $dir = if ($id -match '[/\\]') { Split-Path -Parent $id } else { Join-Path $env:DOCKERdir {name} }
+    $editor = $(if ($env:EDITOR) { $env:EDITOR } else { 'notepad' }) -split '\s+'
+    & $editor[0] @($editor | Select-Object -Skip 1) (Join-Path $dir '.env')
+}
+)'''
+
+[query]
+prompt = "compose> "
+
+[tui]
+percentage = 100

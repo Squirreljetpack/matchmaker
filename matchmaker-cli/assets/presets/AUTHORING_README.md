@@ -215,6 +215,73 @@ sort = 40
 percentage = 100
 ```
 
+## Platform variants
+
+A preset that cannot be written once for every OS ships one file per platform
+beside the shared one, named `<platform>.<name>.toml`:
+
+```text
+ps/main.toml          ps/win.main.toml
+rg.toml               win.rg.toml
+zellij/unix.base.toml zellij/unix.session.toml
+```
+
+The prefixes are `win.` (also accepted as `windows.`), `macos.`, `linux.` and
+`unix.` (both unixes). A platform keeps the files prefixed for itself and
+ignores the others, so `mm --presets` never lists another platform's presets
+nor the plain file that a variant of the same name shadows, and `-o <name>`,
+`source =`, and `--download` all resolve to this platform's spelling first and
+the plain file last:
+
+```sh
+mm -o ps            # ps/win.main.toml on Windows, ps/main.toml elsewhere
+mm -o man           # unix.man.toml on unix, nothing on Windows
+mm -o zellij/session # zellij/unix.session.toml
+```
+
+Write references inside a prefixed file the way they should read *after* a
+download, where `--download` strips the prefix: `source = "base.toml"`, not
+`source = "win.base.toml"`. `base.toml` stays unselectable under any prefix, and
+the `themes/` folder is represented by its `main.toml` only.
+
+A preset that keeps shell payloads pins them, because an empty `shell` falls
+to a startup heuristic that can find `cmd.exe` instead of PowerShell:
+
+```toml
+[start]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+```
+
+The pin covers one payload class each: `[[preview.layout]]` commands and
+`Preview(...)` use `[previewer] shell`, while `Execute`, `ExecuteAsync`,
+`ExecuteThen`, `ExecuteOrConfirm`, `ExecuteAndQuit`, `Become*`, `Reload`, the
+populator in `[start.command]` and `on_accept` use `[start] shell`.
+
+`Transform`, `TransformConfig`, `Copy`/`CopyAsync`, an `exec` entry in `[envs]`
+and `start.directory` are captured instead of executed in place, and those have
+no pinned shell: they always run under the startup heuristic. Write them as
+`#!lua` when the payload is not a single plain command, and take the values from
+`state`/`env` rather than from `{n}` placeholders, which are not substituted
+into a `#!lua` payload:
+
+```toml
+"@copy" = '''CopyAsync(#!lua
+local cur = state.current
+if not cur then return end
+return cur.id
+)'''
+```
+
+`#!lua` payloads never consult the shell, so they need no pin.
+
+Pin the dialect the payloads are written in. PowerShell covers commands and
+previews; a populator that only forwards a child's byte stream is better off
+with `cmd`, because PowerShell decodes a native child's stdout through the
+console code page and re-splits it on newlines, which corrupts non-ASCII data.
+
 ## Distribution
 
 `mm --download <folder>` downloads a folder's top-level files;

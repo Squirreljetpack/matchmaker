@@ -1,0 +1,30 @@
+# CSV/TSV viewer
+
+[start]
+command = '''#!lua
+local pick
+for _, name in ipairs(fs.readdir(".")) do
+  local ext = path.ext(name)
+  if ext == "csv" then
+    pick = name
+    break
+  end
+  if ext == "tsv" and not pick then pick = name end
+end
+if not pick then return end
+for line in fs.read(pick):gmatch("[^\r\n]+") do inject(line) end'''
+
+[columns]
+split = "csv"
+
+[header]
+header_lines = 1
+
+# The preview below is PowerShell; pin the dialect so the shell heuristic
+# (PSModulePath → pwsh/powershell, else cmd.exe) cannot pick the wrong one.
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+# The current cell, for wide tables.
+command = 'Write-Output {!}'

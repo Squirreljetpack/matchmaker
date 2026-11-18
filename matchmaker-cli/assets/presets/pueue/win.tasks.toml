@@ -1,0 +1,332 @@
+# Pueue tasks: newest first within each state, ctrl-s pages a summary, enter pages the log
+
+[start]
+# `pueue.py` dies on `signal.SIGPIPE`, which Windows does not have, so the
+# populator reads `pueue status --json` directly. The summaries and logs are
+# previews, which are shell-only, and the simple verbs stay plain PowerShell.
+shell = ["powershell", "-NoProfile", "-Command"]
+command = '''#!lua
+local DONE_KINDS = {
+  Success = "0",
+  Killed = "kill",
+  FailedToSpawn = "spawn",
+  DependencyFailed = "dep",
+  Errored = "err",
+}
+local STATE_LABELS = { running = "run", paused = "pause", queued = "queue", stashed = "stash", locked = "lock" }
+local STATE_COLORS = {
+  run = 32,
+  pause = 33,
+  reset = 33,
+  queue = 36,
+  stash = 35,
+  lock = 2,
+  kill = 91,
+  spawn = 31,
+  dep = 31,
+  err = 31,
+}
+
+local function only_key(t)
+  for k, v in pairs(t or {}) do return k, v end
+end
+
+local function task_state(status)
+  local kind, payload = only_key(status)
+  if kind == "Done" then
+    local result = payload and payload.result
+    if type(result) == "table" then
+      local name, value = only_key(result)
+      if name == "Failed" then return tostring(value) end
+      return DONE_KINDS[name] or tostring(name):lower()
+    end
+    return DONE_KINDS[tostring(result)] or tostring(result):lower()
+  end
+  return STATE_LABELS[tostring(kind):lower()] or tostring(kind):lower()
+end
+
+local function state_rank(state)
+  if state == "run" then return 0 end
+  if state == "pause" then return 1 end
+  if state == "queue" or state == "stash" or state == "lock" then return 2 end
+  return 3
+end
+
+-- pueue stamps are RFC 3339 with nanoseconds; the epoch is computed from the
+-- broken-down fields rather than through os.time, which would read them as
+-- local time and shift the result by the UTC offset
+local function civil_days(y, m, d)
+  y = m <= 2 and y - 1 or y
+  local era = math.floor(y / 400)
+  local yoe = y - era * 400
+  local doy = math.floor((153 * ((m + 9) % 12) + 2) / 5) + d - 1
+  local doe = yoe * 365 + math.floor(yoe / 4) - math.floor(yoe / 100) + doy
+  return era * 146097 + doe - 719468
+end
+
+local function parse_stamp(s)
+  -- a task that never started carries `start: null`, which decodes to a
+  -- non-string value
+  if type(s) ~= "string" then return nil end
+  local y, mo, d, h, mi, se = s:match("^(%d%d%d%d)%-(%d%d)%-(%d%d)T(%d%d):(%d%d):(%d%d)")
+  if not y then return nil end
+  local sign, oh, om = s:match("([%+%-])(%d%d):(%d%d)$")
+  local off = 0
+  if sign then
+    off = (tonumber(oh) * 3600 + tonumber(om) * 60) * (sign == "-" and -1 or 1)
+  end
+  return civil_days(tonumber(y), tonumber(mo), tonumber(d)) * 86400
+    + tonumber(h) * 3600
+    + tonumber(mi) * 60
+    + tonumber(se)
+    - off
+end
+
+local function human_time(seconds)
+  local s = seconds % 60
+  local minutes = math.floor(seconds / 60) % 60
+  local hours = math.floor(seconds / 3600) % 24
+  local days = math.floor(seconds / 86400)
+  return string.format("%dd%dh%dm%ds", days, hours, minutes, s)
+end
+
+-- elapsed time as 0d0h26m5s, or - for a task that never started
+local function time_cell(status)
+  local kind, payload = only_key(status)
+  local start = parse_stamp(payload and payload.start)
+  if not start then return "-" end
+  local seconds
+  if kind == "Running" then
+    seconds = os.time() - start
+  elseif kind == "Done" then
+    local finish = parse_stamp(payload["end"])
+    if finish then seconds = finish - start end
+  end
+  if not seconds then return "-" end
+  return human_time(math.floor(seconds))
+end
+
+local function paint(label)
+  local code = STATE_COLORS[label]
+  if not code then
+    if not label:match("^%-?%d+$") then return label end
+    code = label == "0" and 32 or 31
+  end
+  return "\27[" .. code .. "m" .. label .. "\27[0m"
+end
+
+local function squeeze(s)
+  return (s:gsub("%s+", " "):gsub("^ ", ""):gsub(" $", ""))
+end
+
+local r = proc.run("pueue", { "status", "--json" })
+if not r.ok then error("pueue status failed: " .. r.stderr) end
+local data = util.json_decode(r.stdout)
+
+local groups = {}
+for _, name in ipairs(state.args) do groups[name] = true end
+local filtered = next(groups) ~= nil
+
+-- running first, then waiting, then finished newest first
+local rows = {}
+for _, task in pairs(data.tasks or {}) do
+  if not filtered or groups[task.group] then
+    local state = task_state(task.status)
+    rows[#rows + 1] = {
+      rank = state_rank(state),
+      id = tonumber(task.id) or 0,
+      group = task.group,
+      state = state,
+      time = time_cell(task.status),
+      command = squeeze(task.command or ""),
+    }
+  end
+end
+table.sort(rows, function(a, b)
+  if a.rank ~= b.rank then return a.rank < b.rank end
+  return a.id > b.id
+end)
+
+-- every column but the last is padded into a table; a minimum width keeps the
+-- column labels from being cut off in the picker
+local widths = { 4, 4, 4, 4 }
+for _, row in ipairs(rows) do
+  local cells = { tostring(row.id), row.group, row.state, row.time }
+  for i = 1, 4 do
+    if #cells[i] > widths[i] then widths[i] = #cells[i] end
+  end
+end
+for _, row in ipairs(rows) do
+  local visible = { tostring(row.id), row.group, row.state, row.time }
+  local cells = { visible[1], visible[2], paint(row.state), visible[4] }
+  local padded = {}
+  for i = 1, 4 do
+    local pad = string.rep(" ", widths[i] - #visible[i])
+    padded[i] = i == 1 and (pad .. cells[i]) or (cells[i] .. pad)
+  end
+  inject(table.concat(padded, " ") .. " " .. row.command)
+end'''
+
+output = "{=id}"
+
+[exit]
+abort_empty = false
+
+# --- Rows ---
+[columns]
+split = ' +'
+names = ["id", "group", "state", "time", "command"]
+default = "command"
+
+[matcher]
+ansi = true
+trim = true
+# keep the running-first order instead of sorting by match score
+sort.threshold = false
+
+[header]
+content = ["ID", "GROUP", "STATE", "TIME", "CMD"]
+
+[query]
+prompt = "task> "
+prompt_style.fg = "Cyan"
+
+[tui]
+percentage = 100
+
+# --- Preview ---
+[preview]
+show = true
+# don't corrupt pueue decorations
+wrap = false
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+# task log; enter pages this command, queued tasks have no output yet
+command = '''
+$out = pueue --color=always log {id} 2>&1 | Out-String
+if ($out.Trim()) { Write-Output $out.TrimEnd() } else { Write-Output 'no log yet (task not started)' }
+'''
+frame = { title = "Log" }
+side = "right"
+percentage = 50
+min = 30
+padding = 0
+
+[[preview.layout]]
+# the default config's extra layouts would be panes without a key to reach them
+max = 0
+
+[[preview.layout]]
+max = 0
+
+# --- Actions ---
+[binds]
+"ctrl-p" = "@pause"
+"ctrl-g" = "@resume"
+"ctrl-e" = "@restart"
+"ctrl-k" = "@kill"
+"alt-k" = "@kill9"
+"ctrl-t" = "@next"
+# ctrl-d / Delete / F4 reach @rm from the default config
+
+"@accept" = ["#log", "ShowPreview"]
+"@next" = ["#groups", "BecomeSilent(mm -o pueue/groups)"]
+"@prev" = ["#groups", "BecomeSilent(mm -o pueue/groups)"]
+"@show" = '''ShowPreview(
+$data = pueue status --json | ConvertFrom-Json
+
+# a task's state is the one key of its status object: Running, Done, Queued, …
+function Get-Bucket($status) {
+    $kind = @($status.PSObject.Properties.Name)[0]
+    if ($kind -eq 'Running') { return 'running' }
+    if ($kind -ne 'Done') { return 'queued' }
+    $result = $status.Done.result
+    if ($result -is [string]) {
+        $state = $result
+    } else {
+        $key = @($result.PSObject.Properties.Name)[0]
+        if ($key -eq 'Failed') { $state = [string]$result.$key } else { $state = $key }
+    }
+    if ($state -eq 'Success' -or $state -eq '0') { return 'done' }
+    return 'failed'
+}
+
+$counts = @{}
+foreach ($task in @($data.tasks.PSObject.Properties.Value)) {
+    $group = $task.group
+    if (-not $counts.ContainsKey($group)) {
+        $counts[$group] = @{ running = 0; queued = 0; done = 0; failed = 0 }
+    }
+    $counts[$group][(Get-Bucket $task.status)] += 1
+}
+
+$body = @()
+foreach ($name in @($data.groups.PSObject.Properties.Name | Sort-Object)) {
+    $tally = $counts[$name]
+    if (-not $tally) { $tally = @{ running = 0; queued = 0; done = 0; failed = 0 } }
+    $total = $tally.running + $tally.queued + $tally.done + $tally.failed
+    $body += , @($name, $tally.running, $tally.queued, $tally.done, $tally.failed, $total)
+}
+
+$table = @(, @('group', 'running', 'queued', 'done', 'failed', 'total')) + $body
+$widths = @()
+for ($i = 0; $i -lt 6; $i++) {
+    $widths += ($table | ForEach-Object { "$($_[$i])".Length } | Measure-Object -Maximum).Maximum
+}
+
+function Format-Row($row) {
+    $cells = for ($i = 0; $i -lt 6; $i++) {
+        $cell = "$($row[$i])"
+        if ($i -eq 0) { $cell.PadRight($widths[$i]) } else { $cell.PadLeft($widths[$i]) }
+    }
+    return ($cells -join '  ')
+}
+
+$table | ForEach-Object { Write-Output (Format-Row $_) }
+if ($body.Count -gt 1) {
+    Write-Output (($widths | ForEach-Object { '─' * $_ }) -join '  ')
+}
+$totals = @('total')
+for ($i = 1; $i -lt 6; $i++) {
+    $sum = 0
+    foreach ($row in $body) { $sum += [int]$row[$i] }
+    $totals += $sum
+}
+Write-Output (Format-Row $totals)
+)'''
+"@open" = ["#edit command", "ExecuteOrConfirm(pueue edit --command {id})", "Reload"]
+"@open_2" = []
+
+"@pause" = ["#pause", "ExecuteOrConfirm(pueue pause {+id})", "Reload"]
+"@resume" = ["#start", "ExecuteOrConfirm(pueue start {+id})", "Reload"]
+"@restart" = ["#restart", "ExecuteOrConfirm(pueue restart -ik {+id})", "Reload"]
+"@kill" = ["#kill", "ExecuteOrConfirm(pueue kill {+id})", "@wait_stopped", "Reload"]
+"@kill9" = ["#kill -9", "ExecuteOrConfirm(pueue kill -s SIGKILL {+id})", "@wait_stopped", "Reload"]
+"@wait_stopped" = '''Execute(#!lua
+-- pueue only marks a killed task done once its process is reaped, so a Reload
+-- straight after `pueue kill` would still show it as running
+local ids = {}
+for _, item in ipairs(state.selected) do ids[#ids + 1] = tostring(item.id) end
+if #ids == 0 then return end
+
+for _ = 1, 150 do
+    local r = proc.run("pueue", { "status", "--json" })
+    if r.ok then
+        local data = util.json_decode(r.stdout)
+        local running = false
+        for _, task in pairs(data.tasks or {}) do
+            if (task.status or {}).Running then
+                for _, id in ipairs(ids) do
+                    if tostring(task.id) == id then running = true end
+                end
+            end
+        end
+        if not running then return end
+    end
+    util.sleep(20)
+end
+)'''
+"@rm" = ["#remove", "ExecuteOrConfirm(pueue remove {+id})", "Reload"]

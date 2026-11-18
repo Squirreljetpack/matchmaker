@@ -1,0 +1,61 @@
+# Preview themes
+
+[start]
+# The populator and binds below are PowerShell; pin the dialect so the shell
+# heuristic (PSModulePath → pwsh/powershell, else cmd.exe) cannot pick the wrong
+# one.
+shell = ["powershell", "-NoProfile", "-Command"]
+command = '''
+$dir = Split-Path -Parent $env:MM_OVERRIDE
+Get-ChildItem -LiteralPath $dir -Filter *.toml | Sort-Object Name | ForEach-Object {
+    $name = $_.Name
+    if ($name -eq 'main.toml' -or $name -match '^(win|windows|macos|linux|unix)\.') { return }
+    $_.FullName + [char]0 + ($name -replace '\.toml$', '')
+}
+'''
+output = "{=path}"
+directory = { value = '#!lua return path.parent(env.MM_OVERRIDE)', exec = true, force = true }
+
+[binds]
+"@accept" = "Execute(mm -o {path})"
+"@reload" = '''BecomeSilent(
+$env:MM_THEME_POS = $env:MM_POS
+mm -o themes -o {path}
+)'''
+"@return" = "Accept"
+"Synced" = '''Transform(#!lua
+local pos = os.getenv("MM_THEME_POS")
+if not pos or pos == "" then pos = "0" end
+return "Pos(" .. pos .. ")"
+)'''
+
+[matcher.sort]
+threshold = 1
+
+[tui]
+percentage = 100
+
+[columns]
+split = "\\x00"
+max = 2
+default = "name"
+names = [{ name = "path", hidden = true }, "name"]
+
+# --- Preview ---
+[preview]
+show = true
+
+# The preview below is PowerShell; pin the dialect so the shell heuristic
+# (PSModulePath → pwsh/powershell, else cmd.exe) cannot pick the wrong one.
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+command = '''
+$f = {path}
+if (Get-Command bat -ErrorAction SilentlyContinue) {
+    bat --color=always -pp -l toml $f
+} else {
+    Get-Content -LiteralPath $f -Encoding UTF8
+}
+'''

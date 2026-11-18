@@ -1,0 +1,294 @@
+# Pueue groups: counts and state per group, ctrl-s pages a summary of all groups
+
+[start]
+# `pueue.py` dies on `signal.SIGPIPE`, which Windows does not have, so the
+# populator reads `pueue status --json` directly.
+command = '''#!lua
+local DONE_KINDS = {
+  Success = "0",
+  Killed = "kill",
+  FailedToSpawn = "spawn",
+  DependencyFailed = "dep",
+  Errored = "err",
+}
+local GROUP_STATES = { running = "run", paused = "pause", reset = "reset" }
+local STATE_LABELS = { running = "run", paused = "pause", queued = "queue", stashed = "stash", locked = "lock" }
+local STATE_COLORS = { run = 32, pause = 33, reset = 33 }
+
+local function only_key(t)
+  for k, v in pairs(t or {}) do return k, v end
+end
+
+local function task_state(status)
+  local kind, payload = only_key(status)
+  if kind == "Done" then
+    local result = payload and payload.result
+    if type(result) == "table" then
+      local name, value = only_key(result)
+      if name == "Failed" then return tostring(value) end
+      return DONE_KINDS[name] or tostring(name):lower()
+    end
+    return DONE_KINDS[tostring(result)] or tostring(result):lower()
+  end
+  return STATE_LABELS[tostring(kind):lower()] or tostring(kind):lower()
+end
+
+local function bucket(status)
+  local kind = only_key(status)
+  if kind == "Running" then return "running" end
+  if kind == "Done" then return task_state(status) == "0" and "done" or "failed" end
+  return "queued"
+end
+
+local r = proc.run("pueue", { "status", "--json" })
+if not r.ok then error("pueue status failed: " .. r.stderr) end
+local data = util.json_decode(r.stdout)
+
+local blank = { running = 0, queued = 0, done = 0, failed = 0 }
+local counts = {}
+for _, task in pairs(data.tasks or {}) do
+  local tally = counts[task.group]
+  if not tally then
+    tally = { running = 0, queued = 0, done = 0, failed = 0 }
+    counts[task.group] = tally
+  end
+  local b = bucket(task.status)
+  tally[b] = tally[b] + 1
+end
+
+local names = {}
+for name in pairs(data.groups or {}) do names[#names + 1] = name end
+table.sort(names)
+
+local rows = {}
+for _, name in ipairs(names) do
+  local tally = counts[name] or blank
+  local group = data.groups[name]
+  local state = GROUP_STATES[tostring(group.status):lower()] or tostring(group.status):lower()
+  rows[#rows + 1] = {
+    name,
+    tally.running,
+    tally.queued,
+    tally.done,
+    tally.failed,
+    group.parallel_tasks,
+    state,
+  }
+end
+
+-- every column but the last is padded, so a minimum keeps the labels readable
+local widths = { 4, 4, 4, 4, 4, 4 }
+for _, row in ipairs(rows) do
+  for i = 1, 6 do
+    local len = #tostring(row[i])
+    if len > widths[i] then widths[i] = len end
+  end
+end
+for _, row in ipairs(rows) do
+  local cells = {}
+  for i = 1, 6 do
+    local cell = tostring(row[i])
+    local pad = string.rep(" ", widths[i] - #cell)
+    cells[i] = i == 1 and (cell .. pad) or (pad .. cell)
+  end
+  local state = row[7]
+  if STATE_COLORS[state] then
+    state = "\27[" .. STATE_COLORS[state] .. "m" .. state .. "\27[0m"
+  end
+  inject(table.concat(cells, " ") .. " " .. state)
+end'''
+
+# --- Rows ---
+[columns]
+split = ' +'
+max = 7
+names = [
+    { name = "name" },
+    { name = "run", ignore = true },
+    { name = "que", ignore = true },
+    { name = "done", ignore = true },
+    { name = "fail", ignore = true },
+    { name = "par", ignore = true },
+    { name = "state" },
+]
+default = "name"
+
+[matcher]
+ansi = true
+trim = true
+# keep the alphabetical order instead of sorting by match score
+sort.threshold = false
+
+[header]
+content = ["GROUP", "RUN", "QUE", "DONE", "FAIL", "PAR", "STATE"]
+
+[query]
+prompt = "group> "
+prompt_style.fg = "Cyan"
+
+[tui]
+percentage = 100
+
+# --- Preview ---
+[preview]
+show = true
+# the group status takes the default config's second layout (a top pane)
+initial_layout = 1
+# pueue wraps its table at whatever width it likes
+wrap = false
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+# a group name is not an image, so drop the image layout
+max = 0
+
+[[preview.layout]]
+# the group's tasks as pueue reports them
+command = "pueue --color=always status -g {name} 'columns=id,status,start,end,command'"
+frame = { title = "Group status" }
+
+# --- Actions ---
+[binds]
+"ctrl-p" = "@toggle"
+"ctrl-k" = "@stop"
+# ctrl-d / Delete / F4 reach @rm from the default config
+
+"@accept" = ["#tasks", "BecomeSilent(mm -o pueue/tasks -- {+name})"]
+"@next" = ["#tasks", "BecomeSilent(mm -o pueue/tasks)"]
+"@prev" = ["#tasks", "BecomeSilent(mm -o pueue/tasks)"]
+"@show" = '''ShowPreview(
+$data = pueue status --json | ConvertFrom-Json
+
+# a task's state is the one key of its status object: Running, Done, Queued, …
+function Get-Bucket($status) {
+    $kind = @($status.PSObject.Properties.Name)[0]
+    if ($kind -eq 'Running') { return 'running' }
+    if ($kind -ne 'Done') { return 'queued' }
+    $result = $status.Done.result
+    if ($result -is [string]) {
+        $state = $result
+    } else {
+        $key = @($result.PSObject.Properties.Name)[0]
+        if ($key -eq 'Failed') { $state = [string]$result.$key } else { $state = $key }
+    }
+    if ($state -eq 'Success' -or $state -eq '0') { return 'done' }
+    return 'failed'
+}
+
+$counts = @{}
+foreach ($task in @($data.tasks.PSObject.Properties.Value)) {
+    $group = $task.group
+    if (-not $counts.ContainsKey($group)) {
+        $counts[$group] = @{ running = 0; queued = 0; done = 0; failed = 0 }
+    }
+    $counts[$group][(Get-Bucket $task.status)] += 1
+}
+
+$body = @()
+foreach ($name in @($data.groups.PSObject.Properties.Name | Sort-Object)) {
+    $tally = $counts[$name]
+    if (-not $tally) { $tally = @{ running = 0; queued = 0; done = 0; failed = 0 } }
+    $total = $tally.running + $tally.queued + $tally.done + $tally.failed
+    $body += , @($name, $tally.running, $tally.queued, $tally.done, $tally.failed, $total)
+}
+
+$table = @(, @('group', 'running', 'queued', 'done', 'failed', 'total')) + $body
+$widths = @()
+for ($i = 0; $i -lt 6; $i++) {
+    $widths += ($table | ForEach-Object { "$($_[$i])".Length } | Measure-Object -Maximum).Maximum
+}
+
+function Format-Row($row) {
+    $cells = for ($i = 0; $i -lt 6; $i++) {
+        $cell = "$($row[$i])"
+        if ($i -eq 0) { $cell.PadRight($widths[$i]) } else { $cell.PadLeft($widths[$i]) }
+    }
+    return ($cells -join '  ')
+}
+
+$table | ForEach-Object { Write-Output (Format-Row $_) }
+if ($body.Count -gt 1) {
+    Write-Output (($widths | ForEach-Object { '─' * $_ }) -join '  ')
+}
+$totals = @('total')
+for ($i = 1; $i -lt 6; $i++) {
+    $sum = 0
+    foreach ($row in $body) { $sum += [int]$row[$i] }
+    $totals += $sum
+}
+Write-Output (Format-Row $totals)
+)'''
+"@open" = [
+    "#status",
+    '''ShowPreview(pueue --color=always status -g {name} 'columns=id,status,start,end,command')''',
+]
+"@open_2" = []
+
+"@toggle" = [
+    "#pause/resume",
+    '''ExecuteOrConfirm(#!lua
+local r = proc.run("pueue", { "status", "--json" })
+if not r.ok then error("pueue status failed: " .. r.stderr) end
+local data = util.json_decode(r.stdout)
+for _, item in ipairs(state.selected) do
+    local group = (data.groups or {})[item.name]
+    if not group then error("no such group: " .. item.name) end
+    local verb = tostring(group.status):lower() == "paused" and "start" or "pause"
+    local res = proc.run("pueue", { verb, "-g", item.name })
+    if not res.ok then error(res.stderr) end
+end
+)''',
+    "Reload",
+]
+"@stop" = [
+    "#kill group",
+    '''ExecuteOrConfirm(#!lua
+for _, item in ipairs(state.selected) do
+    local r = proc.run("pueue", { "kill", "-g", item.name })
+    if not r.ok then error(r.stderr) end
+end
+)''',
+    "Reload",
+]
+"@rm" = [
+    "#remove group",
+    '''ExecuteOrConfirm(#!lua
+local r = proc.run("pueue", { "status", "--json" })
+if not r.ok then error("pueue status failed: " .. r.stderr) end
+local data = util.json_decode(r.stdout)
+
+local names, unfinished = {}, {}
+for _, item in ipairs(state.selected) do
+    local name = item.name
+    if not (data.groups or {})[name] then error("no such group: " .. name) end
+    if name == "default" then error("the default group cannot be removed") end
+    names[#names + 1] = name
+end
+if #names == 0 then return end
+
+for _, task in pairs(data.tasks or {}) do
+    local kind = next(task.status or {})
+    for _, name in ipairs(names) do
+        if task.group == name and kind ~= "Done" then
+            unfinished[name] = (unfinished[name] or "") .. " " .. tostring(task.id)
+        end
+    end
+end
+for name, ids in pairs(unfinished) do
+    error("kill these tasks first: " .. name .. ":" .. ids)
+end
+
+if not input.confirm("Remove " .. table.concat(names, ", ") .. " and their finished tasks?", false) then
+    return
+end
+for _, name in ipairs(names) do
+    for _, args in ipairs({ { "clean", "-g", name }, { "group", "remove", name } }) do
+        local res = proc.run("pueue", args)
+        if not res.ok then error(res.stderr) end
+    end
+end
+)''',
+    "Reload",
+]

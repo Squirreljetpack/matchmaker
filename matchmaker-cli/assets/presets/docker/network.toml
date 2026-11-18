@@ -34,7 +34,7 @@ frame = { title = "Network Inspect" }
 "@config_exec" = "Execute($DOCKERcmd network inspect {id} | PG_LANG=json $PAGER)"
 "@stats" = "Preview($DOCKERcmd network inspect {id} | PG_LANG=json $PAGER)"
 
-"@rm" = ["Execute($DOCKERcmd network rm {id}) Status(Removing...)", "Reload"]
+"@rm" = ["Execute($DOCKERcmd network rm {id})", "SetStatus(Removing...)", "Reload"]
 
 [query]
 prompt = "networks> "

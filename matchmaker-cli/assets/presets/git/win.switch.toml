@@ -1,0 +1,645 @@
+# Intelligently switch to any ref
+
+source = "base.toml"
+
+[start]
+# The populator and the actions are Lua; the previews are PowerShell, so pin
+# that dialect for the payload class that needs a shell.
+shell = ["powershell", "-NoProfile", "-Command"]
+command = '''#!lua
+local function run(args)
+    local r = proc.run("git", args)
+    if not r.ok then error("git " .. args[1] .. " failed: " .. r.stderr) end
+    return r.stdout
+end
+
+local function lines(s)
+    local out = {}
+    for line in s:gmatch("[^\r\n]+") do out[#out + 1] = line end
+    return out
+end
+
+-- local branches: `<short sha> <name>`
+for _, line in ipairs(lines(run({ "for-each-ref", "--format=%(objectname:short) %(refname:strip=2)", "refs/heads" }))) do
+    inject(line)
+end
+
+-- remote-tracking refs as `<short sha> <remote>:<branch>`
+for _, remote in ipairs(lines(run({ "remote" }))) do
+    local prefix = " refs/remotes/" .. remote .. "/"
+    for _, line in ipairs(lines(run({ "for-each-ref", "--format=%(objectname:short) %(refname)", "refs/remotes/" .. remote .. "/" }))) do
+        if not line:match("/HEAD$") then
+            local i, j = line:find(prefix, 1, true)
+            if i then
+                line = line:sub(1, i - 1) .. " " .. remote .. ":" .. line:sub(j + 1)
+            end
+            inject(line)
+        end
+    end
+end'''
+additional_commands = [
+    "",
+    '''#!lua
+local r = proc.run("git", { "for-each-ref", "--format=%(objectname:short) %(refname:lstrip=2)", "refs/tags" })
+if not r.ok then error("git for-each-ref failed: " .. r.stderr) end
+for line in r.stdout:gmatch("[^\r\n]+") do inject(line) end''',
+    '''#!lua
+local remote = env.LSREMOTE or "origin"
+local r = proc.run("git", {
+    "ls-remote",
+    remote,
+    "refs/heads/*",
+    "refs/tags/*",
+    "refs/pull/*/head",
+    "refs/merge-requests/*/head",
+})
+if not r.ok then error("git ls-remote failed: " .. r.stderr) end
+for line in r.stdout:gmatch("[^\r\n]+") do
+    local sha, ref = line:match("^(%S+)%s+(%S+)$")
+    if sha then inject(sha:sub(1, 7) .. " " .. (ref:gsub("^refs/", ""))) end
+end''',
+    '''#!lua
+local r = proc.run("git", { "show-ref" })
+if not r.ok then error("git show-ref failed: " .. r.stderr) end
+for line in r.stdout:gmatch("[^\r\n]+") do
+    local sha, ref = line:match("^(%S+)%s+(%S+)$")
+    if sha then inject(sha:sub(1, 7) .. " " .. (ref:gsub("^refs/", ""))) end
+end''',
+]
+output_template = '{=!}'
+
+[envs]
+# same logic as git ls-remote default
+"LSREMOTE" = { value = '#!lua local branch = proc.run("git", { "symbolic-ref", "--short", "-q", "HEAD" }) if branch.ok then local name = branch.stdout:gsub("[%s]+$", "") if name ~= "" then local r = proc.run("git", { "config", "branch." .. name .. ".remote" }) if r.ok then local remote = r.stdout:gsub("[%s]+$", "") if remote ~= "" then return remote end end end end return "origin"', exec = true }
+
+[columns]
+split = " "
+max = 2
+default = 2
+
+[matcher]
+sort.threshold = 40
+
+# --- Preview ---
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+always_trigger = false
+
+[[preview.layout]]
+command = '''
+$ref = {1}
+$counts = (git rev-list --left-right --count "HEAD...$ref") -split '\s+'
+$commits = git rev-list --count $ref
+Write-Output ("behind: " + $counts[0] + " ahead: " + $counts[1] + " commits: " + $commits)
+Write-Output ('-' * [Math]::Max([int]$env:COLUMNS, 1))
+git log --color=always --left-right --oneline "...$ref"
+'''
+frame = { title = "Ahead/Behind" }
+
+[[preview.layout]]
+command = '''
+$ref = {1}
+git diff --quiet $ref
+if ($LASTEXITCODE -eq 0) {
+    Write-Output 'no change'
+} else {
+    git diff --color=always $ref
+}
+'''
+frame = { title = "Branch Diff" }
+
+[[preview.layout]]
+command = '''
+$ref = {1}
+git log --color=always --graph --decorate --pretty=oneline --abbrev-commit $ref
+'''
+frame = { title = "Commit Graph" }
+
+[[preview.layout]]
+command = '''
+$ref = {1}
+git log --color=always --stat --summary --decorate $ref
+'''
+side = "right"
+percentage = 40
+min = 30
+max = 120
+frame.border_type = "Plain"
+frame.padding = [2, 0]
+frame.title = "Commit Stat"
+
+# --- UI ---
+[tui]
+percentage = 100
+
+[query]
+prompt = "switch> "
+
+[binds]
+"@accept" = "@switch"
+"Shift-Enter" = ["@switch_silent", "Reload"] # requires keyboard enhancement
+"@return" = "Accept"
+
+"@rm" = ["@delete", "Reload"]
+"ctrl-u" = ["@update", "Reload"]
+"alt-r" = ["@show_remotes"]
+
+"ctrl-a" = ["@add_remote", "Reload"]
+"@new" = ["@add_branch", "Reload"]
+"alt-a" = "@copy_remote"
+# restore fetch spec to defaults (i.e. after cloning with --single-branch)
+"alt-u" = [
+    '#restore fetch spec',
+    '''Execute(
+git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+if ($LASTEXITCODE -eq 0) { git fetch origin }
+)''',
+    'Reload',
+]
+
+"@next" = "BecomeSilent(mm -o git/grep)"
+"@prev" = "BecomeSilent(mm -o git/restore)"
+
+# --- Scripts ---
+"Start" = '''Transform(#!lua
+local REF_HEADERS = { " branch", "tags", "ls-remote", "refs" }
+local index = tonumber(env.MM_INDEX) or 0
+
+local function ref_label()
+    if index == 0 then
+        local r = proc.run("git", { "symbolic-ref", "--short", "HEAD" })
+        if not r.ok then r = proc.run("git", { "rev-parse", "--short", "HEAD" }) end
+        return r.ok and (" (" .. (r.stdout:gsub("[%s]+$", "")) .. ")") or ""
+    elseif index == 2 then
+        return " (" .. tostring(env.LSREMOTE or "origin") .. ")"
+    elseif index == 3 then
+        return " (cached)"
+    end
+    return ""
+end
+
+return "SetHeader(" .. REF_HEADERS[index + 1] .. ref_label() .. ")"
+)'''
+"Reloaded" = '''Transform(#!lua
+local REF_HEADERS = { "branches", "tags", "ls-remote", "refs" }
+local index = tonumber(env.MM_INDEX) or 0
+
+local function ref_label()
+    if index == 0 then
+        local r = proc.run("git", { "symbolic-ref", "--short", "HEAD" })
+        if not r.ok then r = proc.run("git", { "rev-parse", "--short", "HEAD" }) end
+        return r.ok and (" (" .. (r.stdout:gsub("[%s]+$", "")) .. ")") or ""
+    elseif index == 2 then
+        return " (" .. tostring(env.LSREMOTE or "origin") .. ")"
+    elseif index == 3 then
+        return " (cached)"
+    end
+    return ""
+end
+
+return "SetHeader(" .. REF_HEADERS[index + 1] .. ref_label() .. ")"
+)'''
+
+"@update" = '''ExecuteOrConfirm(#!lua
+local index = tonumber(env.MM_INDEX) or 0
+local ref = (state.current or {})[2] or ""
+local remote = env.LSREMOTE or "origin"
+
+local function git(args) return proc.run("git", args) end
+local function show(r)
+    io.write(r.stdout)
+    io.write(r.stderr)
+    return r
+end
+local function check(r)
+    show(r)
+    if not r.ok then error(r.stderr) end
+    return r
+end
+
+if index == 0 then
+    local cur = git({ "branch", "--show-current" })
+    local current = cur.ok and (cur.stdout:gsub("[%s]+$", "")) or ""
+    local r = ref:match("^([^:]+):")
+    if r then
+        print("Fetching " .. r .. "...")
+        check(git({ "fetch", r }))
+    else
+        check(git({ "switch", ref }))
+        print("Updating branch " .. ref .. "...")
+        show(git({ "pull", "--rebase", "--autostash" }))
+        show(git({ "status", "-sb" }))
+        if current ~= "" then check(git({ "switch", current })) end
+    end
+elseif index == 1 then
+    print("Fetching tags...")
+    check(git({ "fetch", "--tags" }))
+elseif index == 2 then
+    print("Fetching " .. remote .. "...")
+    check(git({ "fetch", remote }))
+elseif index == 3 then
+    print("Fetching all remotes (with prune)...")
+    check(git({ "fetch", "--all", "--prune" }))
+end
+
+-- keep the output on screen
+os.exit(1)
+)'''
+
+"@switch" = '''Become(#!lua
+local index = tonumber(env.MM_INDEX) or 0
+local ref = (state.current or {})[2] or ""
+local remote = env.LSREMOTE or "origin"
+
+local function git(args) return proc.run("git", args) end
+local function check(r)
+    if not r.ok then error(r.stderr) end
+    return r
+end
+
+local status = git({ "-c", "color.ui=always", "status", "--porcelain", "-s" })
+io.write(status.stdout)
+if status.stdout ~= "" then
+    local ans = input.prompt("Local changes detected, continue? [y/N/stash]")
+    if ans and ans:match("^%s*[sS]") then
+        check(git({ "stash" }))
+    elseif not (ans and ans:match("^%s*[yY]")) then
+        os.exit(0)
+    end
+end
+
+if index == 0 then
+    local name = ref:match(":(.*)$") or ref
+    check(git({ "switch", "-q", name }))
+    local cur = check(git({ "branch", "--show-current" })).stdout:gsub("[%s]+$", "")
+    io.write(git({ "--no-pager", "branch", "-vv", "--list", cur, "--color=always" }).stdout)
+elseif index == 1 then
+    check(git({ "switch", "--detach", ref }))
+elseif index == 2 then
+    local fullref = "refs/" .. ref
+    local name = fullref:match("^refs/heads/(.+)$")
+    if name then
+        check(git({ "fetch", remote, fullref .. ":" .. name }))
+        if git({ "rev-parse", "--verify", "--quiet", name }).ok then
+            check(git({ "switch", name }))
+            git({ "branch", "--set-upstream-to=" .. remote .. "/" .. name })
+        else
+            check(git({ "switch", "-c", name, "--track", remote .. "/" .. name }))
+        end
+    else
+        check(git({ "fetch", remote, fullref }))
+        check(git({ "switch", "--detach", "FETCH_HEAD" }))
+    end
+elseif index == 3 then
+    local fullref = "refs/" .. ref
+    local name = fullref:match("^refs/heads/(.+)$")
+    if name then
+        check(git({ "switch", name }))
+    else
+        check(git({ "switch", "--detach", fullref }))
+    end
+end
+)'''
+
+"@switch_silent" = '''ExecuteOrConfirm(#!lua
+local index = tonumber(env.MM_INDEX) or 0
+local ref = (state.current or {})[2] or ""
+local remote = env.LSREMOTE or "origin"
+
+local function git(args) return proc.run("git", args) end
+local function check(r)
+    if not r.ok then error(r.stderr) end
+    return r
+end
+
+if index == 0 then
+    check(git({ "switch", ref:match(":(.*)$") or ref }))
+elseif index == 1 then
+    check(git({ "switch", "--detach", ref }))
+elseif index == 2 then
+    local fullref = "refs/" .. ref
+    local name = fullref:match("^refs/heads/(.+)$")
+    if name then
+        check(git({ "fetch", remote, fullref .. ":" .. name }))
+        check(git({ "switch", "-c", name, "--track", remote .. "/" .. name }))
+    else
+        check(git({ "fetch", remote, fullref }))
+        check(git({ "switch", "--detach", "FETCH_HEAD" }))
+    end
+elseif index == 3 then
+    local fullref = "refs/" .. ref
+    local name = fullref:match("^refs/heads/(.+)$")
+    if name then
+        check(git({ "switch", name }))
+    else
+        check(git({ "switch", "--detach", fullref }))
+    end
+end
+)'''
+
+"@delete" = '''ExecuteOrConfirm(#!lua
+local index = tonumber(env.MM_INDEX) or 0
+local remote = env.LSREMOTE or "origin"
+
+local function git(args) return proc.run("git", args) end
+local function check(r)
+    if not r.ok then error(r.stderr) end
+    return r
+end
+
+local targets = {}
+for _, item in ipairs(state.selected) do targets[#targets + 1] = item[2] end
+
+if index == 0 then
+    for _, branch in ipairs(targets) do
+        local r, b = branch:match("^([^:]*):(.+)$")
+        if r then
+            if r == "" or b == "" then
+                print("Error: Invalid ref format. Expected 'remote:branch'.")
+                os.exit(1)
+            end
+            if input.confirm("Delete remote branch '" .. b .. "' from '" .. r .. "'?", false) then
+                print("Deleting remote branch...")
+                check(git({ "push", r, "--delete", b }))
+            else
+                print("Operation canceled.")
+                os.exit(100)
+            end
+        else
+            if not input.confirm("Delete local branch " .. branch .. "?", false) then
+                os.exit(100)
+            end
+            -- resolve upstream before the branch is gone
+            local up = git({ "rev-parse", "--abbrev-ref", branch .. "@{u}" })
+            local upstream = up.ok and (up.stdout:gsub("[%s]+$", "")) or ""
+            check(git({ "branch", "-D", branch }))
+            local up_remote, up_branch = upstream:match("^([^/]+)/(.+)$")
+            if up_remote then
+                if input.confirm("Also delete remote branch " .. up_remote .. "/" .. up_branch .. "?", false) then
+                    check(git({ "push", up_remote, "--delete", up_branch }))
+                end
+            end
+        end
+    end
+elseif index == 1 then
+    local auto_remote = false
+    for _, tag in ipairs(targets) do
+        local ans = input.prompt("Delete tag " .. tag .. "? [y/N/aA]") or ""
+        if ans:match("^%s*[aA]") then
+            check(git({ "tag", "-d", table.unpack(targets) }))
+            if input.confirm("Delete remote tags too?", false) then
+                local refs = {}
+                for _, t in ipairs(targets) do refs[#refs + 1] = "refs/tags/" .. t end
+                check(git({ "push", remote, "--delete", table.unpack(refs) }))
+            end
+            return
+        elseif ans:match("^%s*[yY]") then
+            check(git({ "tag", "-d", tag }))
+            local push = auto_remote
+            if not push then
+                local rans = input.prompt("Delete remote tag too? [y/N/(all)]") or ""
+                if rans:match("^%s*[aA]") then
+                    auto_remote = true
+                    push = true
+                elseif rans:match("^%s*[yY]") then
+                    push = true
+                end
+            end
+            if push then
+                check(git({ "push", remote, "--delete", "refs/tags/" .. tag }))
+            end
+        end
+    end
+elseif index == 2 then
+    local refs = {}
+    for _, t in ipairs(targets) do refs[#refs + 1] = "refs/" .. t end
+    local ans = input.prompt("Delete " .. #refs .. " refs from " .. remote .. "? [Y/n]:")
+    if ans == nil or ans:match("^%s*[yY]") then
+        check(git({ "push", remote, "--delete", table.unpack(refs) }))
+    else
+        print("Deletion cancelled.")
+        os.exit(100)
+    end
+elseif index == 3 then
+    local kind, seen_remote, mixed, clean = nil, nil, false, {}
+    for _, item in ipairs(targets) do
+        local current
+        if item:match("^heads/") then
+            current = "head"
+            clean[#clean + 1] = item:sub(7)
+        elseif item:match("^tags/") then
+            current = "tag"
+            clean[#clean + 1] = item:sub(6)
+        elseif item:match("^remotes/") then
+            current = "remote"
+            local rest = item:sub(9)
+            local r = rest:match("^([^/]+)/")
+            if not r then
+                print("Unknown or unsupported reference type: " .. item)
+                os.exit(1)
+            end
+            if seen_remote == nil then
+                seen_remote = r
+            elseif seen_remote ~= r then
+                mixed = true
+            end
+            clean[#clean + 1] = rest
+        else
+            print("Unknown or unsupported reference type: " .. item)
+            os.exit(1)
+        end
+        if kind ~= nil and kind ~= current then
+            print("Error: Mixed types are not supported.")
+            os.exit(1)
+        end
+        kind = current
+    end
+
+    if kind == "head" then
+        if input.confirm("Delete " .. #clean .. " local branches?", false) then
+            check(git({ "branch", "-D", table.unpack(clean) }))
+        end
+    elseif kind == "tag" then
+        if input.confirm("Delete " .. #clean .. " tags?", false) then
+            check(git({ "tag", "-d", table.unpack(clean) }))
+        end
+    elseif kind == "remote" then
+        if mixed then
+            if input.confirm("Mixed remotes detected. Delete " .. #clean .. " local tracking caches?", false) then
+                print("Deleting local tracking caches...")
+                check(git({ "branch", "-d", "-r", table.unpack(clean) }))
+            else
+                print("Skipped.")
+            end
+        else
+            local ans = input.prompt(
+                "Delete " .. #clean .. " remote branches from '" .. seen_remote
+                    .. "'? [Y=push delete / c=cache only / n=cancel]"
+            ) or ""
+            if ans:match("^%s*[yY]") or ans:match("^%s*$") then
+                print("Pushing deletions to remote...")
+                local prefix = seen_remote .. "/"
+                local branches = {}
+                for _, item in ipairs(clean) do
+                    if item:sub(1, #prefix) == prefix then
+                        branches[#branches + 1] = item:sub(#prefix + 1)
+                    else
+                        branches[#branches + 1] = item
+                    end
+                end
+                check(git({ "push", seen_remote, "--delete", table.unpack(branches) }))
+            elseif ans:match("^%s*[cC]") then
+                print("Deleting local tracking caches...")
+                check(git({ "branch", "-d", "-r", table.unpack(clean) }))
+            else
+                print("Skipped.")
+            end
+        end
+    else
+        print("Unavailable")
+        os.exit(1)
+    end
+else
+    print("Unavailable")
+    os.exit(1)
+end
+)'''
+
+"@rename" = '''ExecuteOrConfirm(#!lua
+local index = tonumber(env.MM_INDEX) or 0
+local ref = (state.current or {})[2] or ""
+local remote = env.LSREMOTE or "origin"
+
+local function git(args) return proc.run("git", args) end
+local function check(r)
+    if not r.ok then error(r.stderr) end
+    return r
+end
+
+if index == 0 then
+    local old_remote, branch = ref:match("^([^:]*):(.+)$")
+    if old_remote then
+        local new_name = input.prompt("Rename REMOTE " .. old_remote .. " to:")
+        if new_name and new_name ~= "" then
+            check(git({ "remote", "rename", old_remote, new_name }))
+        else
+            if input.confirm("Do you want to DELETE remote '" .. old_remote .. "'?", false) then
+                check(git({ "remote", "remove", old_remote }))
+            else
+                print("Operation canceled.")
+                os.exit(100)
+            end
+        end
+    else
+        local new_name = input.prompt("Rename branch " .. ref .. " to:")
+        if not new_name or new_name == "" then os.exit(100) end
+        check(git({ "branch", "-m", ref, new_name }))
+        if input.confirm("push?", false) then
+            check(git({ "push", remote, new_name }))
+            check(git({ "push", remote, "--delete", ref }))
+        end
+    end
+elseif index == 1 then
+    local new_tag = input.prompt("Rename tag " .. ref .. " to:")
+    if not new_tag or new_tag == "" then os.exit(100) end
+    check(git({ "tag", new_tag, ref }))
+    check(git({ "tag", "-d", ref }))
+    local ans = input.prompt("push? [y/N]") or ""
+    if ans:match("^%s*[yY]") then
+        check(git({ "push", remote, new_tag }))
+        check(git({ "push", remote, "--delete", ref }))
+    elseif ans:match("^%s*$") then
+        check(git({ "push", remote, new_tag }))
+    end
+elseif index == 3 then
+    local fullref = "refs/" .. ref
+    local branch = fullref:match("^refs/heads/(.+)$")
+    local tag = fullref:match("^refs/tags/(.+)$")
+    if branch then
+        local new_name = input.prompt("Rename local branch " .. branch .. " to:")
+        if not new_name or new_name == "" then os.exit(100) end
+        check(git({ "branch", "-m", branch, new_name }))
+    elseif tag then
+        local new_tag = input.prompt("Rename tag " .. tag .. " to:")
+        if not new_tag or new_tag == "" then os.exit(100) end
+        check(git({ "tag", new_tag, tag }))
+        check(git({ "tag", "-d", tag }))
+    else
+        print("Cannot rename remote tracking references.")
+        os.exit(1)
+    end
+else
+    print("Unavailable")
+    os.exit(1)
+end
+)'''
+
+"@add_remote" = '''ExecuteOrConfirm(#!lua
+local remote = env.LSREMOTE or "origin"
+local function git(args) return proc.run("git", args) end
+local function check(r)
+    if not r.ok then error(r.stderr) end
+    return r
+end
+
+local name = input.prompt("Remote name", remote)
+if not name or name == "" then name = remote end
+
+local prompt_set = false
+local exists = git({ "remote" })
+local found = false
+if exists.ok then
+    for line in exists.stdout:gmatch("[^\r\n]+") do
+        if line == name then found = true end
+    end
+end
+
+if found then
+    local url = git({ "remote", "get-url", name })
+    print("Remote '" .. name .. "' already exists (" .. (url.stdout:gsub("[%s]+$", "")) .. ").")
+    if input.confirm("Change its URL?", false) then
+        local new_url = input.prompt("New URL:")
+        if new_url and new_url ~= "" then check(git({ "remote", "set-url", name, new_url })) end
+    else
+        prompt_set = true
+    end
+else
+    local url = input.prompt("Remote URL:")
+    if url and url ~= "" then check(git({ "remote", "add", name, url })) end
+    prompt_set = true
+end
+
+if prompt_set then
+    local head = git({ "symbolic-ref", "--short", "HEAD" })
+    local current = head.ok and (head.stdout:gsub("[%s]+$", "")) or ""
+    if current ~= "" then
+        local upstream = git({ "config", "branch." .. current .. ".remote" })
+        local value = upstream.ok and (upstream.stdout:gsub("[%s]+$", "")) or ""
+        if value ~= name and input.confirm("Set '" .. name .. "' as the default remote for branch '" .. current .. "'?", false) then
+            -- set the config rather than `branch --set-upstream-to`, which
+            -- needs the branch to exist on the remote already
+            check(git({ "config", "branch." .. current .. ".remote", name }))
+            check(git({ "config", "branch." .. current .. ".merge", "refs/heads/" .. current }))
+        end
+    end
+end
+)'''
+
+"@copy_remote" = '''CopyAsync(#!lua
+local r = proc.run("git", { "remote", "get-url", tostring(env.LSREMOTE or "origin") })
+return (r.stdout or "")
+)'''
+"@add_branch" = '''ExecuteOrConfirm(#!lua
+local branch = input.prompt("New branch name:")
+if not branch or branch == "" then os.exit(100) end
+local r = proc.run("git", { "switch", "-c", branch })
+if not r.ok then error(r.stderr) end
+)'''
+
+"@show_remotes" = '''RunPreview(
+git remote | ForEach-Object {
+    Write-Output "=== $_ ==="
+    git remote show $_
+    Write-Output ''
+}
+)'''

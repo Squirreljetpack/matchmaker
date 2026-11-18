@@ -1,0 +1,28 @@
+# browse list of modified files @ a given ref
+
+# [[ preview 0: default ]]
+# [[ preview 1: diff ]]
+# [[ preview 2: show ]]
+
+# accept: feeds into -o git/restore
+
+[start]
+# The bind below is PowerShell; pin the dialect so the shell heuristic
+# (PSModulePath → pwsh/powershell, else cmd.exe) cannot pick the wrong one.
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[binds]
+"ctrl-f" = ["@force_add", "Reload"]
+
+"@force_add" = '''ExecuteOrConfirm(
+& {
+    # `git add -f` every selection, then keep it ignored for the future
+    $prefix = git rev-parse --show-prefix
+    foreach ($p in $args) {
+        if (-not [System.IO.Path]::IsPathRooted($p)) { $p = "$prefix$p" }
+        git add -f $p
+        # `.gitignore` is read back by git: append UTF-8 without a BOM
+        [IO.File]::AppendAllText('.gitignore', "!$p`n", [Text.UTF8Encoding]::new($false))
+    }
+} {+1}
+)'''

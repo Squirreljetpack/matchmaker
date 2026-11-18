@@ -2,8 +2,12 @@
 
 [matcher]
 ansi = true
+require_column = 1
 
 [start]
+# The payloads below are PowerShell; pin the dialect so the shell heuristic
+# (PSModulePath → pwsh/powershell, else cmd.exe) cannot pick the wrong one.
+shell = ["powershell", "-NoProfile", "-Command"]
 command = '''rg --column --line-number --no-heading --color=always --smart-case "$env:FZF_QUERY"'''
 output = "{=1}:{=2}"
 
@@ -11,13 +15,19 @@ output = "{=1}:{=2}"
 max = 3
 names = ["file", "pos", ""]
 split = '^(.*?):(\d+:\d+):(.*)$'
-default = 3
+default = "file"
+
+[exit]
+abort_empty = false
 
 # --- Preview ---
 [preview]
 show = true
 scroll.percentage = 70
-scroll.index = 2
+scroll.index = "pos"
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
 
 [[preview.layout]]
 command = '''
@@ -28,7 +38,7 @@ $highlightLine = ($line -split ':')[0]
 if (Get-Command bat -ErrorAction SilentlyContinue) {
     bat --wrap=never --color=always -pp $highlightLine $file
 } else {
-    Get-Content -LiteralPath $file -Raw
+    Get-Content -LiteralPath $file -Raw -Encoding UTF8
 }
 '''
 frame = { border_type = "LightDoubleDashed", fg = "DarkGray", title = "File Contents" }
@@ -56,7 +66,10 @@ scroll_wrap = true
 "ctrl-." = "NextColumn"
 "?" = "SwitchPreview"
 
-"0,1^^@accept" = "Become(powershell -Command \"& $env:EDITOR {1}\")"
+"0,1^^@accept" = '''Become(
+$editor = $(if ($env:EDITOR) { $env:EDITOR } else { 'notepad' }) -split '\s+'
+& $editor[0] @($editor | Select-Object -Skip 1) {1}
+)'''
 
 # --- Scripts ---
 "Start" = "@enter_rg"
@@ -65,32 +78,36 @@ scroll_wrap = true
     "Filtering(false)",
     '''Bind(QueryChange = Reload)''',
     # Prompt indicator
-    '''Transform(
-    if ($env:MM_QUERY) {
-        $trimmedQuery = $env:MM_QUERY -replace '^%1\s*', ''
-        Write-Output "SetStyledPrompt({blue,italic:($trimmedQuery)} )"
-    } else {
-        Write-Output "SetPrompt(rg> )"
-    }
-
-    Write-Output "SetQuery($env:MM_STORE)"
-    Write-Output "Store($env:MM_QUERY)"
+    '''Transform(#!lua
+local query = env.MM_QUERY or ""
+local trimmed = query:gsub("^%%1%s*", "")
+local lines = {}
+if query ~= "" then
+    lines[#lines + 1] = "SetStyledPrompt({blue,italic:(" .. trimmed .. ")} )"
+else
+    lines[#lines + 1] = "SetPrompt(rg> )"
+end
+lines[#lines + 1] = "SetQuery(" .. (env.MM_STORE or "") .. ")"
+lines[#lines + 1] = "Store(" .. query .. ")"
+return table.concat(lines, "\n")
 )''',
     "Bind(@reload = @enter_mm)",
 ]
 "@enter_mm" = [
     "Filtering(true)",
     "Unbind(QueryChange)",
-    '''Transform(
-    if ($env:MM_QUERY) {
-        Write-Output "SetPrompt(($env:MM_QUERY) )"
-    } else {
-        Write-Output "SetStyledPrompt({blue,italic:mm> })"
-    }
-
-    Write-Output "SetQuery($env:MM_STORE)"
-    Write-Output "Store($env:MM_QUERY)"
-    Write-Output "SwitchColumn(1)"
+    '''Transform(#!lua
+local query = env.MM_QUERY or ""
+local lines = {}
+if query ~= "" then
+    lines[#lines + 1] = "SetPrompt((" .. query .. ") )"
+else
+    lines[#lines + 1] = "SetStyledPrompt({blue,italic:mm> })"
+end
+lines[#lines + 1] = "SetQuery(" .. (env.MM_STORE or "") .. ")"
+lines[#lines + 1] = "Store(" .. query .. ")"
+lines[#lines + 1] = "SwitchColumn(1)"
+return table.concat(lines, "\n")
 )
 ''',
     "Bind(@reload = @enter_rg)",

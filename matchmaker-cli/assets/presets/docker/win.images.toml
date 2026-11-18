@@ -1,0 +1,144 @@
+# Docker/Podman image viewer
+
+source = "base.toml"
+
+[matcher]
+trim = true
+
+[start]
+# The populator is Lua so docker's `{{.Field}}` template reaches docker intact
+# and the tab-separated columns need no quoting; the previews are PowerShell.
+shell = ["powershell", "-NoProfile", "-Command"]
+command = '''#!lua
+local docker = env.DOCKERcmd or "docker"
+local r = proc.run(docker, {
+    "image",
+    "ls",
+    "--format",
+    "{{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.CreatedAt}}\t{{.Size}}",
+})
+if not r.ok then error(docker .. " image ls failed: " .. r.stderr) end
+for line in r.stdout:gmatch("[^\r\n]+") do inject(line) end'''
+
+[envs]
+# `dispatcher.sh` picks the same way on unix; here it is resolved once at startup.
+DOCKERcmd = { value = '#!lua return proc.has("docker") and "docker" or "podman"', exec = true, force = true }
+
+[header]
+header_lines = 1
+# content = ["REPOSITORY", "TAG", "IMAGE ID", "CREATED", "SIZE"]
+
+[columns]
+split = "\\t\\s*"
+names = ["repo", "tag", "id", "created", "size"]
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[[preview.layout]]
+# Containers
+command = '''
+& $env:DOCKERcmd ps -a --filter ancestor={id} --format "ID: {{.ID}}\nStatus: {{.Status}}\nCreated: {{.Created}}\n\nnames: {{.Names}}\n------------\n"
+'''
+frame = { title = "Containers" }
+
+[[preview.layout]]
+# History
+command = '''
+& $env:DOCKERcmd image history {id}
+'''
+frame = { title = "Image History" }
+
+[[preview.layout]]
+# Inspect
+command = '''
+& $env:DOCKERcmd image inspect {id}
+'''
+frame = { title = "Image Inspect" }
+
+[binds]
+# Navigation
+"ctrl-o" = "SwitchPreview(1)"
+
+# Management Actions
+"ctrl-r" = "@pull"
+"alt-r" = "@push"
+"ctrl-d" = "@rmi"
+"alt-d" = "@rmi_id"
+"alt-s" = "@save_tar"
+"ctrl-n" = "@copy_tag"
+"alt-n" = "@rename_tag"
+"ctrl-t" = "@new_tag"
+"alt-t" = "@retag"
+
+# --- Actions ---
+"@config_exec" = '''Execute(& $env:DOCKERcmd image inspect {id})'''
+"@stats" = '''Preview(& $env:DOCKERcmd image history {id})'''
+
+"@pull" = ['''ExecuteOrConfirm(& $env:DOCKERcmd image pull ("{=repo}" + ':' + "{=tag}"))''', "SetStatus(Pulling...)"]
+"@push" = ['''ExecuteOrConfirm(& $env:DOCKERcmd image push ("{=repo}" + ':' + "{=tag}"))''', "SetStatus(Pushing...)"]
+
+"@rmi" = [
+    '''ExecuteOrConfirm(& $env:DOCKERcmd image rmi ("{=repo}" + ':' + "{=tag}"))''',
+    "SetStatus(Removing...)",
+    "Reload",
+]
+"@rmi_id" = ['ExecuteOrConfirm(& $env:DOCKERcmd image rmi {id})', "SetStatus(Removing by ID...)", "Reload"]
+
+"@save_tar" = '''ExecuteOrConfirm(#!lua
+local c = state.current
+if not c then return end
+local filename = input.prompt("Save as (filename):")
+if not filename or filename == "" then os.exit(100) end
+local r = proc.run(env.DOCKERcmd or "docker", { "image", "save", c.id, "-o", filename })
+if not r.ok then error(r.stderr) end
+)'''
+
+"@copy_tag" = '''ExecuteOrConfirm(#!lua
+local c = state.current
+if not c then return end
+local newname = input.prompt("Copy " .. c.repo .. ":" .. c.tag .. " to (new name):")
+if not newname or newname == "" then os.exit(100) end
+local r = proc.run(env.DOCKERcmd or "docker", { "image", "tag", c.id, newname })
+if not r.ok then error(r.stderr) end
+)'''
+
+"@rename_tag" = '''ExecuteOrConfirm(#!lua
+local c = state.current
+if not c then return end
+local newname = input.prompt("Rename " .. c.repo .. ":" .. c.tag .. " to (new name):")
+if not newname or newname == "" then os.exit(100) end
+local docker = env.DOCKERcmd or "docker"
+local tag = proc.run(docker, { "image", "tag", c.id, newname })
+if not tag.ok then error(tag.stderr) end
+local rmi = proc.run(docker, { "image", "rmi", c.repo .. ":" .. c.tag })
+if not rmi.ok then error(rmi.stderr) end
+)'''
+
+"@new_tag" = '''ExecuteOrConfirm(#!lua
+local c = state.current
+if not c then return end
+local newtag = input.prompt("New tag for " .. c.repo .. " -> " .. c.repo .. ":")
+if not newtag or newtag == "" then os.exit(100) end
+local r = proc.run(env.DOCKERcmd or "docker", { "image", "tag", c.id, c.repo .. ":" .. newtag })
+if not r.ok then error(r.stderr) end
+)'''
+
+"@retag" = '''ExecuteOrConfirm(#!lua
+local c = state.current
+if not c then return end
+local newtag = input.prompt("Retag " .. c.repo .. ":" .. c.tag .. " -> " .. c.repo .. ":")
+if not newtag or newtag == "" then os.exit(100) end
+local docker = env.DOCKERcmd or "docker"
+local tag = proc.run(docker, { "image", "tag", c.id, c.repo .. ":" .. newtag })
+if not tag.ok then error(tag.stderr) end
+local rmi = proc.run(docker, { "image", "rmi", c.repo .. ":" .. c.tag })
+if not rmi.ok then error(rmi.stderr) end
+)'''
+
+[query]
+prompt = "images> "
+prompt_style.fg = "Magenta"
+
+[tui]
+percentage = 100

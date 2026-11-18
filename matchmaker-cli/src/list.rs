@@ -1,9 +1,7 @@
 use std::{
     collections::HashMap,
-    env::set_current_dir,
     ffi::OsString,
-    path::Path,
-    process::{Command, Stdio, exit},
+    process::{Stdio, exit},
 };
 
 use crate::{
@@ -39,7 +37,6 @@ use crate::{
     formatter::format_cli,
     start::{COMMAND_ARGS, process_envs},
 };
-use cba::birs::expand_tilde;
 
 #[cfg(feature = "mlua")]
 use crate::lua::LuaState;
@@ -492,48 +489,15 @@ fn setup(config: &Config) -> anyhow::Result<(String, HashMap<String, String>, Ve
     let envs = process_envs(envs);
 
     if !start.directory.value.is_empty() {
-        let EnvValue { value, force, exec } = &start.directory;
-
-        let mut failed = false;
-        if *exec {
-            if let Some(new_d) = Command::from_script(value, &[])
-                .envs(&envs)
-                .read_to_string()
-                ._elog()
-            {
-                ibog!("directory script output: {}", new_d.trim());
-                let new_d = Path::new(new_d.trim()).to_path_buf();
-                if new_d.exists() {
-                    failed = match set_current_dir(&new_d)
-                        .prefix(format!("Failed to switch to {new_d:?}"))
-                    {
-                        Err(e) => {
-                            if *force {
-                                ebog!("{e}")
-                            } else {
-                                wbog!("{e}")
-                            }
-                            true
-                        }
-                        _ => false,
-                    };
-                } else {
-                    ebog!("Directory does not exist: {}", new_d.display());
-                    failed = true;
+        match execute::apply_directory(&start.directory, &envs) {
+            Ok(dir) => ibog!("directory: {}", dir.display()),
+            Err(e) => {
+                if start.directory.force {
+                    ebog!("{e}");
+                    bail!("failed to switch directory");
                 }
-            } else {
-                ebog!("Failed to execute script for directory: {}", value);
-                failed = true;
+                wbog!("{e}");
             }
-        } else {
-            let path = expand_tilde(value);
-            set_current_dir(&path)
-                .prefix(format!("Failed to switch to {path:?}"))
-                ._wbog();
-        }
-
-        if failed && *force {
-            bail!("failed to switch directory");
         }
     }
 

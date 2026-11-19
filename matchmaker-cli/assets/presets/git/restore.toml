@@ -1,6 +1,6 @@
 # restore a file or revision
 
-source = 'base.toml'
+base = 'base.toml'
 
 [start]
 command = '[ $# -eq 0 ] && set -- .; git log --pretty=format:"%h%x00%ad%x00%s" --date=format:"$DATE_FORMAT" -- "$@"'

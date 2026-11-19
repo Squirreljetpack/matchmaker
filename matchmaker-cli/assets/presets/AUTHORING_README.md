@@ -196,7 +196,7 @@ This section covers the TOML beside the README. See
 
 Recommended definition order:
 
-1. `source` (only when inheriting)
+1. `base` (only when inheriting)
 2. `[start]` and `[envs]`
 3. `[columns]` and `[matcher]`
 4. UI sections: `[tui]`, `[query]`, `[results]`, `[header]`, `[footer]`, `[exit]`
@@ -230,7 +230,7 @@ The prefixes are `win.` (also accepted as `windows.`), `macos.`, `linux.` and
 `unix.` (both unixes). A platform keeps the files prefixed for itself and
 ignores the others, so `mm --presets` never lists another platform's presets
 nor the plain file that a variant of the same name shadows, and `-o <name>`,
-`source =`, and `--download` all resolve to this platform's spelling first and
+`base =`, and `--download` all resolve to this platform's spelling first and
 the plain file last:
 
 ```sh
@@ -240,8 +240,8 @@ mm -o zellij/session # zellij/unix.session.toml
 ```
 
 Write references inside a prefixed file the way they should read *after* a
-download, where `--download` strips the prefix: `source = "base.toml"`, not
-`source = "win.base.toml"`. `base.toml` stays unselectable under any prefix, and
+download, where `--download` strips the prefix: `base = "base.toml"`, not
+`base = "win.base.toml"`. `base.toml` stays unselectable under any prefix, and
 the `themes/` folder is represented by its `main.toml` only.
 
 A preset that keeps shell payloads pins them, because an empty `shell` falls

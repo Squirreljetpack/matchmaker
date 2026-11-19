@@ -26,7 +26,7 @@ If the request is ambiguous, clarify the input source, accepted output, target p
 
 A preset is layered onto Matchmaker's base configuration. It normally contains these sections in this order:
 
-1. `source` (only when inheriting from another preset)
+1. `base` (only when inheriting from another preset)
 2. `[start]` and optional `[envs]`
 3. `[columns]`, `[matcher]`, and UI sections such as `[query]`, `[results]`, `[header]`, and `[footer]`
 4. `[previewer]` and `[preview]`
@@ -56,7 +56,7 @@ Use section comments to separate the input, UI, preview, and action portions. Ke
 
 ### Inheritance and overrides
 
-`source` can inherit from another preset. A common pattern for several related presets stored in the same folder (i.e. `git`) is to define a `base.toml` (in `git/`), and add `source = 'base.toml'` to each of the concrete presets (`git/restore.toml`).
+`base` can inherit from another preset. A common pattern for several related presets stored in the same folder (i.e. `git`) is to define a `base.toml` (in `git/`), and add `base = 'base.toml'` to each of the concrete presets (`git/restore.toml`).
 Override only the fields that are intentionally different. Collections such as `preview.layout` are merged by position and then appended; binds override existing keys.
 
 For small, optional tweaks on top of an existing preset without forking it (such as changing `@open` or switching matcher settings), use a patch preset under `patches/<name>.toml` (slashes in the preset name replaced by hyphens, e.g. `patches/git-status.toml`); `presets.toml` layers matching patches automatically.
@@ -107,7 +107,7 @@ rg.toml               win.rg.toml
 zellij/unix.session.toml
 ```
 
-The prefixes are `win.` (also accepted as `windows.`), `macos.`, `linux.` and `unix.` (both unixes). A platform keeps the files prefixed for itself and ignores the others: `mm --presets` lists one entry per preset (the variant shadows the plain file), and `-o <name>`, `source =` and `mm --download` resolve to this platform's spelling first and the plain file last. Inside a prefixed file, write references so they read correctly after a download, which strips the prefix (`source = "base.toml"`). `base.toml` stays unselectable under any prefix, and a folder such as `themes/` is represented by its `main.toml`.
+The prefixes are `win.` (also accepted as `windows.`), `macos.`, `linux.` and `unix.` (both unixes). A platform keeps the files prefixed for itself and ignores the others: `mm --presets` lists one entry per preset (the variant shadows the plain file), and `-o <name>`, `base =` and `mm --download` resolve to this platform's spelling first and the plain file last. Inside a prefixed file, write references so they read correctly after a download, which strips the prefix (`base = "base.toml"`). `base.toml` stays unselectable under any prefix, and a folder such as `themes/` is represented by its `main.toml`.
 
 Shell payloads need a pin, because an empty `shell` falls to a startup heuristic that can find `cmd.exe` instead of PowerShell:
 
@@ -203,7 +203,7 @@ Related pickers can form a ring: each preset binds `@next` / `@prev` to `BecomeS
 Use the repository's presets as style references instead of treating one workflow as canonical:
 
 - `rg.toml` shows a focused source command, ANSI input, regex capture columns, a raw output template, and a query-driven reload flow.
-- `git/status.toml` shows inheritance with `source = 'base.toml'`, NUL-delimited input, several preview layouts, semantic aliases, and confirmation around destructive actions.
+- `git/status.toml` shows inheritance with `base = 'base.toml'`, NUL-delimited input, several preview layouts, semantic aliases, and confirmation around destructive actions.
 - `docker/containers.toml` shows sibling helper scripts, command-backed environment values, named columns, and previews that reuse a dispatcher.
 - `csv.toml` shows the smallest useful preset: discover input, select a parser, set a header, and preview the active field.
 - `ai/pi_sessions.toml` shows a larger multi-column browser with generated metadata, several preview layouts, and helper programs resolved relative to `MM_OVERRIDE`.

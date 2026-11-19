@@ -1,5 +1,7 @@
 # Solarized Light Theme
 
+base = ""
+
 [query]
 style.bg = "#FDF6E3"
 prompt = "λ "

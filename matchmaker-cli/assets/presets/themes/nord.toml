@@ -1,5 +1,7 @@
 # Nord Theme
 
+base = ""
+
 [query]
 prompt = "» "
 prompt_style.fg = "#88C0D0"

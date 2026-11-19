@@ -1,6 +1,6 @@
 # interactive git status
 
-source = "base.toml"
+base = "base.toml"
 
 [start]
 # The populator and the multi-step actions are Lua; the previews and the plain

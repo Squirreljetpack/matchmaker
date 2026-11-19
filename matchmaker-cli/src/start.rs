@@ -86,29 +86,20 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
         load_type_or_default(cfg_path, None, |s| toml::from_str(s))
     };
     // check config
-    if config.source.is_some() {
-        wbog!("'source' field is not supported in the main config.");
+    if config.base.is_some() {
+        wbog!("'base' field is not supported in the main config.");
     }
 
     #[cfg(not(debug_assertions))]
     log::trace!("Initial cfg: {config:?}");
 
-    // Apply the default file-picker preset when running without `--config` or
-    // `-o` overrides so presets and `--config` files never inherit its
-    // columns, start command, abort_empty, or file previewer.
-    if cli.config.is_none() && cli.r#override.is_empty() {
-        let preset: PartialConfig = toml::from_str(crate::config::DEFAULT_PRESET)
-            .expect("embedded default preset must parse");
-        config.apply(preset);
-    }
-
-    // apply overrides
+    // Resolve `-o` paths: a preset name (`ps`, `zellij/session`, `man`) resolves
+    // to its platform's `main.toml` first, then to its platform-prefixed file,
+    // then to the literal path.
+    let mut overrides = Vec::with_capacity(cli.r#override.len());
     for mut p in cli.r#override {
         if p.is_relative() && p.extension().is_none() {
             let presets = presets_path();
-            // A preset name (`ps`, `zellij/session`, `man`) resolves to its
-            // platform's `main.toml` first, then to its platform-prefixed file,
-            // then to the literal path.
             let main_p = crate::paths::resolve_platform_path(&presets.join(&p), "main.toml");
             let exact_os =
                 crate::paths::resolve_platform_file(&presets.join(p.with_extension("toml")));
@@ -117,7 +108,26 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
         }
         // no recursion because tail bad
         let o: PartialConfig = load_type(&p, |s| toml::from_str(s))?;
+        overrides.push((p, o));
+    }
 
+    // An override with an empty `base` is a patch that layers onto whatever
+    // config is loaded, so it leaves the default preset alone.
+    let patch_first = overrides
+        .first()
+        .is_some_and(|(_, o)| o.base.as_ref().is_some_and(|s| s.as_os_str().is_empty()));
+
+    // Apply the default file-picker preset when running without `--config`, with
+    // no `-o` overrides, or with a leading patch, so presets and `--config` files
+    // never inherit its columns, start command, abort_empty, or file previewer.
+    if cli.config.is_none() && (overrides.is_empty() || patch_first) {
+        let preset: PartialConfig = toml::from_str(crate::config::DEFAULT_PRESET)
+            .expect("embedded default preset must parse");
+        config.apply(preset);
+    }
+
+    // apply overrides
+    for (p, o) in overrides {
         // MM_OVERRIDE must always reflect the current override path: force it so a
         // stale MM_OVERRIDE inherited from the parent environment cannot shadow it,
         // and canonicalize so `dirname "$MM_OVERRIDE"` in preset commands is always
@@ -133,15 +143,17 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
         // one commands are relative to.
         config.envs.insert("MM_OVERRIDE".to_string(), override_env);
 
-        if let Some(q) = &o.source {
-            let source =
+        if let Some(q) = &o.base
+            && !q.as_os_str().is_empty()
+        {
+            let base =
                 crate::paths::resolve_platform_file(&p.parent().unwrap_or(Path::new("")).join(q));
-            let o: PartialConfig = load_type(source, |s| toml::from_str(s))?;
-            if o.source.is_some() {
-                _wbog!("Ignoring 'source' field in nested override.");
+            let o: PartialConfig = load_type(base, |s| toml::from_str(s))?;
+            if o.base.is_some() {
+                _wbog!("Ignoring 'base' field in nested override.");
             }
             #[cfg(not(debug_assertions))]
-            log::trace!("source: {o:?}");
+            log::trace!("base: {o:?}");
             config.apply(o);
         }
 
@@ -553,7 +565,7 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
         markdown,
         #[cfg(feature = "pager")]
         pager,
-        source: _,
+        base: _,
     } = config;
 
     // -------- determine command ------------

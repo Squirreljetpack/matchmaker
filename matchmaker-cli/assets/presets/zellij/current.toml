@@ -1,6 +1,6 @@
 # Focus a pane of the current zellij session
 
-source = "base.toml"
+base = "base.toml"
 
 [start]
 command = "@./zellij.sh current"

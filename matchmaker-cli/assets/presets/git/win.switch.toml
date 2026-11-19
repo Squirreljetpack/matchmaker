@@ -1,6 +1,6 @@
 # Intelligently switch to any ref
 
-source = "base.toml"
+base = "base.toml"
 
 [start]
 # The populator and the actions are Lua; the previews are PowerShell, so pin

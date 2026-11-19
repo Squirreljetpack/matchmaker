@@ -1,6 +1,6 @@
 # Docker/Podman projects viewer
 
-source = "base.toml"
+base = "base.toml"
 
 [start]
 command = '"$(dirname -- "$MM_OVERRIDE")"/projects.sh'

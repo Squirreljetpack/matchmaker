@@ -1,5 +1,7 @@
 # Minimal Mono Theme
 
+base = ""
+
 [query]
 prompt = ""
 style.fg = "#FFFFFF"

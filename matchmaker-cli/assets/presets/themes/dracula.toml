@@ -1,5 +1,7 @@
 # Dracula Theme
 
+base = ""
+
 [query]
 prompt = "🧛: "
 prompt_style.fg = "#BD93F9"

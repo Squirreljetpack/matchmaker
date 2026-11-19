@@ -1,5 +1,7 @@
 # Solarized Dark Theme
 
+base = ""
+
 [query]
 prompt = "λ "
 prompt_style.fg = "#2AA198"

@@ -1,5 +1,7 @@
 # ANSI Gold Theme
 
+base = ""
+
 ui.outer_frame.padding.top = 1
 ui.outer_frame.style.bg = "Black"
 

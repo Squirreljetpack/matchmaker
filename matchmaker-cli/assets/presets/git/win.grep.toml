@@ -1,6 +1,6 @@
 # grep for a line of change
 
-source = 'base.toml'
+base = 'base.toml'
 
 [start]
 command = '''#!lua

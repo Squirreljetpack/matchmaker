@@ -74,10 +74,11 @@ pub struct Config {
     #[serde(default)]
     pub pager: PagerConfig,
 
-    /// imports: only supported on overrides and with one nesting level
+    /// The preset this file inherits from: only supported on overrides and with
+    /// one nesting level. An empty value marks a patch, which inherits nothing.
     #[serde(default)]
     #[partial(no_recurse)]
-    pub source: Option<std::path::PathBuf>,
+    pub base: Option<std::path::PathBuf>,
 }
 
 // -----------------------
@@ -236,23 +237,28 @@ mod tests {
     fn config_round_trip() {
         use matchmaker_partial::Apply;
         check_round_trip("config.toml", include_str!("../assets/config.toml"));
-        check_round_trip(
-            "config.lua.toml",
-            include_str!("../assets/config.lua.toml"),
-        );
+        check_round_trip("config.lua.toml", include_str!("../assets/config.lua.toml"));
         check_round_trip("win.config.toml", include_str!("../assets/win.config.toml"));
         check_round_trip("dev.toml", include_str!("../assets/dev.toml"));
 
         for (name, toml_str) in [
             ("default.toml", include_str!("../assets/default.toml")),
-            ("win.default.toml", include_str!("../assets/win.default.toml")),
+            (
+                "win.default.toml",
+                include_str!("../assets/win.default.toml"),
+            ),
         ] {
             let partial: PartialConfig =
                 toml::from_str(toml_str).unwrap_or_else(|e| panic!("failed to parse {name}: {e}"));
             let mut config = Config::default();
             config.apply(partial);
             assert_eq!(
-                config.columns.names.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(),
+                config
+                    .columns
+                    .names
+                    .iter()
+                    .map(|c| c.name.as_str())
+                    .collect::<Vec<_>>(),
                 ["file"],
                 "expected file column after applying {name}"
             );
@@ -281,9 +287,7 @@ mod tests {
     #[cfg(feature = "mlua")]
     #[test]
     fn default_config_lua_payloads_syntax() {
-        for (name, toml_str) in [
-            ("config.lua.toml", include_str!("../assets/config.lua.toml")),
-        ] {
+        for (name, toml_str) in [("config.lua.toml", include_str!("../assets/config.lua.toml"))] {
             let config: Config = toml::from_str(toml_str).unwrap();
             for (trigger, actions) in config.binds {
                 for action in actions {

@@ -1,6 +1,6 @@
 # Docker/Podman projects viewer
 
-source = "base.toml"
+base = "base.toml"
 
 [start]
 # `projects.sh` is inlined here: compose/pod projects are collected in Lua and

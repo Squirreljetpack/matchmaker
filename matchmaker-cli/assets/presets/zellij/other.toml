@@ -1,6 +1,6 @@
 # Focus a pane in another zellij session
 
-source = "base.toml"
+base = "base.toml"
 
 [start]
 command = "@./zellij.sh other"

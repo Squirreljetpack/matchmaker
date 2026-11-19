@@ -1,6 +1,6 @@
 # Debian / Ubuntu package browser (apt / dpkg)
 
-source = "base.toml"
+base = "base.toml"
 
 [start]
 command = '''

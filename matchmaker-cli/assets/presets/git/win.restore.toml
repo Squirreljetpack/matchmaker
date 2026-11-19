@@ -1,6 +1,6 @@
 # restore a file or revision
 
-source = "base.toml"
+base = "base.toml"
 
 [start]
 # The actions and the populators are Lua; the previews and `@fixup` (which hands

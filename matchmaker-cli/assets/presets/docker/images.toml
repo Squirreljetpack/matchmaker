@@ -1,6 +1,6 @@
 # Docker/Podman image viewer
 
-source = "base.toml"
+base = "base.toml"
 
 [matcher]
 trim = true

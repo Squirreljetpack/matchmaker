@@ -1,5 +1,7 @@
 # Everforest Theme
 
+base = ""
+
 [query]
 prompt = "🌲 "
 prompt_style.fg = "#A7C080"

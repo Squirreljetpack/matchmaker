@@ -1,6 +1,6 @@
 # Proton Pass vault picker (pass-cli)
 
-source = "base.toml"
+base = "base.toml"
 
 [start]
 command = '''

@@ -1,5 +1,7 @@
 # Gruvbox Dark Theme
 
+base = ""
+
 [query]
 prompt = ":: "
 prompt_style.fg = "#FE8019"

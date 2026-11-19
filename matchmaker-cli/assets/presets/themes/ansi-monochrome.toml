@@ -1,5 +1,7 @@
 # ANSI Monochrome Theme
 
+base = ""
+
 [ui.frame]
 sides = ""
 style.bg = "Black"

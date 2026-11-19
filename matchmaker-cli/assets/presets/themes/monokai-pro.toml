@@ -1,5 +1,7 @@
 # Monokai Pro Theme
 
+base = ""
+
 [query]
 prompt = "FIND ❯ "
 prompt_style.fg = "#FFD866"

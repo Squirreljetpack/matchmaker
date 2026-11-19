@@ -1,6 +1,6 @@
 # interactive git status
 
-source = 'base.toml'
+base = 'base.toml'
 
 [start]
 command = '''

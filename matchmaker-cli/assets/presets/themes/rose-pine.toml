@@ -1,5 +1,7 @@
 # Rosé Pine Theme
 
+base = ""
+
 [query]
 prompt = "✦ "
 prompt_style.fg = "#EBBCBA"

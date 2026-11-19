@@ -1,6 +1,6 @@
 # Intelligently switch to any ref
 
-source = 'base.toml'
+base = 'base.toml'
 
 [start]
 # only

@@ -24,7 +24,7 @@ Shared binds across all package pickers: `<enter>` installs the selected
 package(s), `@rm` prompts before removing them, `@open` opens the package's
 homepage URL, and `@refresh` (`F5` / `alt-u`) syncs the package database. The
 binds live in `packages/base.toml`, which the unix presets load through
-`source = "base.toml"`; `packages/win.base.toml` is the same fragment with a
+`base = "base.toml"`; `packages/win.base.toml` is the same fragment with a
 PowerShell copy action, for package pickers whose backend is available on
 Windows.
 

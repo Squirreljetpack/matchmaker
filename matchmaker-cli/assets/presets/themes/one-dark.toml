@@ -1,5 +1,7 @@
 # One Dark Theme
 
+base = ""
+
 [query]
 prompt = "❯ "
 prompt_style.fg = "#61AFEF"

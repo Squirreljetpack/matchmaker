@@ -195,7 +195,7 @@ pub fn handle_download(download: &String, folder_exclude_extensions: &[&str]) ->
         let path = Path::new(subfolder);
         if let (Some(parent), Some(file_name)) = (path.parent(), path.file_name()) {
             // This platform's prefixed spellings first, then the plain file: the
-            // same order `-o` and `source =` resolve in.
+            // same order `-o` and `base =` resolve in.
             for prefix in crate::paths::os_prefixes() {
                 let mut name = std::ffi::OsString::from(prefix);
                 name.push(file_name);

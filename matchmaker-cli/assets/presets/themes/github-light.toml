@@ -1,5 +1,7 @@
 # GitHub Light Theme
 
+base = ""
+
 [query]
 style.bg = "#FFFFFF"
 prompt = "❯ "

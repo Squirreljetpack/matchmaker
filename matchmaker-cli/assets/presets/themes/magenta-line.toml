@@ -1,5 +1,7 @@
 # Magenta Line Theme
 
+base = ""
+
 [query]
 prompt = ""
 style.fg = "White"

@@ -1,5 +1,7 @@
 # ANSI Cyan Theme
 
+base = ""
+
 [ui.outer_frame]
 border_type = "Rounded"
 fg = "DarkGray"

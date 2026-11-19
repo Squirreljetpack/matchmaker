@@ -1,5 +1,7 @@
 # FZF Classic Theme
 
+base = ""
+
 [query]
 prompt = "> "
 prompt_style.fg = "Red"

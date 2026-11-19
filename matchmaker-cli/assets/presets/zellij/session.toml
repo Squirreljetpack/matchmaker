@@ -2,7 +2,7 @@
 
 # Preview shows a tab summary with pane titles
 
-source = "base.toml"
+base = "base.toml"
 
 [start]
 command = "@./zellij.sh sessions"

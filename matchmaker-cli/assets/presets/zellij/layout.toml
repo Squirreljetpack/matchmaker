@@ -2,7 +2,7 @@
 
 # Lists only single-tab layouts by default, extra layouts can be specified as extra arguments to the populating command
 
-source = "base.toml"
+base = "base.toml"
 
 [start]
 command = "@./zellij.sh layouts"

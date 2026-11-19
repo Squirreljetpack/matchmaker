@@ -1,6 +1,6 @@
 # Bitwarden vault picker (rbw)
 
-source = "base.toml"
+base = "base.toml"
 
 [start]
 command = '''

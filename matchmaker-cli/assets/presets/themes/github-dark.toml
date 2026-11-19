@@ -1,5 +1,7 @@
 # GitHub Dark Theme
 
+base = ""
+
 [query]
 prompt = "❯ "
 prompt_style.fg = "#7D8590"

@@ -1,5 +1,7 @@
 # ANSI Line Theme
 
+base = ""
+
 [ui.outer_frame]
 padding = 1
 style.bg = "Black"

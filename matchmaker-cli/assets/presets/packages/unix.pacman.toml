@@ -1,6 +1,6 @@
 # Arch Linux package browser (pacman / paru / yay)
 
-source = "base.toml"
+base = "base.toml"
 
 [start]
 command = '''

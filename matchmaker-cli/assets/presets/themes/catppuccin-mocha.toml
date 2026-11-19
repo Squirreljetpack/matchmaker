@@ -1,5 +1,7 @@
 # Catppuccin Mocha Theme
 
+base = ""
+
 [query]
 prompt = "» "
 prompt_style.fg = "#CBA6F7"

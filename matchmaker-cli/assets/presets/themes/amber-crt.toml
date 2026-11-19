@@ -1,5 +1,7 @@
 # Amber CRT Theme
 
+base = ""
+
 [query]
 prompt = "QUERY> "
 prompt_style.fg = "#FFB000"

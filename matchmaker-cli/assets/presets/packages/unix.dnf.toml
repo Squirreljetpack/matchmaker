@@ -1,6 +1,6 @@
 # Fedora / RHEL package browser (dnf / rpm)
 
-source = "base.toml"
+base = "base.toml"
 
 [start]
 command = '''

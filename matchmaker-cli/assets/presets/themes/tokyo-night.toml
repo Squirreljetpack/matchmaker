@@ -1,5 +1,7 @@
 # Tokyo Night Theme
 
+base = ""
+
 [query]
 prompt = "❯ "
 prompt_style.fg = "#7AA2F7"

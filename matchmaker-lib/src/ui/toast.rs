@@ -8,7 +8,7 @@ use std::sync::{Mutex, MutexGuard};
 use ratatui::{
     Frame,
     layout::Rect,
-    style::Modifier,
+    style::Style,
     text::{Line, Span},
     widgets::{Borders, Paragraph, Wrap},
 };
@@ -277,7 +277,8 @@ impl ToastUI {
             return;
         }
 
-        let widget = Self::paragraph(&entries)
+        let widget = self
+            .paragraph(&entries)
             .block(self.block(reverse))
             .scroll((self.offset, 0));
 
@@ -309,20 +310,30 @@ impl ToastUI {
         if width == 0 {
             return 0;
         }
-        Self::paragraph(entries).line_count(width)
+        self.paragraph(entries).line_count(width)
     }
 
-    fn paragraph(entries: &[ToastEntry]) -> Paragraph<'static> {
-        Paragraph::new(entries.iter().map(Self::entry_line).collect::<Vec<_>>())
-            .wrap(Wrap { trim: false })
+    fn paragraph(&self, entries: &[ToastEntry]) -> Paragraph<'static> {
+        Paragraph::new(
+            entries
+                .iter()
+                .map(|e| Self::entry_line(e, self.config.match_separator_style))
+                .collect::<Vec<_>>(),
+        )
+        .wrap(Wrap { trim: false })
     }
 
-    fn entry_line(entry: &ToastEntry) -> Line<'static> {
+    fn entry_line(entry: &ToastEntry, match_separator_style: bool) -> Line<'static> {
         let mut spans = Vec::new();
 
         if !entry.prefix.content.is_empty() {
             spans.push(entry.prefix.clone());
-            spans.push(Span::raw(": "));
+            let style = if match_separator_style {
+                entry.prefix.style
+            } else {
+                Style::default()
+            };
+            spans.push(Span::styled(": ", style));
         }
 
         for (i, message) in entry.message.iter().enumerate() {

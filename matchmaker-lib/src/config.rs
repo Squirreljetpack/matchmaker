@@ -584,6 +584,10 @@ pub struct ToastConfig {
 
     /// Maximum number of message rows shown. The frame adds its own rows.
     pub max_height: u16,
+
+    /// Render the `: ` separator between prefix and message in the style of
+    /// the end of the prefix span.
+    pub match_separator_style: bool,
 }
 
 impl Default for ToastConfig {
@@ -594,6 +598,7 @@ impl Default for ToastConfig {
                 ..Default::default()
             },
             max_height: 5,
+            match_separator_style: true,
         }
     }
 }

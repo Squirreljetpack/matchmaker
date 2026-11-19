@@ -1541,7 +1541,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-cli"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
@@ -1579,7 +1579,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-lib"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
@@ -1624,7 +1624,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-minus"
-version = "5.7.203"
+version = "5.7.204"
 dependencies = [
  "crossbeam-channel",
  "crossterm 0.29.0",
@@ -1632,14 +1632,13 @@ dependencies = [
  "image",
  "parking_lot",
  "regex",
- "textwrap",
  "thiserror 2.0.21",
  "unicode-width 0.2.3",
 ]
 
 [[package]]
 name = "matchmaker-mlua-bindings"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "cli_boilerplate_automation",
  "fastrand",
@@ -1666,7 +1665,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-partial"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "indexmap",
  "matchmaker-partial-macros",
@@ -1678,7 +1677,7 @@ dependencies = [
 
 [[package]]
 name = "matchmaker-partial-macros"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3110,15 +3109,6 @@ dependencies = [
  "wezterm-dynamic",
  "wezterm-input-types",
  "winapi",
-]
-
-[[package]]
-name = "textwrap"
-version = "0.16.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ecfad6c3abc80a577f2b91c1e412ee57e7a060d430b553c1b0c940974ebcd49"
-dependencies = [
- "unicode-width 0.2.3",
 ]
 
 [[package]]

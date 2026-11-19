@@ -1,3 +1,69 @@
+## [0.1.8] - 2026-11-19
+
+### 🚀 Features
+
+- Scrollable toast log, drawn at the outer edge of the ui from a new `[toast]` config section, with `Toast`, `ToastJoin` and `ClearToast` actions
+- *(toast)* Copied!/failure toasts for `Copy` and `CopyAsync`, and background fetch toasts in git/switch
+- *(toast)* Discriminant scoping, `retain`/`with_log`, and a replace-append option
+- *(toast)* `match_separator_style` for the prefix separator
+- *(config)* `source` renamed to `base`, still inheriting one level; an override whose `base` is empty is a patch that keeps the default preset
+- *(config)* `BorderSetting` renamed to `FrameSetting` and `border` to `frame`, now with `style` and `border_style`
+- *(config)* Partial padding definitions
+- `ansi-*` 16-color theme presets
+- *(binds)* Gate the editor behind `{file}`
+- *(pager)* `mouse_horizontal_scroll` option in `PagerConfig`
+- *(input)* `recenter_left_scroll_edge` scroll mode
+- *(cli)* Alphabetic column names exposed as mode tags
+- *(cli)* Numeric sort keys compared segment by segment, so durations sort chronologically
+- *(cli)* `@help` pages the preset README or comment header
+- Templates filled with post-processed content
+- *(presets)* Pueue groups and tasks pickers
+- *(presets)* Updated READMEs and new presets from Walker
+- AI-generated Windows presets
+- New `matchmaker-mlua-bindings` crate
+
+### 🐛 Bug Fixes
+
+- Various fixes
+- Fix image bleed
+- Fix header alignment
+- More specific deserialization error messages
+- Increment version on worker restart
+- Cap and trim the prompt from the left
+- *(binds)* `ctrl-backspace`/`alt-backspace` act as `DeleteWord` instead of `ctrl-h`
+- *(overlay)* Gate mouse scrolling via `Overlay::allow_scroll`
+- *(preview)* Layout bounds and show reporting
+- *(cli)* Page the `ShowPreview` payload instead of the preview command
+- *(cli)* Expand templates in `@file` payloads
+- *(lib)* Honor `columns.names[].ignore` when matching
+- *(preset)* Support paths in git presets (restore and grep)
+- *(become)* Support lua payloads and resume the TUI when the command does not run
+- *(results)* Keep row separators strictly between items
+- *(clipboard)* Write OSC 52 to a terminal that cannot be captured
+- *(tui)* Open `CONOUT$` with write access only
+
+### 🚜 Refactor
+
+- *(cli)* Use cba birs for config/state/tilde handling
+
+### ⚡ Performance
+
+- *(lib)* Avoid double `row_cache` clones and eager `row_widths` allocation
+
+### 📚 Documentation
+
+- Reorganize preset images and READMEs
+- Update docs
+
+### 🧪 Testing
+
+- Make `resolve_relative` and lua output assertions platform-neutral
+- Run lua payloads headlessly and give `--list` real state
+
+### 🎨 Styling
+
+- Lints
+
 ## [0.1.7] - 2026-10-29
 
 ### 🚀 Features

@@ -155,7 +155,9 @@ fn is_folder_allowed(siblings: &[&str]) -> bool {
     if cfg!(target_os = "windows") {
         siblings.contains(&".win")
     } else if cfg!(target_os = "macos") {
-        siblings.iter().any(|n| matches!(*n, ".mac" | ".macos" | ".unix"))
+        siblings
+            .iter()
+            .any(|n| matches!(*n, ".mac" | ".macos" | ".unix"))
     } else if cfg!(target_os = "linux") {
         siblings.iter().any(|n| matches!(*n, ".linux" | ".unix"))
     } else {

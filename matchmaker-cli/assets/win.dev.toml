@@ -62,7 +62,7 @@ max = 240
 "ctrl-right" = "ForwardWord"
 "ctrl-left" = "BackwardWord"
 "backspace" = "DeleteChar"
-"ctrl-h" = "DeleteWord"
+"ctrl-backspace" = "DeleteWord"
 "ctrl-u" = "Cancel"
 "alt-a" = "QueryPos(0)"
 

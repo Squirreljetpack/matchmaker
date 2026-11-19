@@ -139,7 +139,8 @@ abort_empty = true
 # "ctrl-right" = "ForwardWord"
 # "ctrl-left" = "BackwardWord"
 # "backspace" = "DeleteChar"
-# "ctrl-h" = "DeleteWord"
+# "ctrl-backspace" = "DeleteWord"
+# "alt-backspace" = "DeleteWord"
 # "ctrl-u" = "Cancel"
 # "alt-a" = "QueryPos(0)"
 

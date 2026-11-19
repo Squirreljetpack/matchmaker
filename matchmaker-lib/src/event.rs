@@ -448,7 +448,7 @@ impl<A: ActionExt> EventLoop<A> {
                                                 key!(ctrl-right) => self.send_action(Action::ForwardWord),
                                                 key!(ctrl-left) => self.send_action(Action::BackwardWord),
                                                 key!(backspace) => self.send_action(Action::DeleteChar),
-                                                key!(ctrl-h) => self.send_action(Action::DeleteWord),
+                                                key!(ctrl-backspace) | key!(alt-backspace) => self.send_action(Action::DeleteWord),
                                                 key!(ctrl-u) => self.send_action(Action::ClearQuery),
                                                 key!(alt-h) => self.send_action(Action::Help("".to_string())),
                                                 key!(alt-'w') => self.send_action(Action::ToggleWrap),

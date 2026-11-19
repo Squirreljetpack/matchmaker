@@ -50,7 +50,8 @@ impl<A: ActionExt> BindMap<A> {
             key!(backspace) => Action::DeleteChar,
             key!(ctrl-right) => Action::ForwardWord,
             key!(ctrl-left) => Action::BackwardWord,
-            key!(ctrl-h) => Action::DeleteWord,
+            key!(ctrl-backspace) => Action::DeleteWord,
+            key!(alt-backspace) => Action::DeleteWord,
             key!(ctrl-u) => Action::ClearQuery,
             key!(alt-a) => Action::QueryPos(0),
 
@@ -70,7 +71,6 @@ impl<A: ActionExt> BindMap<A> {
             let ext = bindmap!(
                 key!(alt-left) => Action::BackwardWord,
                 key!(alt-right) => Action::ForwardWord,
-                key!(alt-backspace) => Action::DeleteWord,
             );
             ret.extend(ext);
         }

@@ -632,7 +632,7 @@ dependencies = [
  "futures-core",
  "mio",
  "parking_lot",
- "rustix 1.1.6",
+ "rustix 1.1.4",
  "serde",
  "signal-hook",
  "signal-hook-mio",
@@ -1431,9 +1431,7 @@ checksum = "20870f649af7073d53e38067b2a84312175d56ea15217e1b15bc83506ec50afb"
 
 [[package]]
 name = "libc"
-version = "0.2.191"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65cd87c9a6d60536580b316ad985726104730a5151c99845f2490428ef91240a"
+version = "0.2.189"
 
 [[package]]
 name = "libm"
@@ -1477,8 +1475,6 @@ checksum = "d26c52dbd32dccf2d10cac7725f8eae5296885fb5703b261f7d0a0739ec807ab"
 [[package]]
 name = "linux-raw-sys"
 version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53"
 
 [[package]]
 name = "litrs"
@@ -2654,9 +2650,7 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "1.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5e76742e5294153d4dde1207dbec5bdd81eef6fabdc0d2118babadabfd858aa"
+version = "1.1.4"
 dependencies = [
  "bitflags 2.13.2",
  "errno",
@@ -2994,7 +2988,7 @@ dependencies = [
  "fastrand",
  "getrandom 0.4.3",
  "once_cell",
- "rustix 1.1.6",
+ "rustix 1.1.4",
  "windows-sys 0.61.2",
 ]
 
@@ -3031,7 +3025,7 @@ checksum = "9048a889effe34a5cddee0af7f53285198b16dca3be510858d38dfdb3e62a04e"
 dependencies = [
  "bitflags 2.13.2",
  "parking_lot",
- "rustix 1.1.6",
+ "rustix 1.1.4",
  "signal-hook",
  "windows-sys 0.61.2",
 ]

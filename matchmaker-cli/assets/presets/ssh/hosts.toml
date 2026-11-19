@@ -6,13 +6,19 @@ command = '''
 {
     setopt +o nomatch 2>/dev/null
 
+    set --
     for f in "$HOME/.ssh/config" "$HOME/.ssh/config.d/"* "/etc/ssh/ssh_config"; do
-        [ -f "$f" ] && [ -r "$f" ] || continue
+        [ -f "$f" ] && [ -r "$f" ] && set -- "$@" "$f"
+    done
 
-        awk -v file="$f" '
-            function print_hosts() {
-                for(j=1; j<=host_count; j++) {
-                    out_host = current_hosts[j]
+    if [ $# -gt 0 ]; then
+        awk '
+            function print_hosts(   j, out_host, out_hostname) {
+                for (j = 1; j <= host_count; j++) {
+                    out_host = host_list[j]
+                    if (out_host in seen) continue
+                    seen[out_host] = 1
+
                     out_hostname = (hostname == "-") ? out_host : hostname
 
                     # Using printf with null byte \x00 via %c for portability
@@ -21,17 +27,26 @@ command = '''
                 }
             }
 
-            $1 ~ /^[Hh][Oo][Ss][Tt]$/ {
-                if (host_count > 0) { print_hosts() }
-
+            function reset_block() {
                 host_count = 0
                 hostname = "-"
                 user = "-"
                 port = "-"
+            }
 
-                for(i=2; i<=NF; i++) {
+            FILENAME != file {
+                if (host_count > 0) { print_hosts() }
+                file = FILENAME
+                reset_block()
+            }
+
+            $1 ~ /^[Hh][Oo][Ss][Tt]$/ {
+                if (host_count > 0) { print_hosts() }
+                reset_block()
+
+                for (i = 2; i <= NF; i++) {
                     if ($i !~ /[*?]/) {
-                        current_hosts[++host_count] = $i
+                        host_list[++host_count] = $i
                     }
                 }
                 next
@@ -44,9 +59,9 @@ command = '''
             END {
                 if (host_count > 0) { print_hosts() }
             }
-        ' "$f"
-    done
-} | awk -F'\x00' '!seen[$2]++' | sort
+        ' "$@"
+    fi
+} | sort
 '''
 
 [columns]

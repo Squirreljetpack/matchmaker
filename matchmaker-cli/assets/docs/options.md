@@ -38,7 +38,7 @@ For example to split input on space, use `mm d " "`.
 
 ### Presets and Named Overrides (`-o` / `--override`)
 
-The `-o` flag allows you to layer additional configuration files on top of your base config. This is allows for consistent keybindings and settings between many different workflows.
+The `-o` flag allows you to layer additional configuration files on top of your base config. This allows for consistent keybindings and settings between many different workflows.
 
 - **Relative Paths**: `-o` accepts a path. A relative path without an extension is resolved inside the `presets` directory of your matchmaker configuration directory. It checks, in order: `<path>/main.toml`, `<path>/<os>.main.toml`, `<path>.toml`, then `<path>.<os>.toml`.
 - **Example**: `mm -o git/status` loads `presets/git/status.toml`; `mm -o unicode` loads `presets/unicode/main.toml`.

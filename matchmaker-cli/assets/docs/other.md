@@ -1,6 +1,6 @@
-# Queries
+# Other
 
-Matchmaker uses a powerful fuzzy matcher (based on Nucleo) to filter and rank items. It implements fzf-style scoring with smart case, consecutive match boosting, and start-of-word preference.
+Matchmaker filters results by scoring fuzzy matches: lowercase queries are case-insensitive, and consecutive runs and word starts score higher.
 
 ---
 

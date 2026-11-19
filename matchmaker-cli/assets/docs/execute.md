@@ -4,8 +4,8 @@ Matchmaker supports multiple execution strategies for running commands, generati
 
 > [!IMPORTANT]
 >
-> Despite the breadth of the following section is, for the most part it only exists due to the need for matchmaker to act consistently with respect to lua support.
-> You can almost always just use simple inline scripts (the *shell command* strategy), for which you should consult the [template docs](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md) instead.
+> However broad the following section is, for the most part it only exists so that matchmaker can act consistently with respect to Lua support.
+> You can almost always just use simple inline scripts (the *shell command* strategy), for which you should consult the [template docs](template.md) instead.
 
 ---
 
@@ -13,13 +13,13 @@ Matchmaker supports multiple execution strategies for running commands, generati
 
 Every command string (except preview layout commands) is classified into one of four execution strategies based on its prefix:
 
-| Prefix / Shape        | Strategy            | Description                                                                                                                                                                                       |
-| :-------------------- | :------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `command ...`         | **Shell Command**   | Run via the configured shell (`start.shell` or `$SHELL -c`). Supports `{}` [template expansions](https://github.com/Squirreljetpack/matchmaker/blob/main/matchmaker-cli/assets/docs/template.md). |
-| `@path [args...]`     | **Script File**     | Runs `path` through the configured shell (`start.shell` or `$SHELL`) with `args`. Relative paths resolve against the preset's directory.                                                          |
-| `@./path [args...]`   | **Direct File**     | Executes the file at `path` itself (the kernel honors its shebang; the file must be executable). Relative paths resolve against the preset's directory.                                           |
-| `#!lua ...`           | **Inline Lua**      | Runs inline Lua script on the internal Lua runtime with access to global `state` and `env` tables.                                                                                                |
-| `@file.lua [args...]` | **Lua Script File** | Runs `file.lua` on the internal Lua runtime, passing `args` as varargs (`...`). Relative paths resolve against the preset directory.                                                              |
+| Prefix / Shape        | Strategy            | Description                                                                                                                                             |
+| :-------------------- | :------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `command ...`         | **Shell Command**   | Run via the configured shell (`start.shell` or `$SHELL -c`). Supports `{}` [template expansions](template.md).                                          |
+| `@path [args...]`     | **Script File**     | Runs `path` through the configured shell (`start.shell` or `$SHELL`) with `args`. Relative paths resolve against the preset's directory.                |
+| `@./path [args...]`   | **Direct File**     | Executes the file at `path` itself (the kernel honors its shebang; the file must be executable). Relative paths resolve against the preset's directory. |
+| `#!lua ...`           | **Inline Lua**      | Runs inline Lua script on the internal Lua runtime with access to global `state` and `env` tables.                                                      |
+| `@file.lua [args...]` | **Lua Script File** | Runs `file.lua` on the internal Lua runtime, passing `args` as varargs (`...`). Relative paths resolve against the preset directory.                    |
 
 > [!NOTE]
 > Lua strategies require the `mlua` cargo feature (enabled by default). When disabled, `#!lua` falls back to Shell, and `@*.lua` falls back to Direct File.
@@ -31,7 +31,7 @@ Every command string (except preview layout commands) is classified into one of 
 
 ## Feature & Action Support Matrix
 
-Different contexts in Matchmaker utilize command strategies in specific ways:
+Different contexts in Matchmaker use command strategies in specific ways:
 
 | Context / Action                                          | Shell | `@file` | `#!lua` | `@file.lua` | Output / Result Handling                                         |
 | :-------------------------------------------------------- | :---: | :-----: | :-----: | :---------: | :--------------------------------------------------------------- |
@@ -168,7 +168,7 @@ return table.concat(selected_paths, "\n")
 
 ### The `env` Table
 
-Matchmaker exposes environment variables (`MM_*`, `FZF_*`, and custom `[envs]`) via the global `env` table:
+The global `env` table exposes environment variables to scripts (`MM_*`, `FZF_*`, and anything you define in `[envs]`):
 
 ```lua
 local override_dir = env.MM_OVERRIDE and env.MM_OVERRIDE:match("(.*/)")
@@ -192,7 +192,7 @@ return table.concat(t, "\n"))'''
 
 ## Exit Policies & Lifecycle Handling
 
-When executing commands synchronously within the TUI, Matchmaker applies distinct post-execution policies depending on the action used:
+What happens to the picker after a synchronous command exits depends on the action:
 
 | Action             | Success (`code == 0`) | Non-Zero Exit                | Interrupted / Ctrl+C / Signal                |
 | :----------------- | :-------------------- | :--------------------------- | :------------------------------------------- |

@@ -23,30 +23,6 @@ wrap = true
 border_type = "Plain"
 padding = [2, 0]
 
-[[preview.layout]]
-command = '''
-if (Get-Command mm -ErrorAction SilentlyContinue) {
-    mm -q --image {}
-    if ($LASTEXITCODE -eq 0) { exit 0 }
-}
-Get-Content {}'''
-side = "right"
-percentage = 40
-min = 30
-max = 120
-
-[[preview.layout]]
-side = "top"
-percentage = 50
-min = 5
-max = 50
-
-[[preview.layout]]
-side = "right"
-percentage = 75
-min = 5
-max = 240
-
 [binds]
 # UI
 # "ctrl-c" = "Quit(1)"
@@ -100,12 +76,3 @@ max = 240
 "ctrl-o" = "Execute(%EDITOR% {})"
 "alt-o" = "Become(%EDITOR% {})"
 "ctrl-r" = "Reload"
-
-[start.command]
-cmd = '''
-if (Get-Command fd -ErrorAction SilentlyContinue) {
-    fd --strip-cwd-prefix --print0
-} else {
-    Get-ChildItem -Recurse -File | ForEach-Object { "$($_.FullName)`0" }
-}'''
-separator = "\\0"

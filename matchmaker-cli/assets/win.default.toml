@@ -1,0 +1,61 @@
+[[preview.layout]]
+command = '''
+$p = {1}
+if (Get-Command mm -ErrorAction SilentlyContinue) {
+    mm -q --image $p
+    if ($LASTEXITCODE -eq 0) { exit 0 }
+}
+if (Get-Command fs -ErrorAction SilentlyContinue) {
+    fs :tool pg -- $p
+} elseif (Test-Path -LiteralPath $p -PathType Container) {
+    if (Get-Command eza -ErrorAction SilentlyContinue) {
+        eza --color=always -T -L 2 -- $p
+    } else {
+        Get-ChildItem -LiteralPath $p | Select-Object -First 20 | ForEach-Object { "  $($_.Name)" }
+    }
+} else {
+    if (Get-Command bat -ErrorAction SilentlyContinue) {
+        bat --binary no-printing --color=always --style=-numbers -- $p
+    } else {
+        Get-Content -LiteralPath $p -Raw
+    }
+}
+'''
+
+side = "right"
+percentage = 40
+min = 30
+max = 120
+
+[[preview.layout]]
+side = "top"
+percentage = 55
+min = 5
+max = 50
+
+[[preview.layout]]
+side = "right"
+percentage = 75
+min = 5
+max = 240
+
+[previewer]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[columns]
+names = ["file"]
+
+[start.command]
+command = '''
+if (Get-Command fd -ErrorAction SilentlyContinue) {
+    fd --strip-cwd-prefix
+} else {
+    Get-ChildItem -Recurse -File | ForEach-Object FullName
+}
+'''
+
+[start]
+shell = ["powershell", "-NoProfile", "-Command"]
+
+[exit]
+abort_empty = true

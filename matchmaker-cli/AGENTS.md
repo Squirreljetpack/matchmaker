@@ -10,7 +10,7 @@ correct as of the lua-support work; re-verify before relying on them.
   workspace with `cargo test --workspace` (matchmaker-cli + matchmaker-lib +
   matchmaker-partial).
 - config assets embed through `include_str!` at `matchmaker-cli/assets/`
-  (config.toml on unix, win.config.toml on windows, dev.toml in debug builds).
+  (`config.toml` / `default.toml` on unix, `win.config.toml` / `win.default.toml` on windows, `config.lua.toml` when `mlua` is enabled, `dev.toml` in debug builds).
   A rebuild is triggered whenever those files change.
 
 ## Presets

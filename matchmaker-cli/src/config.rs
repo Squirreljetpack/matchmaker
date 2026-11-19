@@ -176,12 +176,15 @@ pub struct StartConfig {
 
 #[cfg(all(not(windows), not(feature = "mlua")))]
 pub const DEFAULT_CONFIG: &str = include_str!("../assets/config.toml");
-#[cfg(all(not(windows), feature = "mlua"))]
+#[cfg(feature = "mlua")]
 pub const DEFAULT_CONFIG: &str = include_str!("../assets/config.lua.toml");
 #[cfg(all(windows, not(feature = "mlua")))]
 pub const DEFAULT_CONFIG: &str = include_str!("../assets/win.config.toml");
-#[cfg(all(windows, feature = "mlua"))]
-pub const DEFAULT_CONFIG: &str = include_str!("../assets/win.config.lua.toml");
+
+#[cfg(not(windows))]
+pub const DEFAULT_PRESET: &str = include_str!("../assets/default.toml");
+#[cfg(windows)]
+pub const DEFAULT_PRESET: &str = include_str!("../assets/win.default.toml");
 
 impl Default for Config {
     fn default() -> Self {
@@ -231,14 +234,29 @@ mod tests {
 
     #[test]
     fn config_round_trip() {
+        use matchmaker_partial::Apply;
         check_round_trip("config.toml", include_str!("../assets/config.toml"));
-        check_round_trip("config.lua.toml", include_str!("../assets/config.lua.toml"));
-        check_round_trip("win.config.toml", include_str!("../assets/win.config.toml"));
         check_round_trip(
-            "win.config.lua.toml",
-            include_str!("../assets/win.config.lua.toml"),
+            "config.lua.toml",
+            include_str!("../assets/config.lua.toml"),
         );
+        check_round_trip("win.config.toml", include_str!("../assets/win.config.toml"));
         check_round_trip("dev.toml", include_str!("../assets/dev.toml"));
+
+        for (name, toml_str) in [
+            ("default.toml", include_str!("../assets/default.toml")),
+            ("win.default.toml", include_str!("../assets/win.default.toml")),
+        ] {
+            let partial: PartialConfig =
+                toml::from_str(toml_str).unwrap_or_else(|e| panic!("failed to parse {name}: {e}"));
+            let mut config = Config::default();
+            config.apply(partial);
+            assert_eq!(
+                config.columns.names.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(),
+                ["file"],
+                "expected file column after applying {name}"
+            );
+        }
     }
 
     #[test]
@@ -265,10 +283,6 @@ mod tests {
     fn default_config_lua_payloads_syntax() {
         for (name, toml_str) in [
             ("config.lua.toml", include_str!("../assets/config.lua.toml")),
-            (
-                "win.config.lua.toml",
-                include_str!("../assets/win.config.lua.toml"),
-            ),
         ] {
             let config: Config = toml::from_str(toml_str).unwrap();
             for (trigger, actions) in config.binds {

@@ -149,9 +149,15 @@ pub fn build_columns(
 
     let offset = 1;
     let mut column_names: Vec<Arc<str>> = if cc.names.is_empty() {
-        (offset..(cc.max_cols() + offset))
-            .map(|n| Arc::from(n.to_string()))
-            .collect()
+        if matches!(cc.split, Split::None) {
+            // Split::None without explicit names keeps a single unnamed column
+            // (matches historical behavior).
+            vec![Arc::from("")]
+        } else {
+            (offset..(cc.max_cols() + offset))
+                .map(|n| Arc::from(n.to_string()))
+                .collect()
+        }
     } else {
         cc.names
             .iter()
@@ -160,12 +166,7 @@ pub fn build_columns(
             .collect()
     };
 
-    // Split::None -> single column with an empty name (matches historical behavior).
-    if matches!(cc.split, Split::None) {
-        column_names = vec![Arc::from("")];
-    }
-
-    // Truncate column_names to the number of capture groups (unnamed) or regexes for a quick optimization.
+    // Truncate column_names to the number of columns the split produces.
     match &cc.split {
         Split::Delimiter(rg) => {
             let has_named = rg.capture_names().skip(1).any(|n| n.is_some());
@@ -179,7 +180,9 @@ pub fn build_columns(
         }
         // CSV field count is dynamic, leave column_names as configured.
         Split::CSV(_) => {}
-        Split::None => {}
+        Split::None => {
+            column_names.truncate(1);
+        }
     }
 
     let split = cc.split.clone();
@@ -918,5 +921,41 @@ mod tests {
         let ranges_fn = build_ranges(true, false);
         let input = "alpha\tbeta\tgamma".to_string();
         assert_eq!(ranges_fn(1)(&input), "beta");
+    }
+
+    #[test]
+    fn test_split_none_column_names() {
+        use crate::config::ColumnSetting;
+        let options = PreprocessConfig {
+            ansi: false,
+            trim: false,
+            require_column: None,
+            sanitize: false,
+        };
+
+        // Without configured names, Split::None produces one unnamed column.
+        let (columns, _, _, _) = build_columns(&test_cc(), options.clone());
+        assert_eq!(columns.len(), 1);
+        assert_eq!(columns[0].name.as_ref(), "");
+
+        // With explicit names, Split::None preserves the first name and truncates extras.
+        let mut cc = test_cc();
+        cc.names = vec![
+            ColumnSetting {
+                name: "file".to_string().into(),
+                ignore: false,
+                hidden: false,
+                options: Default::default(),
+            },
+            ColumnSetting {
+                name: "extra".to_string().into(),
+                ignore: false,
+                hidden: false,
+                options: Default::default(),
+            },
+        ];
+        let (columns, _, _, _) = build_columns(&cc, options);
+        assert_eq!(columns.len(), 1);
+        assert_eq!(columns[0].name.as_ref(), "file");
     }
 }

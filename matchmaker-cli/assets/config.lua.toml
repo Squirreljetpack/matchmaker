@@ -40,43 +40,6 @@ title_style.modifier = "UNDERLINED"
 border_type = "Plain"
 padding = [2, 0]
 
-[[preview.layout]]
-command = '''
-mm -q --image {1} && exit 0
-if command -v fs >/dev/null 2>&1; then
-    fs :tool pg -- {1}
-elif [ -d {1} ]; then
-    if command -v eza >/dev/null 2>&1; then
-        eza --color=always -T -L 2 -- {1}
-    else
-        find {1} -maxdepth 2 | sed 's|[^/]*/|  |g'
-    fi
-else
-    if command -v bat >/dev/null 2>&1; then
-        bat --binary no-printing --color=always --style=-numbers -- {1}
-    else
-        cat -- {1}
-    fi
-fi
-'''
-
-side = "right"
-percentage = 40
-min = 30
-max = 120
-
-[[preview.layout]]
-side = "top"
-percentage = 55
-min = 5
-max = 50
-
-[[preview.layout]]
-side = "right"
-percentage = 75
-min = 5
-max = 240
-
 [previewer]
 always_trigger = true
 # help.combine_keys = false
@@ -91,24 +54,8 @@ bold.fg = "Yellow"
 # ansi = false # don't set to true here
 # sort.threshold = 1 # set to maintain initial ordering
 
-[columns]
-names = ["file"]
-
-[start.command]
-command = '''
-    if command -v fd >/dev/null 2>&1; then
-        fd --strip-cwd-prefix --print0
-    else
-        find . -print0
-    fi
-    '''
-separator = "\\0"
-
 [start]
 skip_invalid_lines = true # set false to error on encountering invalid utf-8
-
-[exit]
-abort_empty = true
 
 [envs]
 # CLIPcmd = # Leave blank to auto-determine
@@ -233,16 +180,17 @@ abort_empty = true
     '''ExecuteOrConfirm(#!lua
 local p = (state.current or {}).file or ""
 if p == "" then os.exit(1) end
-os.execute(string.format("%q -- %q", os.getenv("EDITOR") or "vi", p))
+os.execute(string.format("%q %q", os.getenv("EDITOR"), p))
 )''',
 ]
 "{file}^^@open_2" = '''Become(#!lua
 local p = (state.current or {}).file or ""
 if p == "" then return end
-local argv = util.split_args(os.getenv("EDITOR") or "vi")
+local argv = util.split_args(os.getenv("EDITOR") or "")
 if #argv == 0 then return end
 local prog = table.remove(argv, 1)
-proc.exec(prog, argv ++ { "--", p })
+table.insert(argv, p)
+proc.exec(prog, argv)
 )'''
 "@reload" = "Reload"
 # "@next" = ["ReloadNext", "Cancel"] # see mm --doc binds

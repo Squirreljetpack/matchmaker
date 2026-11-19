@@ -1,0 +1,35 @@
+# Local accounts, their groups and last login
+
+[matcher]
+trim = true
+
+[start]
+command = "getent passwd | cut -d: -f1"
+
+[columns]
+names = ["user"]
+
+[preview]
+show = true
+trim_ends = true
+
+# --- Preview ---
+[[preview.layout]]
+command = '''
+user={0}
+
+printf 'Groups\n'
+id -nG "$user" | tr ' ' '\n' | sed 's/^/  /'
+printf '\nAccount\n'
+getent passwd "$user" | awk -F: '{ printf "  uid   %s\n  gid   %s\n  gecos %s\n  home  %s\n  shell %s\n", $3, $4, $5, $6, $7 }'
+printf '\nLast Login\n'
+entry=$(last -n 1 -w "$user" 2>/dev/null | sed '/^$/d; /^wtmp begins/d')
+if [ -n "$entry" ]; then
+    printf '  %s\n' "$entry"
+else
+    printf '  never logged in\n'
+fi
+'''
+frame = { title = "Account" }
+percentage = 50
+min = 35

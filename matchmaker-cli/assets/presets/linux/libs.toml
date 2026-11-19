@@ -1,0 +1,43 @@
+# Shared libraries: ldconfig cache and filesystem scan
+
+[matcher]
+trim = true
+
+[start]
+command = "ldconfig -p | sed '1d;$d;s/^[[:space:]]*//'"
+additional_commands = [
+    "",
+    # `-t l` keeps the soname symlinks (`libz.so.1`) that `-t f` skips
+    '''fd -t f -t l '\.(so|dll|dylib)(\.[\d\.]+)?$' / 2>/dev/null''',
+]
+# scanning / can surface filenames that are not valid utf-8
+skip_invalid_lines = true
+# accept the library path, not the whole `name (arch) => path` row
+on_accept = '''for entry in {+0}; do printf '%s\n' "${entry#*=> }"; done'''
+
+[columns]
+names = ["lib"]
+
+[query]
+prompt = "ldconfig> "
+
+[preview]
+show = true
+trim_ends = true
+
+# --- Preview ---
+[[preview.layout]]
+command = '''
+entry={0}
+path-links "${entry#*=> }"
+'''
+frame = { title = "Links" }
+
+[binds]
+# --- Scripts ---
+"Reloaded" = '''Transform(
+    case "$MM_INDEX" in
+        0) echo "SetPrompt(ldconfig> )" ;;
+        *) echo "SetPrompt(find *.so> )" ;;
+    esac
+)'''

@@ -93,6 +93,15 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
     #[cfg(not(debug_assertions))]
     log::trace!("Initial cfg: {config:?}");
 
+    // Apply the default file-picker preset when running without `--config` or
+    // `-o` overrides so presets and `--config` files never inherit its
+    // columns, start command, abort_empty, or file previewer.
+    if cli.config.is_none() && cli.r#override.is_empty() {
+        let preset: PartialConfig = toml::from_str(crate::config::DEFAULT_PRESET)
+            .expect("embedded default preset must parse");
+        config.apply(preset);
+    }
+
     // apply overrides
     for mut p in cli.r#override {
         if p.is_relative() && p.extension().is_none() {
@@ -219,9 +228,19 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
     config.binds.retain(|_, actions| !actions.is_empty()); // enables disabling a bind via override
     // column-gated binds (`{name}^^trigger`) resolve against the merged
     // columns here instead of through mode tags
-    config
-        .binds
-        .filter_column_gated(config.columns.names.iter().map(|c| c.name.as_str()));
+    let col_limit = if matches!(config.columns.split, matchmaker::config::Split::None) {
+        1
+    } else {
+        config.columns.max_cols()
+    };
+    config.binds.filter_column_gated(
+        config
+            .columns
+            .names
+            .iter()
+            .take(col_limit)
+            .map(|c| c.name.as_str()),
+    );
     // there is an additional step of resolve_semantics:
 
     for actions in config.binds.values() {

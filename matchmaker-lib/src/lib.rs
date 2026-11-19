@@ -30,6 +30,9 @@ pub mod errors;
 pub mod utils;
 pub use aliases::*;
 pub use errors::*;
-pub use ratatui::text::{Line, Span, Text};
+pub use ratatui::{
+    style::{Color, Style},
+    text::{Line, Span, Text},
+};
 
 pub mod noninteractive;

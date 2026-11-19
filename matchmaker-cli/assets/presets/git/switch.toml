@@ -105,10 +105,10 @@ prompt = "switch> "
 "@return" = "Accept"
 
 "@rm" = ["@delete", "Reload"]
-"ctrl-u" = ["@update", "Reload"]
+"ctrl-u" = ["Toast(update: running)", "@update", "Toast(update: done)", "Reload"]
 "alt-r" = ["@show_remotes"]
 
-"ctrl-a" = ["@add_remote", "Reload"]
+"ctrl-a" = ["@add_remote", "Toast(remote: saved)", "Reload"]
 "@new" = ["@add_branch", "Reload"]
 "alt-a" = "@copy_remote"
 # restore fetch spec to defaults (i.e. after cloning with --single-branch)
@@ -160,7 +160,7 @@ prompt = "switch> "
 '''
 
 "@update" = '''
-ExecuteOrConfirm(
+ExecuteThen(
 set -e
 case "$MM_INDEX" in
 0)
@@ -192,7 +192,6 @@ case "$MM_INDEX" in
     git fetch --all --prune
     ;;
 esac
-false
 )
 '''
 

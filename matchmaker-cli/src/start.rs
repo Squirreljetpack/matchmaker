@@ -37,7 +37,7 @@ use cba::{
 };
 use log::debug;
 use matchmaker::{
-    Action, Either, MatchError, Matchmaker, PickOptions, SSS, bindmap,
+    Action, Color, Either, MatchError, Matchmaker, PickOptions, SSS, Style, bindmap,
     binds::{BindMap, BindMapExt, Trigger},
     config::{CommandSetting, EnvValue, PreviewConfig},
     config_mm::{ConfigInjector, ConfigPreprocessedData, OddEnds},
@@ -764,9 +764,10 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
             return;
         };
         let axis = if vertical { "width" } else { "height" };
+        let dim = Style::default().fg(Color::DarkGray);
         toast::Scoped(0).replace(
-            Span::raw("preview"),
-            Line::from(format!("insufficient {axis}")),
+            Span::styled("preview", dim),
+            Line::from(format!("insufficient {axis}")).style(dim),
             true,
         );
     });

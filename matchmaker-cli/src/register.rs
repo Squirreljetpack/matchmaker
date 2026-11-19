@@ -12,12 +12,13 @@ use crate::{
 };
 use cba::{bait::ResultExt, broc::CommandExt};
 use matchmaker::{
-    Action, Line, Matchmaker, Text,
+    Action, Color, Line, Matchmaker, Span, Style, Text,
     action::ActionExt,
     config_mm::ConfigPreprocessedData,
     event::RenderSender,
     message::{Interrupt, RenderCommand},
     render::MMState,
+    ui::toast,
 };
 use std::{
     env,
@@ -347,6 +348,21 @@ fn deliver_clipboard<A: ActionExt + Send + 'static>(
     copy_trailing_newline: bool,
     render_tx: Option<&RenderSender<A>>,
 ) {
+    let report = |message: String| {
+        toast::Scoped(0).replace(
+            Span::raw(""),
+            Line::styled(message, Style::default().fg(Color::DarkGray)),
+            false,
+        );
+    };
+    let fail = |message: String| {
+        toast::Scoped(0).replace(
+            Span::styled("failed", Style::default().fg(Color::Red)),
+            Line::raw(message),
+            false,
+        );
+    };
+
     if !copy_trailing_newline && text.ends_with('\n') {
         text.pop();
 
@@ -358,12 +374,15 @@ fn deliver_clipboard<A: ActionExt + Send + 'static>(
     if !text.is_empty() {
         if payload == 1 {
             if let Err(e) = set_host_clipboard_universal(&text) {
+                fail(e.to_string());
                 log::warn!("Failed to set host clipboard: {}", e);
+                return;
             }
 
             if let Some(tx) = render_tx {
                 let _ = tx.send(RenderCommand::Action(Action::Redraw));
             }
+            report("Copied!".into());
         } else if let Some(clip_cmd) = clip_cmd
             && !clip_cmd.is_empty()
         {
@@ -371,6 +390,7 @@ fn deliver_clipboard<A: ActionExt + Send + 'static>(
                 .stdin(Stdio::piped())
                 ._spawn()
             else {
+                fail("CLIPcmd did not start".into());
                 return;
             };
 
@@ -378,10 +398,12 @@ fn deliver_clipboard<A: ActionExt + Send + 'static>(
                 let _ = stdin.write_all(text.as_bytes());
                 let _ = stdin.flush();
             } else {
+                fail("CLIPcmd had no stdin".into());
                 log::error!("CLIPcmd had no stdin");
             }
 
             wait_with_timeout(child, std::time::Duration::from_millis(500));
+            report("Copied!".into());
         }
     }
 }

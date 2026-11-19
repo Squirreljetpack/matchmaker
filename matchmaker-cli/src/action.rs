@@ -5,7 +5,7 @@ use cba::{
 };
 use log::{debug, error};
 use matchmaker::{
-    Action, Actions,
+    Action, Actions, Span,
     binds::Trigger,
     config::PartialRenderConfig,
     config_mm::{ConfigPreprocessedData, RangesFactory},
@@ -200,6 +200,34 @@ pub struct ActionContext {
     // pub output_separator: String,
 }
 
+fn parse_payload(payload: &str) -> (Span<'static>, Line<'static>) {
+    let (prefix, message) = split_prefix(payload);
+    (
+        Span::raw(prefix.to_owned()),
+        StatusUI::parse_template_to_status_line(message),
+    )
+}
+
+/// Split a `prefix:message` payload and parse the message as a status-style
+/// template.
+///
+/// A payload without a top-level `:` has no prefix. Colons inside `{...}`
+/// style sections do not split the payload.
+fn split_prefix(payload: &str) -> (&str, &str) {
+    let mut depth = 0u32;
+
+    for (i, c) in payload.char_indices() {
+        match c {
+            '{' => depth += 1,
+            '}' => depth = depth.saturating_sub(1),
+            ':' if depth == 0 => return (&payload[..i], &payload[i + 1..]),
+            _ => {}
+        }
+    }
+
+    ("", payload)
+}
+
 pub fn action_handler(
     a: MMAction,
     state: &mut MMState<'_>,
@@ -341,11 +369,11 @@ pub fn action_handler(
         }
         MMAction::ClearToast => toast::clear(),
         MMAction::Toast(s) => {
-            let (prefix, message) = toast::parse_payload(&s);
+            let (prefix, message) = parse_payload(&s);
             toast::Scoped(0).push(prefix, message);
         }
         MMAction::ToastJoin(s) => {
-            let (prefix, message) = toast::parse_payload(&s);
+            let (prefix, message) = parse_payload(&s);
             toast::Scoped(0).join(prefix, message);
         }
         MMAction::SetStyledPrompt(s) => {

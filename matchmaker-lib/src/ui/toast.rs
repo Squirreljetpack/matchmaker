@@ -13,7 +13,7 @@ use ratatui::{
     widgets::{Borders, Paragraph, Wrap},
 };
 
-use crate::{config::ToastConfig, ui::StatusUI};
+use crate::config::ToastConfig;
 
 /// A toast entry: a prefix rendered once, followed by its messages joined
 /// with `, `.
@@ -158,34 +158,6 @@ pub fn with_log<R>(f: impl FnOnce(&mut Vec<ToastEntry>) -> R) -> R {
 /// A copy of the log, oldest first.
 pub fn entries() -> Vec<ToastEntry> {
     log().clone()
-}
-
-/// Split a `prefix:message` payload and parse the message as a status-style
-/// template.
-///
-/// A payload without a top-level `:` has no prefix. Colons inside `{...}`
-/// style sections do not split the payload.
-pub fn parse_payload(payload: &str) -> (Span<'static>, Line<'static>) {
-    let (prefix, message) = split_prefix(payload);
-    (
-        Span::raw(prefix.to_owned()),
-        StatusUI::parse_template_to_status_line(message),
-    )
-}
-
-fn split_prefix(payload: &str) -> (&str, &str) {
-    let mut depth = 0u32;
-
-    for (i, c) in payload.char_indices() {
-        match c {
-            '{' => depth += 1,
-            '}' => depth = depth.saturating_sub(1),
-            ':' if depth == 0 => return (&payload[..i], &payload[i + 1..]),
-            _ => {}
-        }
-    }
-
-    ("", payload)
 }
 
 /// The toast log as a widget.

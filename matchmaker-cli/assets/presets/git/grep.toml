@@ -28,6 +28,7 @@ abort_empty = false
 [columns]
 split = "\\x00"
 max = 3
+names = ["commit", "file", "line"]
 default = 3
 
 [matcher]

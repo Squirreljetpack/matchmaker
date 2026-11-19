@@ -61,7 +61,7 @@ foreach ($vault in $args) { Start-Process ("obsidian://open?vault=" + $vault) }
 
 [columns]
 split = "\\t"
-names = ["vault", { name = "path", hidden = true }]
+names = ["vault", { name = "file", hidden = true }]
 default = "vault"
 
 [previewer]
@@ -73,9 +73,9 @@ shell = ["powershell", "-NoProfile", "-Command"]
 [[preview.layout]]
 command = '''
 if (Get-Command fs -ErrorAction SilentlyContinue) {
-    fs :tool liza :u2 {path}
+    fs :tool liza :u2 {file}
 } else {
-    Get-ChildItem -LiteralPath {path} -Force
+    Get-ChildItem -LiteralPath {file} -Force
 }
 '''
 
@@ -83,7 +83,7 @@ if (Get-Command fs -ErrorAction SilentlyContinue) {
 "right" = [
     "#browse",
     '''BecomeOrResume(
-Set-Location -LiteralPath {path}
+Set-Location -LiteralPath {file}
 $env:FS_OPTS = 'opener=ob-open'
 fs
 )''',
@@ -94,23 +94,23 @@ fs
 $argv = @()
 foreach ($p in $args) { $argv += @('-p', $p) }
 fs :rg '^#{1,6} ' --filtering --rebase --no-fixed-strings --opener 'ob-open' --query '% ' @argv
-} {+path})''',
+} {+file})''',
 ]
 
 "@open" = '''ExecuteSilent(& {
 foreach ($p in $args) { Start-Process $p }
-} {+path})'''
-"@open_2" = "ExecuteSilent(fs :tool lessfilter edit {path})"
+} {+file})'''
+"@open_2" = "ExecuteSilent(fs :tool lessfilter edit {file})"
 "ctrl-d" = [
     "#reveal",
     '''ExecuteSilent(& {
 foreach ($p in $args) { Start-Process (Split-Path -Parent $p) }
-} {+path})''',
+} {+file})''',
 ]
 "@copy" = '''CopyAsync(#!lua
 local cur = state.current
 if not cur then return end
-return cur.path
+return cur.file
 )'''
 "Start" = 'ToggleExitFirst(false)'
 

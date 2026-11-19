@@ -86,7 +86,7 @@ for _, row in ipairs(rows) do inject(row) end'''
 
 [columns]
 split = "\\t"
-names = ["name", "path", "type"]
+names = ["name", "file", "type"]
 default = "name"
 
 [preview]
@@ -105,7 +105,7 @@ if ({type} -like 'api-*') {
     Write-Output "$([char]27)[1;34mAPI Resource:$([char]27)[0m {=name}"
     Write-Output "$([char]27)[1;30mType:$([char]27)[0m        {=type}"
 } elseif ({type} -eq 'model') {
-    Get-ChildItem -LiteralPath (Split-Path -Parent {path}) -Force
+    Get-ChildItem -LiteralPath (Split-Path -Parent {file}) -Force
 }
 '''
 percentage = 60
@@ -124,11 +124,11 @@ frame = { title = "API Response" }
 
 [binds]
 "alt-l" = '''RunPreview(
-if ({type} -notlike 'api-*') { Get-Content -LiteralPath (Join-Path (Split-Path -Parent {path}) 'README.md') -Encoding UTF8 }
+if ({type} -notlike 'api-*') { Get-Content -LiteralPath (Join-Path (Split-Path -Parent {file}) 'README.md') -Encoding UTF8 }
 )'''
 # disk size
 "f2" = '''Preview(
-if ({type} -notlike 'api-*') { ds (Split-Path -Parent {path}) }
+if ({type} -notlike 'api-*') { ds (Split-Path -Parent {file}) }
 )'''
 "ctrl-g" = "SwitchPreview"
 "?" = "SwitchPreview"
@@ -140,7 +140,7 @@ if not c then return end
 local key = os.getenv("TABBY_API_KEY")
 if not key or key == "" then error("TABBY_API_KEY is not set") end
 local host = env.TABBYHOST
-local kind, name, dir = c.type, c.name, c.path
+local kind, name, dir = c.type, c.name, c.file
 
 local function post(endpoint, body)
     local r = proc.run("curl", {

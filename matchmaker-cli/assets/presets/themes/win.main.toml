@@ -13,14 +13,14 @@ Get-ChildItem -LiteralPath $dir -Filter *.toml | Sort-Object Name | ForEach-Obje
     $_.FullName + [char]0 + ($name -replace '\.toml$', '')
 }
 '''
-output = "{=path}"
+output = "{=file}"
 directory = { value = '#!lua return path.parent(env.MM_OVERRIDE)', exec = true, force = true }
 
 [binds]
-"@accept" = "Execute(mm -o {path})"
+"@accept" = "Execute(mm -o {file})"
 "@reload" = '''BecomeSilent(
 $env:MM_THEME_POS = $env:MM_POS
-mm -o themes -o {path}
+mm -o themes -o {file}
 )'''
 "@return" = "Accept"
 "Synced" = '''Transform(#!lua
@@ -39,7 +39,7 @@ percentage = 100
 split = "\\x00"
 max = 2
 default = "name"
-names = [{ name = "path", hidden = true }, "name"]
+names = [{ name = "file", hidden = true }, "name"]
 
 # --- Preview ---
 [preview]
@@ -52,7 +52,7 @@ shell = ["powershell", "-NoProfile", "-Command"]
 
 [[preview.layout]]
 command = '''
-$f = {path}
+$f = {file}
 if (Get-Command bat -ErrorAction SilentlyContinue) {
     bat --color=always -pp -l toml $f
 } else {

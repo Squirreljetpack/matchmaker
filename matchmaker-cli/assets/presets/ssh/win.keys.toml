@@ -8,6 +8,9 @@ shell = ["powershell", "-NoProfile", "-Command"]
 directory = "~/.ssh"
 on_accept = "(Resolve-Path -LiteralPath {1}).ProviderPath"
 
+[columns]
+names = ["file"]
+
 [start.command]
 command = "Get-ChildItem -Filter *.pub -Name"
 

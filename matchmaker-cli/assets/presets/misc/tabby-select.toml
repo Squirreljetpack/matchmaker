@@ -78,7 +78,7 @@ command = '''
 
 [columns]
 split = '\t'
-names = ["name", "path", "type"]
+names = ["name", "file", "type"]
 default = "name"
 
 [preview]
@@ -92,9 +92,9 @@ if [[ {type} == api-* ]]; then
     echo -e "\033[1;30mType:\033[0m         {type}"
 else [[ {type} == model ]]; then
     if command -v fs >/dev/null 2>&1; then
-        fs :tool lessfilter extended "$(dirname -- {path})"
+        fs :tool lessfilter extended "$(dirname -- {file})"
     else
-        ls -la "$(dirname -- {path})"
+        ls -la "$(dirname -- {file})"
     fi
 fi
 '''
@@ -118,9 +118,9 @@ command = '''eval $CURL_TABBY "$TABBYHOST/v1/model" | {
 frame = { title = "API Response" }
 
 [binds]
-"alt-l" = 'RunPreview([[ {type} != api-* ]] && $PAGER "$(dirname -- {path})"/README.md)'
+"alt-l" = 'RunPreview([[ {type} != api-* ]] && $PAGER "$(dirname -- {file})"/README.md)'
 # disk size
-"f2" = 'Preview([[ {type} != api-* ]] && ds $(dirname -- {path}))'
+"f2" = 'Preview([[ {type} != api-* ]] && ds $(dirname -- {file}))'
 "ctrl-g" = 'SwitchPreview'
 "?" = "SwitchPreview"
 
@@ -138,7 +138,7 @@ frame = { title = "API Response" }
 
     type={type}
     name={name}
-    path={path}
+    path={file}
 
     # --- API Direct Loading (Minimal Request) ---
     if [[ $type == api-lora ]]; then

@@ -88,7 +88,7 @@ emit("target", targets)'''
 split = '\t'
 max = 4
 default = "name"
-names = ["kind", "name", "path", "flags"]
+names = ["kind", "name", "file", "flags"]
 
 [previewer]
 shell = ["powershell", "-NoProfile", "-Command"]
@@ -96,7 +96,7 @@ shell = ["powershell", "-NoProfile", "-Command"]
 [preview]
 [[preview.layout]]
 command = '''
-$f = {path}
+$f = {file}
 
 if ({kind} -eq 'target') {
     if (Get-Command fs -ErrorAction SilentlyContinue) {
@@ -123,7 +123,7 @@ if not kind then return end
 local flags = ""
 local feats = cur[4]
 if feats and feats ~= "" then flags = " -F " .. feats end
-if kind == "target" then return "Become({path} {$0})" end
+if kind == "target" then return "Become({file} {$0})" end
 local sub = (kind == "ex") and "--example" or "--bin"
 return "Become(cargo run " .. sub .. " " .. cur[2] .. flags .. " {$0})"
 )'''
@@ -131,7 +131,7 @@ return "Become(cargo run " .. sub .. " " .. cur[2] .. flags .. " {$0})"
 "ctrl-1" = "@summary"
 
 "@summary" = '''Execute(
-$manifest = Join-Path (Split-Path -Parent (Split-Path -Parent {path})) 'Cargo.toml'
+$manifest = Join-Path (Split-Path -Parent (Split-Path -Parent {file})) 'Cargo.toml'
 # `PAGER` is often multi-word (`bat --style=plain`): split it before calling
 $pager = $(if ($env:PAGER) { $env:PAGER } else { 'more' }) -split '\s+'
 & $pager[0] @($pager | Select-Object -Skip 1) $manifest

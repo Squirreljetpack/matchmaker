@@ -5,7 +5,7 @@
     '''Execute(#!lua
 local cur = state.current
 if not cur then return end
-local file = cur[1]
+local file = cur.file
 if not file then return end
 
 local args = { "diff", "--no-ext-diff" }
@@ -42,7 +42,7 @@ os.exit(proc.run(prog, argv).code)
 "@open_2" = '''Become(#!lua
 local cur = state.current
 if not cur then return end
-local file = cur[1]
+local file = cur.file
 if not file then return end
 
 local args = { "diff", "--no-ext-diff" }

@@ -6,6 +6,10 @@ command = "ls *.pub 2>/dev/null"
 [start]
 directory = "~/.ssh"
 on_accept = "realpath {}"
+
+[columns]
+names = ["file"]
+
 # --- Preview ---
 [preview]
 show = true

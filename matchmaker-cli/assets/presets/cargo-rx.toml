@@ -63,12 +63,12 @@ target_input="$(
 split = '\t'
 max = 4
 default = "name"
-names = ["kind", "name", "path", "flags"]
+names = ["kind", "name", "file", "flags"]
 
 [preview]
 [[preview.layout]]
 command = '''
-f={path}
+f={file}
 
 if [ {kind} = "target" ]; then
   if command -v fs >/dev/null 2>&1; then
@@ -93,7 +93,7 @@ fi
 
   case {1} in
     target)
-      echo "Become({path} {$0})"
+      echo "Become({file} {$0})"
       ;;
     ex)
       echo "Become(cargo run --example {name} $features {$0})"
@@ -108,6 +108,6 @@ fi
 "ctrl-1" = "@summary"
 
 "@summary" = '''Execute(
-  $PAGER "$(dirname -- "$(dirname -- {path})")/Cargo.toml"
+  $PAGER "$(dirname -- "$(dirname -- {file})")/Cargo.toml"
 )
 '''

@@ -35,7 +35,7 @@ for line in r.stdout:gmatch("[^\r\n]+") do
     inject(line .. "\0" .. (rel:gsub("%.toml$", ""):gsub("/main$", "")))
   end
 end'''
-output = "{=path}"
+output = "{=file}"
 directory = { value = '#!lua return path.parent(env.MM_OVERRIDE)', exec = true, force = true }
 
 [binds]
@@ -49,7 +49,7 @@ if ($args.Count -eq 1) {
     if (Test-Path -LiteralPath $patch) { $argv += @('-o', $patch) }
 }
 mm @argv
-} {+path}
+} {+file}
 )'''
 "@return" = "Accept"
 
@@ -57,4 +57,4 @@ mm @argv
 split = "\\x00"
 max = 2
 default = "name"
-names = [{ name = "path", hidden = true }, "name"]
+names = [{ name = "file", hidden = true }, "name"]

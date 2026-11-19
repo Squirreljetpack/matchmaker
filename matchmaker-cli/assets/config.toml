@@ -92,6 +92,7 @@ bold.fg = "Yellow"
 # sort.threshold = 1 # set to maintain initial ordering
 
 [columns]
+names = ["file"]
 
 [start.command]
 command = '''
@@ -227,8 +228,11 @@ abort_empty = true
 "ctrl-n" = "@new"
 
 "@accept" = "Accept"
-"@open" = ["#open in editor", "ExecuteOrConfirm($EDITOR -- {1})"]
-"@open_2" = ["#replace with editor", "Become($EDITOR -- {1})"]
+# editor binds are gated on a column named `file` via the `{file}^^` prefix;
+# presets without one leave `@open` undefined, keeping ctrl-o / alt-o out of
+# the help page
+"{file}^^@open" = ["#open in editor", "ExecuteOrConfirm($EDITOR -- {file})"]
+"{file}^^@open_2" = ["#replace with editor", "Become($EDITOR -- {file})"]
 "@reload" = "Reload"
 # "@next" = ["ReloadNext", "Cancel"] # see mm --doc binds
 # "@prev" = ["ReloadPrev", "Cancel"]

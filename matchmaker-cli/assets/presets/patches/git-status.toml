@@ -4,7 +4,7 @@
 "@open" = [
     '''
 Execute(
-  file={1}
+  file={file}
   [[ "$MM_PREVIEW_INDEX" == "1" ]] && flags="--cached" || flags=""
   line=$(git diff --no-ext-diff $flags --unified=0 -- "$file" | awk '/^@@/ {
     match($0, /@@ -([0-9]+)(,[0-9]+)? \+([0-9]+)(,[0-9]+)? @@/, m)
@@ -27,7 +27,7 @@ Execute(
 
 "@open_2" = '''
 Become(
-  file={1}
+  file={file}
   [[ "$MM_PREVIEW_INDEX" == "1" ]] && flags="--cached" || flags=""
   line=$(git diff --no-ext-diff $flags --unified=0 -- "$file" | awk '/^@@/ {
     match($0, /@@ -([0-9]+)(,[0-9]+)? \+([0-9]+)(,[0-9]+)? @@/, m)

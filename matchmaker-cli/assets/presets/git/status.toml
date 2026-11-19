@@ -34,6 +34,7 @@ output = "{=1}"
 [columns]
 split = "\\x00"
 max = 2
+names = ["file", "status"]
 default = 1
 
 [matcher]

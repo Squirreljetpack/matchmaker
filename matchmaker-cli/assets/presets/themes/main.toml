@@ -12,14 +12,14 @@ for p in "$dir"/*.toml; do
     printf '%s\0%s\n' "$p" "$name"
 done
 '''
-output = "{=path}"
+output = "{=file}"
 directory = { value = 'dirname -- "$MM_OVERRIDE"', exec = true, force = true }
 
 [binds]
-"@accept" = "Execute(mm -o {path})"
+"@accept" = "Execute(mm -o {file})"
 "@reload" = '''BecomeSilent(
 export MM_THEME_POS=$MM_POS
-exec mm -o themes -o {path}
+exec mm -o themes -o {file}
 )'''
 "@return" = "Accept"
 "Synced" = '''Transform(echo "Pos(${MM_THEME_POS:-0})")'''
@@ -34,7 +34,7 @@ percentage = 100
 split = "\\x00"
 max = 2
 default = "name"
-names = [{ name = "path", hidden = true }, "name"]
+names = [{ name = "file", hidden = true }, "name"]
 
 # --- Preview ---
 [preview]
@@ -43,8 +43,8 @@ show = true
 [[preview.layout]]
 command = '''
 if command -v bat >/dev/null 2>&1; then
-    bat --color=always -pp -l toml {path}
+    bat --color=always -pp -l toml {file}
 else
-    cat {path}
+    cat {file}
 fi
 '''

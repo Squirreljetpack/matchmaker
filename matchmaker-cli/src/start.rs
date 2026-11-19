@@ -217,6 +217,11 @@ pub fn enter(cli: Cli, partial: Option<PartialConfig>) -> anyhow::Result<Config>
     config.binds = defaults.modify(|x| x.extend(config.binds));
     config.binds.check_cycles().map_err(anyhow::Error::msg)?;
     config.binds.retain(|_, actions| !actions.is_empty()); // enables disabling a bind via override
+    // column-gated binds (`{name}^^trigger`) resolve against the merged
+    // columns here instead of through mode tags
+    config
+        .binds
+        .filter_column_gated(config.columns.names.iter().map(|c| c.name.as_str()));
     // there is an additional step of resolve_semantics:
 
     for actions in config.binds.values() {
@@ -607,20 +612,6 @@ pub async fn start(config: Config, no_read: bool, context: usize) -> Result<(), 
     mode.push_str(",win");
     #[cfg(feature = "mlua")]
     mode.push_str(",lua");
-
-    // purely alphabetic column names are exposed as `{name}` mode tags so
-    // binds can be scoped to the columns a preset provides
-    for name in columns
-        .names
-        .iter()
-        .map(|c| c.name.as_str())
-        .filter(|n| n.chars().all(char::is_alphabetic))
-    {
-        mode.push(',');
-        mode.push('{');
-        mode.push_str(name);
-        mode.push('}');
-    }
 
     matchmaker::event::set_mode(&mode);
 

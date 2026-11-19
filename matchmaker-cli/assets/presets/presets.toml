@@ -31,12 +31,12 @@ mm --presets | while IFS= read -r p; do
     printf '%s\0%s\n' "$p" "$name"
 done
 '''
-output = "{=path}"
+output = "{=file}"
 directory = { value = 'dirname -- "$MM_OVERRIDE"', exec = true, force = true }
 
 [binds]
 "@accept" = '''Become(
-set -- {+path}
+set -- {+file}
 if [ "$#" -eq 1 ]; then
     dir="$(dirname -- "$MM_OVERRIDE")"
     name={name}
@@ -53,4 +53,4 @@ mm "${args[@]}"
 split = "\\x00"
 max = 2
 default = "name"
-names = [{ name = "path", hidden = true }, "name"]
+names = [{ name = "file", hidden = true }, "name"]

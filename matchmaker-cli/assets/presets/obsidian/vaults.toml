@@ -12,27 +12,27 @@ on_accept = '''for vault in {+vault}; do; eval $OPENcmd "'obsidian://open?vault=
 
 [columns]
 split = '\t'
-names = ["vault", { name = "path", hidden = true }]
+names = ["vault", { name = "file", hidden = true }]
 default = "vault"
 
 [preview]
 # show = true
 
 [[preview.layout]]
-command = "fs :tool liza :u2 {path} || ls -l {path}"
+command = "fs :tool liza :u2 {file} || ls -l {file}"
 
 [binds]
 "right" = [
     "#browse",
     '''BecomeOrResume(
-cd {path}
+cd {file}
 FS_OPTS='opener=ob-open' fs
 )''',
 ]
 "ctrl-r" = [
     "#search",
     '''BecomeOrResume(
-  set -- {+path}
+  set -- {+file}
   for arg do
     set -- "$@" -p "$arg"
     shift
@@ -43,13 +43,13 @@ FS_OPTS='opener=ob-open' fs
 ]
 "ctrl-f" = [
     "#find",
-    '''BecomeOrResume(printf '%s\n' {+path} | ob-files)''',
+    '''BecomeOrResume(printf '%s\n' {+file} | ob-files)''',
 ]
 
-"@open" = "ExecuteSilent(eval $OPENcmd {+path})"
-"@open_2" = "ExecuteSilent(fs :tool lessfilter edit {path})"
-"ctrl-d" = ["#reveal", "ExecuteSilent(eval $OPENcmd $(dirname -- {+path}))"]
-"@copy" = "CopyAsync(echo {path})"
+"@open" = "ExecuteSilent(eval $OPENcmd {+file})"
+"@open_2" = "ExecuteSilent(fs :tool lessfilter edit {file})"
+"ctrl-d" = ["#reveal", "ExecuteSilent(eval $OPENcmd $(dirname -- {+file}))"]
+"@copy" = "CopyAsync(echo {file})"
 "Start" = 'ToggleExitFirst(false)'
 
 [query]

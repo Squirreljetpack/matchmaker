@@ -112,6 +112,62 @@ impl<A: ActionExt> BindMap<A> {
         self
     }
 
+    /// Expand column-gated triggers: a mode pattern of the form `{name}` or
+    /// `!{name}` with an alphanumeric `name` gates the bind on the existence of
+    /// a column with that name instead of going through mode resolution. A
+    /// positive `{name}` keeps the bind only when the column exists and is then
+    /// stripped, so the bind resolves like an ungated one; a negative `!{name}`
+    /// does the inverse. Binds whose positive gate names a missing column are
+    /// dropped, which also removes them from the help page. Called once on the
+    /// fully merged config, replacing the column-name mode tags.
+    pub fn filter_column_gated<'a>(&mut self, columns: impl IntoIterator<Item = &'a str>) {
+        let names: std::collections::HashSet<&str> = columns.into_iter().collect();
+        fn gated(prefix: &str) -> Option<&str> {
+            let inner = prefix.strip_prefix('{')?;
+            let inner = inner.strip_suffix('}')?;
+            (!inner.is_empty() && inner.chars().all(|c| c.is_alphanumeric())).then_some(inner)
+        }
+
+        let mut filtered = Self::new();
+        for (trigger, actions) in std::mem::take(self) {
+            let mut positive = Vec::new();
+            let mut negative = Vec::new();
+            let mut drop = false;
+            for p in &trigger.mode.positive_prefixes {
+                match gated(p) {
+                    Some(name) if !names.contains(name) => {
+                        drop = true;
+                        break;
+                    }
+                    Some(_) => {}
+                    None => positive.push(p.clone()),
+                }
+            }
+            if !drop {
+                for p in &trigger.mode.negative_prefixes {
+                    match gated(p) {
+                        Some(name) if names.contains(name) => {
+                            drop = true;
+                            break;
+                        }
+                        Some(_) => {}
+                        None => negative.push(p.clone()),
+                    }
+                }
+            }
+            if drop {
+                continue;
+            }
+            let mut trigger = trigger;
+            trigger.mode = PrefixFilter {
+                positive_prefixes: positive,
+                negative_prefixes: negative,
+            };
+            filtered.insert(trigger, actions);
+        }
+        *self = filtered;
+    }
+
     /// Drop every bound action for which `keep` returns `false`. The predicate
     /// receives each `Action` (custom and default variants alike), so callers
     /// can prune builtin actions as well as custom ones. A bind left with no
@@ -1846,5 +1902,33 @@ mod test {
         // "item_a" < "item_b"
         assert!(lines[3].contains("item_a"));
         assert!(lines[4].contains("item_b"));
+    }
+
+    #[test]
+    fn test_filter_column_gated() {
+        let mut binds: BindMap<NullActionExt> = bindmap!(
+            Trigger::from_str("{file}^^ctrl-o").unwrap() => Action::Print("open".into()),
+            Trigger::from_str("{missing}^^ctrl-p").unwrap() => Action::Print("gone".into()),
+            Trigger::from_str("!{file}^^ctrl-q").unwrap() => Action::Print("nofile".into()),
+            Trigger::from_str("0,1^^ctrl-r").unwrap() => Action::Print("reload".into()),
+        );
+
+        binds.filter_column_gated(["file"]);
+        // present column: gate stripped, bind resolves ungated
+        assert!(binds.contains_key(&Trigger::from_str("ctrl-o").unwrap()));
+        // missing column: bind dropped
+        assert!(!binds.contains_key(&Trigger::from_str("ctrl-p").unwrap()));
+        // negative gate on a present column: bind dropped
+        assert!(!binds.contains_key(&Trigger::from_str("ctrl-q").unwrap()));
+        // non-braced mode patterns pass through untouched
+        assert!(binds.contains_key(&Trigger::from_str("0,1^^ctrl-r").unwrap()));
+
+        let mut binds: BindMap<NullActionExt> = bindmap!(
+            Trigger::from_str("{file}^^ctrl-o").unwrap() => Action::Print("open".into()),
+            Trigger::from_str("!{file}^^ctrl-q").unwrap() => Action::Print("nofile".into()),
+        );
+        binds.filter_column_gated([]);
+        assert!(!binds.contains_key(&Trigger::from_str("ctrl-o").unwrap()));
+        assert!(binds.contains_key(&Trigger::from_str("ctrl-q").unwrap()));
     }
 }

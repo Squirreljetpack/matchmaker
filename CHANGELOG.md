@@ -1,3 +1,14 @@
+## [0.1.9] - 2026-11-20
+
+### 🐛 Bug Fixes
+
+- *(ci)* Publish to npm on tag releases; a called workflow sees the caller's `push` event, so the old `workflow_call` gate skipped every publish
+- *(deps)* Upgrade `jiff` to 1.0.1 in `matchmaker-mlua-bindings`
+
+### 📚 Documentation
+
+- Preset options, execute and template docs, and the ssh hosts preset
+
 ## [0.1.8] - 2026-11-19
 
 ### 🚀 Features

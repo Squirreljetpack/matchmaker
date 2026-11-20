@@ -48,7 +48,7 @@ pub fn create_module(lua: &Lua) -> mlua::Result<Table> {
 
     // util.timestamp([format])
     let timestamp_fn = lua.create_function(|_, fmt: Option<String>| {
-        let now = jiff::Zoned::now();
+        let now = jiff::ZonedDateTime::now();
         match fmt.as_deref() {
             None => Ok(now.to_string()),
             Some("unix") | Some("epoch") => Ok(now.timestamp().as_second().to_string()),

@@ -9,7 +9,7 @@ description = "Portable built-in Lua modules for host applications embedding mat
 [dependencies]
 cli_boilerplate_automation = { workspace = true, features = ["dirs"] }
 fastrand = "2"
-jiff = "0.2"
+jiff = "1.0.1"
 log = "0.4"
 matchmaker-lib = { workspace = true }
 mlua = { version = "0.12", features = ["lua54", "vendored", "serde"] }
